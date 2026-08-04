@@ -4,7 +4,7 @@ baseline_commit: e50b6004bb83f91209a7b1f529fc7d2d162d27ef
 
 # Story 1.2: Minimal Young case contract and authored loop
 
-Status: review
+Status: done
 
 ## Story
 
@@ -47,6 +47,14 @@ so that Young content and its case loop exist before dependent foundation featur
   - [x] Add Vitest fixtures for one valid Young definition and malformed variants (bad version/ID, not exactly two artifacts, unbounded/off-step controls, missing model version, missing debrief source, mutable/invalid asset manifest, missing confound/assumptions/reset path, invalid flow).
   - [x] Unit-test schema success/failure, repository `Result` mapping with mocked fetch, initial phase, every valid adjacent transition, every invalid skip/reverse/terminal transition, and reset behavior. Assert public types and values only.
   - [x] Run `npm run typecheck`, `npm test`, and `npm run build`. Run the established Playwright/a11y/offline/cross-browser suite if source changes affect boot, service-worker, or public loading behavior; retain the semantic boot shell and its cached offline behavior.
+
+### Review Findings
+
+- [x] [Review][Patch] Validate the declared sidecar asset manifest at the content boundary [src/adapters/content/loadCaseDefinition.ts:14]
+- [x] [Review][Patch] Ship or remove the missing Young portrait asset [public/cases/young-interference/case.json:40]
+- [x] [Review][Patch] Resolve case-content URLs relative to the configured Vite base [src/adapters/content/loadCaseDefinition.ts:14]
+- [x] [Review][Patch] Reject protocol-relative asset URLs as invalid static paths [src/schemas/CaseDefinitionSchema.ts:77]
+- [x] [Review][Patch] Enforce runtime immutability for loaded authored definitions [src/adapters/content/loadCaseDefinition.ts:39]
 
 ## Dev Notes
 

@@ -25,6 +25,19 @@ const PrimaryControlSchema = z.object({
 
 const RecoveryRouteSchema = z.enum(['replication', 'control-change', 'source-comparison']);
 
+export const AssetManifestSchema = z.object({
+    manifestVersion: z.string().trim().min(1),
+    entries: z.array(z.object({
+        id: stableId,
+        type: z.enum(['image', 'audio', 'document']),
+        path: z.string().regex(/^\/(?!\/)/, 'Asset paths must be same-origin static root paths.')
+    }).strict()).min(1)
+}).strict().superRefine((manifest, context) => {
+    if (new Set(manifest.entries.map((asset) => asset.id)).size !== manifest.entries.length) {
+        context.addIssue({ code: 'custom', message: 'Asset IDs must be stable and unique.', path: ['entries'] });
+    }
+});
+
 export const CaseDefinitionSchema = z.object({
     id: z.literal('young-interference'),
     version: z.string().trim().min(1),
@@ -69,14 +82,7 @@ export const CaseDefinitionSchema = z.object({
         summary: z.string().trim().min(1),
         sourceRefs: z.array(sourceRef).min(1)
     }).strict(),
-    assets: z.object({
-        manifestVersion: z.string().trim().min(1),
-        entries: z.array(z.object({
-            id: stableId,
-            type: z.enum(['image', 'audio', 'document']),
-            path: z.string().regex(/^\//, 'Asset paths must be static root paths.')
-        }).strict()).min(1)
-    }).strict()
+    assets: AssetManifestSchema
 }).strict().superRefine((definition, context) => {
     const controls = Object.fromEntries(definition.apparatus.primaryControls.map((control) => [control.id, control]));
     const slitSpacing = controls.slitSpacingMm;
@@ -94,7 +100,4 @@ export const CaseDefinitionSchema = z.object({
         context.addIssue({ code: 'custom', message: 'Contextual artifact IDs must be stable and unique.', path: ['contextualArtifacts'] });
     }
 
-    if (new Set(definition.assets.entries.map((asset) => asset.id)).size !== definition.assets.entries.length) {
-        context.addIssue({ code: 'custom', message: 'Asset IDs must be stable and unique.', path: ['assets', 'entries'] });
-    }
 });

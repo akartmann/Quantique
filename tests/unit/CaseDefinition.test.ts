@@ -42,7 +42,7 @@ const validYoungCase: CaseDefinition = {
         optionalReplay: true
     },
     debrief: { summary: 'Compare the observed pattern with the available evidence before drawing a conclusion.', sourceRefs: ['young-1801-lecture'] },
-    assets: { manifestVersion: '1.0.0', entries: [{ id: 'young-portrait', type: 'image', path: '/assets/young-portrait.png' }] }
+    assets: { manifestVersion: '1.0.0', entries: [{ id: 'quantique-logo', type: 'image', path: '/assets/logo.png' }] }
 };
 
 const cloneValidCase = (): CaseDefinition => structuredClone(validYoungCase);
@@ -60,6 +60,7 @@ describe('CaseDefinitionSchema', () => {
         ['missing model version', (definition: Record<string, unknown>) => { delete (definition.experiment as { modelVersion?: string }).modelVersion; }],
         ['missing debrief source', (definition: Record<string, unknown>) => { (definition.debrief as { sourceRefs: string[] }).sourceRefs = []; }],
         ['invalid asset manifest', (definition: Record<string, unknown>) => { ((definition.assets as { entries: Array<{ path: string }> }).entries[0]).path = 'relative.png'; }],
+        ['protocol-relative asset path', (definition: Record<string, unknown>) => { ((definition.assets as { entries: Array<{ path: string }> }).entries[0]).path = '//example.test/asset.png'; }],
         ['missing confound', (definition: Record<string, unknown>) => { delete (definition.experiment as { confound?: unknown }).confound; }],
         ['missing assumptions', (definition: Record<string, unknown>) => { delete (definition.experiment as { assumptions?: unknown }).assumptions; }],
         ['missing reset path', (definition: Record<string, unknown>) => { delete (definition.experiment as { resetPath?: unknown }).resetPath; }],
@@ -77,19 +78,26 @@ describe('loadCaseDefinition', () => {
     it('loads the immutable authored Young content and its declared manifest', async () => {
         const caseContent = await readFile(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf8');
         const manifestContent = await readFile(new URL('../../public/cases/young-interference/asset-manifest.json', import.meta.url), 'utf8');
-        const fetchCase = vi.fn().mockResolvedValue(new Response(caseContent, { status: 200 }));
+        const fetchCase = vi.fn()
+            .mockResolvedValueOnce(new Response(caseContent, { status: 200 }))
+            .mockResolvedValueOnce(new Response(manifestContent, { status: 200 }));
 
         const result = await loadCaseDefinition('young-interference', fetchCase);
 
         expect(result).toMatchObject({ ok: true, value: { id: 'young-interference' } });
         expect(JSON.parse(manifestContent)).toEqual(validYoungCase.assets);
+        expect(fetchCase).toHaveBeenNthCalledWith(1, '/cases/young-interference/case.json');
+        expect(fetchCase).toHaveBeenNthCalledWith(2, '/cases/young-interference/asset-manifest.json');
     });
 
     it('returns a validated definition from the only content boundary', async () => {
-        const fetchCase = vi.fn().mockResolvedValue(new Response(JSON.stringify(validYoungCase), { status: 200 }));
+        const fetchCase = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify(validYoungCase), { status: 200 }))
+            .mockResolvedValueOnce(new Response(JSON.stringify(validYoungCase.assets), { status: 200 }));
 
         await expect(loadCaseDefinition('young-interference', fetchCase)).resolves.toEqual({ ok: true, value: validYoungCase });
         expect(fetchCase).toHaveBeenCalledWith('/cases/young-interference/case.json');
+        expect(fetchCase).toHaveBeenCalledWith('/cases/young-interference/asset-manifest.json');
     });
 
     it.each([
@@ -107,6 +115,43 @@ describe('loadCaseDefinition', () => {
         const fetchCase = vi.fn().mockRejectedValue(new Error('offline'));
 
         await expect(loadCaseDefinition('young-interference', fetchCase)).resolves.toMatchObject({ ok: false, error: { code: 'content-unavailable' } });
+    });
+
+    it('uses a relative Vite base when loading static case content', async () => {
+        const fetchCase = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify(validYoungCase), { status: 200 }))
+            .mockResolvedValueOnce(new Response(JSON.stringify(validYoungCase.assets), { status: 200 }));
+
+        await expect(loadCaseDefinition('young-interference', fetchCase, './')).resolves.toMatchObject({ ok: true });
+        expect(fetchCase).toHaveBeenNthCalledWith(1, './cases/young-interference/case.json');
+        expect(fetchCase).toHaveBeenNthCalledWith(2, './cases/young-interference/asset-manifest.json');
+    });
+
+    it.each([
+        ['missing manifest', new Response(null, { status: 404 }), 'content-unavailable'],
+        ['malformed manifest', { ok: true, json: () => Promise.reject(new SyntaxError('bad JSON')) }, 'invalid-case-definition'],
+        ['mismatched manifest', new Response(JSON.stringify({ manifestVersion: '1.0.0', entries: [{ id: 'quantique-logo', type: 'image', path: '/assets/bg.png' }] }), { status: 200 }), 'invalid-case-definition']
+    ])('rejects a %s before returning a definition', async (_description, manifestResponse, code) => {
+        const fetchCase = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify(validYoungCase), { status: 200 }))
+            .mockResolvedValueOnce(manifestResponse);
+
+        await expect(loadCaseDefinition('young-interference', fetchCase)).resolves.toMatchObject({ ok: false, error: { code } });
+    });
+
+    it('freezes a loaded authored definition recursively', async () => {
+        const fetchCase = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify(validYoungCase), { status: 200 }))
+            .mockResolvedValueOnce(new Response(JSON.stringify(validYoungCase.assets), { status: 200 }));
+
+        const result = await loadCaseDefinition('young-interference', fetchCase);
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+            expect(Object.isFrozen(result.value)).toBe(true);
+            expect(Object.isFrozen(result.value.assets.entries)).toBe(true);
+            expect(() => (result.value.assets.entries as Array<unknown>).push({})).toThrow();
+        }
     });
 });
 

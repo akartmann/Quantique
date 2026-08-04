@@ -1,4 +1,4 @@
 {
   "manifestVersion": "1.0.0",
-  "entries": [{ "id": "young-portrait", "type": "image", "path": "/assets/young-portrait.png" }]
+  "entries": [{ "id": "quantique-logo", "type": "image", "path": "/assets/logo.png" }]
 }
