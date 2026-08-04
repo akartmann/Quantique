@@ -4,7 +4,7 @@ baseline_commit: e50b6004bb83f91209a7b1f529fc7d2d162d27ef
 
 # Story 1.2: Minimal Young case contract and authored loop
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -20,33 +20,33 @@ so that Young content and its case loop exist before dependent foundation featur
 
 ## Tasks / Subtasks
 
-- [ ] Define the minimal case contract and strict boundary schema (AC: 1, 3)
-  - [ ] Add `src/core/errors/Result.ts` with a generic discriminated `Result<T>` type. Expected load failures must be returned, never thrown from the repository or reducer.
-  - [ ] Add `src/domain/cases/CaseDefinition.ts` with pure TypeScript types only; add `src/schemas/CaseDefinitionSchema.ts` as the matching Zod 4.4.3 boundary schema.
-  - [ ] Make every contract object `.strict()` (and reject unrecognised top-level fields). This story intentionally supports only the minimal listed fields; Epic 3.1 owns later, reusable-contract expansion.
-  - [ ] Define `CaseDefinition` with exactly the fields needed by this story: `id`, `version`, `openingDispute`, `contextualArtifacts`, `prediction`, `apparatus`, `experiment`, `requirements`, `flow`, `debrief`, and `assets`. Use camelCase JSON names and `young-interference` as the case ID.
-  - [ ] Require exactly two contextual artifacts, each with a stable ID and minimum author-facing display/provenance reference. Do not build Curated Record UI or the complete source/rights ledger (Stories 1.5 and 3.3).
-  - [ ] Require `prediction.required === true`; two bounded primary controls; `experiment.modelVersion`; inspectable `experiment.assumptions`; exactly one authored `experiment.confound`; and an inspectable `experiment.resetPath` that identifies replication, control change, or source comparison as the recovery route.
-  - [ ] Require `requirements.minimumRuns === 2` and `requirements.minimumSources === 2`. Do not implement run records, saving, comparison, completion evaluation, or persistence here.
-  - [ ] Require a sourced debrief with a non-empty plain-language summary and at least one stable source reference. Do not invent unreviewed historical claims, source excerpts, or rights statuses.
-  - [ ] Require an immutable asset manifest with stable asset IDs, type, and static path. The definition and manifest are authored content; neither is ever mutated at runtime.
+- [x] Define the minimal case contract and strict boundary schema (AC: 1, 3)
+  - [x] Add `src/core/errors/Result.ts` with a generic discriminated `Result<T>` type. Expected load failures must be returned, never thrown from the repository or reducer.
+  - [x] Add `src/domain/cases/CaseDefinition.ts` with pure TypeScript types only; add `src/schemas/CaseDefinitionSchema.ts` as the matching Zod 4.4.3 boundary schema.
+  - [x] Make every contract object `.strict()` (and reject unrecognised top-level fields). This story intentionally supports only the minimal listed fields; Epic 3.1 owns later, reusable-contract expansion.
+  - [x] Define `CaseDefinition` with exactly the fields needed by this story: `id`, `version`, `openingDispute`, `contextualArtifacts`, `prediction`, `apparatus`, `experiment`, `requirements`, `flow`, `debrief`, and `assets`. Use camelCase JSON names and `young-interference` as the case ID.
+  - [x] Require exactly two contextual artifacts, each with a stable ID and minimum author-facing display/provenance reference. Do not build Curated Record UI or the complete source/rights ledger (Stories 1.5 and 3.3).
+  - [x] Require `prediction.required === true`; two bounded primary controls; `experiment.modelVersion`; inspectable `experiment.assumptions`; exactly one authored `experiment.confound`; and an inspectable `experiment.resetPath` that identifies replication, control change, or source comparison as the recovery route.
+  - [x] Require `requirements.minimumRuns === 2` and `requirements.minimumSources === 2`. Do not implement run records, saving, comparison, completion evaluation, or persistence here.
+  - [x] Require a sourced debrief with a non-empty plain-language summary and at least one stable source reference. Do not invent unreviewed historical claims, source excerpts, or rights statuses.
+  - [x] Require an immutable asset manifest with stable asset IDs, type, and static path. The definition and manifest are authored content; neither is ever mutated at runtime.
 
-- [ ] Author and load the initial Young definition through the content boundary (AC: 1, 3)
-  - [ ] Add immutable JSON under `public/cases/young-interference/`: `case.json` and the declared asset-manifest JSON (use `sources.json` only if required by the chosen minimal schema). Keep case content separate from player progress and never write into `public/` at runtime.
-  - [ ] Put the Young control constraints in authored data: `slitSpacingMm` 0.10–0.50 in 0.05 steps, `screenDistanceM` 1.0–4.0 in 0.25 steps, and fixed `wavelengthNm: 550`. Wavelength comparison is explicitly out of scope.
-  - [ ] Add `src/adapters/content/loadCaseDefinition.ts`. It is the only code that fetches/parses case JSON; it returns `Promise<Result<CaseDefinition>>` and maps missing, unreadable, malformed, or schema-invalid content to neutral recoverable codes/messages such as `case-not-found`, `content-unavailable`, or `invalid-case-definition`.
-  - [ ] Do not fetch, parse JSON, call browser APIs, or import Zod/Phaser in `src/domain/`. Do not add a backend, remote configuration, analytics, or network-critical path.
+- [x] Author and load the initial Young definition through the content boundary (AC: 1, 3)
+  - [x] Add immutable JSON under `public/cases/young-interference/`: `case.json` and the declared asset-manifest JSON (use `sources.json` only if required by the chosen minimal schema). Keep case content separate from player progress and never write into `public/` at runtime.
+  - [x] Put the Young control constraints in authored data: `slitSpacingMm` 0.10–0.50 in 0.05 steps, `screenDistanceM` 1.0–4.0 in 0.25 steps, and fixed `wavelengthNm: 550`. Wavelength comparison is explicitly out of scope.
+  - [x] Add `src/adapters/content/loadCaseDefinition.ts`. It is the only code that fetches/parses case JSON; it returns `Promise<Result<CaseDefinition>>` and maps missing, unreadable, malformed, or schema-invalid content to neutral recoverable codes/messages such as `case-not-found`, `content-unavailable`, or `invalid-case-definition`.
+  - [x] Do not fetch, parse JSON, call browser APIs, or import Zod/Phaser in `src/domain/`. Do not add a backend, remote configuration, analytics, or network-critical path.
 
-- [ ] Implement the pure, authoritative case-phase transition model (AC: 2)
-  - [ ] Add `src/domain/cases/CaseProgress.ts` and `src/domain/cases/caseReducer.ts` with `CasePhase = 'context' | 'prediction' | 'experiment' | 'synthesis' | 'review' | 'debrief'` and an explicit adjacent-transition table.
-  - [ ] Initialize a fresh case in `context`; reject skips, reverse transitions, and transitions after `debrief` with a typed recoverable `Result`. Reset returns to `context` without deleting authored definition data.
-  - [ ] Make `flow` validated authored metadata: it must identify the opening dispute, Curated Record, lab setup, `minimumExperimentCycles: 2`, `maximumExperimentCycles: 4`, theory-board review, historical debrief, and `optionalReplay: true`. This resolves AC 2 without inventing UI or later-feature schemas.
-  - [ ] Keep phase authority entirely in the pure domain reducer. Do **not** make a Phaser scene, DOM view, pointer handler, or dialogue branch infer or advance progression. There is no renderer, store composition, or UI flow to build in this story.
+- [x] Implement the pure, authoritative case-phase transition model (AC: 2)
+  - [x] Add `src/domain/cases/CaseProgress.ts` and `src/domain/cases/caseReducer.ts` with `CasePhase = 'context' | 'prediction' | 'experiment' | 'synthesis' | 'review' | 'debrief'` and an explicit adjacent-transition table.
+  - [x] Initialize a fresh case in `context`; reject skips, reverse transitions, and transitions after `debrief` with a typed recoverable `Result`. Reset returns to `context` without deleting authored definition data.
+  - [x] Make `flow` validated authored metadata: it must identify the opening dispute, Curated Record, lab setup, `minimumExperimentCycles: 2`, `maximumExperimentCycles: 4`, theory-board review, historical debrief, and `optionalReplay: true`. This resolves AC 2 without inventing UI or later-feature schemas.
+  - [x] Keep phase authority entirely in the pure domain reducer. Do **not** make a Phaser scene, DOM view, pointer handler, or dialogue branch infer or advance progression. There is no renderer, store composition, or UI flow to build in this story.
 
-- [ ] Add focused verification and preserve the 1.1 baseline (AC: 1–3)
-  - [ ] Add Vitest fixtures for one valid Young definition and malformed variants (bad version/ID, not exactly two artifacts, unbounded/off-step controls, missing model version, missing debrief source, mutable/invalid asset manifest, missing confound/assumptions/reset path, invalid flow).
-  - [ ] Unit-test schema success/failure, repository `Result` mapping with mocked fetch, initial phase, every valid adjacent transition, every invalid skip/reverse/terminal transition, and reset behavior. Assert public types and values only.
-  - [ ] Run `npm run typecheck`, `npm test`, and `npm run build`. Run the established Playwright/a11y/offline/cross-browser suite if source changes affect boot, service-worker, or public loading behavior; retain the semantic boot shell and its cached offline behavior.
+- [x] Add focused verification and preserve the 1.1 baseline (AC: 1–3)
+  - [x] Add Vitest fixtures for one valid Young definition and malformed variants (bad version/ID, not exactly two artifacts, unbounded/off-step controls, missing model version, missing debrief source, mutable/invalid asset manifest, missing confound/assumptions/reset path, invalid flow).
+  - [x] Unit-test schema success/failure, repository `Result` mapping with mocked fetch, initial phase, every valid adjacent transition, every invalid skip/reverse/terminal transition, and reset behavior. Assert public types and values only.
+  - [x] Run `npm run typecheck`, `npm test`, and `npm run build`. Run the established Playwright/a11y/offline/cross-browser suite if source changes affect boot, service-worker, or public loading behavior; retain the semantic boot shell and its cached offline behavior.
 
 ## Dev Notes
 
@@ -142,13 +142,34 @@ GPT-5.6 Codex
 ### Debug Log References
 
 - Story context creation reviewed the complete epics, GDD, architecture, project context, UX spine/reconciliations, prior Story 1.1, repository source tree, Git history, and current official Phaser/Zod/Vite documentation.
+- Red phase: `CaseDefinition.test.ts` initially failed because the new content/reducer modules were absent. Green phase: 30 unit tests passed after the minimal implementation; full type, build, browser, offline, and a11y verification also passed.
+
+### Implementation Plan
+
+- Keep content validation and fetch handling in the adapter, represent expected failures with `Result`, and keep the contract and phase reducer pure.
+- Validate only Young’s current required fields with strict Zod objects and preserve authored data while resetting the phase.
 
 ### Completion Notes List
 
 - Ultimate context engine analysis completed - comprehensive developer guide created.
 - Status set to `ready-for-dev`.
+- Implemented the strict Young-only contract, validated repository boundary, immutable authored case/asset content, and pure adjacent phase reducer.
+- Verified with `npm run typecheck`, `npm test` (30 passing), `npm run build`, Chromium E2E/offline/a11y, and cross-browser boot/a11y checks.
 
 ### File List
 
 - `_bmad-output/implementation-artifacts/1-2-minimal-young-case-contract-and-authored-loop.md` (new story context)
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (status update)
+- `src/core/errors/Result.ts` (new typed recoverable result)
+- `src/domain/cases/CaseDefinition.ts` (new pure Young contract types)
+- `src/domain/cases/CaseProgress.ts` (new pure case progress model)
+- `src/domain/cases/caseReducer.ts` (new authoritative phase transitions)
+- `src/schemas/CaseDefinitionSchema.ts` (new strict Zod boundary schema)
+- `src/adapters/content/loadCaseDefinition.ts` (new content repository)
+- `public/cases/young-interference/case.json` (new immutable authored case)
+- `public/cases/young-interference/asset-manifest.json` (new immutable asset manifest)
+- `tests/unit/CaseDefinition.test.ts` (new contract, repository, and reducer verification)
+
+## Change Log
+
+- 2026-08-04: Implemented the minimal Young case contract, content boundary, authored content, phase reducer, and focused verification; status moved to review.
