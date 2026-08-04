@@ -14,22 +14,33 @@ self.addEventListener('fetch', (event) => {
     }
 
     event.respondWith((async () => {
-        const cache = await caches.open(CACHE_NAME);
-        const cachedResponse = await cache.match(event.request);
+        let cache;
 
-        if (cachedResponse) {
-            return cachedResponse;
+        try {
+            cache = await caches.open(CACHE_NAME);
+        } catch {
+            // Cache Storage is an offline enhancement; a network response must still work.
         }
 
         try {
             const response = await fetch(event.request);
 
-            if (response.ok && new URL(event.request.url).origin === self.location.origin) {
-                await cache.put(event.request, response.clone());
+            if (cache && response.ok && new URL(event.request.url).origin === self.location.origin) {
+                try {
+                    await cache.put(event.request, response.clone());
+                } catch {
+                    // A full or unavailable cache must not fail a successful request.
+                }
             }
 
             return response;
         } catch {
+            const cachedResponse = await cache?.match(event.request);
+
+            if (cachedResponse) {
+                return cachedResponse;
+            }
+
             return new Response('Offline content is not cached yet.', { status: 503 });
         }
     })());

@@ -4,7 +4,7 @@ Quantique is a static, local-first historical science investigation game. This r
 
 ## Prerequisites
 
-- Node.js 20.18.1 or later
+- Node.js 20.19.0 or later
 - npm
 
 Install dependencies and the Playwright browser binaries:

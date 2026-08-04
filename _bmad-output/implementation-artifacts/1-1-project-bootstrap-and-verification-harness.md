@@ -4,7 +4,7 @@ baseline_commit: b4a0572416ae0f795e19f419b47997164d31f61e
 
 # Story 1.1: Project bootstrap and verification harness
 
-Status: review
+Status: done
 
 ## Story
 
@@ -39,6 +39,13 @@ so that the Young validation slice can be built and tested without bundling setu
   - [x] Run the production build, type check, unit, accessibility, offline-reload, and all three browser projects.
   - [x] Record the exact commands and prerequisites in the project README or equivalent developer documentation.
   - [x] Confirm the lockfile is tracked by Git and no generated build artifacts are tracked.
+
+### Review Findings
+
+- [x] [Review][Patch] Prevent stale cached deployments [public/sw.js:1]
+- [x] [Review][Patch] Keep online requests usable when cache writes fail [public/sw.js:17]
+- [x] [Review][Patch] Measure cached launch readiness rather than a cold navigation [tests/e2e/boot-shell.spec.ts:3]
+- [x] [Review][Patch] Document a Node version supported by the committed Vite release [README.md:7]
 
 ## Dev Notes
 
