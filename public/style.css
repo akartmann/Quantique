@@ -1,0 +1,60 @@
+body {
+    margin: 0;
+    color: #f7f4ef;
+    background-color: #10252c;
+    font-family: system-ui, sans-serif;
+}
+
+#app {
+    width: 100%;
+    min-height: 100vh;
+}
+
+#boot-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 1fr);
+    min-height: 100vh;
+}
+
+.boot-shell {
+    align-content: center;
+    display: grid;
+    gap: 1rem;
+    max-width: 34rem;
+    padding: 3rem;
+}
+
+.eyebrow {
+    color: #95d8d0;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin: 0;
+    text-transform: uppercase;
+}
+
+h1, p { margin: 0; }
+
+button {
+    background: #f4d35e;
+    border: 2px solid #f4d35e;
+    border-radius: 0.4rem;
+    color: #10252c;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    justify-self: start;
+    padding: 0.75rem 1rem;
+}
+
+button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+
+#boot-status { min-height: 1.5rem; }
+
+#game-container { min-height: 20rem; }
+
+#game-container canvas { display: block; height: 100% !important; width: 100% !important; }
+
+@media (max-width: 720px) {
+    #boot-shell { grid-template-columns: 1fr; }
+    .boot-shell { padding: 2rem; }
+}

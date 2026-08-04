@@ -1,6 +1,10 @@
+---
+baseline_commit: b4a0572416ae0f795e19f419b47997164d31f61e
+---
+
 # Story 1.1: Project bootstrap and verification harness
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -15,26 +19,26 @@ so that the Young validation slice can be built and tested without bundling setu
 
 ## Tasks / Subtasks
 
-- [ ] Bootstrap the official Phaser Vite + TypeScript starter (AC: 1)
-  - [ ] Use Phaser’s official generator; do not hand-roll a Vite/Phaser scaffold.
-  - [ ] Keep the generated starter structure unless a change is required for the harness.
-  - [ ] Set the project’s approved package versions: Phaser `4.2.1`; Vite `8.1.x`; `idb` `8.0.3`; Zod `4.4.3`; Vitest `4.1.10`; Playwright `1.61.1`; and `@axe-core/playwright` `4.12.1`.
-  - [ ] Commit the generated `package-lock.json`, ensuring it pins the actual installed Vite 8.1 patch.
-  - [ ] Update `.gitignore` to stop ignoring `package-lock.json`; preserve ignores for dependency folders, build output, and caches.
-- [ ] Add only the minimal, testable boot shell (AC: 2)
-  - [ ] Provide a semantic, keyboard-operable primary boot-shell interaction with a stable accessible role/name for E2E tests.
-  - [ ] Keep Phaser as the visual starter layer; do not build the Young case contract, store, case loading, persistence, laboratory controls, or gameplay in this story.
-  - [ ] Ensure the production build is static-hostable and has no auth, analytics, advertising, cloud save, remote configuration, backend, or runtime dependency that blocks core play.
-- [ ] Configure the verification harness and stable scripts (AC: 1, 2)
-  - [ ] Provide scripts for production build, TypeScript checking, unit tests, general browser E2E, offline reload, cross-browser E2E, and axe accessibility E2E.
-  - [ ] Configure Playwright projects for Chromium, Firefox, and WebKit and document the required version-matched browser install command (`npx playwright install`).
-  - [ ] Implement an offline-reload test against a served production build: load/cache the artifact online, switch the browser context offline, reload, then assert the semantic boot interaction remains usable.
-  - [ ] Add an axe Playwright test for the boot shell. Use semantic roles/labels and public interaction assertions; do not inspect Phaser internals or pixels.
-  - [ ] Add a cached-launch readiness measurement/assertion for the first meaningful semantic interaction (target: <5 seconds). Keep the threshold/reporting deterministic and suitable for CI; this is not the later low-end-laptop 60-FPS release gate.
-- [ ] Verify and document the delivered baseline (AC: 1, 2)
-  - [ ] Run the production build, type check, unit, accessibility, offline-reload, and all three browser projects.
-  - [ ] Record the exact commands and prerequisites in the project README or equivalent developer documentation.
-  - [ ] Confirm the lockfile is tracked by Git and no generated build artifacts are tracked.
+- [x] Bootstrap the official Phaser Vite + TypeScript starter (AC: 1)
+  - [x] Use Phaser’s official generator; do not hand-roll a Vite/Phaser scaffold.
+  - [x] Keep the generated starter structure unless a change is required for the harness.
+  - [x] Set the project’s approved package versions: Phaser `4.2.1`; Vite `8.1.x`; `idb` `8.0.3`; Zod `4.4.3`; Vitest `4.1.10`; Playwright `1.61.1`; and `@axe-core/playwright` `4.12.1`.
+  - [x] Commit the generated `package-lock.json`, ensuring it pins the actual installed Vite 8.1 patch.
+  - [x] Update `.gitignore` to stop ignoring `package-lock.json`; preserve ignores for dependency folders, build output, and caches.
+- [x] Add only the minimal, testable boot shell (AC: 2)
+  - [x] Provide a semantic, keyboard-operable primary boot-shell interaction with a stable accessible role/name for E2E tests.
+  - [x] Keep Phaser as the visual starter layer; do not build the Young case contract, store, case loading, persistence, laboratory controls, or gameplay in this story.
+  - [x] Ensure the production build is static-hostable and has no auth, analytics, advertising, cloud save, remote configuration, backend, or runtime dependency that blocks core play.
+- [x] Configure the verification harness and stable scripts (AC: 1, 2)
+  - [x] Provide scripts for production build, TypeScript checking, unit tests, general browser E2E, offline reload, cross-browser E2E, and axe accessibility E2E.
+  - [x] Configure Playwright projects for Chromium, Firefox, and WebKit and document the required version-matched browser install command (`npx playwright install`).
+  - [x] Implement an offline-reload test against a served production build: load/cache the artifact online, switch the browser context offline, reload, then assert the semantic boot interaction remains usable.
+  - [x] Add an axe Playwright test for the boot shell. Use semantic roles/labels and public interaction assertions; do not inspect Phaser internals or pixels.
+  - [x] Add a cached-launch readiness measurement/assertion for the first meaningful semantic interaction (target: <5 seconds). Keep the threshold/reporting deterministic and suitable for CI; this is not the later low-end-laptop 60-FPS release gate.
+- [x] Verify and document the delivered baseline (AC: 1, 2)
+  - [x] Run the production build, type check, unit, accessibility, offline-reload, and all three browser projects.
+  - [x] Record the exact commands and prerequisites in the project README or equivalent developer documentation.
+  - [x] Confirm the lockfile is tracked by Git and no generated build artifacts are tracked.
 
 ## Dev Notes
 
@@ -114,13 +118,31 @@ GPT-5.6 Codex
 ### Debug Log References
 
 - Story context creation: planning artifacts, architecture, project context, UX reconciliations, repository state, Git history, and official technology documentation analyzed.
+- 2026-08-04: Official `phaserjs/template-vite-ts` scaffold cloned and adapted for the approved Phaser 4.2.1/Vite 8.1.5 dependency set. Red unit test confirmed before the boot-shell implementation; unit test, TypeScript check, and production build pass.
+- 2026-08-04: Browser verification is blocked locally: Playwright 1.61.1 browser downloads from `cdn.playwright.dev` repeatedly stop at 0%, leaving no Chromium, Firefox, or WebKit executable. The E2E, axe, and offline-reload commands therefore cannot launch a browser yet.
+- 2026-08-04: Playwright browser binaries became available. Chromium boot-shell and axe tests pass. The required offline `page.reload()` still fails with `net::ERR_INTERNET_DISCONNECTED`: a forced offline document reload needs a service worker, but this story’s scope explicitly prohibits adding one merely for bootstrap. A product decision is needed before changing that constraint.
 
 ### Completion Notes List
 
 - Ultimate context engine analysis completed - comprehensive developer guide created.
 - Status set to `ready-for-dev`.
+- Implemented the official Phaser Vite TypeScript starter with exact approved runtime and verification dependencies, plus a committed npm lockfile that pins Vite 8.1.5.
+- Added a semantic, keyboard-operable boot-shell entry interaction while retaining Phaser as the visual-only starter layer.
+- Added static-asset service-worker caching after user approval so a served production artifact can reload offline without a backend or cloud dependency.
+- Added Vitest, Chromium E2E, axe, cached-launch (<5 seconds), offline-reload, and three-browser Playwright coverage. Final validation passed: build, typecheck, unit, Chromium E2E/axe/offline, and cross-browser (7 passed, 2 Chromium-only offline skips).
 
 ### File List
 
 - `_bmad-output/implementation-artifacts/1-1-project-bootstrap-and-verification-harness.md` (new story context)
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (story and Epic 1 statuses updated)
+- `.gitignore` (modified)
+- `LICENSE`, `README.md`, `index.html`, `log.js`, `package.json`, `package-lock.json`, `playwright.config.ts`, `tsconfig.json`, `vitest.config.ts` (new)
+- `public/assets/bg.png`, `public/assets/logo.png`, `public/favicon.png`, `public/style.css`, `public/sw.js` (new)
+- `src/main.ts`, `src/vite-env.d.ts`, `src/adapters/OfflineCache.ts`, `src/ui/BootShell.ts` (new)
+- `src/game/main.ts`, `src/game/scenes/Boot.ts`, `src/game/scenes/Preloader.ts`, `src/game/scenes/MainMenu.ts`, `src/game/scenes/Game.ts`, `src/game/scenes/GameOver.ts` (new)
+- `tests/unit/BootShell.test.ts`, `tests/e2e/boot-shell.spec.ts`, `tests/e2e/accessibility.spec.ts`, `tests/e2e/offline-reload.spec.ts` (new)
+- `vite/config.dev.mjs`, `vite/config.prod.mjs` (new)
+
+## Change Log
+
+- 2026-08-04: Bootstrapped Phaser/Vite TypeScript starter, added semantic boot shell, static offline cache, verification harness, and developer documentation; status set to `review`.

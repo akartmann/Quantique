@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/style.css">
+    <title>Quantique</title>
+</head>
+
+<body>
+    <div id="app">
+        <main id="boot-shell" aria-labelledby="boot-title">
+            <section class="boot-shell">
+                <p class="eyebrow">Quantique</p>
+                <h1 id="boot-title">Historical science laboratory</h1>
+                <p>Open the starter laboratory shell to begin the Young validation slice.</p>
+                <button type="button" data-testid="enter-laboratory" aria-describedby="boot-status">
+                    Enter laboratory
+                </button>
+                <p id="boot-status" role="status" aria-live="polite"></p>
+            </section>
+            <div id="game-container" aria-hidden="true"></div>
+        </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

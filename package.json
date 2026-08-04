@@ -1,0 +1,35 @@
+{
+  "name": "quantique",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A static, offline-first historical science investigation game.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config vite/config.dev.mjs",
+    "build": "vite build --config vite/config.prod.mjs",
+    "preview": "vite preview --host 127.0.0.1 --port 4173",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium",
+    "test:e2e:offline": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test tests/e2e/offline-reload.spec.ts --project=chromium",
+    "test:e2e:cross-browser": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium --project=firefox --project=webkit",
+    "test:e2e:a11y": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test tests/e2e/accessibility.spec.ts --project=chromium"
+  },
+  "dependencies": {
+    "idb": "8.0.3",
+    "phaser": "4.2.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
+    "@playwright/test": "1.61.1",
+    "playwright": "1.61.1",
+    "typescript": "~5.7.2",
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
+  },
+  "overrides": {
+    "playwright-core": "1.61.1"
+  }
+}

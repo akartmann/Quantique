@@ -35,6 +35,9 @@ Thumbs.db
 
 # Test coverage
 coverage/
+test-results/
+playwright-report/
+blob-report/
 
 # Cache
 .cache/
@@ -50,7 +53,6 @@ _bmad/
 .agents/skills/sync*
 
 # Package managers
-package-lock.json
 yarn.lock
 
 # Optional npm cache
