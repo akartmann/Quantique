@@ -21,7 +21,7 @@ export const mountDecisionHistoryPanel = (root: HTMLElement, store: AppStore): (
                 const title = document.createElement('h3');
                 title.textContent = `Version ${entry.version}`;
                 const content = document.createElement('dl');
-                [['Timestamp', entry.timestamp], ['Prior conclusion', entry.priorConclusion || 'No prior saved conclusion.'], ['Saved conclusion', entry.conclusion], ['Limitation', entry.limitation], ['Supporting observations', entry.selectedRunIds.join(', ') || 'None'], ['Supporting sources', entry.selectedSourceIds.join(', ') || 'None'], ['Feedback', entry.feedback.issues.map((issue) => issue.feedback).join(' ') || 'No authored concerns.']]
+                [['Timestamp', entry.timestamp], ['Prior conclusion', entry.priorConclusion || 'No prior saved conclusion.'], ['Saved conclusion', entry.conclusion], ['Limitation', entry.limitation], ['Supporting observations', entry.selectedRunIds.join(', ') || 'None'], ['Supporting sources', entry.selectedSourceIds.join(', ') || 'None'], ['Feedback', entry.feedback.status === 'reviewed' ? entry.feedback.issues.map((issue) => issue.feedback).join(' ') || 'No authored concerns.' : entry.feedback.message]]
                     .forEach(([term, value]) => {
                         const dt = document.createElement('dt'); dt.textContent = term;
                         const dd = document.createElement('dd'); dd.textContent = value;

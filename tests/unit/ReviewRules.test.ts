@@ -53,9 +53,24 @@ describe('authored consultation and peer-review rules', () => {
     it('returns neutral issue codes without reproducing the learner conclusion', () => {
         const draft = { ...createTheoryBoardDraft(), conclusion: 'This proves the result.' };
         const review = evaluatePeerReview(definition, { runs: [], inspectedSourceIds: [] }, draft);
+        expect(review.status).toBe('reviewed');
+        if (review.status !== 'reviewed') throw new Error('valid rules must produce a review');
         expect(review.issues.map((issue) => issue.code)).toEqual(['missing-evidence', 'overreach']);
         expect(JSON.stringify(review)).not.toContain(draft.conclusion);
         expect(Object.isFrozen(review.issues)).toBe(true);
+    });
+
+    it('handles unsupported support, unavailable rules, and boundary-aware overreach checks', () => {
+        const unsupportedDraft = { ...createTheoryBoardDraft(), selectedRunIds: ['missing-run'] };
+        const unsupported = evaluatePeerReview(definition, { runs: [], inspectedSourceIds: [] }, unsupportedDraft);
+        expect(unsupported).toMatchObject({ status: 'reviewed', issues: [{ code: 'missing-evidence' }, { code: 'unsupported-support' }] });
+
+        const incidentalPhrase = evaluatePeerReview(definition, { runs: [], inspectedSourceIds: [] }, { ...createTheoryBoardDraft(), conclusion: 'The apparatus improves when adjusted.' });
+        expect(incidentalPhrase.status).toBe('reviewed');
+        if (incidentalPhrase.status === 'reviewed') expect(incidentalPhrase.issues.map((issue) => issue.code)).not.toContain('overreach');
+
+        const unavailable = evaluatePeerReview({ ...definition, peerReviewRules: [] }, { runs: [], inspectedSourceIds: [] }, createTheoryBoardDraft());
+        expect(unavailable).toMatchObject({ status: 'unavailable', message: expect.any(String) });
     });
 
     it('keeps rejected requests immutable and appends frozen revision snapshots', () => {
@@ -69,6 +84,7 @@ describe('authored consultation and peer-review rules', () => {
         expect(store.dispatch({ type: 'consultation.requested' })).toEqual({ ok: true, value: undefined });
         expect(selectConsultation(store.getState())?.ruleId).toBe('run');
         ['source-1', 'source-2'].forEach((sourceId) => store.dispatch({ type: 'source.inspected', sourceId }));
+        expect(selectConsultation(store.getState())).toBeUndefined();
         [run('one'), run('two', 3)].forEach((record) => store.dispatch({ type: 'run.record', record }));
         ['one', 'two'].forEach((runId) => store.dispatch({ type: 'theory.supportRunSelected', runId }));
         ['source-1', 'source-2'].forEach((sourceId) => store.dispatch({ type: 'theory.supportSourceSelected', sourceId }));
@@ -77,8 +93,13 @@ describe('authored consultation and peer-review rules', () => {
         ['prediction', 'experiment', 'synthesis'].forEach((nextPhase) => store.dispatch({ type: 'case.phaseAdvance', nextPhase }));
         store.dispatch({ type: 'theory.reviewRequested' });
         expect(store.dispatch({ type: 'peerReview.requested' })).toEqual({ ok: true, value: undefined });
-        expect(selectPeerReview(store.getState())?.issues[0]?.code).toBe('overreach');
+        const peerReview = selectPeerReview(store.getState());
+        expect(peerReview?.status).toBe('reviewed');
+        if (peerReview?.status === 'reviewed') expect(peerReview.issues[0]?.code).toBe('overreach');
+        expect(store.dispatch({ type: 'revision.saved', timestamp: '2026-02-30T25:99:99.000Z' })).toMatchObject({ ok: false, error: { code: 'invalid-revision-timestamp' } });
         expect(store.dispatch({ type: 'revision.saved', timestamp: '2026-08-04T13:00:00.000Z' })).toEqual({ ok: true, value: undefined });
+        expect(selectPeerReview(store.getState())).toBeUndefined();
+        expect(store.dispatch({ type: 'revision.saved', timestamp: '2026-08-04T14:00:00.000Z' })).toMatchObject({ ok: false, error: { code: 'revision-review-required' } });
         const history = selectDecisionHistory(store.getState());
         expect(history).toHaveLength(1);
         expect(history[0]).toMatchObject({ version: 1, priorConclusion: '', conclusion: 'The evidence proves a bounded result.' });

@@ -126,6 +126,8 @@ describe('CaseDefinitionSchema', () => {
         ['duplicate consultation ID', (definition: Record<string, unknown>) => { ((definition.consultationRules as Array<{ id: string }>)[1]).id = 'missing-run'; }],
         ['unsupported consultation predicate', (definition: Record<string, unknown>) => { ((definition.consultationRules as Array<{ predicate: { kind: string } }>)[0]).predicate.kind = 'answer'; }],
         ['missing progressive layer', (definition: Record<string, unknown>) => { delete ((definition.consultationRules as Array<{ layers: { technicalDetail?: string } }>)[0]).layers.technicalDetail; }],
+        ['missing source ID from a missing-source predicate', (definition: Record<string, unknown>) => { delete ((definition.consultationRules as Array<{ predicate: { sourceId?: string } }>)[1]).predicate.sourceId; }],
+        ['missing control ID from an alternative-test predicate', (definition: Record<string, unknown>) => { delete ((definition.consultationRules as Array<{ predicate: { controlId?: string } }>)[2]).predicate.controlId; }],
         ['unknown consultation source', (definition: Record<string, unknown>) => { ((definition.consultationRules as Array<{ predicate: { sourceId?: string } }>)[1]).predicate.sourceId = 'unknown'; }],
         ['phase path in authored help', (definition: Record<string, unknown>) => { ((definition.consultationRules as Array<{ nextStep: string }>)[0]).nextStep = 'Move to review phase.'; }]
     ])('rejects %s', (_description, mutate) => {

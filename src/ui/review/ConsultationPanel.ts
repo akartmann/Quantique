@@ -40,18 +40,18 @@ export const mountConsultationPanel = (root: HTMLElement, store: AppStore): (() 
         if (consultation) {
             const nextStep = document.createElement('p');
             nextStep.textContent = `Next step: ${consultation.nextStep}`;
-            panel.append(nextStep);
-            ([['In-play observation', consultation.layers.observation], ['Plain-language guidance', consultation.layers.plainLanguage], ['Technical or source detail', consultation.layers.technicalDetail]] as const)
-                .forEach(([summary, content], index) => {
-                    const details = document.createElement('details');
-                    details.dataset.reviewFocus = `consultation-layer-${index}`;
-                    const title = document.createElement('summary');
-                    title.textContent = summary;
-                    const body = document.createElement('p');
-                    body.textContent = content;
-                    details.append(title, body);
-                    panel.append(details);
-                });
+            const observation = document.createElement('p');
+            observation.textContent = `In-play observation: ${consultation.layers.observation}`;
+            const plainLanguage = document.createElement('p');
+            plainLanguage.textContent = `Plain-language guidance: ${consultation.layers.plainLanguage}`;
+            const details = document.createElement('details');
+            details.dataset.reviewFocus = 'consultation-technical-detail';
+            const title = document.createElement('summary');
+            title.textContent = 'Technical or source detail';
+            const body = document.createElement('p');
+            body.textContent = consultation.layers.technicalDetail;
+            details.append(title, body);
+            panel.append(nextStep, observation, plainLanguage, details);
         }
         root.replaceChildren(panel);
         if (focus) Array.from(root.querySelectorAll<HTMLElement>('[data-review-focus]')).find((element) => element.dataset.reviewFocus === focus)?.focus();

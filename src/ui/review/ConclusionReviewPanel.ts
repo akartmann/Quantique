@@ -37,6 +37,11 @@ export const mountConclusionReviewPanel = (root: HTMLElement, store: AppStore): 
         });
         panel.append(heading, request, status);
         if (review) {
+            if (review.status === 'unavailable') {
+                const unavailable = document.createElement('p');
+                unavailable.textContent = review.message;
+                panel.append(unavailable);
+            } else {
             const introduction = document.createElement('p');
             introduction.textContent = review.issues.length ? 'Review feedback identifies bounded revision opportunities.' : 'No authored concern applies to the current draft; keep its limitation visible when revising.';
             panel.append(introduction);
@@ -58,6 +63,7 @@ export const mountConclusionReviewPanel = (root: HTMLElement, store: AppStore): 
                 render();
             });
             panel.append(save);
+            }
         }
         root.replaceChildren(panel);
         if (focus) Array.from(root.querySelectorAll<HTMLElement>('[data-review-focus]')).find((element) => element.dataset.reviewFocus === focus)?.focus();

@@ -39,7 +39,9 @@ describe('consultation, peer review, and revision public flow', () => {
         ['prediction', 'experiment', 'synthesis'].forEach((nextPhase) => store.dispatch({ type: 'case.phaseAdvance', nextPhase }));
         expect(store.dispatch({ type: 'theory.reviewRequested' })).toEqual({ ok: true, value: undefined });
         expect(store.dispatch({ type: 'peerReview.requested' })).toEqual({ ok: true, value: undefined });
-        expect(selectPeerReview(store.getState())?.issues.map((issue) => issue.code)).toEqual(['overreach']);
+        const peerReview = selectPeerReview(store.getState());
+        expect(peerReview?.status).toBe('reviewed');
+        if (peerReview?.status === 'reviewed') expect(peerReview.issues.map((issue) => issue.code)).toEqual(['overreach']);
         expect(store.dispatch({ type: 'revision.saved', timestamp: '2026-08-04T13:00:00.000Z' })).toEqual({ ok: true, value: undefined });
         expect(store.getState().runs).toEqual([first, second]);
         expect(store.getState().comparison.selectedRunIds).toEqual(['run-1', 'run-2']);

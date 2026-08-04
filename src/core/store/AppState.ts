@@ -51,6 +51,13 @@ const freezeComparison = (comparison: ComparisonState): ComparisonState => Objec
     })))
 });
 
+const freezePeerReview = (review: PeerReviewProjection): PeerReviewProjection => review.status === 'unavailable'
+    ? Object.freeze({ status: 'unavailable', message: review.message })
+    : Object.freeze({
+        status: 'reviewed',
+        issues: Object.freeze(review.issues.map((issue) => Object.freeze({ ...issue })))
+    });
+
 const freezeState = (state: AppState): AppState => Object.freeze({
     ...state,
     activeControlValues: Object.freeze({ ...state.activeControlValues }),
@@ -68,18 +75,12 @@ const freezeState = (state: AppState): AppState => Object.freeze({
         layers: Object.freeze({ ...state.consultation.layers }),
         nextStep: state.consultation.nextStep
     }),
-    peerReview: state.peerReview && Object.freeze({
-        status: state.peerReview.status,
-        issues: Object.freeze(state.peerReview.issues.map((issue) => Object.freeze({ ...issue })))
-    }),
+    peerReview: state.peerReview && freezePeerReview(state.peerReview),
     decisionHistory: Object.freeze(state.decisionHistory.map((entry) => Object.freeze({
         ...entry,
         selectedRunIds: Object.freeze([...entry.selectedRunIds]),
         selectedSourceIds: Object.freeze([...entry.selectedSourceIds]),
-        feedback: Object.freeze({
-            status: entry.feedback.status,
-            issues: Object.freeze(entry.feedback.issues.map((issue) => Object.freeze({ ...issue })))
-        })
+        feedback: freezePeerReview(entry.feedback)
     })))
 });
 
@@ -133,7 +134,7 @@ const reduceRecordRun = (state: AppState, record: RunRecord): Result<AppState> =
         return failure('uninspected-linked-evidence', 'Linked evidence must be inspected before recording an observation.');
     }
 
-    return { ok: true, value: freezeState({ ...state, runs: [...state.runs, validated.value] }) };
+    return { ok: true, value: freezeState({ ...state, runs: [...state.runs, validated.value], consultation: undefined, peerReview: undefined }) };
 };
 
 const reduceSelectRun = (state: AppState, runId: string): Result<AppState> => {
@@ -187,12 +188,12 @@ const reduceSourceInspection = (state: AppState, sourceId: string): Result<AppSt
         return failure('duplicate-inspected-source', 'That source is already recorded as inspected.');
     }
 
-    return { ok: true, value: freezeState({ ...state, inspectedSourceIds: [...state.inspectedSourceIds, sourceId] }) };
+    return { ok: true, value: freezeState({ ...state, inspectedSourceIds: [...state.inspectedSourceIds, sourceId], consultation: undefined, peerReview: undefined }) };
 };
 
 const withTheory = (state: AppState, theory: TheoryBoardDraft): Result<AppState> => ({
     ok: true,
-    value: freezeState({ ...state, theory, peerReview: undefined })
+    value: freezeState({ ...state, theory, consultation: undefined, peerReview: undefined })
 });
 
 const reduceTheorySupportRun = (state: AppState, runId: string, selected: boolean): Result<AppState> => {
@@ -255,8 +256,9 @@ const reducePeerReviewRequest = (state: AppState): Result<AppState> => {
 };
 
 const reduceRevisionSave = (state: AppState, timestamp: string): Result<AppState> => {
-    if (!state.peerReview) return failure('revision-review-required', 'Request peer feedback before saving a revision.');
-    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(timestamp)) return failure('invalid-revision-timestamp', 'Provide a valid revision timestamp.');
+    if (!state.peerReview || state.peerReview.status !== 'reviewed') return failure('revision-review-required', 'Request available peer feedback before saving a revision.');
+    const parsedTimestamp = new Date(timestamp);
+    if (Number.isNaN(parsedTimestamp.getTime()) || parsedTimestamp.toISOString() !== timestamp) return failure('invalid-revision-timestamp', 'Provide a valid UTC revision timestamp.');
     const knownRunIds = new Set(state.runs.map(({ id }) => id));
     const knownSourceIds = new Set(state.inspectedSourceIds);
     if (new Set(state.theory.selectedRunIds).size !== state.theory.selectedRunIds.length || !state.theory.selectedRunIds.every((id) => knownRunIds.has(id))) {
@@ -266,6 +268,9 @@ const reduceRevisionSave = (state: AppState, timestamp: string): Result<AppState
         return failure('invalid-revision-sources', 'Revision support must reference unique inspected sources.');
     }
     const previous = state.decisionHistory[state.decisionHistory.length - 1];
+    if (previous && parsedTimestamp.getTime() <= new Date(previous.timestamp).getTime()) {
+        return failure('invalid-revision-timestamp', 'Provide a revision timestamp later than the previous saved revision.');
+    }
     const entry: DecisionHistoryEntry = {
         version: state.decisionHistory.length + 1,
         priorConclusion: previous?.conclusion ?? '',
@@ -276,7 +281,7 @@ const reduceRevisionSave = (state: AppState, timestamp: string): Result<AppState
         feedback: state.peerReview,
         timestamp
     };
-    return { ok: true, value: freezeState({ ...state, decisionHistory: [...state.decisionHistory, entry] }) };
+    return { ok: true, value: freezeState({ ...state, decisionHistory: [...state.decisionHistory, entry], peerReview: undefined }) };
 };
 
 export const reduceAppState = (state: AppState, action: AppAction): Result<AppState> => {

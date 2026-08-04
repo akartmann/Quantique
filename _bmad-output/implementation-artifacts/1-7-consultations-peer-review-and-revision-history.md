@@ -4,7 +4,7 @@ baseline_commit: e5530f8
 
 # Story 1.7: Consultations, peer review, and revision history
 
-Status: review
+Status: done
 
 ## Story
 
@@ -76,8 +76,22 @@ so that I can improve my reasoning without being given the answer or losing my d
   - [x] Add store tests for typed actions, frozen state, no subscriber notifications after every rejected action, valid-work retention, adjacent phase preservation, append-only version increments, explicit action-supplied timestamps, and historical snapshot immutability after later edits/reviews. Cover unknown/duplicate run/source protection and independent notebook comparison state.
   - [x] Add integration coverage using only public actions and selectors. Assert consultation/review/revision flows retain existing controls, runs (including controls/result/timestamp/model version/linked evidence), inspected source IDs, comparison notes, theory draft, and phase rules. Do not test private renderer fields or incidental DOM structures.
   - [x] Add Playwright coverage using `getByRole`/`getByLabel`: keyboard activation with Space/Enter, visible and polite recoverable messages, all three help layers, neutral review feedback, revision saving, versioned decision-history display, focus restoration, and repeated consultation. Do not assert canvas pixels or Phaser internals. Keep the exact Theory Board conclusion locator where needed (`getByLabel('Conclusion', { exact: true })`).
-  - [x] Extend the accessibility spec with Axe after the new semantic review surfaces reach an interactive state. Manually verify keyboard-only operation, focus recovery, screen-reader announcements, disclosure semantics, non-colour understanding, responsive target sizing, and touch/pointer equivalence; Axe alone is insufficient.
+- [x] Extend the accessibility spec with Axe after the new semantic review surfaces reach an interactive state. Manually verify keyboard-only operation, focus recovery, screen-reader announcements, disclosure semantics, non-colour understanding, responsive target sizing, and touch/pointer equivalence; Axe alone is insufficient.
   - [x] Run and retain the existing regression suite: `npm test`, `npm run typecheck`, `npm run build`, cached/offline E2E, Curated Record, measurement-notebook, dual-surface controls, Theory Board, accessibility, and Chromium/Firefox/WebKit Playwright suites. Do not loosen prior public assertions.
+
+### Review Findings
+
+- [x] [Review][Patch] Connect the authorized player flow to peer review and revision [src/ui/theory/TheoryBoard.ts:186] — The only semantic review request is issued while the app remains in `context`, but peer feedback is gated to `review`; no UI or renderer dispatches the intervening legal phase transitions. Players therefore cannot receive feedback, save a revision, or populate decision history (AC 3, 4, 9).
+- [x] [Review][Patch] Reject incomplete consultation predicates at the schema boundary [src/schemas/CaseDefinitionSchema.ts:44] — `missing-source` rules may omit `sourceId` and consequently always apply; `alternative-test` rules may omit `controlId` and never apply. Require the relevant ID for each predicate kind before content reaches domain logic (AC 1, 5).
+- [x] [Review][Patch] Represent an unavailable peer-review evaluation safely [src/domain/review/peerReviewRules.ts:13] — The evaluator can only return `reviewed`, so a rule-evaluation failure cannot be surfaced as the required recoverable semantic result while preserving valid work (AC 5).
+- [x] [Review][Patch] Invalidate peer feedback after evidence changes and after saving [src/core/store/AppState.ts:121] — New runs or inspected sources retain a previously evaluated review, and a save does not consume that review. A subsequent history entry can therefore pair changed evidence or an unchanged draft with stale feedback; clear the projection and require a fresh review before every appended revision (AC 3, 4).
+- [x] [Review][Patch] Clear obsolete consultation guidance after authoritative state changes [src/core/store/AppState.ts:121] — Completing the advised run, source, or limitation step does not clear the stored consultation projection, so the panel can display guidance whose predicate is no longer true.
+- [x] [Review][Patch] Validate revision timestamps as real chronological UTC instants [src/core/store/AppState.ts:265] — Regex validation accepts impossible dates/times and does not prevent an earlier timestamp than the prior history entry, compromising the ordered decision record (AC 4).
+- [x] [Review][Patch] Make overreach matching deterministic and boundary-aware [src/domain/review/peerReviewRules.ts:41] — Substring matching falsely flags words such as “improves,” and `toLocaleLowerCase()` makes evaluation locale-dependent. Match normalized token/phrase boundaries with locale-independent casing.
+- [x] [Review][Patch] Require a conclusion before review and history save [src/domain/theory/conclusionReadiness.ts:64] — Readiness does not check a blank conclusion, permitting an empty “conclusion” to enter peer review and decision history once other evidence requirements are met (AC 3, 4).
+- [x] [Review][Patch] Render required observation and plain-language help directly [src/ui/review/ConsultationPanel.ts:44] — Both required help layers are hidden in closed disclosures alongside optional technical detail. Show the observation and plain-language guidance immediately, reserving optional disclosure for technical/source detail (AC 6).
+- [x] [Review][Patch] Cover the real review and revision path with public tests [tests/e2e/theory-board.spec.ts:47] — Current browser coverage deliberately ends at a failed phase transition, while unit coverage omits unsupported-support and unavailable evaluation. Add public-action and browser coverage for reaching review, feedback, revision saving/history, focus recovery, repeated consultation, and recoverable failures (AC 9).
+- [x] [Review][Defer] Provide a player-facing non-destructive reset surface [src/domain/cases/caseReducer.ts:27] — deferred, pre-existing. The project has only a pure phase-reset helper; this change neither introduces nor removes an authoritative/UI reset path, though AC 8 expects one.
 
 ## Dev Notes
 

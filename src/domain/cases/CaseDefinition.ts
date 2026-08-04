@@ -40,9 +40,15 @@ export type ProgressiveHelpLayers = Readonly<{
     technicalDetail: string;
 }>;
 
+export type ConsultationPredicate =
+    | Readonly<{ kind: 'missing-run' }>
+    | Readonly<{ kind: 'missing-source'; sourceId: string }>
+    | Readonly<{ kind: 'alternative-test'; controlId: PrimaryControl['id'] }>
+    | Readonly<{ kind: 'missing-limitation' }>;
+
 export type ConsultationRule = Readonly<{
     id: string;
-    predicate: Readonly<{ kind: ConsultationPredicateKind; sourceId?: string; controlId?: PrimaryControl['id'] }>;
+    predicate: ConsultationPredicate;
     layers: ProgressiveHelpLayers;
     nextStep: string;
 }>;

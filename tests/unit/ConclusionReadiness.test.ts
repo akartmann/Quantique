@@ -36,6 +36,7 @@ describe('conclusion readiness', () => {
     ])('reports %s as explicit recoverable missing evidence', (_name, partialDraft, expectedCodes) => {
         const readiness = evaluateConclusionReadiness(definition, evidence, {
             ...createTheoryBoardDraft(),
+            conclusion: 'A bounded conclusion.',
             ...partialDraft
         });
 
@@ -43,7 +44,7 @@ describe('conclusion readiness', () => {
         expect(readiness.missing.map(({ code }) => code)).toEqual(expectedCodes);
     });
 
-    it('is ready only with current selected evidence and a non-blank limitation', () => {
+    it('is ready only with current selected evidence, a non-blank conclusion, and a non-blank limitation', () => {
         const readiness = evaluateConclusionReadiness(definition, evidence, {
             selectedRunIds: ['run-1', 'run-2'],
             selectedSourceIds: ['source-1', 'source-2'],
@@ -54,6 +55,17 @@ describe('conclusion readiness', () => {
         expect(readiness).toMatchObject({ status: 'ready', missing: [] });
         expect(Object.isFrozen(readiness)).toBe(true);
         expect(Object.isFrozen(readiness.missing)).toBe(true);
+    });
+
+    it('does not allow a blank conclusion to enter review', () => {
+        const readiness = evaluateConclusionReadiness(definition, evidence, {
+            selectedRunIds: ['run-1', 'run-2'],
+            selectedSourceIds: ['source-1', 'source-2'],
+            conclusion: ' ',
+            limitation: 'A limitation.'
+        });
+
+        expect(readiness.missing.map(({ code }) => code)).toEqual(['conclusion']);
     });
 
     it('reports unknown and duplicate support deterministically without mutating evidence or draft', () => {
@@ -77,7 +89,7 @@ describe('conclusion readiness', () => {
     it('re-evaluates selection, conclusion, and limitation changes deterministically', () => {
         const incomplete = evaluateConclusionReadiness(definition, evidence, createTheoryBoardDraft());
         const validDraft = {
-            selectedRunIds: ['run-1', 'run-2'], selectedSourceIds: ['source-1', 'source-2'], conclusion: '', limitation: 'A limitation.'
+            selectedRunIds: ['run-1', 'run-2'], selectedSourceIds: ['source-1', 'source-2'], conclusion: 'A bounded conclusion.', limitation: 'A limitation.'
         };
         const revisedConclusion = { ...validDraft, conclusion: 'A bounded conclusion based on current evidence.' };
 

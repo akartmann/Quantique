@@ -53,6 +53,7 @@ describe('theory board public projection', () => {
         store.dispatch({ type: 'theory.supportRunSelected', runId: 'run-1' });
         store.dispatch({ type: 'theory.supportSourceSelected', sourceId: 'source-2' });
         store.dispatch({ type: 'theory.supportSourceSelected', sourceId: 'source-1' });
+        store.dispatch({ type: 'theory.conclusionSet', conclusion: 'The observations support a bounded conclusion.' });
         store.dispatch({ type: 'theory.limitationSet', limitation: 'The observations leave alternative explanations open.' });
 
         expect(selectSelectedSupportingRuns(store.getState())).toEqual([second, first]);

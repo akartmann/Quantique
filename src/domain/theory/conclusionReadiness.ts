@@ -20,6 +20,7 @@ export type MissingConclusionRequirementCode =
     | 'duplicate-source-selection'
     | 'unknown-source-selection'
     | 'minimum-sources'
+    | 'conclusion'
     | 'limitation';
 
 export type MissingConclusionRequirement = Readonly<{
@@ -82,6 +83,9 @@ export const evaluateConclusionReadiness = (
     }
     if (new Set(selectedKnownSourceIds).size < definition.requirements.minimumSources) {
         requirements.push(missing('minimum-sources', `Inspect and select at least ${definition.requirements.minimumSources} sources.`));
+    }
+    if (!draft.conclusion.trim()) {
+        requirements.push(missing('conclusion', 'Write a bounded conclusion before requesting review.'));
     }
     if (!draft.limitation.trim()) {
         requirements.push(missing('limitation', 'Describe at least one limitation or alternative explanation.'));

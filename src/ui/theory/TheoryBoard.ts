@@ -41,6 +41,15 @@ const phaseGuidance = (phase: string): string => phase === 'synthesis'
     ? 'Your evidence is in synthesis. Select support, state a limitation, and request review when ready.'
     : `Current phase: ${phase}. The theory board preserves your draft while you continue the investigation.`;
 
+const nextPhase = (phase: string): 'prediction' | 'experiment' | 'synthesis' | undefined => {
+    switch (phase) {
+        case 'context': return 'prediction';
+        case 'prediction': return 'experiment';
+        case 'experiment': return 'synthesis';
+        default: return undefined;
+    }
+};
+
 export const mountTheoryBoard = (root: HTMLElement, store: AppStore): (() => void) => {
     let statusMessage = '';
     let renderedStateSignature = '';
@@ -86,6 +95,21 @@ export const mountTheoryBoard = (root: HTMLElement, store: AppStore): (() => voi
             ? 'Your selected evidence and limitation are ready for review.'
             : readiness.missing[0]?.message ?? 'Add evidence to prepare a bounded conclusion.');
         panel.append(heading, guidance, status);
+
+        const next = nextPhase(selectCasePhase(state));
+        if (next) {
+            const advance = document.createElement('button');
+            advance.type = 'button';
+            advance.dataset.theoryFocus = 'phase-advance';
+            advance.textContent = `Continue investigation to ${next}`;
+            advance.addEventListener('click', () => {
+                requestedFocusKey = advance.dataset.theoryFocus;
+                const transition = store.dispatch({ type: 'case.phaseAdvance', nextPhase: next });
+                if (!transition.ok) statusMessage = transition.error.message;
+                render(true);
+            });
+            panel.append(advance);
+        }
 
         const observationsHeading = document.createElement('h3');
         observationsHeading.textContent = 'Supporting observations';

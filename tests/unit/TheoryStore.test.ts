@@ -66,6 +66,7 @@ describe('theory board store transitions', () => {
         ['run-1', 'run-2'].forEach((id) => store.dispatch({ type: 'run.record', record: run(id) }));
         ['run-1', 'run-2'].forEach((runId) => store.dispatch({ type: 'theory.supportRunSelected', runId }));
         ['source-1', 'source-2'].forEach((sourceId) => store.dispatch({ type: 'theory.supportSourceSelected', sourceId }));
+        store.dispatch({ type: 'theory.conclusionSet', conclusion: 'The selected evidence supports a bounded conclusion.' });
         store.dispatch({ type: 'theory.limitationSet', limitation: 'The observations do not settle every alternative explanation.' });
 
         expect(store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' })).toMatchObject({ ok: false, error: { code: 'invalid-case-transition' } });

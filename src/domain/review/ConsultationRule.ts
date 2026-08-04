@@ -25,10 +25,9 @@ const applies = (rule: ConsultationRule, evidence: ConsultationEvidence): boolea
         case 'missing-run':
             return evidence.runs.length < 2;
         case 'missing-source':
-            return !rule.predicate.sourceId || !evidence.inspectedSourceIds.includes(rule.predicate.sourceId);
+            return !evidence.inspectedSourceIds.includes(rule.predicate.sourceId);
         case 'alternative-test': {
             const controlId = rule.predicate.controlId;
-            if (!controlId) return false;
             return evidence.runs.length >= 2
                 && new Set(evidence.runs.map((run) => run.controls[controlId])).size < 2;
         }

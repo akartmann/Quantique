@@ -9,8 +9,8 @@ test('supports a keyboard-accessible evidence-to-conclusion draft with recoverab
     await expect(consultationRequest).toBeFocused();
     await expect(consultation.getByRole('status')).toHaveText('A next actionable step is available below.');
     await expect(consultation.getByText('Record a second observation in the measurement notebook.')).toBeVisible();
-    await expect(consultation.getByText('In-play observation')).toBeVisible();
-    await expect(consultation.getByText('Plain-language guidance')).toBeVisible();
+    await expect(consultation.getByText('In-play observation: The notebook has fewer than two recorded observations.')).toBeVisible();
+    await expect(consultation.getByText('Plain-language guidance: Record another observation so you can compare what changed.')).toBeVisible();
     await expect(consultation.getByText('Technical or source detail')).toBeVisible();
     const board = page.getByRole('region', { name: 'Theory board' });
     await expect(board).toBeVisible();
@@ -44,9 +44,23 @@ test('supports a keyboard-accessible evidence-to-conclusion draft with recoverab
     await board.getByLabel('Limitation or alternative explanation').fill('The prepared evidence does not resolve every alternative explanation.');
     await expect(board.getByRole('status', { name: 'Theory board status' })).toHaveText('Your selected evidence and limitation are ready for review.');
 
+    await board.getByRole('button', { name: 'Continue investigation to prediction' }).click();
+    await board.getByRole('button', { name: 'Continue investigation to experiment' }).click();
+    await board.getByRole('button', { name: 'Continue investigation to synthesis' }).click();
     const requestReview = board.getByRole('button', { name: 'Request review' });
     await requestReview.click();
     await expect(requestReview).toBeFocused();
-    await expect(board.getByRole('status', { name: 'Theory board status' })).toHaveText('Cannot advance from context to review.');
-    await expect(conclusion).toHaveValue('The prepared observations support a bounded conclusion.');
+    await expect(board.getByRole('status', { name: 'Theory board status' })).toHaveText('Your conclusion has moved to review.');
+
+    const peerReview = page.getByRole('region', { name: 'Peer review' });
+    const requestPeerFeedback = peerReview.getByRole('button', { name: 'Request peer feedback' });
+    await requestPeerFeedback.click();
+    await expect(requestPeerFeedback).toBeFocused();
+    await expect(peerReview.getByText('No authored concern applies to the current draft; keep its limitation visible when revising.')).toBeVisible();
+    const saveRevision = peerReview.getByRole('button', { name: 'Save reviewed revision' });
+    await saveRevision.click();
+    await expect(saveRevision).toBeFocused();
+    const history = page.getByRole('region', { name: 'Decision history' });
+    await expect(history.getByRole('heading', { name: 'Version 1' })).toBeVisible();
+    await expect(history.getByText('The prepared observations support a bounded conclusion.')).toBeVisible();
 });

@@ -41,11 +41,12 @@ const ContextualArtifactSchema = z.object({
     caseRelationship: z.string().trim().min(1)
 }).strict();
 
-const ConsultationPredicateSchema = z.object({
-    kind: z.enum(['missing-run', 'missing-source', 'alternative-test', 'missing-limitation']),
-    sourceId: stableId.optional(),
-    controlId: z.enum(['slitSpacingMm', 'screenDistanceM']).optional()
-}).strict();
+const ConsultationPredicateSchema = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('missing-run') }).strict(),
+    z.object({ kind: z.literal('missing-source'), sourceId: stableId }).strict(),
+    z.object({ kind: z.literal('alternative-test'), controlId: z.enum(['slitSpacingMm', 'screenDistanceM']) }).strict(),
+    z.object({ kind: z.literal('missing-limitation') }).strict()
+]);
 
 const ConsultationRuleSchema = z.object({
     id: stableId,
@@ -147,10 +148,10 @@ export const CaseDefinitionSchema = z.object({
     const sourceIds = new Set(definition.contextualArtifacts.map((artifact) => artifact.id));
     const controlIds = new Set(definition.apparatus.primaryControls.map((control) => control.id));
     definition.consultationRules.forEach((rule, index) => {
-        if (rule.predicate.sourceId && !sourceIds.has(rule.predicate.sourceId)) {
+        if (rule.predicate.kind === 'missing-source' && !sourceIds.has(rule.predicate.sourceId)) {
             context.addIssue({ code: 'custom', message: 'Consultation rules may only reference authored sources.', path: ['consultationRules', index, 'predicate', 'sourceId'] });
         }
-        if (rule.predicate.controlId && !controlIds.has(rule.predicate.controlId)) {
+        if (rule.predicate.kind === 'alternative-test' && !controlIds.has(rule.predicate.controlId)) {
             context.addIssue({ code: 'custom', message: 'Consultation rules may only reference authored controls.', path: ['consultationRules', index, 'predicate', 'controlId'] });
         }
         if (Object.values(rule.layers).some((text) => forbiddenPath.test(text)) || forbiddenPath.test(rule.nextStep)) {
