@@ -1,4 +1,5 @@
 import type { PrimaryControl } from '../../domain/cases/CaseDefinition';
+import type { RunRecord } from '../../domain/evidence/RunRecord';
 
 export type ApparatusControlSetAction = Readonly<{
     type: 'apparatus.controlSet';
@@ -7,4 +8,28 @@ export type ApparatusControlSetAction = Readonly<{
     origin: 'dom' | 'phaser';
 }>;
 
-export type AppAction = ApparatusControlSetAction;
+export type RunRecordAction = Readonly<{
+    type: 'run.record';
+    record: RunRecord;
+}>;
+
+export type ComparisonRunSelectAction = Readonly<{
+    type: 'comparison.runSelected';
+    runId: string;
+}>;
+
+export type ComparisonRunUnselectAction = Readonly<{
+    type: 'comparison.runUnselected';
+    runId: string;
+}>;
+
+export type ComparisonNoteSaveAction = Readonly<{
+    type: 'comparison.noteSaved';
+    note: string;
+}>;
+
+export type AppAction = ApparatusControlSetAction
+    | RunRecordAction
+    | ComparisonRunSelectAction
+    | ComparisonRunUnselectAction
+    | ComparisonNoteSaveAction;

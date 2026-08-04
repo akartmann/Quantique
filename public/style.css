@@ -81,6 +81,36 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .control-readout { font-size: 1.25rem; font-weight: 700; min-height: 1.5rem; }
 .control-range, .apparatus-status { min-height: 1.5rem; }
 
+.measurement-notebook, .run-comparison {
+    background: #f7f4ef;
+    border: 2px solid #f4d35e;
+    border-radius: 0.5rem;
+    color: #10252c;
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.notebook-status { min-height: 1.5rem; }
+.notebook-observations { display: grid; gap: 1rem; margin: 0; padding-left: 1.5rem; }
+.notebook-observation { border: 1px solid #34515a; border-radius: 0.3rem; display: grid; gap: 0.75rem; padding: 1rem; }
+.notebook-observation h3, .measurement-notebook h2, .measurement-notebook > h3, .run-comparison h3 { margin: 0; }
+.notebook-details { display: grid; gap: 0.5rem; margin: 0; }
+.notebook-details div { display: grid; gap: 0.25rem; }
+.notebook-details dt { font-weight: 700; }
+.notebook-details dd { margin: 0; }
+.measurement-notebook input, .measurement-notebook textarea {
+    border: 2px solid #34515a;
+    border-radius: 0.3rem;
+    color: #10252c;
+    font: inherit;
+    min-height: 44px;
+    padding: 0.4rem 0.6rem;
+}
+.measurement-notebook textarea { min-height: 6rem; resize: vertical; }
+.measurement-notebook input:focus-visible, .measurement-notebook textarea:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
+.run-comparison-columns { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
 #game-container { min-height: 20rem; }
 
 #game-container canvas { display: block; height: 100% !important; width: 100% !important; }
@@ -88,6 +118,7 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 @media (max-width: 720px) {
     #boot-shell { grid-template-columns: 1fr; }
     .boot-shell { padding: 2rem; }
+    .run-comparison-columns { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

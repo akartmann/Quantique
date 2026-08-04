@@ -4,7 +4,7 @@ baseline_commit: 83faa95159c2458083ccb56c38d684cc21df18d6
 
 # Story 1.4: Measurement notebook and run comparison
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -31,39 +31,39 @@ so that I can use my own evidence to reason about a scientific claim.
 
 ## Tasks / Subtasks
 
-- [ ] Define pure immutable evidence records and a narrow calculation seam (AC: 1, 4, 5)
-  - [ ] Add focused pure TypeScript modules under `src/domain/evidence/`, including `RunRecord.ts` for a `RunRecord` and factory/validator inputs. A record must contain a stable ID, `caseId`, an immutable snapshot of **both** active control values, the stored calculated/observed result, ISO timestamp, `experimentModelVersion`, and linked evidence IDs (initially empty or explicitly supplied).
-  - [ ] The run factory receives the ID and timestamp as arguments (or through an injected pure interface). It must never call `crypto.randomUUID()`, `Date`, IndexedDB, DOM, Phaser, `fetch`, or any other browser API from `src/domain/`.
-  - [ ] Add only the narrow pure result-calculation contract needed to build a deterministic record. It must be parameterized/injected from composition or a fixture until Story 2.2 supplies `calculateExperimentResult`; it must not embed Young fringe mathematics, canvas output, timers, or a freeform physics sandbox.
-  - [ ] Clone and freeze the controls, result, linked-evidence array, and record. Reject an invalid ID, timestamp, controls/result payload, duplicate ID, or non-finite scientific numeric value with the existing typed `Result` convention; never mutate an existing run after creation.
-  - [ ] Store the calculated result and `experimentModelVersion` in the record at creation. Every historic notebook rendering and comparison reads that stored snapshot—never recalculates it from current controls or a newer model.
+- [x] Define pure immutable evidence records and a narrow calculation seam (AC: 1, 4, 5)
+  - [x] Add focused pure TypeScript modules under `src/domain/evidence/`, including `RunRecord.ts` for a `RunRecord` and factory/validator inputs. A record must contain a stable ID, `caseId`, an immutable snapshot of **both** active control values, the stored calculated/observed result, ISO timestamp, `experimentModelVersion`, and linked evidence IDs (initially empty or explicitly supplied).
+  - [x] The run factory receives the ID and timestamp as arguments (or through an injected pure interface). It must never call `crypto.randomUUID()`, `Date`, IndexedDB, DOM, Phaser, `fetch`, or any other browser API from `src/domain/`.
+  - [x] Add only the narrow pure result-calculation contract needed to build a deterministic record. It must be parameterized/injected from composition or a fixture until Story 2.2 supplies `calculateExperimentResult`; it must not embed Young fringe mathematics, canvas output, timers, or a freeform physics sandbox.
+  - [x] Clone and freeze the controls, result, linked-evidence array, and record. Reject an invalid ID, timestamp, controls/result payload, duplicate ID, or non-finite scientific numeric value with the existing typed `Result` convention; never mutate an existing run after creation.
+  - [x] Store the calculated result and `experimentModelVersion` in the record at creation. Every historic notebook rendering and comparison reads that stored snapshot—never recalculates it from current controls or a newer model.
 
-- [ ] Extend the authoritative store with typed evidence and comparison transitions (AC: 1, 3–5)
-  - [ ] Extend `src/core/store/AppAction.ts` with a discriminated action union for recording a prepared run, selecting/unselecting comparison run IDs, and saving an associated comparison note. Preserve `apparatus.controlSet` exactly, including diagnostic-only `origin` semantics.
-  - [ ] Refactor `reduceAppState` in `src/core/store/AppState.ts` to switch exhaustively by action type before accessing action-specific fields. The current reducer assumes every action has `controlId`; that must not leak into run/note actions.
-  - [ ] Add frozen run collection and comparison state to `AppState`. Preserve `caseDefinition` and `activeControlValues` immutability, and return a fresh frozen state only after a successful transition.
-  - [ ] Reject unknown or duplicate runs, selecting fewer/more than two runs for a side-by-side comparison, selecting the same run twice, and notes not associated with a valid selected pair as recoverable `Result` failures. A failed action must retain all previously valid in-memory runs/notes and must not notify subscribers through `createStore`.
-  - [ ] Add public selectors in `src/core/store/selectors.ts` for ordered notebook observations, record metadata/formatting, selected comparison pair, and its saved note. UI code must render selectors rather than owning copies of run data.
-  - [ ] Do not use a scene, UI visibility, or phase history to determine a record's validity or progression. Preserve the pure `context → prediction → experiment → synthesis → review → debrief` phase model; this story does not advance it.
+- [x] Extend the authoritative store with typed evidence and comparison transitions (AC: 1, 3–5)
+  - [x] Extend `src/core/store/AppAction.ts` with a discriminated action union for recording a prepared run, selecting/unselecting comparison run IDs, and saving an associated comparison note. Preserve `apparatus.controlSet` exactly, including diagnostic-only `origin` semantics.
+  - [x] Refactor `reduceAppState` in `src/core/store/AppState.ts` to switch exhaustively by action type before accessing action-specific fields. The current reducer assumes every action has `controlId`; that must not leak into run/note actions.
+  - [x] Add frozen run collection and comparison state to `AppState`. Preserve `caseDefinition` and `activeControlValues` immutability, and return a fresh frozen state only after a successful transition.
+  - [x] Reject unknown or duplicate runs, selecting fewer/more than two runs for a side-by-side comparison, selecting the same run twice, and notes not associated with a valid selected pair as recoverable `Result` failures. A failed action must retain all previously valid in-memory runs/notes and must not notify subscribers through `createStore`.
+  - [x] Add public selectors in `src/core/store/selectors.ts` for ordered notebook observations, record metadata/formatting, selected comparison pair, and its saved note. UI code must render selectors rather than owning copies of run data.
+  - [x] Do not use a scene, UI visibility, or phase history to determine a record's validity or progression. Preserve the pure `context → prediction → experiment → synthesis → review → debrief` phase model; this story does not advance it.
 
-- [ ] Build the semantic Measurement Notebook and comparison surface (AC: 2, 3, 5)
-  - [ ] Add focused `src/ui/notebook/NotebookPanel.ts` and, if it keeps selection/presentation clearer, `src/ui/notebook/RunComparison.ts`. Mount them from `src/main.ts` with the same shared store used by the apparatus and Phaser adapter.
-  - [ ] Extend `index.html` and `public/style.css`; preserve `#boot-shell`, `#boot-status`, the accessible `Enter laboratory` button, `#apparatus-controls`, `#game-container`, cached-launch behavior, and the existing phone read-only lab-control behavior. The notebook stays readable on phones; it must not re-enable laboratory controls.
-  - [ ] Use semantic headings, ordered observations, associated labels/values/units, native buttons/inputs, and a polite status/recovery region. Expose the record's order, timestamp, model version, both controls, observed result, and linked evidence as text; no notebook fact may be canvas-only, colour-only, or sound-only.
-  - [ ] Provide a named semantic action to record the prepared experiment result and calm factual confirmation (for example, “Observation 2 recorded.”). On invalid input or failed save, use neutral actionable copy such as “This observation could not be recorded. Your existing observations are unchanged.” Never expose exception text or frame it as a learner error.
-  - [ ] Once at least two runs exist, provide controls to select **any two distinct saved runs**, render their settings/results in a clearly labelled side-by-side comparison, and save/revisit one associated comparison note. Do not silently choose a pair or overwrite a note for a different pair.
-  - [ ] Follow the UX/design spine: warm notebook/note presentation, stable numeric type for values/timestamps/results, 4.5:1+ text contrast, visible 2px focus treatment, 44×44 CSS-px touch targets where applicable, logical keyboard order, and reduced-motion-safe behavior. Feedback must be calm, precise, evidence-focused, and non-competitive.
+- [x] Build the semantic Measurement Notebook and comparison surface (AC: 2, 3, 5)
+  - [x] Add focused `src/ui/notebook/NotebookPanel.ts` and, if it keeps selection/presentation clearer, `src/ui/notebook/RunComparison.ts`. Mount them from `src/main.ts` with the same shared store used by the apparatus and Phaser adapter.
+  - [x] Extend `index.html` and `public/style.css`; preserve `#boot-shell`, `#boot-status`, the accessible `Enter laboratory` button, `#apparatus-controls`, `#game-container`, cached-launch behavior, and the existing phone read-only lab-control behavior. The notebook stays readable on phones; it must not re-enable laboratory controls.
+  - [x] Use semantic headings, ordered observations, associated labels/values/units, native buttons/inputs, and a polite status/recovery region. Expose the record's order, timestamp, model version, both controls, observed result, and linked evidence as text; no notebook fact may be canvas-only, colour-only, or sound-only.
+  - [x] Provide a named semantic action to record the prepared experiment result and calm factual confirmation (for example, “Observation 2 recorded.”). On invalid input or failed save, use neutral actionable copy such as “This observation could not be recorded. Your existing observations are unchanged.” Never expose exception text or frame it as a learner error.
+  - [x] Once at least two runs exist, provide controls to select **any two distinct saved runs**, render their settings/results in a clearly labelled side-by-side comparison, and save/revisit one associated comparison note. Do not silently choose a pair or overwrite a note for a different pair.
+  - [x] Follow the UX/design spine: warm notebook/note presentation, stable numeric type for values/timestamps/results, 4.5:1+ text contrast, visible 2px focus treatment, 44×44 CSS-px touch targets where applicable, logical keyboard order, and reduced-motion-safe behavior. Feedback must be calm, precise, evidence-focused, and non-competitive.
 
-- [ ] Preserve the Phaser boundary and performance characteristics (AC: 1, 2, 4)
-  - [ ] Phaser remains a visual laboratory projection only. Do not put the notebook, run collection, comparison state, calculation authority, browser storage, or accessibility announcement logic in `src/adapters/phaser/`, `LaboratoryScene`, or `ApparatusRenderer`.
-  - [ ] Leave the Story 1.3 typed `apparatus.controlSet` path, DOM/Phaser parity, semantic announcement for Phaser-originated control changes, phone read-only behavior, exponent-form normalization, and shutdown cleanup intact.
-  - [ ] Do not add per-frame calculation, DOM work, JSON parsing, IndexedDB access, logging, transient collection allocation, pooling, physics, backend calls, analytics, or network-critical behavior. A current-control change or reset may change future run inputs but cannot mutate a saved record.
+- [x] Preserve the Phaser boundary and performance characteristics (AC: 1, 2, 4)
+  - [x] Phaser remains a visual laboratory projection only. Do not put the notebook, run collection, comparison state, calculation authority, browser storage, or accessibility announcement logic in `src/adapters/phaser/`, `LaboratoryScene`, or `ApparatusRenderer`.
+  - [x] Leave the Story 1.3 typed `apparatus.controlSet` path, DOM/Phaser parity, semantic announcement for Phaser-originated control changes, phone read-only behavior, exponent-form normalization, and shutdown cleanup intact.
+  - [x] Do not add per-frame calculation, DOM work, JSON parsing, IndexedDB access, logging, transient collection allocation, pooling, physics, backend calls, analytics, or network-critical behavior. A current-control change or reset may change future run inputs but cannot mutate a saved record.
 
-- [ ] Verify deterministic public behavior and regressions (AC: 1–6)
-  - [ ] Add Vitest unit fixtures/specs for deterministic record creation using explicit IDs/timestamps; control/result/model-version snapshots; deep immutability; rejected invalid records; record preservation after later live-control changes; ordered selection of any two runs; duplicate/same-run selection rejection; and comparison-note association/preservation.
-  - [ ] Add an integration test driven through public actions and selectors (not Phaser fields) that records at least two fixture results, verifies the semantic/selector notebook projection, compares both orders/pairs where applicable, saves a note, and proves current control changes do not alter historic values/results/model versions.
-  - [ ] Add Playwright coverage through semantic roles, labels, values, and status text: record observations, inspect all required metadata, select two runs, see both columns side-by-side, save/read the comparison note, and receive neutral recovery copy while existing observations remain available. Run axe with the notebook exposed; manually verify keyboard-only operation, focus recovery, zoom/text scaling, non-colour encoding, and screen-reader announcements.
-  - [ ] Keep and run the existing boot-shell, accessible-control (keyboard/pointer/touch and phone), production build, offline-reload, and cross-browser tests. Do not loosen their public assertions to accommodate the notebook.
+- [x] Verify deterministic public behavior and regressions (AC: 1–6)
+  - [x] Add Vitest unit fixtures/specs for deterministic record creation using explicit IDs/timestamps; control/result/model-version snapshots; deep immutability; rejected invalid records; record preservation after later live-control changes; ordered selection of any two runs; duplicate/same-run selection rejection; and comparison-note association/preservation.
+  - [x] Add an integration test driven through public actions and selectors (not Phaser fields) that records at least two fixture results, verifies the semantic/selector notebook projection, compares both orders/pairs where applicable, saves a note, and proves current control changes do not alter historic values/results/model versions.
+  - [x] Add Playwright coverage through semantic roles, labels, values, and status text: record observations, inspect all required metadata, select two runs, see both columns side-by-side, save/read the comparison note, and receive neutral recovery copy while existing observations remain available. Run axe with the notebook exposed; manually verify keyboard-only operation, focus recovery, zoom/text scaling, non-colour encoding, and screen-reader announcements.
+  - [x] Keep and run the existing boot-shell, accessible-control (keyboard/pointer/touch and phone), production build, offline-reload, and cross-browser tests. Do not loosen their public assertions to accommodate the notebook.
 
 ## Developer guardrails
 
@@ -149,6 +149,7 @@ GPT-5.6 Codex
 
 - Ultimate context engine analysis completed: complete planning/GDD/architecture/project-context/UX review; prior-story and source inspection; recent Git intelligence; parallel artifact, source, and official-documentation research.
 - Validation checklist applied: the story prevents duplicate persistence/physics work, preserves the store and prior public behavior, specifies exact update/new paths, and makes testing/accessibility/regression expectations actionable.
+- Implemented the pure evidence seam, immutable store transitions, semantic notebook, and browser regression suite; full Vitest, build, Chromium, axe, Firefox, and WebKit checks passed.
 
 ### Completion Notes List
 
@@ -156,8 +157,26 @@ GPT-5.6 Codex
 - Status set to `ready-for-dev`.
 - The Story 1.4 / Story 2.2 calculation boundary is explicit: record a pure injected result now; deliver Young fringe physics and execution timing later.
 - Story 1.8 remains the sole owner of IndexedDB persistence and portable records.
+- Added pure, frozen run snapshots and a composition-injected prepared-result seam without introducing Young physics or persistence.
+- Added store-backed semantic observation recording, two-run comparison, pair-specific notes, calm recovery messaging, and focused unit, integration, and Playwright coverage.
 
 ### File List
 
 - `_bmad-output/implementation-artifacts/1-4-measurement-notebook-and-run-comparison.md` (new story context)
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (status update)
+- `src/domain/evidence/RunRecord.ts` (new pure evidence factory and calculation contract)
+- `src/core/store/AppAction.ts` (typed run and comparison actions)
+- `src/core/store/AppState.ts` (immutable evidence and comparison transitions)
+- `src/core/store/selectors.ts` (notebook and comparison selectors)
+- `src/ui/notebook/NotebookPanel.ts` (semantic notebook and comparison UI)
+- `src/main.ts` (prepared-observation composition)
+- `index.html` (notebook mount point)
+- `public/style.css` (notebook presentation and responsive comparison layout)
+- `tests/unit/RunRecord.test.ts` (pure evidence tests)
+- `tests/unit/EvidenceStore.test.ts` (store transition tests)
+- `tests/integration/MeasurementNotebook.test.ts` (public action/selector integration test)
+- `tests/e2e/measurement-notebook.spec.ts` (semantic browser journey)
+
+## Change Log
+
+- 2026-08-04: Implemented Story 1.4 measurement notebook, immutable run evidence, comparison notes, and regression coverage; status set to review.
