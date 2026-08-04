@@ -4,7 +4,7 @@ baseline_commit: 4a3a941f4d84c40b46a30f7364e3035b8ad352c7
 
 # Story 1.6: Evidence-to-conclusion theory board
 
-Status: review
+Status: done
 
 ## Story
 
@@ -66,7 +66,15 @@ so that I can make only the scientific claim that my evidence supports.
   - [x] Add `tests/integration/TheoryBoard.test.ts` using only public actions and selectors. Verify support selection, explicit readiness recovery, review transition, and preservation of existing runs, linked evidence snapshots, source state, and notebook comparison state.
   - [x] Add `tests/e2e/theory-board.spec.ts` using `getByRole`/`getByLabel`: semantic board fields, keyboard selection, focus restoration, polite incomplete guidance, and a valid review submission flow. Do not assert canvas pixels, Phaser private fields, or incidental DOM structure.
   - [x] Extend `tests/e2e/accessibility.spec.ts` with an Axe scan of the exposed Theory Board after it reaches the intended state. Manually verify keyboard-only operation, focus recovery, screen-reader announcements, non-colour understanding of scientific/provenance information, and responsive touch target sizing; Axe alone is insufficient.
-  - [x] Run the existing unit, integration, production-build, cached/offline, Curated Record, notebook, dual-surface parity, and Chromium/Firefox/WebKit Playwright regressions. Do not loosen prior public assertions.
+- [x] Run the existing unit, integration, production-build, cached/offline, Curated Record, notebook, dual-surface parity, and Chromium/Firefox/WebKit Playwright regressions. Do not loosen prior public assertions.
+
+### Review Findings
+
+- [x] [Review][Patch] Clear stale recovery guidance after authoritative theory updates [src/ui/theory/TheoryBoard.ts:81]
+- [x] [Review][Patch] Make the conclusion control uniquely addressable in the browser test [tests/e2e/theory-board.spec.ts:24]
+- [x] [Review][Patch] Show each supporting observation's recorded control settings [src/ui/theory/TheoryBoard.ts:25]
+- [x] [Review][Patch] Cover every readiness combination and conclusion edits [tests/unit/ConclusionReadiness.test.ts:31]
+- [x] [Review][Patch] Cover keyboard selection and a successful synthesis-to-review submission [tests/e2e/theory-board.spec.ts:17]
 
 ## Dev Notes
 

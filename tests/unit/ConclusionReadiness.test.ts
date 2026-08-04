@@ -29,6 +29,9 @@ describe('conclusion readiness', () => {
         ['runs', { selectedRunIds: [], selectedSourceIds: ['source-1', 'source-2'], limitation: 'Measurement uncertainty.' }, ['minimum-runs']],
         ['sources', { selectedRunIds: ['run-1', 'run-2'], selectedSourceIds: [], limitation: 'Measurement uncertainty.' }, ['minimum-sources']],
         ['limitation', { selectedRunIds: ['run-1', 'run-2'], selectedSourceIds: ['source-1', 'source-2'], limitation: '  ' }, ['limitation']],
+        ['runs and sources', { selectedRunIds: [], selectedSourceIds: [], limitation: 'Measurement uncertainty.' }, ['minimum-runs', 'minimum-sources']],
+        ['runs and limitation', { selectedRunIds: [], selectedSourceIds: ['source-1', 'source-2'], limitation: '  ' }, ['minimum-runs', 'limitation']],
+        ['sources and limitation', { selectedRunIds: ['run-1', 'run-2'], selectedSourceIds: [], limitation: '  ' }, ['minimum-sources', 'limitation']],
         ['all prerequisites', { selectedRunIds: [], selectedSourceIds: [], limitation: '' }, ['minimum-runs', 'minimum-sources', 'limitation']]
     ])('reports %s as explicit recoverable missing evidence', (_name, partialDraft, expectedCodes) => {
         const readiness = evaluateConclusionReadiness(definition, evidence, {
@@ -71,16 +74,20 @@ describe('conclusion readiness', () => {
         expect({ evidence, draft }).toEqual(before);
     });
 
-    it('re-evaluates changes to selection and limitation deterministically', () => {
+    it('re-evaluates selection, conclusion, and limitation changes deterministically', () => {
         const incomplete = evaluateConclusionReadiness(definition, evidence, createTheoryBoardDraft());
         const validDraft = {
             selectedRunIds: ['run-1', 'run-2'], selectedSourceIds: ['source-1', 'source-2'], conclusion: '', limitation: 'A limitation.'
         };
+        const revisedConclusion = { ...validDraft, conclusion: 'A bounded conclusion based on current evidence.' };
 
         expect(evaluateConclusionReadiness(definition, evidence, validDraft)).toEqual(
             evaluateConclusionReadiness(definition, evidence, validDraft)
         );
         expect(incomplete.status).toBe('incomplete');
         expect(evaluateConclusionReadiness(definition, evidence, validDraft).status).toBe('ready');
+        expect(evaluateConclusionReadiness(definition, evidence, revisedConclusion)).toEqual(
+            evaluateConclusionReadiness(definition, evidence, validDraft)
+        );
     });
 });

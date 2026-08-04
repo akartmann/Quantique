@@ -15,13 +15,20 @@ test('supports a keyboard-accessible evidence-to-conclusion draft with recoverab
     await recordObservation.click();
 
     const firstRun = board.getByRole('checkbox', { name: 'Select Observation 1 as conclusion support' });
-    await firstRun.check();
+    await firstRun.focus();
+    await page.keyboard.press('Space');
     await expect(firstRun).toBeFocused();
-    await board.getByRole('checkbox', { name: 'Select Observation 2 as conclusion support' }).check();
-    await board.getByRole('checkbox', { name: 'Select Thomas Young’s 1801 lecture record as conclusion support' }).check();
-    await board.getByRole('checkbox', { name: 'Select Opticks reference as conclusion support' }).check();
+    const secondRun = board.getByRole('checkbox', { name: 'Select Observation 2 as conclusion support' });
+    await secondRun.focus();
+    await page.keyboard.press('Space');
+    const youngSource = board.getByRole('checkbox', { name: 'Select Thomas Young’s 1801 lecture record as conclusion support' });
+    await youngSource.focus();
+    await page.keyboard.press('Space');
+    const opticksSource = board.getByRole('checkbox', { name: 'Select Opticks reference as conclusion support' });
+    await opticksSource.focus();
+    await page.keyboard.press('Space');
 
-    const conclusion = board.getByLabel('Conclusion');
+    const conclusion = board.getByLabel('Conclusion', { exact: true });
     await conclusion.fill('The prepared observations support a bounded conclusion.');
     await expect(conclusion).toBeFocused();
     await board.getByLabel('Limitation or alternative explanation').fill('The prepared evidence does not resolve every alternative explanation.');

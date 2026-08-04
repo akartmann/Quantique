@@ -26,6 +26,9 @@ const runDetails = (record: RunRecord, order: number, store: AppStore): HTMLElem
         definition('Recorded order', String(order)),
         definition('Timestamp', record.timestamp),
         definition('Experiment model version', record.experimentModelVersion),
+        definition('Control settings', Object.entries(record.controls)
+            .map(([controlId, value]) => `${controlId}: ${value}`)
+            .join('; ')),
         definition('Observed result', `${record.result.label}: ${record.result.value} ${record.result.unit}`),
         definition('Linked evidence', record.linkedEvidenceIds.length
             ? record.linkedEvidenceIds.map((sourceId) => selectSourceLabel(store.getState(), sourceId)).join(', ')
@@ -60,6 +63,7 @@ export const mountTheoryBoard = (root: HTMLElement, store: AppStore): (() => voi
             theory: state.theory
         });
         if (!force && signature === renderedStateSignature) return;
+        if (signature !== renderedStateSignature) statusMessage = '';
         requestedFocusKey = undefined;
         renderedStateSignature = signature;
 

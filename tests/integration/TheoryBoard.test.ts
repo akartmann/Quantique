@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore } from '../../src/core/store/createStore';
 import {
+    selectCasePhase,
     selectConclusionReadiness,
     selectSelectedComparisonPair,
     selectSelectedSupportingRuns,
@@ -34,8 +35,12 @@ const fixtureRun = (id: string, linkedEvidenceIds: readonly string[]) => {
 };
 
 describe('theory board public projection', () => {
-    it('keeps theory support independent from notebook comparison and preserves historical evidence', () => {
+    it('recovers from incomplete evidence, keeps theory support independent from comparison, and submits from synthesis', () => {
         const store = createStore(createInitialAppState(definition));
+        expect(store.dispatch({ type: 'theory.reviewRequested' })).toMatchObject({
+            ok: false,
+            error: { code: 'conclusion-not-ready' }
+        });
         ['source-1', 'source-2'].forEach((sourceId) => store.dispatch({ type: 'source.inspected', sourceId }));
         const first = fixtureRun('run-1', ['source-1']);
         const second = fixtureRun('run-2', ['source-1', 'source-2']);
@@ -55,5 +60,10 @@ describe('theory board public projection', () => {
         expect(selectSelectedComparisonPair(store.getState())).toEqual([first, second]);
         expect(store.getState().runs).toEqual([first, second]);
         expect(selectConclusionReadiness(store.getState())).toMatchObject({ status: 'ready' });
+        ['prediction', 'experiment', 'synthesis'].forEach((nextPhase) => {
+            expect(store.dispatch({ type: 'case.phaseAdvance', nextPhase })).toEqual({ ok: true, value: undefined });
+        });
+        expect(store.dispatch({ type: 'theory.reviewRequested' })).toEqual({ ok: true, value: undefined });
+        expect(selectCasePhase(store.getState())).toBe('review');
     });
 });
