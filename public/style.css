@@ -50,6 +50,37 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
 #boot-status { min-height: 1.5rem; }
 
+.apparatus-controls {
+    background: #173841;
+    border: 2px solid #95d8d0;
+    border-radius: 0.5rem;
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.apparatus-controls h2 { font-size: 1.25rem; margin: 0; }
+
+.apparatus-controls label { font-weight: 700; }
+
+.apparatus-controls input {
+    background: #fff;
+    border: 2px solid #f7f4ef;
+    border-radius: 0.3rem;
+    color: #10252c;
+    font: inherit;
+    min-height: 44px;
+    padding: 0.4rem 0.6rem;
+}
+
+.apparatus-controls input:focus-visible {
+    outline: 3px solid #f4d35e;
+    outline-offset: 3px;
+}
+
+.control-readout { font-size: 1.25rem; font-weight: 700; min-height: 1.5rem; }
+.control-range, .apparatus-status { min-height: 1.5rem; }
+
 #game-container { min-height: 20rem; }
 
 #game-container canvas { display: block; height: 100% !important; width: 100% !important; }
@@ -57,4 +88,8 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 @media (max-width: 720px) {
     #boot-shell { grid-template-columns: 1fr; }
     .boot-shell { padding: 2rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 }

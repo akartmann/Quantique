@@ -18,5 +18,5 @@ test('makes the semantic laboratory entry interaction ready within five seconds'
     expect(Date.now() - startedAt).toBeLessThan(5_000);
 
     await entryButton.click();
-    await expect(page.getByRole('status')).toHaveText('Laboratory shell ready.');
+    await expect(page.locator('#boot-status')).toHaveText('Laboratory shell ready.');
 });

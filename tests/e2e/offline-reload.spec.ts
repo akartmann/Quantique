@@ -16,5 +16,5 @@ test('keeps the cached production boot shell usable after an offline reload', as
     const entryButton = page.getByRole('button', { name: 'Enter laboratory' });
     await expect(entryButton).toBeVisible();
     await entryButton.click();
-    await expect(page.getByRole('status')).toHaveText('Laboratory shell ready.');
+    await expect(page.locator('#boot-status')).toHaveText('Laboratory shell ready.');
 });

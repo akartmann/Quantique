@@ -1,17 +1,33 @@
-import StartGame from './game/main';
 import { registerOfflineCache } from './adapters/OfflineCache';
-import { createBootShell } from './ui/BootShell';
+import { loadCaseDefinition } from './adapters/content/loadCaseDefinition';
+import { createInitialAppState } from './core/store/AppState';
+import { createStore } from './core/store/createStore';
+import StartGame from './game/main';
+import { mountApparatusControls } from './ui/apparatus/ApparatusControls';
+import { createBootShell, setBootShellStatus } from './ui/BootShell';
 
-document.addEventListener('DOMContentLoaded', () => {
-
+const initializeLaboratory = async (): Promise<void> => {
     const bootShell = document.querySelector<HTMLElement>('#boot-shell');
+    const controlsRoot = document.querySelector<HTMLElement>('#apparatus-controls');
 
-    if (!bootShell) {
-        throw new Error('The boot shell root is missing.');
+    if (!bootShell || !controlsRoot) {
+        return;
     }
 
     createBootShell(bootShell);
-    StartGame('game-container');
     void registerOfflineCache();
 
+    const caseResult = await loadCaseDefinition('young-interference');
+    if (!caseResult.ok) {
+        setBootShellStatus(bootShell, 'Laboratory content is unavailable. Please try again when it is available.');
+        return;
+    }
+
+    const store = createStore(createInitialAppState(caseResult.value));
+    mountApparatusControls(controlsRoot, store);
+    StartGame('game-container', store);
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    void initializeLaboratory();
 });

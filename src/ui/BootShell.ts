@@ -2,6 +2,13 @@ const READY_MESSAGE = 'Laboratory shell ready.';
 
 export const getBootShellStatusMessage = (): string => READY_MESSAGE;
 
+export const setBootShellStatus = (root: HTMLElement, message: string): void => {
+    const status = root.querySelector<HTMLElement>('#boot-status');
+    if (status) {
+        status.textContent = message;
+    }
+};
+
 export const createBootShell = (root: HTMLElement): void => {
     const button = root.querySelector<HTMLButtonElement>('[data-testid="enter-laboratory"]');
     const status = root.querySelector<HTMLElement>('#boot-status');
@@ -11,6 +18,6 @@ export const createBootShell = (root: HTMLElement): void => {
     }
 
     button.addEventListener('click', () => {
-        status.textContent = getBootShellStatusMessage();
+        setBootShellStatus(root, getBootShellStatusMessage());
     });
 };
