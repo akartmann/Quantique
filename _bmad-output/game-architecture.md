@@ -11,7 +11,7 @@ platform: 'Desktop web browsers'
 
 # Source Documents
 gdd: '/Users/akartmann/Documents/Projects/Quantique/_bmad-output/planning-artifacts/gdds/gdd-Quantique-2026-08-04/gdd.md'
-epics: '/Users/akartmann/Documents/Projects/Quantique/_bmad-output/planning-artifacts/gdds/gdd-Quantique-2026-08-04/epics.md'
+epics: '/Users/akartmann/Documents/Projects/Quantique/_bmad-output/planning-artifacts/epics.md'
 brief: '/Users/akartmann/Documents/Projects/Quantique/_bmad-output/planning-artifacts/briefs/brief-Quantique-2026-08-04/brief.md'
 ---
 

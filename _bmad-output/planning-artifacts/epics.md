@@ -126,7 +126,7 @@ FR25: Epic 1 Story 1.2; Epics 2 and 4–6 case-loop criteria.
 FR26: Epic 3 Story 3.3 — ledger fields: named primary/secondary sources, scholarly reviewer, educator context sheet, accessible-controls reference, and rights/replacement plan.
 FR27: Epic 1 Story 1.5; Epic 3 Story 3.3.
 FR28: Epic 1 Story 1.10.
-FR29: Epic 1 Story 1.10; Epic 7 Story 7.4.
+FR29: Epic 1 Story 1.9.
 
 ## Epic List
 
@@ -878,3 +878,14 @@ So that educators can deploy it by URL without accounts or tracking.
 **When** release sign-off is evaluated,
 **Then** educator, scholarly, source/rights, accessibility, performance, and offline-reload gates are recorded,
 **And** an unmet gate prevents public-release approval.
+
+### Delivery-evidence ownership checklist
+
+| Evidence artifact | Accountable owner | Required evidence |
+| --- | --- | --- |
+| Moderated learner validation | Learning-validation lead | Consent-aware facilitator rubric, de-identified aggregate, and the Young gate decision. |
+| Educator validation | Educator-review lead | Five educator responses and a recorded share/use decision. |
+| Scholarly and source/rights review | Scholarly and rights reviewer | Reviewed source/rights ledger, claim/asset status, and remediation for any incomplete item. |
+| Accessibility acceptance | Accessibility reviewer | Keyboard-only, screen-reader, focus-recovery, touch/pointer-parity, and non-colour-encoding sign-off. |
+| Cross-browser, performance, and offline verification | QA/release lead | Chromium, Firefox, and WebKit results; low-end-laptop 60-FPS 10-minute-loop result; and offline-reload result. |
+| Public-release decision | Release owner | Gate checklist, owner evidence links, decision, and remediation for every unmet gate. |

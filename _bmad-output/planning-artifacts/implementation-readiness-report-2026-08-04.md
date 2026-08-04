@@ -7,8 +7,10 @@ documentsIncluded:
   epics:
     - '_bmad-output/planning-artifacts/epics.md'
   architecture:
-    - '_bmad-output/game-architecture.md' # Reviewed during UX alignment; outside configured planning-artifacts folder
-  ux: []
+    - '_bmad-output/game-architecture.md'
+  ux:
+    - '_bmad-output/planning-artifacts/ux-designs/ux-Quantique-2026-08-04/DESIGN.md'
+    - '_bmad-output/planning-artifacts/ux-designs/ux-Quantique-2026-08-04/EXPERIENCE.md'
 ---
 
 # Implementation Readiness Assessment Report
@@ -274,11 +276,11 @@ No contradiction was found between the available GDD, architecture, and epics. T
 | Acceptance criteria are BDD/testable | Pass with gaps | Strong format; learning-study, performance, and some release evidence need more specificity. |
 | Requirement traceability | Partial | Coverage exists, but GDD and epic FR identifiers are not shared. |
 
-## Summary and Recommendations
+## Summary and Recommendations (Superseded by Current Artifact Set)
 
 ### Overall Readiness Status
 
-**NOT READY** for implementation planning as currently sequenced. The artifacts establish a credible Young-slice vision and robust architectural direction, but the epic sequence contains a direct forward dependency and the product lacks the UX specification needed to implement its accessibility-critical player experience consistently.
+**NOT READY — superseded.** This historical assessment predates the final UX package and revised epic structure. See “Final Assessment — Current Artifact Set” for the governing conclusion.
 
 ### Critical Issues Requiring Immediate Action
 
@@ -300,3 +302,107 @@ This assessment identified **2 critical violations, 4 major planning issues, 3 m
 
 **Assessor:** Codex implementation-readiness workflow
 **Assessment completed:** 2026-08-04
+
+## Document Discovery Addendum
+
+- **GDD:** `_bmad-output/planning-artifacts/gdds/gdd-Quantique-2026-08-04/gdd.md`; supporting decision log: `decision-log.md`.
+- **Architecture:** `_bmad-output/game-architecture.md` (user-confirmed location, outside the configured planning-artifacts folder).
+- **Epics & Stories:** `_bmad-output/planning-artifacts/epics.md`.
+- **UX:** `_bmad-output/planning-artifacts/ux-designs/ux-Quantique-2026-08-04/DESIGN.md` and `EXPERIENCE.md`; supporting coverage and reconciliation files are present.
+
+No whole-versus-sharded duplicate conflict was found. The GDD and UX folders have no `index.md`; the primary documents above are the approved assessment inputs.
+
+## Epic Coverage Validation Addendum
+
+The current `epics.md` contains an explicit FR coverage map and a matching requirements inventory. All 29 GDD functional requirements have an implementation path; no FR is wholly missing.
+
+| FR | Epic coverage | Status |
+| --- | --- | --- |
+| FR1 | 2, 4, 5, 6 | Covered |
+| FR2 | 1, 2, 4 | Covered |
+| FR3 | 1.2; 2, 4–6 | Covered |
+| FR4 | 2.1; 4–6 context stories | Covered |
+| FR5 | 1.5; 2, 4–6 records | Covered |
+| FR6 | 1.3; 3.1 | Covered |
+| FR7 | 2.2 | Covered |
+| FR8 | 2.2 | Covered |
+| FR9 | 1.4; 2.3 | Covered |
+| FR10 | 1.4; 2.3 | Covered |
+| FR11 | 1.8 | Covered |
+| FR12 | 1.6 | Covered |
+| FR13 | 1.6; 2, 4–6 conclusion stories | Covered |
+| FR14 | 1.7 | Covered |
+| FR15 | 1.7 | Covered |
+| FR16 | 1.6–1.7 | Covered |
+| FR17 | 1.9 | Covered |
+| FR18 | 1.2; 2, 4–6 case-loop criteria | Covered |
+| FR19 | 3.2; 4.2 | Covered |
+| FR20 | 5.2 | Covered |
+| FR21 | 6.2 | Covered |
+| FR22 | 1.7 | Covered |
+| FR23 | 1.6–1.7 | Covered |
+| FR24 | 2.3; 4–6 replay criteria | Covered |
+| FR25 | 1.2; 2, 4–6 case-loop criteria | Covered |
+| FR26 | 3.3 | Covered |
+| FR27 | 1.5; 3.3 | Covered |
+| FR28 | 1.9 | Covered |
+| FR29 | 1.9 | Covered |
+
+Coverage statistics: 29 GDD FRs; 29 covered (100%); 0 missing.
+
+## UX Alignment Assessment Addendum
+
+### UX Document Status
+
+**Found and final:** `ux-designs/ux-Quantique-2026-08-04/DESIGN.md` and `EXPERIENCE.md`, with coverage and source-reconciliation records. These documents define the player journey, information architecture, component behavior, accessibility floor, interaction modalities, recovery states, responsive rules, and visual tokens.
+
+### Alignment Result
+
+The UX, GDD, and architecture are aligned. The GDD’s evidence-led case loop, semantic alternatives, input parity, no-hard-fail rule, provenance distinctions, local/offline progress, caption/audio requirements, and tablet-ready direction map directly to UX flows and component/state rules. The architecture supports these through semantic-HTML authority, typed dual-surface intents, focus/announcement adapters, immutable evidence state, IndexedDB persistence, semantic print UI, and Phaser as a non-authoritative laboratory renderer.
+
+### Findings
+
+- **Pass:** UX specifies focus, announcements, non-colour/non-audio meaning, touch targets, reduced motion, text scaling, and recovery states that had previously been absent from the readiness report.
+- **Pass:** UX adds no player-facing interaction that lacks an architectural home; its named surfaces map to the architecture’s apparatus, notebook, theory, source, review, settings, print, DOM-adapter, and Phaser-renderer modules.
+- **Resolved:** architecture frontmatter now points to the approved `_bmad-output/planning-artifacts/epics.md` file.
+
+## Epic Quality Review Addendum
+
+### Result
+
+The current epic plan satisfies the structural readiness checks. All epics describe a player, author, reviewer, educator, or release-owner outcome; acceptance criteria are consistently concrete Given/When/Then scenarios; and the prior Young-to-case-framework forward dependency has been removed.
+
+### Dependency Review
+
+- **Epic 1 → 2:** valid. Story 1.2 establishes the minimal Young contract before Stories 1.3–1.9 and before the Young slice.
+- **Epic 2 → 3:** valid. Epic 2 ships against the minimal Young contract; Epic 3 explicitly hardens that already-shipped contract for later cases.
+- **Epic 3 → 4:** valid. The Morley–Miller prototype validates the hardened contract before the campaign tutorial is produced.
+- **Epics 4–7:** valid sequentially. Later case and release stories consume only the foundation/framework or previously completed case artifacts.
+
+### Findings
+
+- **No critical or major structural violations found.** The greenfield bootstrap is correctly isolated in Story 1.1, as required by the architecture, instead of being buried in an interaction story.
+- **Resolved:** FR29 now maps only to Epic 1 Story 1.9.
+- **Resolved:** the Epic 7 delivery-evidence ownership checklist assigns accountable roles and required evidence for every release gate.
+
+## Final Assessment — Current Artifact Set
+
+### Overall Readiness Status
+
+**READY** for implementation planning and the greenfield bootstrap. The current GDD, architecture, epics, and final UX spines are complete, aligned, and free of forward dependencies. This conclusion supersedes the earlier assessment in this report, which predated the approved UX package and the revised epic structure.
+
+### Handoff Status
+
+The two traceability links and release-evidence ownership checklist were corrected on 2026-08-04. No remediation is required before beginning Story 1.1.
+
+### Recommended Next Steps
+
+1. Execute Story 1.1: bootstrap the official Phaser Vite + TypeScript starter, pin the lockfile, and establish the required test commands.
+2. Execute Story 1.2 before any Young UI work, then deliver the accessible dual-surface Young vertical slice through the existing story order.
+
+### Final Note
+
+The current review found **zero outstanding readiness blockers**. The implementation plan is suitable to begin.
+
+**Assessor:** Codex implementation-readiness workflow
+**Current assessment completed:** 2026-08-04
