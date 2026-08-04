@@ -12,8 +12,14 @@ const caseDefinition: CaseDefinition = {
     version: '1.0.0',
     openingDispute: 'A dispute',
     contextualArtifacts: [
-        { id: 'record', displayName: 'Record', provenanceRef: 'record' },
-        { id: 'reference', displayName: 'Reference', provenanceRef: 'reference' }
+        {
+            id: 'record', displayName: 'Record', creatorOrOrigin: 'Archive', sourceType: 'lecture-record',
+            provenance: { category: 'primary-material', reference: 'record' }, rightsStatus: 'reviewed', caseRelationship: 'Context.'
+        },
+        {
+            id: 'reference', displayName: 'Reference', creatorOrOrigin: 'Archive', sourceType: 'published-book',
+            provenance: { category: 'primary-material', reference: 'reference' }, rightsStatus: 'reviewed', caseRelationship: 'Context.'
+        }
     ],
     prediction: { required: true },
     apparatus: {

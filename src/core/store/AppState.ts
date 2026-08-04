@@ -81,6 +81,9 @@ const reduceRecordRun = (state: AppState, record: RunRecord): Result<AppState> =
     if (validated.value.caseId !== state.caseDefinition.id) {
         return failure('run-case-mismatch', 'That observation belongs to a different investigation.');
     }
+    if (!validated.value.linkedEvidenceIds.every((sourceId) => state.inspectedSourceIds.includes(sourceId))) {
+        return failure('uninspected-linked-evidence', 'Linked evidence must be inspected before recording an observation.');
+    }
 
     return { ok: true, value: freezeState({ ...state, runs: [...state.runs, validated.value] }) };
 };

@@ -83,6 +83,28 @@ describe('evidence store transitions', () => {
         expect(notifications).toBe(1);
     });
 
+    it('rejects a run that links evidence not inspected in the current state', () => {
+        const store = createStore(createInitialAppState(caseDefinition));
+        const record = createRunRecord({
+            id: 'uninspected-evidence-run',
+            caseId: 'young-interference',
+            controls: { slitSpacingMm: 0.25, screenDistanceM: 2 },
+            result: { label: 'Observed fringe spacing', value: 1, unit: 'mm' },
+            timestamp: '2026-08-04T10:15:01.000Z',
+            experimentModelVersion: 'young-observation-v1',
+            linkedEvidenceIds: ['young-lecture-1801']
+        });
+        if (!record.ok) throw new Error('Fixture run must be valid.');
+        let notifications = 0;
+        store.subscribe(() => { notifications += 1; });
+
+        expect(store.dispatch({ type: 'run.record', record: record.value })).toMatchObject({
+            ok: false, error: { code: 'uninspected-linked-evidence' }
+        });
+        expect(selectNotebookObservations(store.getState())).toEqual([]);
+        expect(notifications).toBe(0);
+    });
+
     it('records ordered immutable observations and never notifies on a rejected duplicate', () => {
         const store = createStore(createInitialAppState(caseDefinition));
         const first = createRecord('run-001', 1);

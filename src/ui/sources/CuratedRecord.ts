@@ -69,6 +69,7 @@ export const mountCuratedRecord = (root: HTMLElement, store: AppStore): (() => v
             details.append(
                 definition('Creator or originating context', source.creatorOrOrigin),
                 definition('Source type', titleCase(source.sourceType)),
+                definition('Provenance reference', source.provenance.reference),
                 definition('Case relationship', source.caseRelationship)
             );
             const provenance = document.createElement('p');
@@ -110,7 +111,9 @@ export const mountCuratedRecord = (root: HTMLElement, store: AppStore): (() => v
         record.append(heading, prompt, status, cards);
         root.replaceChildren(record);
         if (focusKey) {
-            root.querySelector<HTMLElement>(`[data-curated-record-focus="${focusKey}"]`)?.focus();
+            Array.from(root.querySelectorAll<HTMLElement>('[data-curated-record-focus]'))
+                .find((element) => element.dataset.curatedRecordFocus === focusKey)
+                ?.focus();
         }
     };
 

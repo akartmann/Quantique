@@ -4,7 +4,7 @@ baseline_commit: f283c66c5e7df4d662012540135625194779e8b8
 
 # Story 1.5: Curated Record and source labels
 
-Status: review
+Status: done
 
 ## Story
 
@@ -63,7 +63,15 @@ so that I can distinguish evidence from reconstruction, interpretation, and fict
   - [x] Add `tests/integration/CuratedRecord.test.ts` to exercise public actions/selectors: semantic source data is represented from the validated definition, inspected IDs become authoritative evidence, and a later run captures the current source snapshot while an earlier run remains unchanged.
   - [x] Add `tests/e2e/curated-record.spec.ts` using `getByRole`/`getByLabel` to inspect both Young contextual sources, assert all required source metadata and category labels/non-colour text, receive a polite neutral status, and retain keyboard focus. Do not assert Phaser fields, canvas pixels, or incidental DOM structure.
   - [x] Extend `tests/e2e/accessibility.spec.ts` to run axe after the Curated Record is exposed, plus the existing notebook comparison scan. Manually verify keyboard-only inspection, focus recovery, screen-reader announcements, non-colour/non-audio category understanding, zoom/text scaling, and responsive touch targets; axe is necessary but insufficient.
-  - [x] Run and retain the current Vitest suite, production build, boot-shell/cache/offline regression tests, accessible control DOM/Phaser parity, notebook comparison tests, and Playwright Chromium/Firefox/WebKit coverage. Do not loosen prior public assertions to accommodate this story.
+- [x] Run and retain the current Vitest suite, production build, boot-shell/cache/offline regression tests, accessible control DOM/Phaser parity, notebook comparison tests, and Playwright Chromium/Firefox/WebKit coverage. Do not loosen prior public assertions to accommodate this story.
+
+### Review Findings
+
+- [x] [Review][Patch] Render the provenance reference in the semantic Curated Record [src/ui/sources/CuratedRecord.ts:69]
+- [x] [Review][Patch] Restore focus without interpolating authored IDs into a CSS selector [src/ui/sources/CuratedRecord.ts:113]
+- [x] [Review][Patch] Validate linked evidence IDs against the current inspected evidence state [src/core/store/AppState.ts:78]
+- [x] [Review][Patch] Update the stale dual-surface case fixture to the strict source contract [tests/integration/DualSurfaceControl.test.ts:14]
+- [x] [Review][Patch] Cover ineligible-source recovery through public Curated Record controls [tests/e2e/curated-record.spec.ts:10]
 
 ## Dev Notes
 
