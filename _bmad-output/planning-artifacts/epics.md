@@ -16,30 +16,35 @@ This document decomposes the requirements for *Fracture of Certainty: Cases from
 
 ### Functional Requirements
 
-FR1: Players can inspect contextual artifacts and make a prediction before using an apparatus.
-FR2: Players can use bounded, authored apparatus controls with visible values and units.
-FR3: Pointer, touch, keyboard, and semantic HTML control paths produce equivalent apparatus outcomes.
-FR4: Players can run an authored deterministic experiment, inspect its output, and reset it.
-FR5: Players can save observations with settings, timestamp/order, measured result, and linked evidence.
-FR6: Players can compare saved runs, add comparison notes, and export or print a case record.
-FR7: Players can distinguish primary artifacts, reconstruction, interpretation, and fiction.
-FR8: Players can connect observations, sources, predictions, and a bounded conclusion on a theory board.
-FR9: Completion requires recorded observations, contextual sources, and a stated limitation or alternative explanation.
-FR10: Players can consult evidence-responsive teammates without receiving the final answer.
-FR11: Players can submit, receive feedback on, and revise a conclusion while preserving decision history.
-FR12: Players receive non-competitive recognition for rigorous inquiry rather than speed or correctness.
-FR13: The Young case supports authored slit-spacing and screen-distance controls, records fringe spacing, and enables two-run comparison.
-FR14: Cases provide a sourced historical debrief and optional deeper theory after review.
-FR15: Case definitions can author controls, evidence prerequisites, feedback, debrief content, sources, provenance, and assets without duplicating core behavior.
-FR16: Case content supports a source/rights ledger, scholarly review, educator context, and a replacement plan for uncertain rights.
-FR17: Player progress is stored locally and restores after an offline reload.
-FR18: Players can export and import versioned local case records safely.
-FR19: Each case can provide captions, independent audio controls, and non-audio equivalents for essential information.
-FR20: Cases unlock in campaign order and remain replayable without changing the historical record.
-FR21: The Morley–Miller case teaches thermal drift versus orientation-dependent signal with a bounded conclusion.
-FR22: The Hafele–Keating case separates kinematic and gravitational contributions and communicates uncertainty.
-FR23: The Delft case makes reliability, safeguards, finite statistics, and a bounded CHSH conclusion legible.
-FR24: Educators can use a concise context sheet, learning objective, duration, prerequisites, and debrief for a case.
+FR1: Provide a browser anthology of the four historical laboratory mysteries: Morley–Miller, Young, Hafele–Keating, and Hensen et al. Delft.
+FR2: Deliver Young as the first fully playable validation slice while retaining Morley–Miller as the first campaign case.
+FR3: Run every case through the Apparatus → Anomaly → Revision loop: dispute, artifacts/prediction, bounded lab, experiment/measurement, comparison/consultation/replication, theory-board conclusion, and debrief.
+FR4: Require two contextual artifacts or sources and a prediction before the first substantive test.
+FR5: Distinguish primary artifacts, contemporary disagreement, later consensus, interpretation, reconstruction, and fiction in the Curated Record.
+FR6: Provide authored, bounded apparatus controls, never a freeform physics sandbox.
+FR7: Young uses 0.10–0.50 mm slit spacing in 0.05 mm steps, 1.0–4.0 m screen distance in 0.25 m steps, fixed 550 nm initially, and optional advanced wavelength comparison.
+FR8: Run the apparatus and present visual output; Young resolves within three seconds and resets immediately.
+FR9: Save settings, timestamp/order, observed fringe spacing, comparison notes, and linked evidence in a measurement notebook.
+FR10: Retain at least two observations and compare any two saved runs.
+FR11: Provide export or print of a case/observation record.
+FR12: Provide a theory board connecting observation, source, prediction, and conclusion.
+FR13: Complete only after a conclusion cites two recorded observations, two contextual sources, and one limitation or alternative explanation.
+FR14: Provide unlimited builder, experimentalist, analyst, or communicator consultations that point only to an observable, source, or test.
+FR15: Provide revisable peer review and preserve decision history.
+FR16: Give weak conclusions revision feedback instead of hard failure, penalty, or irreversible wrong choice.
+FR17: Give non-competitive recognition for rigorous inquiry without gating completion.
+FR18: Give every case one discoverable confound or misleading result, a reset-solvable required puzzle, and inspectable model assumptions.
+FR19: Implement Morley–Miller rotation, fringe and temperature logging, stable-window replication, and upper-bounded conclusion.
+FR20: Implement Hafele–Keating calibration, route/altitude/time inspection, prediction before results, and outcome/error-bar comparison.
+FR21: Implement Delft’s two labs 1.3 km apart, detector efficiency, fast random basis selection, spacelike timing, finite CHSH data, and bounded conclusion.
+FR22: Provide in-play observation, plain-language, and optional technical/source-detail progressive prompts.
+FR23: Provide unlimited reset, comparison, decision-history review, neutral auto-summaries, and non-auto-solving hints.
+FR24: Support alternate configurations, counterfactual replay explicitly distinct from history, optional-variable testing, and varied evidence order.
+FR25: Structure every case with opening dispute, Curated Record, lab setup, two-to-four cycles, theory-board review, debrief, optional replay, campaign unlocks, and history-preserving replay.
+FR26: Maintain a sourced artifact ledger with named primary/secondary sources, scholarly reviewer, educator context sheet, accessible controls, and a rights/replacement plan for each case.
+FR27: Label claims/assets with provenance and rights status; replace or link ambiguous-permission assets.
+FR28: Provide quiet adjustment, measurement, and archival-discovery audio with captions and independent volume controls; no essential sound-only information.
+FR29: Keep progression as knowledge/confidence without currency, energy, inventory, stats, premium gates, ads, or randomized rewards.
 
 ### NonFunctional Requirements
 
@@ -93,30 +98,35 @@ UX-DR6: Provide a semantic print view and responsive desktop-first layout with t
 
 ### FR Coverage Map
 
-FR1: Epic 2 — Contextual artifact inspection and prediction in the Young slice.
-FR2: Epic 1 — Bounded, authored apparatus controls with visible values and units.
-FR3: Epic 1 — Equivalent pointer, touch, keyboard, and semantic control outcomes.
-FR4: Epic 2 — Deterministic Young experiment execution, inspection, and reset.
-FR5: Epic 1 — Saved observation records with scientific context and evidence links.
-FR6: Epic 1 — Run comparison, notes, export, and print-ready learner record.
-FR7: Epic 1 — Source-type labelling and provenance visibility.
-FR8: Epic 1 — Theory board linking evidence, prediction, and conclusion.
-FR9: Epic 1 — Evidence-to-conclusion readiness and bounded-claim requirements.
-FR10: Epic 1 — Evidence-responsive consultations that preserve learner agency.
-FR11: Epic 1 — Peer review, revisable conclusions, and preserved decision history.
-FR12: Epic 1 — Non-competitive recognition for rigorous inquiry.
-FR13: Epic 2 — Young slit-spacing, screen-distance, fringe-spacing, and comparison experience.
-FR14: Epic 2 — Historical debrief and optional deeper theory.
-FR15: Epic 3 — Data-driven reusable case authoring framework.
-FR16: Epic 3 — Auditable source, rights, review, and replacement records.
-FR17: Epic 1 — Offline local progress persistence and restoration.
-FR18: Epic 1 — Safe, versioned export and import.
-FR19: Epic 1 — Captions, independent audio controls, and non-audio essential information.
-FR20: Epic 2 — Campaign unlock ordering and historical-record-preserving replay.
-FR21: Epic 4 — Morley–Miller thermal-drift tutorial case.
-FR22: Epic 5 — Hafele–Keating relativity case.
-FR23: Epic 6 — Hensen et al. entanglement case.
-FR24: Epic 7 — Educator context, learning objective, duration, prerequisites, and debrief materials.
+FR1: Epics 2, 4, 5, and 6 — four named case slices.
+FR2: Epics 1–2 — Young-first production and validation; Epic 4 — Morley-first campaign unlock.
+FR3: Epic 1 Story 1.2; Epics 2 and 4–6 — explicit full loop and two-to-four-cycle acceptance.
+FR4: Epic 2 Story 2.1; Epics 4–6 context stories.
+FR5: Epic 1 Story 1.5; Epics 2 and 4–6 Curated Records.
+FR6: Epic 1 Story 1.3; Epic 3 Story 3.1.
+FR7: Epic 2 Story 2.2.
+FR8: Epic 2 Story 2.2.
+FR9: Epic 1 Story 1.4; Epic 2 Story 2.3.
+FR10: Epic 1 Story 1.4; Epic 2 Story 2.3.
+FR11: Epic 1 Story 1.9.
+FR12: Epic 1 Story 1.6.
+FR13: Epic 1 Story 1.6; Epics 2 and 4–6 conclusion stories.
+FR14: Epic 1 Story 1.7.
+FR15: Epic 1 Story 1.7.
+FR16: Epic 1 Stories 1.6–1.7.
+FR17: Epic 1 Story 1.10.
+FR18: Epic 1 Story 1.2; Epics 2 and 4–6 case-loop criteria.
+FR19: Epic 3 Story 3.2; Epic 4 Story 4.2.
+FR20: Epic 5 Story 5.2.
+FR21: Epic 6 Story 6.2.
+FR22: Epic 1 Story 1.7.
+FR23: Epic 1 Stories 1.6–1.7.
+FR24: Epic 2 Story 2.3; Epics 4–6 conclusion/replay criteria.
+FR25: Epic 1 Story 1.2; Epics 2 and 4–6 case-loop criteria.
+FR26: Epic 3 Story 3.3 — ledger fields: named primary/secondary sources, scholarly reviewer, educator context sheet, accessible-controls reference, and rights/replacement plan.
+FR27: Epic 1 Story 1.5; Epic 3 Story 3.3.
+FR28: Epic 1 Story 1.10.
+FR29: Epic 1 Story 1.10; Epic 7 Story 7.4.
 
 ## Epic List
 
@@ -124,49 +134,90 @@ FR24: Epic 7 — Educator context, learning objective, duration, prerequisites, 
 
 Players can operate an accessible investigation workspace, record and compare evidence, inspect sources, revise evidence-bounded conclusions, and retain their progress locally.
 
-**FRs covered:** FR2, FR3, FR5, FR6, FR7, FR8, FR9, FR10, FR11, FR12, FR17, FR18, FR19.
+**FRs covered:** FR2, FR3, FR5, FR6, FR9–FR18, FR22–FR25, FR27–FR29.
 
 ### Epic 2: Young validation slice
 
 Players can complete a 20–30 minute double-slit investigation: inspect context, make a prediction, run experiments, compare measurements, issue a bounded conclusion, and receive a historical debrief.
 
-**FRs covered:** FR1, FR4, FR13, FR14, FR20.
+**FRs covered:** FR1, FR2, FR4, FR7, FR8, FR10, FR13, FR16–FR18, FR24, FR25.
 
 ### Epic 3: Reusable case authoring and provenance
 
 Content authors and reviewers can create fact-bound, auditable cases with authored scientific rules, sources, rights records, assets, feedback, and debrief material without rebuilding the core loop.
 
-**FRs covered:** FR15, FR16.
+**FRs covered:** FR3, FR6, FR18, FR25–FR27.
 
 ### Epic 4: Morley–Miller tutorial case
 
 Players can distinguish thermal drift from an orientation-dependent ether signal through authored evidence and issue a bounded conclusion.
 
-**FRs covered:** FR21.
+**FRs covered:** FR1, FR2, FR3, FR18, FR19, FR24, FR25.
 
 ### Epic 5: Hafele–Keating relativity case
 
 Players can assess competing clock predictions, uncertainty, and an independent skeptic’s critique before reaching a bounded conclusion.
 
-**FRs covered:** FR22.
+**FRs covered:** FR1, FR3, FR18, FR20, FR24, FR25.
 
 ### Epic 6: Hensen et al. entanglement case
 
 Players can weigh setup safeguards, finite evidence, and the limits of a CHSH-based conclusion.
 
-**FRs covered:** FR23.
+**FRs covered:** FR1, FR3, FR18, FR21, FR24, FR25.
 
 ### Epic 7: Classroom release readiness
 
 Educators can use a reviewed, accessible, classroom-ready case with clear activity materials and debrief support.
 
-**FRs covered:** FR24.
+**FRs covered:** FR26, FR29.
 
 ## Epic 1: Accessible investigation foundation
 
 Players can operate an accessible investigation workspace, record and compare evidence, inspect sources, revise evidence-bounded conclusions, and retain their progress locally.
 
-### Story 1.1: Accessible dual-surface laboratory controls
+### Story 1.1: Project bootstrap and verification harness
+
+As a delivery team,
+I want a reproducible browser-game starter and verification harness,
+So that the Young validation slice can be built and tested without bundling setup into an interaction story.
+
+**Acceptance Criteria:**
+
+**Given** a greenfield repository,
+**When** bootstrap is complete,
+**Then** it is initialized from Phaser’s official Vite + TypeScript template with the approved dependencies and a committed generated lockfile pinning the exact Vite patch,
+**And** production-build, unit, browser-E2E, offline-reload, cross-browser, and accessibility test commands are available.
+
+**Given** the boot shell,
+**When** it loads from cached production assets,
+**Then** the first meaningful interaction is reachable within five seconds,
+**And** the app remains a static hosted web application with no account, telemetry, advertising, cloud save, remote configuration, or network-critical play dependency.
+
+### Story 1.2: Minimal Young case contract and authored loop
+
+As a Young content author,
+I want the smallest validated contract needed for the first playable case,
+So that Young content and its case loop exist before dependent foundation features without pre-building every later-case field.
+
+**Acceptance Criteria:**
+
+**Given** the initial Young case contract,
+**When** it is loaded through a repository,
+**Then** Zod validates only its case ID/version, two required contextual artifacts, prediction requirement, bounded Young control definitions, deterministic experiment-model version, minimum evidence requirements, sourced debrief, and immutable asset manifest,
+**And** invalid content returns a typed recoverable `Result` before domain logic.
+
+**Given** a fresh Young case,
+**When** the player proceeds through it,
+**Then** the finite phase machine is `context → prediction → experiment → synthesis → review → debrief`,
+**And** the case requires opening dispute, Curated Record, lab setup, two-to-four experiment cycles, theory-board review, historical debrief, and optional replay.
+
+**Given** every required case puzzle including Young,
+**When** it begins from reset,
+**Then** it has one authored confound or initially misleading result discoverable by replication, a control change, or source comparison,
+**And** its reset-solvable path and physical-model assumptions are inspectable.
+
+### Story 1.3: Accessible dual-surface laboratory controls
 
 As a player,
 I want to adjust an authored laboratory control through semantic HTML, keyboard, pointer, or touch,
@@ -174,10 +225,10 @@ So that I can perform experiments regardless of my input method.
 
 **Acceptance Criteria:**
 
-**Given** a newly generated Phaser Vite + TypeScript application,
-**When** the application starts,
-**Then** it renders a semantic application shell and a Phaser laboratory surface,
-**And** the generated lockfile is committed with the project setup.
+**Given** the minimal Young case contract,
+**When** its authored slit-spacing control is selected,
+**Then** the semantic application shell and Phaser laboratory surface render that control from the same authoritative state,
+**And** this story does not establish a laboratory performance release gate.
 
 **Given** an authored numeric apparatus control with a label, unit, allowed range, and step,
 **When** the laboratory loads,
@@ -204,7 +255,7 @@ So that I can perform experiments regardless of my input method.
 **Then** unit tests cover validation and the pure state transition,
 **And** an integration test proves DOM and Phaser intent paths result in the same authoritative state.
 
-### Story 1.2: Measurement notebook and run comparison
+### Story 1.4: Measurement notebook and run comparison
 
 As a player,
 I want to save observations from my experiment and compare two recorded runs,
@@ -242,7 +293,7 @@ So that I can use my own evidence to reason about a scientific claim.
 **Then** unit tests cover deterministic run creation and comparison selection,
 **And** integration tests assert the notebook through public semantic controls and selectors.
 
-### Story 1.3: Curated Record and source labels
+### Story 1.5: Curated Record and source labels
 
 As a player,
 I want to inspect contextual sources with clear provenance labels,
@@ -280,7 +331,7 @@ So that I can distinguish evidence from reconstruction, interpretation, and fict
 **Then** unit tests cover source validation and provenance rules,
 **And** integration tests verify semantic labels and the inspected-source state through public controls.
 
-### Story 1.4: Evidence-to-conclusion theory board
+### Story 1.6: Evidence-to-conclusion theory board
 
 As a player,
 I want to connect my observations, sources, prediction, and a stated limitation into a conclusion,
@@ -318,7 +369,7 @@ So that I can make only the scientific claim that my evidence supports.
 **Then** unit tests cover every missing-evidence combination and valid readiness,
 **And** integration tests use semantic roles, labels, public actions, and selectors rather than Phaser internals.
 
-### Story 1.5: Consultations, peer review, and revision history
+### Story 1.7: Consultations, peer review, and revision history
 
 As a player,
 I want evidence-responsive guidance and revisable peer feedback,
@@ -351,12 +402,27 @@ So that I can improve my reasoning without being given the answer or losing my d
 **Then** the player receives a recoverable semantic message and keeps their valid work,
 **And** raw errors and learner-entered conclusion text are not logged by default.
 
+**Given** a player needs help,
+**When** a prompt is requested,
+**Then** the case provides an in-play observation prompt, a plain-language explanation, and an optional technical/source-detail layer,
+**And** the structured hint path preserves the player’s final conclusion with no mandatory skip in the first case.
+
+**Given** an accessibility accommodation is enabled,
+**When** a next step is revealed,
+**Then** it identifies only the next actionable step,
+**And** it does not auto-solve the case or write the player’s conclusion.
+
+**Given** a player resumes investigation,
+**When** they inspect assistance surfaces,
+**Then** they can use unlimited consultations, reset, run comparison, decision-history review, and neutral auto-summaries,
+**And** those surfaces never punish or lock valid work.
+
 **Given** consultation and review behavior,
 **When** tests run,
 **Then** unit tests cover predicate selection, unsupported-claim feedback, and revision-history preservation,
 **And** integration tests verify the semantic consultation and revision flow through public actions.
 
-### Story 1.6: Offline progress, export, import, and print
+### Story 1.8: Offline progress, export, import, and print
 
 As a player,
 I want my investigation progress to survive offline reloads and be portable as an export or print record,
@@ -394,7 +460,7 @@ So that I can safely continue, share, or retain my evidence without an account.
 **Then** unit tests cover record validation and migrations,
 **And** Playwright covers export/import recovery and offline reload in Chromium, Firefox, and WebKit.
 
-### Story 1.7: Inclusive feedback and inquiry recognition
+### Story 1.9: Inclusive feedback and inquiry recognition
 
 As a player,
 I want accessible feedback and recognition for careful investigation,
@@ -421,6 +487,11 @@ So that I am encouraged to test, replicate, and make appropriately limited claim
 **When** the semantic UI changes,
 **Then** focus recovery and announcements preserve keyboard-only navigation,
 **And** release acceptance includes manual screen-reader and non-colour-encoding checks.
+
+**Given** progression and recognition rules,
+**When** they are reviewed for release,
+**Then** they model only knowledge and confidence with non-gating inquiry recognition,
+**And** they contain no currency, energy, inventory, stat system, premium gate, advertising, or randomized reward.
 
 ## Epic 2: Young validation slice
 
@@ -462,6 +533,11 @@ So that I can test how each variable affects the interference pattern.
 **Then** a deterministic 550 nm model produces and records fringe spacing within three seconds,
 **And** reset is immediate and does not erase saved observations.
 
+**Given** I choose the optional advanced wavelength comparison after the minimum Young path,
+**When** I select one of the authored wavelength values,
+**Then** the value, result, and versioned deterministic model inputs are recorded with the run,
+**And** wavelength remains optional and cannot alter the fixed 550 nm minimum-path history.
+
 **Given** DOM and Phaser interactions,
 **When** they set the same Young configuration,
 **Then** the resulting run record is identical,
@@ -490,44 +566,82 @@ So that I understand both what interference evidence supports and its limits.
 **Then** previous completion remains recorded while a new investigation can be run,
 **And** recognition reflects inquiry actions rather than speed.
 
+**Given** a Young replay or alternate configuration,
+**When** it explores a different variable or evidence-collection order,
+**Then** it is explicitly labelled counterfactual and distinct from the recorded historical result,
+**And** it preserves the completed historical record and campaign unlock state.
+
+### Story 2.4: Young learning and educator validation gate
+
+As a release owner,
+I want a moderated Young validation gate before later-case production,
+So that later cases build on demonstrated learning, accessibility, and educator value rather than an untested slice.
+
+**Acceptance Criteria:**
+
+**Given** a Young release candidate,
+**When** validation is scheduled before any Morley, Hafele–Keating, or Delft production work,
+**Then** 15–30 moderated learner sessions are run with no product telemetry,
+**And** a facilitator-owned observation rubric records only consented, de-identified session evidence outside player progress.
+
+**Given** the completed moderated sessions,
+**When** the gate is evaluated,
+**Then** at least 60% of participants cite a recorded observation or setting when explaining their conclusion in their own words,
+**And** at least 60% voluntarily test at least one variable beyond the minimum path.
+
+**Given** educator review of the Young candidate,
+**When** the gate is evaluated,
+**Then** at least five educators state they would share or use the case,
+**And** the evidence artifacts name the session owner, rubric, de-identified aggregate, educator responses, accessibility findings, and release decision.
+
+**Given** a learner needs validation access,
+**When** the candidate is launched for a moderated session,
+**Then** a non-campaign validation route grants Young access without changing campaign locks or player progression,
+**And** it does not unlock, relock, or expose later cases.
+
+**Given** any target, scholarly source/rights review, accessibility acceptance, low-end-laptop 60-FPS 10-minute lab-loop check, or offline-reload check is unmet,
+**When** the Young gate is reviewed,
+**Then** later-case production and Young public validation are blocked with no waiver,
+**And** the recorded release decision identifies the owner and required remediation.
+
 ## Epic 3: Reusable case authoring and provenance
 
 Content authors and reviewers can create fact-bound, auditable cases with authored scientific rules, sources, rights records, assets, feedback, and debrief material without rebuilding the core loop.
 
-### Story 3.1: Validated reusable case definition
+### Story 3.1: Incremental reusable case-contract hardening
 
 As a content author,
 I want to define a complete case in versioned JSON,
-So that controls, evidence rules, sources, review, and debrief can be authored without changing core behavior.
+So that later cases can add only the fields they consume without changing core behavior.
 
 **Acceptance Criteria:**
 
-**Given** a case definition,
-**When** its JSON is loaded,
-**Then** Zod validates its schema version, controls, experiment rule, sources, requirements, consultations, review rules, debrief, and asset manifest,
-**And** invalid content returns a typed `Result` before reaching domain logic.
+**Given** the already-shipped minimal Young contract,
+**When** case-framework hardening is applied,
+**Then** it incrementally adds only reusable fields needed by later cases: confound, inspectable assumptions, progressive prompts, neutral auto-summary, counterfactual/replay labels, cycle rules, and case-specific bounded conclusion rules,
+**And** it does not make Young depend on a future all-purpose schema.
 
-**Given** valid case content,
-**When** a repository loads it,
-**Then** it yields an immutable domain definition,
-**And** player progress cannot mutate shipped case content.
+**Given** a hardened case definition,
+**When** its JSON is loaded through the repository,
+**Then** Zod validates the relevant incremental fields and yields an immutable domain definition,
+**And** invalid content returns a typed `Result` before domain logic while player progress cannot mutate shipped case content.
 
-### Story 3.2: Second-case authoring spike
+### Story 3.2: Reviewable Morley–Miller prototype
 
 As a content author,
-I want to author a representative second-case spike using the shared framework,
-So that we prove a new case can be built without duplicating the Young loop.
+I want to author a reviewable Morley–Miller prototype using the hardened framework,
+So that scholarly and accessibility reviewers can verify second-case authoring without duplicating the Young loop.
 
 **Acceptance Criteria:**
 
-**Given** the case schema and shared domains,
-**When** a second-case spike is authored,
-**Then** it supplies distinct controls, evidence rules, sources, feedback, and assets as data,
-**And** it reuses the same store, evaluator, notebook, review, and persistence behavior.
+**Given** the hardened case contract and shared domains,
+**When** the Morley–Miller prototype is authored,
+**Then** it supplies distinct rotation, temperature/fringe observation, evidence, feedback, sources, and assets as reviewed data,
+**And** it reuses the same store, evaluator, notebook, review, persistence, and dual-surface behavior.
 
-**Given** the spike is reviewed,
-**When** its implementation is compared with Young,
-**Then** no case-specific copy of core behavior is required,
+**Given** the prototype is reviewed by a content author, scholarly reviewer, and accessibility reviewer,
+**When** it is compared with Young,
+**Then** no case-specific copy of core behavior is required and the review produces a named prototype artifact,
 **And** documented authoring gaps become backlog items rather than ad-hoc duplication.
 
 ### Story 3.3: Source and rights ledger
@@ -540,7 +654,7 @@ So that only reviewed material reaches a public case.
 
 **Given** a case’s sources and assets,
 **When** a reviewer opens its ledger,
-**Then** each item identifies provenance, claim or use, rights status, reviewer state, and replacement plan,
+**Then** it identifies named primary and secondary sources, scholarly reviewer, educator context sheet, accessible-controls reference, provenance, claim or use, rights status, reviewer state, and replacement plan,
 **And** incomplete rights status is visibly blocked from release approval.
 
 **Given** a historical claim is marked reviewed,
@@ -564,6 +678,16 @@ So that I understand the question before I interpret an instrument reading.
 **When** I enter its context phase,
 **Then** I can inspect reviewed 1907-report and 1887-source context with clear provenance labels,
 **And** the case distinguishes near-null evidence from a claim of perfectly zero displacement.
+
+**Given** the Morley–Miller case loop,
+**When** it is reviewed before production,
+**Then** it requires `context → prediction → experiment → synthesis → review → debrief`, opening dispute, Curated Record, lab setup, two-to-four cycles, theory-board conclusion, historical debrief, and optional replay,
+**And** its confound, reset-solvable path, model assumptions, counterfactual labels, and history-preserving campaign replay are explicit.
+
+**Given** campaign progression,
+**When** the first campaign case is unlocked,
+**Then** Morley–Miller precedes Young even though Young was the first production and validation slice,
+**And** completing or validating Young never changes that campaign lock order.
 
 ### Story 4.2: Thermal-drift investigation tutorial
 
@@ -613,6 +737,11 @@ So that I can make independent predictions about divergent atomic clocks.
 **Then** I can record a prediction before result reveal,
 **And** sources distinguish prediction, observation, and later interpretation.
 
+**Given** the Hafele–Keating case loop,
+**When** it is reviewed before production,
+**Then** it requires `context → prediction → experiment → synthesis → review → debrief`, opening dispute, Curated Record, lab setup, two-to-four cycles, theory-board conclusion, historical debrief, and optional replay,
+**And** its confound, reset-solvable path, model assumptions, counterfactual labels, and history-preserving campaign replay are explicit.
+
 ### Story 5.2: Clock-model and error-budget investigation
 
 As a player,
@@ -630,6 +759,11 @@ So that I can compare eastbound and westbound clock results fairly.
 **When** I inspect it,
 **Then** its error-budget claim is represented as evidence to weigh rather than an answer,
 **And** it is available through semantic UI.
+
+**Given** I have inspected both predicted and observed clock evidence,
+**When** I compare eastbound and westbound outcomes,
+**Then** each outcome is displayed alongside its error bar and the separate kinematic and gravitational predictions,
+**And** the comparison remains deterministic, versioned, and available without colour-only encoding.
 
 ### Story 5.3: Relativity conclusion and debrief
 
@@ -658,8 +792,13 @@ So that I can understand the claims before judging finite data.
 
 **Given** the Delft case context,
 **When** I inspect reviewed sources,
-**Then** detector completeness, random-setting choice, timing, and their relevance are represented clearly,
+**Then** two diamond-spin labs 1.3 km apart, detector efficiency, fast random basis selection, spacelike timing, and their relevance are represented clearly,
 **And** source provenance and historical limits remain visible.
+
+**Given** the Delft case loop,
+**When** it is reviewed before production,
+**Then** it requires `context → prediction → experiment → synthesis → review → debrief`, opening dispute, Curated Record, lab setup, two-to-four cycles, theory-board conclusion, historical debrief, and optional replay,
+**And** its confound, reset-solvable path, model assumptions, counterfactual labels, and history-preserving campaign replay are explicit.
 
 ### Story 6.2: CHSH reliability and finite-trial investigation
 
@@ -671,7 +810,7 @@ So that I can see why finite evidence supports only bounded claims.
 
 **Given** authored controls for setup reliability and valid trials,
 **When** I adjust them and run the experiment,
-**Then** the deterministic model makes trial count, safeguards, and CHSH evidence legible through semantic and Phaser paths,
+**Then** the deterministic model makes trial count, the two-lab 1.3 km separation, detector efficiency, fast random basis selection, spacelike timing, safeguards, and CHSH evidence legible through semantic and Phaser paths,
 **And** invalid configurations explain their limitation without a hard fail.
 
 **Given** an event-ready dataset,
