@@ -33,7 +33,7 @@ export const selectSelectedComparisonPair = (state: AppState): readonly [RunReco
     return selected[0] && selected[1] ? [selected[0], selected[1]] : undefined;
 };
 
-const pairKey = (runIds: readonly [string, string]): string => [...runIds].sort().join('::');
+const pairKey = (runIds: readonly [string, string]): string => JSON.stringify([...runIds].sort());
 
 export const selectComparisonNote = (state: AppState): ComparisonNote | undefined => {
     const pair = selectSelectedComparisonPair(state);

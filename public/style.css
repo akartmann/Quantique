@@ -48,6 +48,10 @@ button {
 
 button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
+.measurement-notebook button:focus-visible, .run-comparison button:focus-visible {
+    outline-color: #10252c;
+}
+
 #boot-status { min-height: 1.5rem; }
 
 .apparatus-controls {

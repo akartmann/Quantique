@@ -47,7 +47,7 @@ export const createInitialAppState = (caseDefinition: CaseDefinition): AppState 
 
 const failure = (code: string, message: string): Result<never> => ({ ok: false, error: { code, message } });
 
-const pairKey = (runIds: readonly [string, string]): string => [...runIds].sort().join('::');
+const pairKey = (runIds: readonly [string, string]): string => JSON.stringify([...runIds].sort());
 
 const reduceControlSet = (state: AppState, action: Extract<AppAction, { type: 'apparatus.controlSet' }>): Result<AppState> => {
     const control = state.caseDefinition.apparatus.primaryControls.find(({ id }) => id === action.controlId);
@@ -75,6 +75,9 @@ const reduceControlSet = (state: AppState, action: Extract<AppAction, { type: 'a
 const reduceRecordRun = (state: AppState, record: RunRecord): Result<AppState> => {
     const validated = createRunRecord(record, state.runs.map(({ id }) => id));
     if (!validated.ok) return validated;
+    if (validated.value.caseId !== state.caseDefinition.id) {
+        return failure('run-case-mismatch', 'That observation belongs to a different investigation.');
+    }
 
     return { ok: true, value: freezeState({ ...state, runs: [...state.runs, validated.value] }) };
 };

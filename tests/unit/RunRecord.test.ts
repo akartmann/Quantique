@@ -45,6 +45,15 @@ describe('createRunRecord', () => {
         expect(createRunRecord(input)).toMatchObject({ ok: false, error: { code: errorCode } });
     });
 
+    it.each([
+        [{ ...validInput, id: undefined }, 'invalid-run-id'],
+        [{ ...validInput, result: { ...validInput.result, label: null } }, 'invalid-run-result'],
+        [{ ...validInput, linkedEvidenceIds: 'young-record' }, 'invalid-linked-evidence'],
+        [null, 'invalid-run-record']
+    ])('returns a typed failure for malformed runtime input', (input, errorCode) => {
+        expect(createRunRecord(input as never)).toMatchObject({ ok: false, error: { code: errorCode } });
+    });
+
     it('rejects a duplicate injected run ID without changing prior evidence', () => {
         expect(createRunRecord(validInput, ['run-001'])).toMatchObject({
             ok: false,

@@ -47,6 +47,27 @@ describe('evidence store transitions', () => {
         expect(selectNotebookObservations(store.getState())).toEqual([first]);
     });
 
+    it('rejects evidence from a different investigation without notifying subscribers', () => {
+        const store = createStore(createInitialAppState(caseDefinition));
+        const foreign = createRunRecord({
+            id: 'foreign-run',
+            caseId: 'another-investigation',
+            controls: { slitSpacingMm: 0.25, screenDistanceM: 2 },
+            result: { label: 'Observed fringe spacing', value: 1, unit: 'mm' },
+            timestamp: '2026-08-04T10:15:01.000Z',
+            experimentModelVersion: 'another-model'
+        });
+        if (!foreign.ok) throw new Error('Fixture run must be valid.');
+        let notifications = 0;
+        store.subscribe(() => { notifications += 1; });
+
+        expect(store.dispatch({ type: 'run.record', record: foreign.value })).toMatchObject({
+            ok: false, error: { code: 'run-case-mismatch' }
+        });
+        expect(selectNotebookObservations(store.getState())).toEqual([]);
+        expect(notifications).toBe(0);
+    });
+
     it('allows any two distinct saved runs to be selected in selection order', () => {
         const store = createStore(createInitialAppState(caseDefinition));
         const first = createRecord('run-001', 1);
@@ -91,5 +112,29 @@ describe('evidence store transitions', () => {
         store.dispatch({ type: 'comparison.runUnselected', runId: 'run-003' });
         store.dispatch({ type: 'comparison.runSelected', runId: 'run-002' });
         expect(selectComparisonNote(store.getState())).toMatchObject({ text: 'First pair note.' });
+    });
+
+    it('keeps notes distinct when run IDs contain the former pair-key delimiter', () => {
+        const store = createStore(createInitialAppState(caseDefinition));
+        const first = createRecord('a', 1);
+        const second = createRecord('b::c', 2);
+        const third = createRecord('a::b', 3);
+        const fourth = createRecord('c', 4);
+        [first, second, third, fourth].forEach((record) => store.dispatch({ type: 'run.record', record }));
+
+        store.dispatch({ type: 'comparison.runSelected', runId: first.id });
+        store.dispatch({ type: 'comparison.runSelected', runId: second.id });
+        store.dispatch({ type: 'comparison.noteSaved', note: 'First distinct pair.' });
+        store.dispatch({ type: 'comparison.runUnselected', runId: first.id });
+        store.dispatch({ type: 'comparison.runUnselected', runId: second.id });
+        store.dispatch({ type: 'comparison.runSelected', runId: third.id });
+        store.dispatch({ type: 'comparison.runSelected', runId: fourth.id });
+        store.dispatch({ type: 'comparison.noteSaved', note: 'Second distinct pair.' });
+        store.dispatch({ type: 'comparison.runUnselected', runId: third.id });
+        store.dispatch({ type: 'comparison.runUnselected', runId: fourth.id });
+        store.dispatch({ type: 'comparison.runSelected', runId: first.id });
+        store.dispatch({ type: 'comparison.runSelected', runId: second.id });
+
+        expect(selectComparisonNote(store.getState())).toMatchObject({ text: 'First distinct pair.' });
     });
 });

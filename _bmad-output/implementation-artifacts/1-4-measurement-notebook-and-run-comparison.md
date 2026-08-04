@@ -4,7 +4,7 @@ baseline_commit: 83faa95159c2458083ccb56c38d684cc21df18d6
 
 # Story 1.4: Measurement notebook and run comparison
 
-Status: review
+Status: done
 
 ## Story
 
@@ -63,7 +63,17 @@ so that I can use my own evidence to reason about a scientific claim.
   - [x] Add Vitest unit fixtures/specs for deterministic record creation using explicit IDs/timestamps; control/result/model-version snapshots; deep immutability; rejected invalid records; record preservation after later live-control changes; ordered selection of any two runs; duplicate/same-run selection rejection; and comparison-note association/preservation.
   - [x] Add an integration test driven through public actions and selectors (not Phaser fields) that records at least two fixture results, verifies the semantic/selector notebook projection, compares both orders/pairs where applicable, saves a note, and proves current control changes do not alter historic values/results/model versions.
   - [x] Add Playwright coverage through semantic roles, labels, values, and status text: record observations, inspect all required metadata, select two runs, see both columns side-by-side, save/read the comparison note, and receive neutral recovery copy while existing observations remain available. Run axe with the notebook exposed; manually verify keyboard-only operation, focus recovery, zoom/text scaling, non-colour encoding, and screen-reader announcements.
-  - [x] Keep and run the existing boot-shell, accessible-control (keyboard/pointer/touch and phone), production build, offline-reload, and cross-browser tests. Do not loosen their public assertions to accommodate the notebook.
+- [x] Keep and run the existing boot-shell, accessible-control (keyboard/pointer/touch and phone), production build, offline-reload, and cross-browser tests. Do not loosen their public assertions to accommodate the notebook.
+
+### Review Findings
+
+- [x] [Review][Patch] Reject records belonging to a different loaded case [src/core/store/AppState.ts:75]
+- [x] [Review][Patch] Return recoverable `Result` failures for malformed run-record payloads instead of throwing [src/domain/evidence/RunRecord.ts:44]
+- [x] [Review][Patch] Use a collision-free comparison-pair key so distinct pairs cannot overwrite each other’s notes [src/core/store/AppState.ts:50]
+- [x] [Review][Patch] Preserve logical keyboard focus after notebook rerenders [src/ui/notebook/NotebookPanel.ts:155]
+- [x] [Review][Patch] Give notebook buttons a visible, sufficiently contrasting focus indicator [public/style.css:49]
+- [x] [Review][Patch] Cover semantic notebook controls and failed record recovery in integration/browser tests [tests/integration/MeasurementNotebook.test.ts:34]
+- [x] [Review][Patch] Run Axe against the exposed notebook and comparison surfaces [tests/e2e/accessibility.spec.ts:4]
 
 ## Developer guardrails
 

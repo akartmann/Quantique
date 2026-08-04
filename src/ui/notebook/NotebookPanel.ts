@@ -42,11 +42,19 @@ export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRu
     let noteDraft = '';
     let noteDraftPairKey = '';
 
+    const activeNotebookFocusKey = (): string | undefined => {
+        const activeElement = document.activeElement;
+        return activeElement instanceof HTMLElement && root.contains(activeElement)
+            ? activeElement.dataset.notebookFocus
+            : undefined;
+    };
+
     const setRecovery = (): void => {
         statusMessage = 'This observation could not be recorded. Your existing observations are unchanged.';
     };
 
     const render = (): void => {
+        const focusKey = activeNotebookFocusKey();
         const state = store.getState();
         const observations = selectNotebookObservations(state);
         const panel = document.createElement('section');
@@ -59,6 +67,7 @@ export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRu
         introduction.textContent = 'Record prepared observations, then compare any two saved observations as evidence.';
         const recordButton = document.createElement('button');
         recordButton.type = 'button';
+        recordButton.dataset.notebookFocus = 'record';
         recordButton.textContent = 'Record prepared observation';
         recordButton.addEventListener('click', () => {
             const prepared = prepareRun();
@@ -89,6 +98,7 @@ export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRu
             const selection = document.createElement('label');
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
+            checkbox.dataset.notebookFocus = `selection-${record.id}`;
             checkbox.checked = state.comparison.selectedRunIds.includes(record.id);
             checkbox.setAttribute('aria-label', `Select Observation ${index + 1} for comparison`);
             checkbox.addEventListener('change', () => {
@@ -108,7 +118,7 @@ export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRu
         panel.append(heading, introduction, recordButton, status, observationsHeading, list);
         const selectedPair = selectSelectedComparisonPair(state);
         if (selectedPair) {
-            const selectedPairKey = [selectedPair[0].id, selectedPair[1].id].sort().join('::');
+            const selectedPairKey = JSON.stringify([selectedPair[0].id, selectedPair[1].id].sort());
             if (noteDraftPairKey !== selectedPairKey) {
                 noteDraft = '';
                 noteDraftPairKey = selectedPairKey;
@@ -129,10 +139,12 @@ export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRu
             noteLabel.textContent = 'Comparison note';
             const note = document.createElement('textarea');
             note.id = 'comparison-note';
+            note.dataset.notebookFocus = 'note';
             note.value = noteDraft || selectComparisonNote(state)?.text || '';
             note.addEventListener('input', () => { noteDraft = note.value; });
             const saveNote = document.createElement('button');
             saveNote.type = 'button';
+            saveNote.dataset.notebookFocus = 'save-note';
             saveNote.textContent = 'Save comparison note';
             saveNote.addEventListener('click', () => {
                 const transition = store.dispatch({ type: 'comparison.noteSaved', note: note.value });
@@ -153,6 +165,11 @@ export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRu
         }
 
         root.replaceChildren(panel);
+        if (focusKey) {
+            Array.from(root.querySelectorAll<HTMLElement>('[data-notebook-focus]'))
+                .find((element) => element.dataset.notebookFocus === focusKey)
+                ?.focus();
+        }
     };
 
     const unsubscribe = store.subscribe(render);

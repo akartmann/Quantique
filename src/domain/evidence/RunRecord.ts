@@ -41,9 +41,10 @@ const failure = (code: string, message: string): Result<never> => ({
     error: { code, message }
 });
 
-const isNonBlankString = (value: string): boolean => value.trim().length > 0;
+const isNonBlankString = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
 
-const isIsoTimestamp = (timestamp: string): boolean => {
+const isIsoTimestamp = (timestamp: unknown): timestamp is string => {
+    if (typeof timestamp !== 'string') return false;
     const parts = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{3})?Z$/.exec(timestamp);
     if (!parts) return false;
 
@@ -60,29 +61,40 @@ const isIsoTimestamp = (timestamp: string): boolean => {
         && hour <= 23 && minute <= 59 && second <= 59;
 };
 
-const validateControls = (controls: RunControls): Result<RunControls> => {
-    if (!controls || !Number.isFinite(controls.slitSpacingMm) || !Number.isFinite(controls.screenDistanceM)) {
+const validateControls = (controls: unknown): Result<RunControls> => {
+    if (!controls || typeof controls !== 'object'
+        || !Number.isFinite((controls as RunControls).slitSpacingMm)
+        || !Number.isFinite((controls as RunControls).screenDistanceM)) {
         return failure('invalid-run-controls', 'A run needs finite snapshots of both apparatus controls.');
     }
+    const snapshot = controls as RunControls;
 
     return {
         ok: true,
         value: Object.freeze({
-            slitSpacingMm: controls.slitSpacingMm,
-            screenDistanceM: controls.screenDistanceM
+            slitSpacingMm: snapshot.slitSpacingMm,
+            screenDistanceM: snapshot.screenDistanceM
         })
     };
 };
 
-const validateResult = (result: ExperimentResult): Result<ExperimentResult> => {
-    if (!result || !isNonBlankString(result.label) || !isNonBlankString(result.unit) || !Number.isFinite(result.value)) {
+const validateResult = (result: unknown): Result<ExperimentResult> => {
+    if (!result || typeof result !== 'object'
+        || !isNonBlankString((result as ExperimentResult).label)
+        || !isNonBlankString((result as ExperimentResult).unit)
+        || !Number.isFinite((result as ExperimentResult).value)) {
         return failure('invalid-run-result', 'A run needs a finite, labelled observed result.');
     }
+    const snapshot = result as ExperimentResult;
 
-    return { ok: true, value: Object.freeze({ label: result.label, value: result.value, unit: result.unit }) };
+    return { ok: true, value: Object.freeze({ label: snapshot.label, value: snapshot.value, unit: snapshot.unit }) };
 };
 
-const validateLinkedEvidence = (linkedEvidenceIds: readonly string[]): Result<readonly string[]> => {
+const validateLinkedEvidence = (linkedEvidenceIds: unknown): Result<readonly string[]> => {
+    if (!Array.isArray(linkedEvidenceIds)) {
+        return failure('invalid-linked-evidence', 'Linked evidence IDs must be unique, non-empty identifiers.');
+    }
+
     if (linkedEvidenceIds.some((id) => !isNonBlankString(id)) || new Set(linkedEvidenceIds).size !== linkedEvidenceIds.length) {
         return failure('invalid-linked-evidence', 'Linked evidence IDs must be unique, non-empty identifiers.');
     }
@@ -94,8 +106,11 @@ export const createRunRecord = (
     input: CreateRunRecordInput,
     existingRunIds: readonly string[] = []
 ): Result<RunRecord> => {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
+        return failure('invalid-run-record', 'A run needs a complete evidence record.');
+    }
     if (!isNonBlankString(input.id)) return failure('invalid-run-id', 'A run needs a stable identifier.');
-    if (existingRunIds.includes(input.id)) return failure('duplicate-run-id', 'That observation has already been recorded.');
+    if (Array.isArray(existingRunIds) && existingRunIds.includes(input.id)) return failure('duplicate-run-id', 'That observation has already been recorded.');
     if (!isNonBlankString(input.caseId)) return failure('invalid-case-id', 'A run needs a case identifier.');
     if (!isIsoTimestamp(input.timestamp)) return failure('invalid-run-timestamp', 'A run needs an ISO timestamp.');
     if (!isNonBlankString(input.experimentModelVersion)) return failure('invalid-experiment-model-version', 'A run needs an experiment model version.');
