@@ -1,10 +1,25 @@
 export type RecoveryRoute = 'replication' | 'control-change' | 'source-comparison';
 
+export type SourceProvenanceCategory = 'primary-material' | 'reconstruction' | 'later-interpretation' | 'deliberate-fiction';
+export type SourceType = 'lecture-record' | 'published-book' | 'reconstruction' | 'interpretive-essay' | 'fictionalized-account';
+export type SourceRightsStatus = 'reviewed' | 'incomplete' | 'unavailable';
+
+export type SourceProvenance = Readonly<{
+    category: SourceProvenanceCategory;
+    reference: string;
+}>;
+
 export type ContextualArtifact = Readonly<{
     id: string;
     displayName: string;
-    provenanceRef: string;
+    creatorOrOrigin: string;
+    sourceType: SourceType;
+    provenance: SourceProvenance;
+    rightsStatus: SourceRightsStatus;
+    caseRelationship: string;
 }>;
+
+export const isSourceEligibleForInspection = (source: ContextualArtifact): boolean => source.rightsStatus === 'reviewed';
 
 export type PrimaryControl = Readonly<{
     id: 'slitSpacingMm' | 'screenDistanceM';

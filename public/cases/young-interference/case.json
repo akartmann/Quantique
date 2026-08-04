@@ -3,8 +3,24 @@
   "version": "1.0.0",
   "openingDispute": "Does light travel as particles, waves, or something more subtle?",
   "contextualArtifacts": [
-    { "id": "young-lecture-1801", "displayName": "Young lecture record", "provenanceRef": "young-1801-lecture" },
-    { "id": "newton-opticks", "displayName": "Newton Opticks reference", "provenanceRef": "newton-opticks-1704" }
+    {
+      "id": "young-lecture-1801",
+      "displayName": "Thomas Young’s 1801 lecture record",
+      "creatorOrOrigin": "Thomas Young, Royal Institution lecture",
+      "sourceType": "lecture-record",
+      "provenance": { "category": "primary-material", "reference": "young-1801-lecture" },
+      "rightsStatus": "reviewed",
+      "caseRelationship": "Contemporary account of Young’s interference demonstration."
+    },
+    {
+      "id": "newton-opticks",
+      "displayName": "Opticks reference",
+      "creatorOrOrigin": "Isaac Newton, published work",
+      "sourceType": "published-book",
+      "provenance": { "category": "primary-material", "reference": "newton-opticks-1704" },
+      "rightsStatus": "reviewed",
+      "caseRelationship": "Earlier source that frames the corpuscular account considered by Young."
+    }
   ],
   "prediction": { "required": true },
   "apparatus": {

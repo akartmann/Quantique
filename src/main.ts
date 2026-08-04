@@ -7,6 +7,7 @@ import StartGame from './game/main';
 import { mountApparatusControls } from './ui/apparatus/ApparatusControls';
 import { createBootShell, setBootShellStatus } from './ui/BootShell';
 import { mountNotebookPanel } from './ui/notebook/NotebookPanel';
+import { mountCuratedRecord } from './ui/sources/CuratedRecord';
 
 const calculatePreparedObservation: CalculateExperimentResult = () => ({
     ok: true,
@@ -15,10 +16,11 @@ const calculatePreparedObservation: CalculateExperimentResult = () => ({
 
 const initializeLaboratory = async (): Promise<void> => {
     const bootShell = document.querySelector<HTMLElement>('#boot-shell');
+    const curatedRecordRoot = document.querySelector<HTMLElement>('#curated-record');
     const controlsRoot = document.querySelector<HTMLElement>('#apparatus-controls');
     const notebookRoot = document.querySelector<HTMLElement>('#measurement-notebook');
 
-    if (!bootShell || !controlsRoot || !notebookRoot) {
+    if (!bootShell || !curatedRecordRoot || !controlsRoot || !notebookRoot) {
         return;
     }
 
@@ -32,6 +34,7 @@ const initializeLaboratory = async (): Promise<void> => {
     }
 
     const store = createStore(createInitialAppState(caseResult.value));
+    mountCuratedRecord(curatedRecordRoot, store);
     mountApparatusControls(controlsRoot, store);
     mountNotebookPanel(notebookRoot, store, () => createCalculatedRunRecord({
         id: crypto.randomUUID(),
@@ -39,6 +42,7 @@ const initializeLaboratory = async (): Promise<void> => {
         controls: store.getState().activeControlValues,
         timestamp: new Date().toISOString(),
         experimentModelVersion: store.getState().caseDefinition.experiment.modelVersion,
+        linkedEvidenceIds: store.getState().inspectedSourceIds,
         calculateResult: calculatePreparedObservation
     }, store.getState().runs.map(({ id }) => id)));
     StartGame('game-container', store);

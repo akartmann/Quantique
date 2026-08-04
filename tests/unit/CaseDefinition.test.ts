@@ -13,8 +13,24 @@ const validYoungCase: CaseDefinition = {
     version: '1.0.0',
     openingDispute: 'Does light travel as particles, waves, or something more subtle?',
     contextualArtifacts: [
-        { id: 'young-lecture-1801', displayName: 'Young lecture record', provenanceRef: 'young-1801-lecture' },
-        { id: 'newton-opticks', displayName: 'Newton Opticks reference', provenanceRef: 'newton-opticks-1704' }
+        {
+            id: 'young-lecture-1801',
+            displayName: 'Thomas Young’s 1801 lecture record',
+            creatorOrOrigin: 'Thomas Young, Royal Institution lecture',
+            sourceType: 'lecture-record',
+            provenance: { category: 'primary-material', reference: 'young-1801-lecture' },
+            rightsStatus: 'reviewed',
+            caseRelationship: 'Contemporary account of Young’s interference demonstration.'
+        },
+        {
+            id: 'newton-opticks',
+            displayName: 'Opticks reference',
+            creatorOrOrigin: 'Isaac Newton, published work',
+            sourceType: 'published-book',
+            provenance: { category: 'primary-material', reference: 'newton-opticks-1704' },
+            rightsStatus: 'reviewed',
+            caseRelationship: 'Earlier source that frames the corpuscular account considered by Young.'
+        }
     ],
     prediction: { required: true },
     apparatus: {
@@ -48,8 +64,24 @@ const validYoungCase: CaseDefinition = {
 const cloneValidCase = (): CaseDefinition => structuredClone(validYoungCase);
 
 describe('CaseDefinitionSchema', () => {
-    it('accepts the minimal Young contract', () => {
+    it('accepts focused source records in the minimal Young contract', () => {
         expect(CaseDefinitionSchema.safeParse(validYoungCase)).toMatchObject({ success: true });
+    });
+
+    it.each([
+        ['primary-material', 'lecture-record'],
+        ['reconstruction', 'reconstruction'],
+        ['later-interpretation', 'interpretive-essay'],
+        ['deliberate-fiction', 'fictionalized-account']
+    ])('accepts the %s provenance category', (category, sourceType) => {
+        const definition = cloneValidCase();
+        definition.contextualArtifacts[0] = {
+            ...definition.contextualArtifacts[0],
+            sourceType: sourceType as typeof definition.contextualArtifacts[0]['sourceType'],
+            provenance: { ...definition.contextualArtifacts[0].provenance, category: category as typeof definition.contextualArtifacts[0]['provenance']['category'] }
+        };
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
     });
 
     it.each([
@@ -65,6 +97,12 @@ describe('CaseDefinitionSchema', () => {
         ['missing assumptions', (definition: Record<string, unknown>) => { delete (definition.experiment as { assumptions?: unknown }).assumptions; }],
         ['missing reset path', (definition: Record<string, unknown>) => { delete (definition.experiment as { resetPath?: unknown }).resetPath; }],
         ['invalid flow', (definition: Record<string, unknown>) => { (definition.flow as { maximumExperimentCycles: number }).maximumExperimentCycles = 5; }],
+        ['blank source creator context', (definition: Record<string, unknown>) => { ((definition.contextualArtifacts as Array<{ creatorOrOrigin: string }>)[0]).creatorOrOrigin = ' '; }],
+        ['unsupported provenance category', (definition: Record<string, unknown>) => { ((definition.contextualArtifacts as Array<{ provenance: { category: string } }>)[0]).provenance.category = 'unlabelled'; }],
+        ['unsupported rights status', (definition: Record<string, unknown>) => { ((definition.contextualArtifacts as Array<{ rightsStatus: string }>)[0]).rightsStatus = 'verified-somewhere'; }],
+        ['blank source relationship', (definition: Record<string, unknown>) => { ((definition.contextualArtifacts as Array<{ caseRelationship: string }>)[0]).caseRelationship = ''; }],
+        ['duplicate source ID', (definition: Record<string, unknown>) => { ((definition.contextualArtifacts as Array<{ id: string }>)[1]).id = 'young-lecture-1801'; }],
+        ['unknown source field', (definition: Record<string, unknown>) => { (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].unreviewedClaim = true; }],
         ['unknown top-level field', (definition: Record<string, unknown>) => { definition.laterCaseField = true; }]
     ])('rejects %s', (_description, mutate) => {
         const definition = cloneValidCase() as unknown as Record<string, unknown>;
@@ -150,6 +188,7 @@ describe('loadCaseDefinition', () => {
         if (result.ok) {
             expect(Object.isFrozen(result.value)).toBe(true);
             expect(Object.isFrozen(result.value.assets.entries)).toBe(true);
+            expect(Object.isFrozen(result.value.contextualArtifacts[0].provenance)).toBe(true);
             expect(() => (result.value.assets.entries as Array<unknown>).push({})).toThrow();
         }
     });

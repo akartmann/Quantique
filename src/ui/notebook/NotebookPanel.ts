@@ -1,6 +1,6 @@
 import type { Result } from '../../core/errors/Result';
 import type { AppStore } from '../../core/store/createStore';
-import { selectComparisonNote, selectNotebookObservations, selectPrimaryControl, selectSelectedComparisonPair } from '../../core/store/selectors';
+import { selectComparisonNote, selectNotebookObservations, selectPrimaryControl, selectSelectedComparisonPair, selectSourceLabel } from '../../core/store/selectors';
 import type { RunRecord } from '../../domain/evidence/RunRecord';
 
 export type PrepareRun = () => Result<RunRecord>;
@@ -31,7 +31,9 @@ const recordDetails = (record: RunRecord, observationNumber: number, store: AppS
         definition(slitSpacing.label, `${record.controls.slitSpacingMm} ${slitSpacing.unit}`),
         definition(screenDistance.label, `${record.controls.screenDistanceM} ${screenDistance.unit}`),
         definition('Observed result', `${record.result.label}: ${record.result.value} ${record.result.unit}`),
-        definition('Linked evidence', record.linkedEvidenceIds.length ? record.linkedEvidenceIds.join(', ') : 'None recorded')
+        definition('Linked evidence', record.linkedEvidenceIds.length
+            ? record.linkedEvidenceIds.map((sourceId) => selectSourceLabel(store.getState(), sourceId)).join(', ')
+            : 'None recorded')
     );
     article.append(heading, details);
     return article;
@@ -41,6 +43,8 @@ export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRu
     let statusMessage = '';
     let noteDraft = '';
     let noteDraftPairKey = '';
+    let renderedStateSignature = '';
+    let requestedFocusKey: string | undefined;
 
     const activeNotebookFocusKey = (): string | undefined => {
         const activeElement = document.activeElement;
@@ -53,9 +57,13 @@ export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRu
         statusMessage = 'This observation could not be recorded. Your existing observations are unchanged.';
     };
 
-    const render = (): void => {
-        const focusKey = activeNotebookFocusKey();
+    const render = (force = false): void => {
+        const focusKey = requestedFocusKey ?? activeNotebookFocusKey();
         const state = store.getState();
+        const stateSignature = JSON.stringify({ runs: state.runs, comparison: state.comparison });
+        if (!force && renderedStateSignature === stateSignature) return;
+        requestedFocusKey = undefined;
+        renderedStateSignature = stateSignature;
         const observations = selectNotebookObservations(state);
         const panel = document.createElement('section');
         panel.className = 'measurement-notebook';
@@ -70,15 +78,19 @@ export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRu
         recordButton.dataset.notebookFocus = 'record';
         recordButton.textContent = 'Record prepared observation';
         recordButton.addEventListener('click', () => {
+            requestedFocusKey = recordButton.dataset.notebookFocus;
             const prepared = prepareRun();
-            if (!prepared.ok || !store.dispatch({ type: 'run.record', record: prepared.value }).ok) {
+            if (!prepared.ok) {
                 setRecovery();
-                render();
+                render(true);
                 return;
             }
 
-            statusMessage = `Observation ${store.getState().runs.length} recorded.`;
-            render();
+            statusMessage = `Observation ${store.getState().runs.length + 1} recorded.`;
+            if (!store.dispatch({ type: 'run.record', record: prepared.value }).ok) {
+                setRecovery();
+                render(true);
+            }
         });
 
         const status = document.createElement('p');
@@ -102,13 +114,14 @@ export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRu
             checkbox.checked = state.comparison.selectedRunIds.includes(record.id);
             checkbox.setAttribute('aria-label', `Select Observation ${index + 1} for comparison`);
             checkbox.addEventListener('change', () => {
+                requestedFocusKey = checkbox.dataset.notebookFocus;
                 const transition = store.dispatch(checkbox.checked
                     ? { type: 'comparison.runSelected', runId: record.id }
                     : { type: 'comparison.runUnselected', runId: record.id });
                 if (!transition.ok) {
                     statusMessage = 'Choose two different saved observations to compare. Your existing observations are unchanged.';
                 }
-                render();
+                render(true);
             });
             selection.append(checkbox, ' Select for comparison');
             item.append(selection);
@@ -147,6 +160,7 @@ export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRu
             saveNote.dataset.notebookFocus = 'save-note';
             saveNote.textContent = 'Save comparison note';
             saveNote.addEventListener('click', () => {
+                requestedFocusKey = saveNote.dataset.notebookFocus;
                 const transition = store.dispatch({ type: 'comparison.noteSaved', note: note.value });
                 if (!transition.ok) {
                     statusMessage = 'This comparison note could not be saved. Your existing observations are unchanged.';
@@ -154,7 +168,7 @@ export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRu
                     noteDraft = note.value;
                     statusMessage = 'Comparison note saved.';
                 }
-                render();
+                render(true);
             });
             comparison.append(comparisonHeading, columns, noteLabel, note, saveNote);
             panel.append(comparison);

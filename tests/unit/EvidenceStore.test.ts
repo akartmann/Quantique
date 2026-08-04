@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore } from '../../src/core/store/createStore';
-import { selectComparisonNote, selectNotebookObservations, selectSelectedComparisonPair } from '../../src/core/store/selectors';
+import {
+    selectComparisonNote,
+    selectContextualArtifacts,
+    selectInspectedSourceIds,
+    selectNotebookObservations,
+    selectSelectedComparisonPair,
+    selectSourceLabel
+} from '../../src/core/store/selectors';
 import { createRunRecord } from '../../src/domain/evidence/RunRecord';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 
@@ -14,6 +21,26 @@ const caseDefinition = {
             { id: 'screenDistanceM', label: 'Screen distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
         ]
     },
+    contextualArtifacts: [
+        {
+            id: 'young-lecture-1801',
+            displayName: 'Young lecture record',
+            creatorOrOrigin: 'Thomas Young',
+            sourceType: 'lecture-record',
+            provenance: { category: 'primary-material', reference: 'young-1801-lecture' },
+            rightsStatus: 'reviewed',
+            caseRelationship: 'A contemporary account of the Young investigation.'
+        },
+        {
+            id: 'unavailable-source',
+            displayName: 'Unavailable contextual record',
+            creatorOrOrigin: 'Collection record',
+            sourceType: 'interpretive-essay',
+            provenance: { category: 'later-interpretation', reference: 'collection-placeholder' },
+            rightsStatus: 'incomplete',
+            caseRelationship: 'A contextual item that cannot be treated as verified evidence.'
+        }
+    ],
     experiment: { modelVersion: 'young-observation-v1' }
 } as CaseDefinition;
 
@@ -31,6 +58,31 @@ const createRecord = (id: string, value: number) => {
 };
 
 describe('evidence store transitions', () => {
+    it('records only reviewed declared source IDs as immutable authoritative evidence', () => {
+        const store = createStore(createInitialAppState(caseDefinition));
+        let notifications = 0;
+        store.subscribe(() => { notifications += 1; });
+
+        expect(selectContextualArtifacts(store.getState())).toHaveLength(2);
+        expect(selectInspectedSourceIds(store.getState())).toEqual([]);
+        expect(store.dispatch({ type: 'source.inspected', sourceId: 'young-lecture-1801' })).toEqual({ ok: true, value: undefined });
+        expect(selectInspectedSourceIds(store.getState())).toEqual(['young-lecture-1801']);
+        expect(selectSourceLabel(store.getState(), 'young-lecture-1801')).toBe('Young lecture record');
+        expect(Object.isFrozen(store.getState().inspectedSourceIds)).toBe(true);
+
+        expect(store.dispatch({ type: 'source.inspected', sourceId: 'unknown-source' })).toMatchObject({
+            ok: false, error: { code: 'unknown-source-id' }
+        });
+        expect(store.dispatch({ type: 'source.inspected', sourceId: 'young-lecture-1801' })).toMatchObject({
+            ok: false, error: { code: 'duplicate-inspected-source' }
+        });
+        expect(store.dispatch({ type: 'source.inspected', sourceId: 'unavailable-source' })).toMatchObject({
+            ok: false, error: { code: 'source-not-eligible' }
+        });
+        expect(selectInspectedSourceIds(store.getState())).toEqual(['young-lecture-1801']);
+        expect(notifications).toBe(1);
+    });
+
     it('records ordered immutable observations and never notifies on a rejected duplicate', () => {
         const store = createStore(createInitialAppState(caseDefinition));
         const first = createRecord('run-001', 1);

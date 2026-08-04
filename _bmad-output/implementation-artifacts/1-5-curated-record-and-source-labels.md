@@ -4,7 +4,7 @@ baseline_commit: f283c66c5e7df4d662012540135625194779e8b8
 
 # Story 1.5: Curated Record and source labels
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -30,40 +30,40 @@ so that I can distinguish evidence from reconstruction, interpretation, and fict
 
 ## Tasks / Subtasks
 
-- [ ] Define and validate focused authored source records (AC: 1, 2, 3, 5)
-  - [ ] Extend `src/domain/cases/CaseDefinition.ts` with the minimal, immutable typed record needed by the AC: stable `id`, title/display name, creator or originating context, source type, provenance category/reference, rights status, and relevant case relationship. Use a constrained category union covering at least primary material, reconstruction, later interpretation, and deliberate fiction.
-  - [ ] Extend `src/schemas/CaseDefinitionSchema.ts` with strict Zod 4 schemas for every source field. Preserve the current exact-two, stable unique contextual-artifact requirement and all existing strict Young/asset validation. Reject blank fields, unsupported categories or rights status, malformed provenance/relationship fields, duplicate IDs, and unknown fields before domain logic.
-  - [ ] Update `public/cases/young-interference/case.json` and matching unit fixtures together. Keep it immutable authored content and keep the declared asset manifest unchanged unless a reviewed source asset is explicitly added and declared there.
-  - [ ] Reuse `src/adapters/content/loadCaseDefinition.ts` as the **only** fetch/JSON/Zod boundary. Its existing `safeParse → Result → recursive freeze` path must validate source records automatically. Do not fetch, parse, or validate case JSON from a UI component, store reducer, or domain module.
-  - [ ] Model incomplete rights safely: the schema may represent an explicit non-verified/incomplete status only when the UI can block it from inspection as verified and provide recovery. Never silently coerce missing rights metadata to “reviewed.”
+- [x] Define and validate focused authored source records (AC: 1, 2, 3, 5)
+  - [x] Extend `src/domain/cases/CaseDefinition.ts` with the minimal, immutable typed record needed by the AC: stable `id`, title/display name, creator or originating context, source type, provenance category/reference, rights status, and relevant case relationship. Use a constrained category union covering at least primary material, reconstruction, later interpretation, and deliberate fiction.
+  - [x] Extend `src/schemas/CaseDefinitionSchema.ts` with strict Zod 4 schemas for every source field. Preserve the current exact-two, stable unique contextual-artifact requirement and all existing strict Young/asset validation. Reject blank fields, unsupported categories or rights status, malformed provenance/relationship fields, duplicate IDs, and unknown fields before domain logic.
+  - [x] Update `public/cases/young-interference/case.json` and matching unit fixtures together. Keep it immutable authored content and keep the declared asset manifest unchanged unless a reviewed source asset is explicitly added and declared there.
+  - [x] Reuse `src/adapters/content/loadCaseDefinition.ts` as the **only** fetch/JSON/Zod boundary. Its existing `safeParse → Result → recursive freeze` path must validate source records automatically. Do not fetch, parse, or validate case JSON from a UI component, store reducer, or domain module.
+  - [x] Model incomplete rights safely: the schema may represent an explicit non-verified/incomplete status only when the UI can block it from inspection as verified and provide recovery. Never silently coerce missing rights metadata to “reviewed.”
 
-- [ ] Add inspected-source state to the authoritative immutable store (AC: 4, 5)
-  - [ ] Extend `src/core/store/AppAction.ts` with a typed `source.inspected` action carrying only a source ID. Keep action names `noun.verb`; do not use a scene/UI visibility event as evidence authority.
-  - [ ] Extend `AppState` and `freezeState` in `src/core/store/AppState.ts` with frozen `inspectedSourceIds`. Initialize it empty; preserve case definition, live controls, runs, and comparison state on every transition.
-  - [ ] Add a pure reducer branch that accepts only IDs declared by the loaded case definition and only sources eligible for verified inspection. Define the duplicate policy explicitly and test it; recommended behavior is a recoverable idempotent failure for an already inspected ID so rejected dispatches do not notify subscribers.
-  - [ ] Unknown, duplicate, unavailable, or rights-incomplete source inspections must return the existing typed `Result` failure, retain all valid state, and cause no `createStore` subscriber notification. Reducers must never throw or expose raw error text.
-  - [ ] Add public selectors in `src/core/store/selectors.ts` for source records, inspected IDs/state, and readable source labels. UI must render selectors and dispatch actions; it must not own a copied inspected-ID list.
+- [x] Add inspected-source state to the authoritative immutable store (AC: 4, 5)
+  - [x] Extend `src/core/store/AppAction.ts` with a typed `source.inspected` action carrying only a source ID. Keep action names `noun.verb`; do not use a scene/UI visibility event as evidence authority.
+  - [x] Extend `AppState` and `freezeState` in `src/core/store/AppState.ts` with frozen `inspectedSourceIds`. Initialize it empty; preserve case definition, live controls, runs, and comparison state on every transition.
+  - [x] Add a pure reducer branch that accepts only IDs declared by the loaded case definition and only sources eligible for verified inspection. Define the duplicate policy explicitly and test it; recommended behavior is a recoverable idempotent failure for an already inspected ID so rejected dispatches do not notify subscribers.
+  - [x] Unknown, duplicate, unavailable, or rights-incomplete source inspections must return the existing typed `Result` failure, retain all valid state, and cause no `createStore` subscriber notification. Reducers must never throw or expose raw error text.
+  - [x] Add public selectors in `src/core/store/selectors.ts` for source records, inspected IDs/state, and readable source labels. UI must render selectors and dispatch actions; it must not own a copied inspected-ID list.
 
-- [ ] Build the semantic Curated Record surface and compose it with the existing shell (AC: 2, 3, 4, 5)
-  - [ ] Add `src/ui/sources/CuratedRecord.ts` (or equivalently focused PascalCase component under `src/ui/sources/`) using the Story 1.4 vanilla-DOM render/subscription/focus-restoration pattern. Mount it in `src/main.ts` from the same store, and add a dedicated mount in `index.html` without removing `#boot-shell`, `#boot-status`, `#apparatus-controls`, `#measurement-notebook`, `#game-container`, or cached-launch behavior.
-  - [ ] Render a labelled semantic region with a heading, short calm context prompt, and source cards using native buttons. Each card must expose title, creator/origin context, source type, provenance, rights status, and case relationship as visible/readable text. A source can never be meaningful only in Phaser, colour, icon/pattern, sound, hover, or the mockup.
-  - [ ] Render provenance category as a named text label plus a non-colour cue (for example, a category-specific icon/pattern with accessible text). Treat `_bmad-output/planning-artifacts/ux-designs/ux-Quantique-2026-08-04/mockups/curated-record.html` as composition inspiration only; `EXPERIENCE.md` and `DESIGN.md` control behavior and accessibility.
-  - [ ] On valid inspection, dispatch `source.inspected`, announce a factual, calm status, preserve logical focus after rerender, and make the inspected state perceivable without colour alone. Do not imply the player found a “correct” answer.
-  - [ ] For incomplete rights or an unavailable source, keep the case context and existing inspected evidence visible; explain the limitation neutrally, offer a safe next step such as another linked item/retry where applicable, and never fabricate an excerpt or label it verified.
-  - [ ] Extend `public/style.css` with the source-card token intent: notebook reading surface, structural border, named provenance treatment, 4.5:1+ text contrast, visible 2px+ keyboard focus, and 44×44 CSS-px interactive targets. Preserve readable desktop layout, sequential tablet layout, phone reading-only laboratory controls, and `prefers-reduced-motion` behavior.
+- [x] Build the semantic Curated Record surface and compose it with the existing shell (AC: 2, 3, 4, 5)
+  - [x] Add `src/ui/sources/CuratedRecord.ts` (or equivalently focused PascalCase component under `src/ui/sources/`) using the Story 1.4 vanilla-DOM render/subscription/focus-restoration pattern. Mount it in `src/main.ts` from the same store, and add a dedicated mount in `index.html` without removing `#boot-shell`, `#boot-status`, `#apparatus-controls`, `#measurement-notebook`, `#game-container`, or cached-launch behavior.
+  - [x] Render a labelled semantic region with a heading, short calm context prompt, and source cards using native buttons. Each card must expose title, creator/origin context, source type, provenance, rights status, and case relationship as visible/readable text. A source can never be meaningful only in Phaser, colour, icon/pattern, sound, hover, or the mockup.
+  - [x] Render provenance category as a named text label plus a non-colour cue (for example, a category-specific icon/pattern with accessible text). Treat `_bmad-output/planning-artifacts/ux-designs/ux-Quantique-2026-08-04/mockups/curated-record.html` as composition inspiration only; `EXPERIENCE.md` and `DESIGN.md` control behavior and accessibility.
+  - [x] On valid inspection, dispatch `source.inspected`, announce a factual, calm status, preserve logical focus after rerender, and make the inspected state perceivable without colour alone. Do not imply the player found a “correct” answer.
+  - [x] For incomplete rights or an unavailable source, keep the case context and existing inspected evidence visible; explain the limitation neutrally, offer a safe next step such as another linked item/retry where applicable, and never fabricate an excerpt or label it verified.
+  - [x] Extend `public/style.css` with the source-card token intent: notebook reading surface, structural border, named provenance treatment, 4.5:1+ text contrast, visible 2px+ keyboard focus, and 44×44 CSS-px interactive targets. Preserve readable desktop layout, sequential tablet layout, phone reading-only laboratory controls, and `prefers-reduced-motion` behavior.
 
-- [ ] Preserve historical evidence linking and current public behavior (AC: 4, 6)
-  - [ ] Update `src/main.ts` so `createCalculatedRunRecord` receives the current `store.getState().inspectedSourceIds` as `linkedEvidenceIds` for a **new** record. The factory remains pure; ID/time remain composed outside `src/domain/`.
-  - [ ] Update `src/ui/notebook/NotebookPanel.ts` only as necessary to resolve displayed linked-evidence IDs through source selectors. Keep its current semantic record/comparison UI, public labels, status/recovery copy, focus restoration, and historical snapshot semantics. Do not recalculate a saved run or reattach newly inspected sources to it.
-  - [ ] Do not alter the shared DOM/Phaser apparatus-control intent path, origin semantics, phase model, renderer lifecycle, or `src/adapters/phaser/`. Phaser may mirror context visually but must not own sources, inspected state, rights decisions, or announcements.
+- [x] Preserve historical evidence linking and current public behavior (AC: 4, 6)
+  - [x] Update `src/main.ts` so `createCalculatedRunRecord` receives the current `store.getState().inspectedSourceIds` as `linkedEvidenceIds` for a **new** record. The factory remains pure; ID/time remain composed outside `src/domain/`.
+  - [x] Update `src/ui/notebook/NotebookPanel.ts` only as necessary to resolve displayed linked-evidence IDs through source selectors. Keep its current semantic record/comparison UI, public labels, status/recovery copy, focus restoration, and historical snapshot semantics. Do not recalculate a saved run or reattach newly inspected sources to it.
+  - [x] Do not alter the shared DOM/Phaser apparatus-control intent path, origin semantics, phase model, renderer lifecycle, or `src/adapters/phaser/`. Phaser may mirror context visually but must not own sources, inspected state, rights decisions, or announcements.
 
-- [ ] Verify source boundaries, semantic flow, and regressions (AC: 1–6)
-  - [ ] Extend `tests/unit/CaseDefinition.test.ts` with accepted focused source records plus rejected missing/blank fields, invalid categories/statuses, unknown source fields, and duplicate IDs. Retain loader tests proving the single Vite-base-aware boundary returns a recoverable `Result` for invalid content and recursively freezes authored source records.
-  - [ ] Add focused unit coverage (new source/provenance spec if it prevents clutter) for provenance/rights eligibility and store transitions: declared source success, unknown/duplicate/ineligible rejection, deep immutability, preserved evidence, and no subscriber notification after a rejected action.
-  - [ ] Add `tests/integration/CuratedRecord.test.ts` to exercise public actions/selectors: semantic source data is represented from the validated definition, inspected IDs become authoritative evidence, and a later run captures the current source snapshot while an earlier run remains unchanged.
-  - [ ] Add `tests/e2e/curated-record.spec.ts` using `getByRole`/`getByLabel` to inspect both Young contextual sources, assert all required source metadata and category labels/non-colour text, receive a polite neutral status, and retain keyboard focus. Do not assert Phaser fields, canvas pixels, or incidental DOM structure.
-  - [ ] Extend `tests/e2e/accessibility.spec.ts` to run axe after the Curated Record is exposed, plus the existing notebook comparison scan. Manually verify keyboard-only inspection, focus recovery, screen-reader announcements, non-colour/non-audio category understanding, zoom/text scaling, and responsive touch targets; axe is necessary but insufficient.
-  - [ ] Run and retain the current Vitest suite, production build, boot-shell/cache/offline regression tests, accessible control DOM/Phaser parity, notebook comparison tests, and Playwright Chromium/Firefox/WebKit coverage. Do not loosen prior public assertions to accommodate this story.
+- [x] Verify source boundaries, semantic flow, and regressions (AC: 1–6)
+  - [x] Extend `tests/unit/CaseDefinition.test.ts` with accepted focused source records plus rejected missing/blank fields, invalid categories/statuses, unknown source fields, and duplicate IDs. Retain loader tests proving the single Vite-base-aware boundary returns a recoverable `Result` for invalid content and recursively freezes authored source records.
+  - [x] Add focused unit coverage (new source/provenance spec if it prevents clutter) for provenance/rights eligibility and store transitions: declared source success, unknown/duplicate/ineligible rejection, deep immutability, preserved evidence, and no subscriber notification after a rejected action.
+  - [x] Add `tests/integration/CuratedRecord.test.ts` to exercise public actions/selectors: semantic source data is represented from the validated definition, inspected IDs become authoritative evidence, and a later run captures the current source snapshot while an earlier run remains unchanged.
+  - [x] Add `tests/e2e/curated-record.spec.ts` using `getByRole`/`getByLabel` to inspect both Young contextual sources, assert all required source metadata and category labels/non-colour text, receive a polite neutral status, and retain keyboard focus. Do not assert Phaser fields, canvas pixels, or incidental DOM structure.
+  - [x] Extend `tests/e2e/accessibility.spec.ts` to run axe after the Curated Record is exposed, plus the existing notebook comparison scan. Manually verify keyboard-only inspection, focus recovery, screen-reader announcements, non-colour/non-audio category understanding, zoom/text scaling, and responsive touch targets; axe is necessary but insufficient.
+  - [x] Run and retain the current Vitest suite, production build, boot-shell/cache/offline regression tests, accessible control DOM/Phaser parity, notebook comparison tests, and Playwright Chromium/Firefox/WebKit coverage. Do not loosen prior public assertions to accommodate this story.
 
 ## Dev Notes
 
@@ -143,18 +143,42 @@ GPT-5.6 Codex
 
 - Ultimate context engine analysis completed: full planning/GDD/architecture/project-context/UX review; source mockup and current code inspection; prior-story/Git intelligence; parallel artifact and source/code research; official Zod/ARIA/Playwright documentation review.
 - Validation checklist applied: this context prevents a parallel content path or evidence store, unreviewed-source presentation, historic-run mutation, Phaser-owned accessibility behavior, and regression of previous semantic controls.
+- Implemented typed, strict source records through the existing `loadCaseDefinition` safe-parse and recursive-freeze boundary; Vitest source-contract red/green cycle and full unit suite passed.
+- Added a pure, frozen inspected-source store transition with recoverable unknown, duplicate, and ineligible-source failures; rejected actions leave state and subscriber notifications unchanged.
+- Added the store-driven semantic Curated Record with visible provenance/rights metadata, text-based category markers, neutral recovery, polite status announcements, and rerender focus restoration; its Chromium browser test passed.
+- New observations now snapshot the current inspected-source IDs, while the notebook resolves saved IDs through public labels and retains historical evidence unchanged after later inspections.
+- Fixed cross-browser focus restoration by preserving the activated source/notebook control as an explicit pending focus target; 30 Playwright checks passed across Chromium, Firefox, and WebKit (offline reload intentionally runs only in Chromium).
 
 ### Completion Notes List
 
 - Ultimate context engine analysis completed - comprehensive developer guide created.
 - Status set to `ready-for-dev`.
 - The story is intentionally incremental: it provides a minimal validated source contract and inspected evidence state now while reserving reusable ledger, persistence, theory, review, and release sign-off work for their dedicated stories.
+- Implemented all Story 1.5 acceptance criteria: strict, immutable authored source records; authoritative inspected evidence; semantic source cards with provenance/rights labels; and immutable run snapshots with readable notebook labels.
+- Validation passed: `npm test` (75 tests), `npm run typecheck`, `npm run build`, and the cross-browser Playwright suite (30 checks; Firefox/WebKit skip the Chromium-only offline-reload case).
 
 ### File List
 
 - `_bmad-output/implementation-artifacts/1-5-curated-record-and-source-labels.md` (new story context)
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (status update)
+- `src/domain/cases/CaseDefinition.ts` (modified source-record contract)
+- `src/schemas/CaseDefinitionSchema.ts` (modified strict source validation)
+- `public/cases/young-interference/case.json` (modified reviewed Young source metadata)
+- `tests/unit/CaseDefinition.test.ts` (modified source validation and immutability coverage)
+- `src/core/store/AppAction.ts` (modified typed source inspection action)
+- `src/core/store/AppState.ts` (modified immutable source evidence state and reducer)
+- `src/core/store/selectors.ts` (modified public source evidence selectors)
+- `tests/unit/EvidenceStore.test.ts` (modified source inspection transition coverage)
+- `src/ui/sources/CuratedRecord.ts` (new semantic Curated Record component)
+- `src/main.ts` (modified Curated Record composition)
+- `index.html` (modified Curated Record mount)
+- `public/style.css` (modified source card and focus styling)
+- `tests/e2e/curated-record.spec.ts` (new semantic inspection browser coverage)
+- `src/ui/notebook/NotebookPanel.ts` (modified linked-source labels)
+- `tests/integration/CuratedRecord.test.ts` (new source state and historical snapshot integration coverage)
+- `tests/e2e/accessibility.spec.ts` (modified Curated Record axe coverage)
 
 ## Change Log
 
 - 2026-08-04: Ultimate context engine analysis completed - comprehensive developer guide created; status set to ready-for-dev.
+- 2026-08-04: Implemented Curated Record source labels, inspected-evidence state, notebook evidence snapshots, and accessibility/cross-browser regression coverage; status set to review.

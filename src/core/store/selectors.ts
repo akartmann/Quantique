@@ -1,4 +1,4 @@
-import type { PrimaryControl } from '../../domain/cases/CaseDefinition';
+import type { ContextualArtifact, PrimaryControl } from '../../domain/cases/CaseDefinition';
 import type { RunRecord } from '../../domain/evidence/RunRecord';
 import type { AppState, ComparisonNote } from './AppState';
 
@@ -21,6 +21,19 @@ export const selectFormattedControlValue = (state: AppState, controlId: PrimaryC
 };
 
 export const selectNotebookObservations = (state: AppState): readonly RunRecord[] => state.runs;
+
+export const selectContextualArtifacts = (state: AppState): readonly ContextualArtifact[] => state.caseDefinition.contextualArtifacts;
+
+export const selectSourceById = (state: AppState, sourceId: string): ContextualArtifact | undefined =>
+    selectContextualArtifacts(state).find(({ id }) => id === sourceId);
+
+export const selectInspectedSourceIds = (state: AppState): readonly string[] => state.inspectedSourceIds;
+
+export const selectIsSourceInspected = (state: AppState, sourceId: string): boolean =>
+    selectInspectedSourceIds(state).includes(sourceId);
+
+export const selectSourceLabel = (state: AppState, sourceId: string): string =>
+    selectSourceById(state, sourceId)?.displayName ?? `Unavailable source (${sourceId})`;
 
 export const selectRunObservation = (state: AppState, runId: string): Readonly<{ order: number; record: RunRecord }> | undefined => {
     const order = state.runs.findIndex(({ id }) => id === runId);

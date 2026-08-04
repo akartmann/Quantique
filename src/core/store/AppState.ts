@@ -1,6 +1,6 @@
 import type { Result } from '../errors/Result';
 import { normalizeControlValue } from '../../domain/apparatus/ApparatusControl';
-import type { CaseDefinition, PrimaryControl } from '../../domain/cases/CaseDefinition';
+import { isSourceEligibleForInspection, type CaseDefinition, type PrimaryControl } from '../../domain/cases/CaseDefinition';
 import { createRunRecord, type RunRecord } from '../../domain/evidence/RunRecord';
 import type { AppAction } from './AppAction';
 
@@ -17,6 +17,7 @@ export type ComparisonState = Readonly<{
 export type AppState = Readonly<{
     caseDefinition: CaseDefinition;
     activeControlValues: Readonly<Record<PrimaryControl['id'], number>>;
+    inspectedSourceIds: readonly string[];
     runs: readonly RunRecord[];
     comparison: ComparisonState;
 }>;
@@ -32,6 +33,7 @@ const freezeComparison = (comparison: ComparisonState): ComparisonState => Objec
 const freezeState = (state: AppState): AppState => Object.freeze({
     ...state,
     activeControlValues: Object.freeze({ ...state.activeControlValues }),
+    inspectedSourceIds: Object.freeze([...state.inspectedSourceIds]),
     runs: Object.freeze([...state.runs]),
     comparison: freezeComparison(state.comparison)
 });
@@ -41,6 +43,7 @@ export const createInitialAppState = (caseDefinition: CaseDefinition): AppState 
     activeControlValues: Object.fromEntries(
         caseDefinition.apparatus.primaryControls.map((control) => [control.id, control.defaultValue])
     ) as Record<PrimaryControl['id'], number>,
+    inspectedSourceIds: [],
     runs: [],
     comparison: { selectedRunIds: [], notes: [] }
 });
@@ -123,6 +126,19 @@ const reduceSaveComparisonNote = (state: AppState, note: string): Result<AppStat
     return { ok: true, value: freezeState({ ...state, comparison: { ...state.comparison, notes } }) };
 };
 
+const reduceSourceInspection = (state: AppState, sourceId: string): Result<AppState> => {
+    const source = state.caseDefinition.contextualArtifacts.find(({ id }) => id === sourceId);
+    if (!source) return failure('unknown-source-id', 'That source is unavailable in this investigation.');
+    if (!isSourceEligibleForInspection(source)) {
+        return failure('source-not-eligible', 'That source cannot be inspected as verified evidence right now. Try another contextual source.');
+    }
+    if (state.inspectedSourceIds.includes(sourceId)) {
+        return failure('duplicate-inspected-source', 'That source is already recorded as inspected.');
+    }
+
+    return { ok: true, value: freezeState({ ...state, inspectedSourceIds: [...state.inspectedSourceIds, sourceId] }) };
+};
+
 export const reduceAppState = (state: AppState, action: AppAction): Result<AppState> => {
     switch (action.type) {
         case 'apparatus.controlSet':
@@ -135,5 +151,7 @@ export const reduceAppState = (state: AppState, action: AppAction): Result<AppSt
             return reduceUnselectRun(state, action.runId);
         case 'comparison.noteSaved':
             return reduceSaveComparisonNote(state, action.note);
+        case 'source.inspected':
+            return reduceSourceInspection(state, action.sourceId);
     }
 };

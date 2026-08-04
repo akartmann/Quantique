@@ -48,7 +48,7 @@ button {
 
 button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
-.measurement-notebook button:focus-visible, .run-comparison button:focus-visible {
+.curated-record button:focus-visible, .measurement-notebook button:focus-visible, .run-comparison button:focus-visible {
     outline-color: #10252c;
 }
 
@@ -85,7 +85,23 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .control-readout { font-size: 1.25rem; font-weight: 700; min-height: 1.5rem; }
 .control-range, .apparatus-status { min-height: 1.5rem; }
 
-.measurement-notebook, .run-comparison {
+.curated-record h2, .curated-record h3 { margin: 0; }
+.curated-record-status { min-height: 1.5rem; }
+.source-cards { display: grid; gap: 1rem; }
+.source-card { border: 2px solid #34515a; border-radius: 0.3rem; display: grid; gap: 0.75rem; padding: 1rem; }
+.source-card.source-provenance-primary-material { border-style: double; }
+.source-card.source-provenance-reconstruction { border-style: dashed; }
+.source-card.source-provenance-later-interpretation { border-style: dotted; }
+.source-card.source-provenance-deliberate-fiction { border-style: groove; }
+.source-details { display: grid; gap: 0.5rem; margin: 0; }
+.source-details div { display: grid; gap: 0.25rem; }
+.source-details dt { font-weight: 700; }
+.source-details dd { margin: 0; }
+.source-provenance-label, .source-category-marker, .source-rights-status, .source-inspected-state { margin: 0; }
+.source-category-marker, .source-inspected-state { font-weight: 700; }
+.curated-record button { min-height: 44px; }
+
+.curated-record, .measurement-notebook, .run-comparison {
     background: #f7f4ef;
     border: 2px solid #f4d35e;
     border-radius: 0.5rem;

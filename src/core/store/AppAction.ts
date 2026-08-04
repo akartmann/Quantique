@@ -28,8 +28,14 @@ export type ComparisonNoteSaveAction = Readonly<{
     note: string;
 }>;
 
+export type SourceInspectedAction = Readonly<{
+    type: 'source.inspected';
+    sourceId: string;
+}>;
+
 export type AppAction = ApparatusControlSetAction
     | RunRecordAction
     | ComparisonRunSelectAction
     | ComparisonRunUnselectAction
-    | ComparisonNoteSaveAction;
+    | ComparisonNoteSaveAction
+    | SourceInspectedAction;

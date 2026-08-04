@@ -24,6 +24,22 @@ const PrimaryControlSchema = z.object({
 });
 
 const RecoveryRouteSchema = z.enum(['replication', 'control-change', 'source-comparison']);
+const SourceProvenanceCategorySchema = z.enum(['primary-material', 'reconstruction', 'later-interpretation', 'deliberate-fiction']);
+const SourceTypeSchema = z.enum(['lecture-record', 'published-book', 'reconstruction', 'interpretive-essay', 'fictionalized-account']);
+const SourceRightsStatusSchema = z.enum(['reviewed', 'incomplete', 'unavailable']);
+
+const ContextualArtifactSchema = z.object({
+    id: stableId,
+    displayName: z.string().trim().min(1),
+    creatorOrOrigin: z.string().trim().min(1),
+    sourceType: SourceTypeSchema,
+    provenance: z.object({
+        category: SourceProvenanceCategorySchema,
+        reference: sourceRef
+    }).strict(),
+    rightsStatus: SourceRightsStatusSchema,
+    caseRelationship: z.string().trim().min(1)
+}).strict();
 
 export const AssetManifestSchema = z.object({
     manifestVersion: z.string().trim().min(1),
@@ -42,15 +58,7 @@ export const CaseDefinitionSchema = z.object({
     id: z.literal('young-interference'),
     version: z.string().trim().min(1),
     openingDispute: z.string().trim().min(1),
-    contextualArtifacts: z.tuple([z.object({
-        id: stableId,
-        displayName: z.string().trim().min(1),
-        provenanceRef: sourceRef
-    }).strict(), z.object({
-        id: stableId,
-        displayName: z.string().trim().min(1),
-        provenanceRef: sourceRef
-    }).strict()]),
+    contextualArtifacts: z.tuple([ContextualArtifactSchema, ContextualArtifactSchema]),
     prediction: z.object({ required: z.literal(true) }).strict(),
     apparatus: z.object({ primaryControls: z.tuple([PrimaryControlSchema, PrimaryControlSchema]) }).strict(),
     experiment: z.object({
