@@ -1,7 +1,10 @@
 import type { Result } from '../errors/Result';
 import { normalizeControlValue } from '../../domain/apparatus/ApparatusControl';
 import { isSourceEligibleForInspection, type CaseDefinition, type PrimaryControl } from '../../domain/cases/CaseDefinition';
+import { advanceCasePhase } from '../../domain/cases/caseReducer';
+import type { CasePhase } from '../../domain/cases/CaseProgress';
 import { createRunRecord, type RunRecord } from '../../domain/evidence/RunRecord';
+import { createTheoryBoardDraft, evaluateConclusionReadiness, type TheoryBoardDraft } from '../../domain/theory/conclusionReadiness';
 import type { AppAction } from './AppAction';
 
 export type ComparisonNote = Readonly<{
@@ -16,10 +19,12 @@ export type ComparisonState = Readonly<{
 
 export type AppState = Readonly<{
     caseDefinition: CaseDefinition;
+    phase: CasePhase;
     activeControlValues: Readonly<Record<PrimaryControl['id'], number>>;
     inspectedSourceIds: readonly string[];
     runs: readonly RunRecord[];
     comparison: ComparisonState;
+    theory: TheoryBoardDraft;
 }>;
 
 const freezeComparison = (comparison: ComparisonState): ComparisonState => Object.freeze({
@@ -35,17 +40,25 @@ const freezeState = (state: AppState): AppState => Object.freeze({
     activeControlValues: Object.freeze({ ...state.activeControlValues }),
     inspectedSourceIds: Object.freeze([...state.inspectedSourceIds]),
     runs: Object.freeze([...state.runs]),
-    comparison: freezeComparison(state.comparison)
+    comparison: freezeComparison(state.comparison),
+    theory: Object.freeze({
+        selectedRunIds: Object.freeze([...state.theory.selectedRunIds]),
+        selectedSourceIds: Object.freeze([...state.theory.selectedSourceIds]),
+        conclusion: state.theory.conclusion,
+        limitation: state.theory.limitation
+    })
 });
 
 export const createInitialAppState = (caseDefinition: CaseDefinition): AppState => freezeState({
     caseDefinition,
+    phase: 'context',
     activeControlValues: Object.fromEntries(
         caseDefinition.apparatus.primaryControls.map((control) => [control.id, control.defaultValue])
     ) as Record<PrimaryControl['id'], number>,
     inspectedSourceIds: [],
     runs: [],
-    comparison: { selectedRunIds: [], notes: [] }
+    comparison: { selectedRunIds: [], notes: [] },
+    theory: createTheoryBoardDraft()
 });
 
 const failure = (code: string, message: string): Result<never> => ({ ok: false, error: { code, message } });
@@ -142,6 +155,54 @@ const reduceSourceInspection = (state: AppState, sourceId: string): Result<AppSt
     return { ok: true, value: freezeState({ ...state, inspectedSourceIds: [...state.inspectedSourceIds, sourceId] }) };
 };
 
+const withTheory = (state: AppState, theory: TheoryBoardDraft): Result<AppState> => ({
+    ok: true,
+    value: freezeState({ ...state, theory })
+});
+
+const reduceTheorySupportRun = (state: AppState, runId: string, selected: boolean): Result<AppState> => {
+    if (!state.runs.some(({ id }) => id === runId)) return failure('unknown-theory-run', 'That observation is unavailable as conclusion support.');
+    const isSelected = state.theory.selectedRunIds.includes(runId);
+    if (selected && isSelected) return failure('duplicate-theory-run', 'That observation is already supporting this conclusion.');
+    if (!selected && !isSelected) return failure('theory-run-not-selected', 'That observation is not selected as conclusion support.');
+    return withTheory(state, {
+        ...state.theory,
+        selectedRunIds: selected
+            ? [...state.theory.selectedRunIds, runId]
+            : state.theory.selectedRunIds.filter((id) => id !== runId)
+    });
+};
+
+const reduceTheorySupportSource = (state: AppState, sourceId: string, selected: boolean): Result<AppState> => {
+    if (!state.inspectedSourceIds.includes(sourceId)) return failure('uninspected-theory-source', 'Inspect that reviewed source before using it as conclusion support.');
+    const isSelected = state.theory.selectedSourceIds.includes(sourceId);
+    if (selected && isSelected) return failure('duplicate-theory-source', 'That source is already supporting this conclusion.');
+    if (!selected && !isSelected) return failure('theory-source-not-selected', 'That source is not selected as conclusion support.');
+    return withTheory(state, {
+        ...state.theory,
+        selectedSourceIds: selected
+            ? [...state.theory.selectedSourceIds, sourceId]
+            : state.theory.selectedSourceIds.filter((id) => id !== sourceId)
+    });
+};
+
+const reduceCasePhaseAdvance = (state: AppState, nextPhase: CasePhase): Result<AppState> => {
+    const transition = advanceCasePhase({ definition: state.caseDefinition, phase: state.phase }, nextPhase);
+    if (!transition.ok) return transition;
+    return { ok: true, value: freezeState({ ...state, phase: transition.value.phase }) };
+};
+
+const reduceTheoryReviewRequest = (state: AppState): Result<AppState> => {
+    const readiness = evaluateConclusionReadiness(state.caseDefinition, {
+        runs: state.runs,
+        inspectedSourceIds: state.inspectedSourceIds
+    }, state.theory);
+    if (readiness.status === 'incomplete') {
+        return failure('conclusion-not-ready', readiness.missing[0].message);
+    }
+    return reduceCasePhaseAdvance(state, 'review');
+};
+
 export const reduceAppState = (state: AppState, action: AppAction): Result<AppState> => {
     switch (action.type) {
         case 'apparatus.controlSet':
@@ -156,5 +217,21 @@ export const reduceAppState = (state: AppState, action: AppAction): Result<AppSt
             return reduceSaveComparisonNote(state, action.note);
         case 'source.inspected':
             return reduceSourceInspection(state, action.sourceId);
+        case 'theory.supportRunSelected':
+            return reduceTheorySupportRun(state, action.runId, true);
+        case 'theory.supportRunUnselected':
+            return reduceTheorySupportRun(state, action.runId, false);
+        case 'theory.supportSourceSelected':
+            return reduceTheorySupportSource(state, action.sourceId, true);
+        case 'theory.supportSourceUnselected':
+            return reduceTheorySupportSource(state, action.sourceId, false);
+        case 'theory.conclusionSet':
+            return withTheory(state, { ...state.theory, conclusion: action.conclusion });
+        case 'theory.limitationSet':
+            return withTheory(state, { ...state.theory, limitation: action.limitation });
+        case 'theory.reviewRequested':
+            return reduceTheoryReviewRequest(state);
+        case 'case.phaseAdvance':
+            return reduceCasePhaseAdvance(state, action.nextPhase);
     }
 };

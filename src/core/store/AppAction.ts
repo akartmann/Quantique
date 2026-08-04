@@ -1,4 +1,5 @@
 import type { PrimaryControl } from '../../domain/cases/CaseDefinition';
+import type { CasePhase } from '../../domain/cases/CaseProgress';
 import type { RunRecord } from '../../domain/evidence/RunRecord';
 
 export type ApparatusControlSetAction = Readonly<{
@@ -33,9 +34,56 @@ export type SourceInspectedAction = Readonly<{
     sourceId: string;
 }>;
 
+export type TheorySupportRunSelectAction = Readonly<{
+    type: 'theory.supportRunSelected';
+    runId: string;
+}>;
+
+export type TheorySupportRunUnselectAction = Readonly<{
+    type: 'theory.supportRunUnselected';
+    runId: string;
+}>;
+
+export type TheorySupportSourceSelectAction = Readonly<{
+    type: 'theory.supportSourceSelected';
+    sourceId: string;
+}>;
+
+export type TheorySupportSourceUnselectAction = Readonly<{
+    type: 'theory.supportSourceUnselected';
+    sourceId: string;
+}>;
+
+export type TheoryConclusionSetAction = Readonly<{
+    type: 'theory.conclusionSet';
+    conclusion: string;
+}>;
+
+export type TheoryLimitationSetAction = Readonly<{
+    type: 'theory.limitationSet';
+    limitation: string;
+}>;
+
+export type TheoryReviewRequestAction = Readonly<{
+    type: 'theory.reviewRequested';
+}>;
+
+export type CasePhaseAdvanceAction = Readonly<{
+    type: 'case.phaseAdvance';
+    nextPhase: CasePhase;
+}>;
+
 export type AppAction = ApparatusControlSetAction
     | RunRecordAction
     | ComparisonRunSelectAction
     | ComparisonRunUnselectAction
     | ComparisonNoteSaveAction
-    | SourceInspectedAction;
+    | SourceInspectedAction
+    | TheorySupportRunSelectAction
+    | TheorySupportRunUnselectAction
+    | TheorySupportSourceSelectAction
+    | TheorySupportSourceUnselectAction
+    | TheoryConclusionSetAction
+    | TheoryLimitationSetAction
+    | TheoryReviewRequestAction
+    | CasePhaseAdvanceAction;

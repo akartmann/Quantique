@@ -1,6 +1,8 @@
 import type { ContextualArtifact, PrimaryControl } from '../../domain/cases/CaseDefinition';
 import type { RunRecord } from '../../domain/evidence/RunRecord';
 import type { AppState, ComparisonNote } from './AppState';
+import { evaluateConclusionReadiness, type ConclusionReadiness, type TheoryBoardDraft } from '../../domain/theory/conclusionReadiness';
+import type { CasePhase } from '../../domain/cases/CaseProgress';
 
 const decimalPlaces = (value: number): number => value.toString().split('.')[1]?.length ?? 0;
 
@@ -53,3 +55,18 @@ export const selectComparisonNote = (state: AppState): ComparisonNote | undefine
     if (!pair) return undefined;
     return state.comparison.notes.find((note) => pairKey(note.runIds) === pairKey([pair[0].id, pair[1].id]));
 };
+
+export const selectCasePhase = (state: AppState): CasePhase => state.phase;
+
+export const selectTheoryBoardDraft = (state: AppState): TheoryBoardDraft => state.theory;
+
+export const selectSelectedSupportingRuns = (state: AppState): readonly RunRecord[] =>
+    state.theory.selectedRunIds.flatMap((id) => state.runs.filter((run) => run.id === id));
+
+export const selectSelectedSupportingSources = (state: AppState): readonly ContextualArtifact[] =>
+    state.theory.selectedSourceIds.flatMap((id) => selectSourceById(state, id) ? [selectSourceById(state, id)!] : []);
+
+export const selectConclusionReadiness = (state: AppState): ConclusionReadiness => evaluateConclusionReadiness(state.caseDefinition, {
+    runs: state.runs,
+    inspectedSourceIds: state.inspectedSourceIds
+}, state.theory);

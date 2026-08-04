@@ -8,6 +8,7 @@ import { mountApparatusControls } from './ui/apparatus/ApparatusControls';
 import { createBootShell, setBootShellStatus } from './ui/BootShell';
 import { mountNotebookPanel } from './ui/notebook/NotebookPanel';
 import { mountCuratedRecord } from './ui/sources/CuratedRecord';
+import { mountTheoryBoard } from './ui/theory/TheoryBoard';
 
 const calculatePreparedObservation: CalculateExperimentResult = () => ({
     ok: true,
@@ -19,8 +20,9 @@ const initializeLaboratory = async (): Promise<void> => {
     const curatedRecordRoot = document.querySelector<HTMLElement>('#curated-record');
     const controlsRoot = document.querySelector<HTMLElement>('#apparatus-controls');
     const notebookRoot = document.querySelector<HTMLElement>('#measurement-notebook');
+    const theoryBoardRoot = document.querySelector<HTMLElement>('#theory-board');
 
-    if (!bootShell || !curatedRecordRoot || !controlsRoot || !notebookRoot) {
+    if (!bootShell || !curatedRecordRoot || !controlsRoot || !notebookRoot || !theoryBoardRoot) {
         return;
     }
 
@@ -45,6 +47,7 @@ const initializeLaboratory = async (): Promise<void> => {
         linkedEvidenceIds: store.getState().inspectedSourceIds,
         calculateResult: calculatePreparedObservation
     }, store.getState().runs.map(({ id }) => id)));
+    mountTheoryBoard(theoryBoardRoot, store);
     StartGame('game-container', store);
 };
 

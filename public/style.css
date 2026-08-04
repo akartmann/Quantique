@@ -48,7 +48,7 @@ button {
 
 button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
-.curated-record button:focus-visible, .measurement-notebook button:focus-visible, .run-comparison button:focus-visible {
+.curated-record button:focus-visible, .measurement-notebook button:focus-visible, .run-comparison button:focus-visible, .theory-board button:focus-visible {
     outline-color: #10252c;
 }
 
@@ -101,7 +101,7 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .source-category-marker, .source-inspected-state { font-weight: 700; }
 .curated-record button { min-height: 44px; }
 
-.curated-record, .measurement-notebook, .run-comparison {
+.curated-record, .measurement-notebook, .run-comparison, .theory-board {
     background: #f7f4ef;
     border: 2px solid #f4d35e;
     border-radius: 0.5rem;
@@ -130,6 +130,18 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .measurement-notebook textarea { min-height: 6rem; resize: vertical; }
 .measurement-notebook input:focus-visible, .measurement-notebook textarea:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
 .run-comparison-columns { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.theory-board h2, .theory-board h3 { margin: 0; }
+.theory-board-status { min-height: 1.5rem; }
+.theory-board-evidence { display: grid; gap: 1rem; margin: 0; padding-left: 1.5rem; }
+.theory-board-evidence li { border: 1px solid #34515a; border-radius: 0.3rem; display: grid; gap: 0.75rem; padding: 1rem; }
+.theory-board-details { display: grid; gap: 0.5rem; margin: 0; }
+.theory-board-details div { display: grid; gap: 0.25rem; }
+.theory-board-details dt { font-weight: 700; }
+.theory-board-details dd { margin: 0; }
+.theory-board input, .theory-board textarea { border: 2px solid #34515a; border-radius: 0.3rem; color: #10252c; font: inherit; min-height: 44px; padding: 0.4rem 0.6rem; }
+.theory-board textarea { min-height: 6rem; resize: vertical; }
+.theory-board input:focus-visible, .theory-board textarea:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
+.theory-board button { min-height: 44px; }
 
 #game-container { min-height: 20rem; }
 

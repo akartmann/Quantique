@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
-test('has no automated accessibility violations in the boot shell, Curated Record, or exposed notebook comparison', async ({ page }) => {
+test('has no automated accessibility violations in the boot shell, Curated Record, notebook comparison, or exposed Theory Board', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('button', { name: 'Enter laboratory' })).toBeVisible();
 
@@ -27,4 +27,9 @@ test('has no automated accessibility violations in the boot shell, Curated Recor
         .analyze();
 
     expect(notebookResults.violations).toEqual([]);
+
+    await curatedRecord.getByRole('button', { name: 'Inspect Opticks reference' }).click();
+    const theoryBoardResults = await new AxeBuilder({ page }).include('.theory-board').analyze();
+
+    expect(theoryBoardResults.violations).toEqual([]);
 });
