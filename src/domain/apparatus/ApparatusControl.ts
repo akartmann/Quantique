@@ -2,8 +2,10 @@ import type { Result } from '../../core/errors/Result';
 import type { PrimaryControl } from '../cases/CaseDefinition';
 
 const decimalPlaces = (value: number): number => {
-    const [, fractional = ''] = value.toString().split('.');
-    return fractional.length;
+    const [coefficient, exponentPart] = value.toString().toLowerCase().split('e');
+    const fractionalPlaces = coefficient.split('.')[1]?.length ?? 0;
+    const exponent = Number(exponentPart ?? 0);
+    return Math.max(0, fractionalPlaces - exponent);
 };
 
 const normalizationScale = (control: PrimaryControl, value: number): number => {

@@ -61,3 +61,31 @@ test('projects Phaser pointer and touch changes through the same semantic readou
     await expect(touchPage.locator('#slitSpacingMm-readout')).toHaveText('0.30 mm');
     await touchContext.close();
 });
+
+test('keeps laboratory controls read-only on phones', async ({ browser }) => {
+    const phoneContext = await browser.newContext({
+        hasTouch: true,
+        isMobile: true,
+        viewport: { width: 390, height: 844 }
+    });
+    const phonePage = await phoneContext.newPage();
+    await phonePage.goto('/');
+
+    const control = phonePage.getByLabel('Slit spacing (mm)');
+    await expect(control).toBeDisabled();
+    await expect(phonePage.locator('#apparatus-status')).toHaveText('Laboratory controls are read-only on phones.');
+
+    const canvas = phonePage.locator('#game-container canvas');
+    await expect(canvas).toBeVisible();
+    const bounds = await canvas.boundingBox();
+    if (!bounds) {
+        throw new Error('The phone laboratory surface did not render.');
+    }
+
+    await phonePage.touchscreen.tap(
+        bounds.x + (450 / 1024) * bounds.width,
+        bounds.y + (180 / 768) * bounds.height
+    );
+    await expect(control).toHaveValue('0.25');
+    await phoneContext.close();
+});

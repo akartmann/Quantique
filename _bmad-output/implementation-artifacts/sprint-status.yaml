@@ -35,7 +35,7 @@
 # - Dev moves a story to 'review', then runs code review.
 
 generated: 2026-08-04T18:18:39+0200
-last_updated: 2026-08-04T20:29:00+0200
+last_updated: 2026-08-04T21:00:24+0200
 project: Quantique
 project_key: NOKEY
 tracking_system: file-system
@@ -45,7 +45,7 @@ development_status:
   epic-1: in-progress
   1-1-project-bootstrap-and-verification-harness: done
   1-2-minimal-young-case-contract-and-authored-loop: done
-  1-3-accessible-dual-surface-laboratory-controls: review
+  1-3-accessible-dual-surface-laboratory-controls: done
   1-4-measurement-notebook-and-run-comparison: backlog
   1-5-curated-record-and-source-labels: backlog
   1-6-evidence-to-conclusion-theory-board: backlog

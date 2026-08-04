@@ -13,6 +13,16 @@ const slitSpacing: PrimaryControl = {
     defaultValue: 0.25
 };
 
+const microscopicSpacing: PrimaryControl = {
+    id: 'slitSpacingMm',
+    label: 'Microscopic spacing',
+    unit: 'mm',
+    min: 1e-7,
+    max: 5e-7,
+    step: 1e-7,
+    defaultValue: 3e-7
+};
+
 describe('normalizeControlValue', () => {
     it.each([
         [0.25, 0.25],
@@ -27,5 +37,9 @@ describe('normalizeControlValue', () => {
     it('rejects non-finite values as recoverable results', () => {
         expect(normalizeControlValue(slitSpacing, Number.NaN)).toMatchObject({ ok: false, error: { code: 'invalid-control-value' } });
         expect(normalizeControlValue(slitSpacing, Number.POSITIVE_INFINITY)).toMatchObject({ ok: false, error: { code: 'invalid-control-value' } });
+    });
+
+    it('normalizes authored values expressed in exponent notation', () => {
+        expect(normalizeControlValue(microscopicSpacing, 2.5e-7)).toEqual({ ok: true, value: 3e-7 });
     });
 });

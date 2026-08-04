@@ -4,7 +4,7 @@ baseline_commit: d356cb51ee85280634ef3470307700f77494ef18
 
 # Story 1.3: Accessible dual-surface laboratory controls
 
-Status: review
+Status: done
 
 ## Story
 
@@ -68,7 +68,14 @@ so that I can perform experiments regardless of my input method.
   - [x] Add Vitest unit fixtures/specs for valid authored controls, clamp behavior, off-step normalization including a tie, non-finite rejection, and immutable pure reducer/store transitions. Test public values, not implementation-private fields.
   - [x] Add an integration test that drives one DOM intent and one simulated Phaser intent from the same initial state and asserts identical authoritative state plus matching formatted readouts. This may use the injected Phaser-store adapter/dispatch seam; it must not require canvas pixels or Phaser private state.
   - [x] Extend browser E2E/a11y coverage through semantic roles, labels, values, and status text: keyboard adjustment works, the announced/readable value updates, and the essential control is available outside canvas. Keep the existing boot-shell, production cache, offline-reload, and cross-browser tests green.
-  - [x] Run `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`, `npm run test:e2e:a11y`, `npm run test:e2e:offline`, and `npm run test:e2e:cross-browser` when browser binaries are installed. Manually verify keyboard-only operation, visible focus, text scaling/zoom, non-colour meaning, semantic announcements, pointer/touch parity, and scene restart cleanup; axe alone is insufficient.
+- [x] Run `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`, `npm run test:e2e:a11y`, `npm run test:e2e:offline`, and `npm run test:e2e:cross-browser` when browser binaries are installed. Manually verify keyboard-only operation, visible focus, text scaling/zoom, non-colour meaning, semantic announcements, pointer/touch parity, and scene restart cleanup; axe alone is insufficient.
+
+### Review Findings
+
+- [x] [Review][Patch] Make laboratory controls read-only at viewport widths of 767px or less [src/ui/apparatus/ApparatusControls.ts:83]
+- [x] [Review][Patch] Announce accepted Phaser-originated control changes [src/ui/apparatus/ApparatusControls.ts:109]
+- [x] [Review][Patch] Normalize authored numeric values expressed in exponent notation [src/domain/apparatus/ApparatusControl.ts:5]
+- [x] [Review][Patch] Avoid duplicate DOM control commits and live announcements [src/ui/apparatus/ApparatusControls.ts:83]
 
 ## Developer guardrails
 

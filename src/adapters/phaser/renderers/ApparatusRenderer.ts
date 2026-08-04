@@ -6,6 +6,7 @@ import { selectFormattedControlValue, selectPrimaryControl } from '../../../core
 
 export class ApparatusRenderer {
     private readonly objects: Phaser.GameObjects.GameObject[] = [];
+    private readonly controls: Phaser.GameObjects.Text[] = [];
     private readout?: Phaser.GameObjects.Text;
 
     public constructor(
@@ -24,6 +25,9 @@ export class ApparatusRenderer {
         const increase = this.createButton(420, '+', 1);
 
         this.objects.push(title, this.readout, decrease, increase);
+        this.controls.push(decrease, increase);
+        this.updatePhoneReadOnlyMode();
+        window.addEventListener('resize', this.updatePhoneReadOnlyMode);
     }
 
     public render(state: AppState): void {
@@ -33,15 +37,17 @@ export class ApparatusRenderer {
     }
 
     public destroy(): void {
+        window.removeEventListener('resize', this.updatePhoneReadOnlyMode);
         this.objects.forEach((object) => object.destroy());
         this.objects.length = 0;
+        this.controls.length = 0;
         this.readout = undefined;
     }
 
     private createButton(x: number, label: string, direction: -1 | 1): Phaser.GameObjects.Text {
         const button = this.scene.add.text(x, 160, label, {
             backgroundColor: '#f4d35e', color: '#10252c', fontFamily: 'system-ui', fontSize: '32px', padding: { x: 24, y: 12 }
-        }).setInteractive({ useHandCursor: true });
+        });
 
         button.on('pointerup', () => {
             const state = this.storeAdapter.getState();
@@ -50,4 +56,15 @@ export class ApparatusRenderer {
         });
         return button;
     }
+
+    private readonly updatePhoneReadOnlyMode = (): void => {
+        const enabled = !window.matchMedia('(max-width: 767px)').matches;
+        this.controls.forEach((control) => {
+            if (enabled) {
+                control.setInteractive({ useHandCursor: true });
+            } else {
+                control.disableInteractive();
+            }
+        });
+    };
 }

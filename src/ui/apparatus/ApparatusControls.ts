@@ -2,6 +2,8 @@ import type { AppStore } from '../../core/store/createStore';
 import { selectFormattedControlValue, selectPrimaryControl } from '../../core/store/selectors';
 import type { PrimaryControl } from '../../domain/cases/CaseDefinition';
 
+const phoneReadOnlyQuery = '(max-width: 767px)';
+
 const controlMessage = (store: AppStore, controlId: PrimaryControl['id']): string => {
     const control = selectPrimaryControl(store.getState(), controlId);
     return `${control.label} set to ${selectFormattedControlValue(store.getState(), controlId)}.`;
@@ -61,6 +63,22 @@ export const mountApparatusControls = (
     status.setAttribute('aria-live', 'polite');
     status.className = 'apparatus-status';
 
+    const phoneMediaQuery = window.matchMedia(phoneReadOnlyQuery);
+    let isPhoneReadOnly = phoneMediaQuery.matches;
+
+    const updatePhoneReadOnlyMode = (): void => {
+        isPhoneReadOnly = phoneMediaQuery.matches;
+        input.disabled = isPhoneReadOnly;
+        instructions.textContent = isPhoneReadOnly
+            ? `${control.label} is read-only on phones. Use a tablet or desktop browser to adjust the laboratory.`
+            : `Adjust ${control.label} in ${control.unit}. Use the number field, its keyboard stepper, or the laboratory surface.`;
+        if (isPhoneReadOnly) {
+            status.textContent = 'Laboratory controls are read-only on phones.';
+        } else if (status.textContent === 'Laboratory controls are read-only on phones.') {
+            status.textContent = '';
+        }
+    };
+
     const render = (announce = false): void => {
         const formattedValue = selectFormattedControlValue(store.getState(), controlId);
         input.value = String(store.getState().activeControlValues[controlId]);
@@ -71,17 +89,18 @@ export const mountApparatusControls = (
     };
 
     const applyInputValue = (): void => {
+        if (isPhoneReadOnly) {
+            return;
+        }
+
         const result = dispatchControlValueFromDom(store, controlId, input.valueAsNumber);
-        if (result.ok) {
-            render(true);
-        } else {
+        if (!result.ok) {
             render(false);
             status.textContent = 'Enter a finite laboratory control value.';
         }
     };
 
     input.addEventListener('change', applyInputValue);
-    input.addEventListener('blur', applyInputValue);
     input.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             event.preventDefault();
@@ -96,19 +115,19 @@ export const mountApparatusControls = (
         event.preventDefault();
         const requestedValue = store.getState().activeControlValues[controlId]
             + (event.key === 'ArrowUp' ? control.step : -control.step);
-        const result = dispatchControlValueFromDom(store, controlId, requestedValue);
-        if (result.ok) {
-            render(true);
-        }
+        dispatchControlValueFromDom(store, controlId, requestedValue);
     });
 
     panel.append(heading, instructions, label, input, readout, range, status);
     root.append(panel);
     render();
+    updatePhoneReadOnlyMode();
+    phoneMediaQuery.addEventListener('change', updatePhoneReadOnlyMode);
 
-    const unsubscribe = store.subscribe(() => render(false));
+    const unsubscribe = store.subscribe(() => render(true));
     return () => {
         unsubscribe();
+        phoneMediaQuery.removeEventListener('change', updatePhoneReadOnlyMode);
         root.replaceChildren();
     };
 };
