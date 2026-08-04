@@ -68,6 +68,19 @@ export type TheoryReviewRequestAction = Readonly<{
     type: 'theory.reviewRequested';
 }>;
 
+export type ConsultationRequestAction = Readonly<{
+    type: 'consultation.requested';
+}>;
+
+export type PeerReviewRequestAction = Readonly<{
+    type: 'peerReview.requested';
+}>;
+
+export type RevisionSaveAction = Readonly<{
+    type: 'revision.saved';
+    timestamp: string;
+}>;
+
 export type CasePhaseAdvanceAction = Readonly<{
     type: 'case.phaseAdvance';
     nextPhase: CasePhase;
@@ -86,4 +99,7 @@ export type AppAction = ApparatusControlSetAction
     | TheoryConclusionSetAction
     | TheoryLimitationSetAction
     | TheoryReviewRequestAction
+    | ConsultationRequestAction
+    | PeerReviewRequestAction
+    | RevisionSaveAction
     | CasePhaseAdvanceAction;

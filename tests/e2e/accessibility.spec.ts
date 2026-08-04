@@ -32,4 +32,8 @@ test('has no automated accessibility violations in the boot shell, Curated Recor
     const theoryBoardResults = await new AxeBuilder({ page }).include('.theory-board').analyze();
 
     expect(theoryBoardResults.violations).toEqual([]);
+
+    const reviewSurfaceResults = await new AxeBuilder({ page }).include('.review-panel').analyze();
+
+    expect(reviewSurfaceResults.violations).toEqual([]);
 });

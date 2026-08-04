@@ -47,6 +47,17 @@ const validYoungCase: CaseDefinition = {
         resetPath: { recoveryRoute: 'replication', description: 'Repeat the observation after aligning the screen.' }
     },
     requirements: { minimumRuns: 2, minimumSources: 2 },
+    consultationRules: [
+        { id: 'missing-run', predicate: { kind: 'missing-run' }, layers: { observation: 'Fewer than two observations are recorded.', plainLanguage: 'Record another observation.', technicalDetail: 'Use another bounded setting.' }, nextStep: 'Record an observation.' },
+        { id: 'missing-source', predicate: { kind: 'missing-source', sourceId: 'young-lecture-1801' }, layers: { observation: 'A source is not inspected.', plainLanguage: 'Inspect the source.', technicalDetail: 'Check its provenance.' }, nextStep: 'Inspect the lecture record.' },
+        { id: 'alternative-test', predicate: { kind: 'alternative-test', controlId: 'screenDistanceM' }, layers: { observation: 'Settings are unchanged.', plainLanguage: 'Change one setting.', technicalDetail: 'Preserve the observation record.' }, nextStep: 'Adjust screen distance.' },
+        { id: 'missing-limit', predicate: { kind: 'missing-limitation' }, layers: { observation: 'No limitation is stated.', plainLanguage: 'State a limitation.', technicalDetail: 'Distinguish evidence from a broader claim.' }, nextStep: 'Add a limitation.' }
+    ],
+    peerReviewRules: [
+        { id: 'missing-evidence', predicate: { kind: 'missing-evidence' }, feedback: 'More evidence is needed.', revisionPath: 'Select evidence.' },
+        { id: 'unsupported', predicate: { kind: 'unsupported-support' }, feedback: 'Support is unavailable.', revisionPath: 'Use current evidence.' },
+        { id: 'overreach', predicate: { kind: 'overreach', overreachPhrases: ['proves'] }, feedback: 'The claim may overreach.', revisionPath: 'Use a bounded claim.' }
+    ],
     flow: {
         openingDispute: true,
         curatedRecord: true,
@@ -108,6 +119,18 @@ describe('CaseDefinitionSchema', () => {
         const definition = cloneValidCase() as unknown as Record<string, unknown>;
         mutate(definition);
 
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
+
+    it.each([
+        ['duplicate consultation ID', (definition: Record<string, unknown>) => { ((definition.consultationRules as Array<{ id: string }>)[1]).id = 'missing-run'; }],
+        ['unsupported consultation predicate', (definition: Record<string, unknown>) => { ((definition.consultationRules as Array<{ predicate: { kind: string } }>)[0]).predicate.kind = 'answer'; }],
+        ['missing progressive layer', (definition: Record<string, unknown>) => { delete ((definition.consultationRules as Array<{ layers: { technicalDetail?: string } }>)[0]).layers.technicalDetail; }],
+        ['unknown consultation source', (definition: Record<string, unknown>) => { ((definition.consultationRules as Array<{ predicate: { sourceId?: string } }>)[1]).predicate.sourceId = 'unknown'; }],
+        ['phase path in authored help', (definition: Record<string, unknown>) => { ((definition.consultationRules as Array<{ nextStep: string }>)[0]).nextStep = 'Move to review phase.'; }]
+    ])('rejects %s', (_description, mutate) => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        mutate(definition);
         expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
     });
 });

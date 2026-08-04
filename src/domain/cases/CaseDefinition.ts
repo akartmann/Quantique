@@ -31,6 +31,29 @@ export type PrimaryControl = Readonly<{
     defaultValue: number;
 }>;
 
+export type ConsultationPredicateKind = 'missing-run' | 'missing-source' | 'alternative-test' | 'missing-limitation';
+export type PeerReviewPredicateKind = 'missing-evidence' | 'unsupported-support' | 'overreach';
+
+export type ProgressiveHelpLayers = Readonly<{
+    observation: string;
+    plainLanguage: string;
+    technicalDetail: string;
+}>;
+
+export type ConsultationRule = Readonly<{
+    id: string;
+    predicate: Readonly<{ kind: ConsultationPredicateKind; sourceId?: string; controlId?: PrimaryControl['id'] }>;
+    layers: ProgressiveHelpLayers;
+    nextStep: string;
+}>;
+
+export type PeerReviewRule = Readonly<{
+    id: string;
+    predicate: Readonly<{ kind: PeerReviewPredicateKind; overreachPhrases?: readonly string[] }>;
+    feedback: string;
+    revisionPath: string;
+}>;
+
 export type CaseDefinition = Readonly<{
     id: 'young-interference';
     version: string;
@@ -46,6 +69,8 @@ export type CaseDefinition = Readonly<{
         resetPath: Readonly<{ recoveryRoute: RecoveryRoute; description: string }>;
     }>;
     requirements: Readonly<{ minimumRuns: 2; minimumSources: 2 }>;
+    consultationRules: readonly ConsultationRule[];
+    peerReviewRules: readonly PeerReviewRule[];
     flow: Readonly<{
         openingDispute: true;
         curatedRecord: true;

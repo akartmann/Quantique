@@ -101,7 +101,7 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .source-category-marker, .source-inspected-state { font-weight: 700; }
 .curated-record button { min-height: 44px; }
 
-.curated-record, .measurement-notebook, .run-comparison, .theory-board {
+.curated-record, .measurement-notebook, .run-comparison, .theory-board, .review-panel {
     background: #f7f4ef;
     border: 2px solid #f4d35e;
     border-radius: 0.5rem;
@@ -142,6 +142,17 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .theory-board textarea { min-height: 6rem; resize: vertical; }
 .theory-board input:focus-visible, .theory-board textarea:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
 .theory-board button { min-height: 44px; }
+.review-panel h2, .review-panel h3 { margin: 0; }
+.review-panel button { min-height: 44px; }
+.review-panel button:focus-visible, .review-panel summary:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
+.review-status { min-height: 1.5rem; }
+.review-panel details { border: 1px solid #34515a; border-radius: 0.3rem; padding: 0.75rem; }
+.review-panel summary { cursor: pointer; font-weight: 700; min-height: 44px; }
+.decision-history-panel ol { display: grid; gap: 1rem; margin: 0; padding-left: 1.5rem; }
+.decision-history-panel li { border: 1px solid #34515a; border-radius: 0.3rem; padding: 1rem; }
+.decision-history-panel dl { display: grid; gap: 0.5rem; margin: 0; }
+.decision-history-panel dt { font-weight: 700; }
+.decision-history-panel dd { margin: 0; }
 
 #game-container { min-height: 20rem; }
 

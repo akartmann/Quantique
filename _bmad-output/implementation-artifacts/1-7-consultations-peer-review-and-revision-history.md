@@ -4,7 +4,7 @@ baseline_commit: e5530f8
 
 # Story 1.7: Consultations, peer review, and revision history
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -36,48 +36,48 @@ so that I can improve my reasoning without being given the answer or losing my d
 
 ## Tasks / Subtasks
 
-- [ ] Extend the validated, immutable authored case contract (AC: 1, 2, 3, 6–8)
-  - [ ] Extend `src/domain/cases/CaseDefinition.ts`, `src/schemas/CaseDefinitionSchema.ts`, and `public/cases/young-interference/case.json` with only the types/fields consumed by this story: consultation rules, peer-review rules, and the progressive/help layers they display. Keep JSON fields camelCase, case IDs/content immutable, and schema objects strict.
-  - [ ] Model every rule as data with a stable ID, explicit ordered predicate(s), and authored content. A rule must identify the kind of evidence condition it evaluates (for example: missing run, missing inspected source, missing limitation, selected-support mismatch, or an authored overreach signal) and what it may reveal. Do not embed callbacks, UI strings assembled from learner text, scene names, or route/phase shortcuts in case content.
-  - [ ] Author the smallest complete Young fixture: consultations covering a missing observation, missing source, alternative test, and stated limitation; three progressive layers (in-play observation, plain-language, optional technical/source detail); and neutral peer-review feedback for missing evidence/unsupported support/overreach. Content must point to an observable, source, or test and must never give a final conclusion verbatim.
-  - [ ] Validate duplicate rule IDs, blank content, unsupported predicate kinds, missing progressive layers, invalid references to source/control/rule IDs, and any authored text that attempts to encode a phase/scene completion path. Invalid content returns the existing typed recoverable `Result` at the repository boundary before it reaches domain logic.
-  - [ ] Preserve every prior Young contract requirement: exactly two contextual artifacts, reviewed-source eligibility, primary apparatus controls/ranges, deterministic model/version, immutable asset manifest, two-run/two-source requirements, flow, confound/reset path, and sourced debrief. Do not loosen the existing schemas or fixtures to make the new fields convenient.
+- [x] Extend the validated, immutable authored case contract (AC: 1, 2, 3, 6–8)
+  - [x] Extend `src/domain/cases/CaseDefinition.ts`, `src/schemas/CaseDefinitionSchema.ts`, and `public/cases/young-interference/case.json` with only the types/fields consumed by this story: consultation rules, peer-review rules, and the progressive/help layers they display. Keep JSON fields camelCase, case IDs/content immutable, and schema objects strict.
+  - [x] Model every rule as data with a stable ID, explicit ordered predicate(s), and authored content. A rule must identify the kind of evidence condition it evaluates (for example: missing run, missing inspected source, missing limitation, selected-support mismatch, or an authored overreach signal) and what it may reveal. Do not embed callbacks, UI strings assembled from learner text, scene names, or route/phase shortcuts in case content.
+  - [x] Author the smallest complete Young fixture: consultations covering a missing observation, missing source, alternative test, and stated limitation; three progressive layers (in-play observation, plain-language, optional technical/source detail); and neutral peer-review feedback for missing evidence/unsupported support/overreach. Content must point to an observable, source, or test and must never give a final conclusion verbatim.
+  - [x] Validate duplicate rule IDs, blank content, unsupported predicate kinds, missing progressive layers, invalid references to source/control/rule IDs, and any authored text that attempts to encode a phase/scene completion path. Invalid content returns the existing typed recoverable `Result` at the repository boundary before it reaches domain logic.
+  - [x] Preserve every prior Young contract requirement: exactly two contextual artifacts, reviewed-source eligibility, primary apparatus controls/ranges, deterministic model/version, immutable asset manifest, two-run/two-source requirements, flow, confound/reset path, and sourced debrief. Do not loosen the existing schemas or fixtures to make the new fields convenient.
 
-- [ ] Implement pure consultation and peer-review domain contracts (AC: 2, 3, 5–8)
-  - [ ] Add focused pure modules under `src/domain/review/` (for example `ConsultationRule.ts` and `peerReviewRules.ts`). They may import domain/core types only; never import Phaser, DOM, `fetch`, IndexedDB, `Date`, `crypto`, adapters, or UI modules.
-  - [ ] Define frozen input/projection types that take the authored rules, authoritative runs, inspected sources, and the current theory draft. Implement deterministic consultation selection: only eligible authored prompts are considered; select the first applicable rule in case-authored order, then return its bounded prompt and next actionable target. Requesting it repeatedly is always allowed and must not mutate evidence or phase.
-  - [ ] Implement a pure peer-review evaluator returning a frozen discriminated result such as `reviewed` or recoverable `unavailable`, with stable issue codes and neutral feedback references. It must identify which supported claim/evidence condition is inadequate without echoing or logging the player’s conclusion text.
-  - [ ] Treat rule-evaluation impossibility as an expected `Result` failure with a safe, semantic-ready message. Preserve current draft, evidence, comparison notes, and history. Never throw raw errors for authored/user input failures.
-  - [ ] Keep review predicates fact-bound. A consultation/review may point to a missing observation, inspected source, alternative test, limitation, or evidence-to-claim mismatch; it cannot calculate science, create a run, mark a source inspected, mutate selections, provide the answer, or transition the case phase.
-  - [ ] Introduce an append-only, frozen decision-history model. Each saved entry must retain its own version number, prior/current conclusion snapshot, limitation snapshot, selected run/source ID snapshots, immutable review-feedback snapshot, and explicit timestamp supplied through the action/adapter boundary. Never derive historical entries from current mutable draft later and never backfill historical evidence.
+- [x] Implement pure consultation and peer-review domain contracts (AC: 2, 3, 5–8)
+  - [x] Add focused pure modules under `src/domain/review/` (for example `ConsultationRule.ts` and `peerReviewRules.ts`). They may import domain/core types only; never import Phaser, DOM, `fetch`, IndexedDB, `Date`, `crypto`, adapters, or UI modules.
+  - [x] Define frozen input/projection types that take the authored rules, authoritative runs, inspected sources, and the current theory draft. Implement deterministic consultation selection: only eligible authored prompts are considered; select the first applicable rule in case-authored order, then return its bounded prompt and next actionable target. Requesting it repeatedly is always allowed and must not mutate evidence or phase.
+  - [x] Implement a pure peer-review evaluator returning a frozen discriminated result such as `reviewed` or recoverable `unavailable`, with stable issue codes and neutral feedback references. It must identify which supported claim/evidence condition is inadequate without echoing or logging the player’s conclusion text.
+  - [x] Treat rule-evaluation impossibility as an expected `Result` failure with a safe, semantic-ready message. Preserve current draft, evidence, comparison notes, and history. Never throw raw errors for authored/user input failures.
+  - [x] Keep review predicates fact-bound. A consultation/review may point to a missing observation, inspected source, alternative test, limitation, or evidence-to-claim mismatch; it cannot calculate science, create a run, mark a source inspected, mutate selections, provide the answer, or transition the case phase.
+  - [x] Introduce an append-only, frozen decision-history model. Each saved entry must retain its own version number, prior/current conclusion snapshot, limitation snapshot, selected run/source ID snapshots, immutable review-feedback snapshot, and explicit timestamp supplied through the action/adapter boundary. Never derive historical entries from current mutable draft later and never backfill historical evidence.
 
-- [ ] Extend authoritative store state/actions/selectors without breaking Story 1.6 (AC: 3–5, 7–9)
-  - [ ] Update `src/core/store/AppAction.ts`, `AppState.ts`, and `selectors.ts`. Use typed `noun.verb` actions for consultation request, peer-review evaluation/request, and revision save; action names express an intent/fact, not a DOM event. Add frozen consultation/review projection state and append-only history only as required by the story.
-  - [ ] Continue to use `createStore`’s successful-transition-only notification behavior. A rejected or unavailable consultation/review/revision must leave the exact prior authoritative state intact and must not notify subscribers.
-  - [ ] A peer-review request must read the existing authoritative theory draft and evidence. It must preserve the established readiness/phase contract; it does not replace `theory.reviewRequested`, hard-code the two-run/two-source threshold, or turn comparison selection into conclusion support.
-  - [ ] Saving a revision appends a new frozen history entry rather than mutating the prior entry. Define an unambiguous first-review/revision sequence: review feedback is evaluated from the current draft; save stores that reviewed snapshot; subsequent edits keep editable current draft; each later save appends a new incremented version. Keep previous review feedback/timestamps/snapshots addressable through selectors.
-  - [ ] Validate all referenced run/source IDs against current authoritative evidence before writing a history snapshot. Reuse source eligibility and immutable run-record constraints. Do not accept duplicates, unknowns, unavailable/ineligible sources, or historical record mutation.
-  - [ ] Expose selectors for the current consultation result, current peer-review result, and decision history. UI code reads these public selectors only; it must not independently determine predicate eligibility, calculate feedback, copy history, or cache selected IDs.
-  - [ ] Do not put player-entered conclusion text in default logs, diagnostics, event payloads, or recoverable messages. If a stable diagnostic is needed, log only a `noun.verb` event name, rule/result code, case ID, and schema version under the existing local-development policy.
+- [x] Extend authoritative store state/actions/selectors without breaking Story 1.6 (AC: 3–5, 7–9)
+  - [x] Update `src/core/store/AppAction.ts`, `AppState.ts`, and `selectors.ts`. Use typed `noun.verb` actions for consultation request, peer-review evaluation/request, and revision save; action names express an intent/fact, not a DOM event. Add frozen consultation/review projection state and append-only history only as required by the story.
+  - [x] Continue to use `createStore`’s successful-transition-only notification behavior. A rejected or unavailable consultation/review/revision must leave the exact prior authoritative state intact and must not notify subscribers.
+  - [x] A peer-review request must read the existing authoritative theory draft and evidence. It must preserve the established readiness/phase contract; it does not replace `theory.reviewRequested`, hard-code the two-run/two-source threshold, or turn comparison selection into conclusion support.
+  - [x] Saving a revision appends a new frozen history entry rather than mutating the prior entry. Define an unambiguous first-review/revision sequence: review feedback is evaluated from the current draft; save stores that reviewed snapshot; subsequent edits keep editable current draft; each later save appends a new incremented version. Keep previous review feedback/timestamps/snapshots addressable through selectors.
+  - [x] Validate all referenced run/source IDs against current authoritative evidence before writing a history snapshot. Reuse source eligibility and immutable run-record constraints. Do not accept duplicates, unknowns, unavailable/ineligible sources, or historical record mutation.
+  - [x] Expose selectors for the current consultation result, current peer-review result, and decision history. UI code reads these public selectors only; it must not independently determine predicate eligibility, calculate feedback, copy history, or cache selected IDs.
+  - [x] Do not put player-entered conclusion text in default logs, diagnostics, event payloads, or recoverable messages. If a stable diagnostic is needed, log only a `noun.verb` event name, rule/result code, case ID, and schema version under the existing local-development policy.
 
-- [ ] Build the semantic assistance, review, and history surface (AC: 2–8)
-  - [ ] Add semantic UI under `src/ui/review/` (for example `ConsultationPanel.ts`, `ConclusionReviewPanel.ts`, and `DecisionHistoryPanel.ts`) and compose it from `src/main.ts`. Keep Phaser as an optional visual projection only; no consultation/review/history state, progression, or answer logic belongs in Phaser scenes/renderers.
-  - [ ] Follow the established `TheoryBoard`, `NotebookPanel`, and `CuratedRecord` pattern: subscribe to the authoritative store, render from selectors, use a labelled semantic landmark and a polite `role="status"` recovery region, clear stale messages when the authoritative state changes, and unsubscribe/clear the mount on teardown.
-  - [ ] Provide a clearly labelled consultation control with in-play observation, plain-language, and optional technical/source-detail disclosure. The practical next step must be explicit, but must never write, reveal, or infer a final learner conclusion. Repeated requests stay available and non-punitive.
-  - [ ] Render peer-review feedback as neutral, inspectable semantic text with a revision path back to the existing Theory Board. Never call a result “wrong,” suppress the learner’s draft, demand a mandatory skip, or use colour/sound as the only feedback channel.
-  - [ ] Render a decision-history list in chronological/version order. Each entry must visibly distinguish prior/current snapshot content, feedback, timestamp, and supporting evidence references; it must be readable without canvas pixels or colour interpretation. History is a record, not an editable form: editing the current theory draft must not rewrite a displayed historical entry.
-  - [ ] Use stable `data-*` focus keys and element lookup for rerender focus restoration. Never interpolate authored IDs into CSS selectors. Keep focus after keyboard activation, recoverable failures, review submission, history save, and disclosure changes.
-  - [ ] Extend `index.html` only if a dedicated semantic mount is necessary, and update `public/style.css` without removing current boot shell, Curated Record, controls, notebook, or Theory Board behavior. Preserve 44×44 CSS-pixel interactive targets, visible 2px+ focus treatment, 4.5:1+ text contrast, non-colour meaning, narrow sequential layout, and `prefers-reduced-motion` behavior. Phones remain laboratory read-only while semantic review/help remains readable and keyboard-operable.
-  - [ ] The existing reset, run comparison, theory board, and source surfaces must remain usable. This story may surface neutral auto-summaries of existing state, but must not mutate reset behavior, erase evidence/history, alter saved run snapshots, or lock valid work.
+- [x] Build the semantic assistance, review, and history surface (AC: 2–8)
+  - [x] Add semantic UI under `src/ui/review/` (for example `ConsultationPanel.ts`, `ConclusionReviewPanel.ts`, and `DecisionHistoryPanel.ts`) and compose it from `src/main.ts`. Keep Phaser as an optional visual projection only; no consultation/review/history state, progression, or answer logic belongs in Phaser scenes/renderers.
+  - [x] Follow the established `TheoryBoard`, `NotebookPanel`, and `CuratedRecord` pattern: subscribe to the authoritative store, render from selectors, use a labelled semantic landmark and a polite `role="status"` recovery region, clear stale messages when the authoritative state changes, and unsubscribe/clear the mount on teardown.
+  - [x] Provide a clearly labelled consultation control with in-play observation, plain-language, and optional technical/source-detail disclosure. The practical next step must be explicit, but must never write, reveal, or infer a final learner conclusion. Repeated requests stay available and non-punitive.
+  - [x] Render peer-review feedback as neutral, inspectable semantic text with a revision path back to the existing Theory Board. Never call a result “wrong,” suppress the learner’s draft, demand a mandatory skip, or use colour/sound as the only feedback channel.
+  - [x] Render a decision-history list in chronological/version order. Each entry must visibly distinguish prior/current snapshot content, feedback, timestamp, and supporting evidence references; it must be readable without canvas pixels or colour interpretation. History is a record, not an editable form: editing the current theory draft must not rewrite a displayed historical entry.
+  - [x] Use stable `data-*` focus keys and element lookup for rerender focus restoration. Never interpolate authored IDs into CSS selectors. Keep focus after keyboard activation, recoverable failures, review submission, history save, and disclosure changes.
+  - [x] Extend `index.html` only if a dedicated semantic mount is necessary, and update `public/style.css` without removing current boot shell, Curated Record, controls, notebook, or Theory Board behavior. Preserve 44×44 CSS-pixel interactive targets, visible 2px+ focus treatment, 4.5:1+ text contrast, non-colour meaning, narrow sequential layout, and `prefers-reduced-motion` behavior. Phones remain laboratory read-only while semantic review/help remains readable and keyboard-operable.
+  - [x] The existing reset, run comparison, theory board, and source surfaces must remain usable. This story may surface neutral auto-summaries of existing state, but must not mutate reset behavior, erase evidence/history, alter saved run snapshots, or lock valid work.
 
-- [ ] Verify the complete public contract and regressions (AC: 1–9)
-  - [ ] Add Vitest schema/content tests for valid authored consultation/review data and expected typed failures for duplicate IDs, unsupported predicates, missing layers, invalid references, and malformed content. Keep all strict existing case fixture requirements.
-  - [ ] Add exhaustive pure-domain tests for consultation precedence/selection, unlimited repeat request, each actionable target, all progressive layers, peer-review issue codes for missing evidence/unsupported claims/overreach, deterministic output, frozen inputs/outputs, and the recoverable unavailable-rule path. Assert the evaluator never reads UI/scene state or emits learner text.
-  - [ ] Add store tests for typed actions, frozen state, no subscriber notifications after every rejected action, valid-work retention, adjacent phase preservation, append-only version increments, explicit action-supplied timestamps, and historical snapshot immutability after later edits/reviews. Cover unknown/duplicate run/source protection and independent notebook comparison state.
-  - [ ] Add integration coverage using only public actions and selectors. Assert consultation/review/revision flows retain existing controls, runs (including controls/result/timestamp/model version/linked evidence), inspected source IDs, comparison notes, theory draft, and phase rules. Do not test private renderer fields or incidental DOM structures.
-  - [ ] Add Playwright coverage using `getByRole`/`getByLabel`: keyboard activation with Space/Enter, visible and polite recoverable messages, all three help layers, neutral review feedback, revision saving, versioned decision-history display, focus restoration, and repeated consultation. Do not assert canvas pixels or Phaser internals. Keep the exact Theory Board conclusion locator where needed (`getByLabel('Conclusion', { exact: true })`).
-  - [ ] Extend the accessibility spec with Axe after the new semantic review surfaces reach an interactive state. Manually verify keyboard-only operation, focus recovery, screen-reader announcements, disclosure semantics, non-colour understanding, responsive target sizing, and touch/pointer equivalence; Axe alone is insufficient.
-  - [ ] Run and retain the existing regression suite: `npm test`, `npm run typecheck`, `npm run build`, cached/offline E2E, Curated Record, measurement-notebook, dual-surface controls, Theory Board, accessibility, and Chromium/Firefox/WebKit Playwright suites. Do not loosen prior public assertions.
+- [x] Verify the complete public contract and regressions (AC: 1–9)
+  - [x] Add Vitest schema/content tests for valid authored consultation/review data and expected typed failures for duplicate IDs, unsupported predicates, missing layers, invalid references, and malformed content. Keep all strict existing case fixture requirements.
+  - [x] Add exhaustive pure-domain tests for consultation precedence/selection, unlimited repeat request, each actionable target, all progressive layers, peer-review issue codes for missing evidence/unsupported claims/overreach, deterministic output, frozen inputs/outputs, and the recoverable unavailable-rule path. Assert the evaluator never reads UI/scene state or emits learner text.
+  - [x] Add store tests for typed actions, frozen state, no subscriber notifications after every rejected action, valid-work retention, adjacent phase preservation, append-only version increments, explicit action-supplied timestamps, and historical snapshot immutability after later edits/reviews. Cover unknown/duplicate run/source protection and independent notebook comparison state.
+  - [x] Add integration coverage using only public actions and selectors. Assert consultation/review/revision flows retain existing controls, runs (including controls/result/timestamp/model version/linked evidence), inspected source IDs, comparison notes, theory draft, and phase rules. Do not test private renderer fields or incidental DOM structures.
+  - [x] Add Playwright coverage using `getByRole`/`getByLabel`: keyboard activation with Space/Enter, visible and polite recoverable messages, all three help layers, neutral review feedback, revision saving, versioned decision-history display, focus restoration, and repeated consultation. Do not assert canvas pixels or Phaser internals. Keep the exact Theory Board conclusion locator where needed (`getByLabel('Conclusion', { exact: true })`).
+  - [x] Extend the accessibility spec with Axe after the new semantic review surfaces reach an interactive state. Manually verify keyboard-only operation, focus recovery, screen-reader announcements, disclosure semantics, non-colour understanding, responsive target sizing, and touch/pointer equivalence; Axe alone is insufficient.
+  - [x] Run and retain the existing regression suite: `npm test`, `npm run typecheck`, `npm run build`, cached/offline E2E, Curated Record, measurement-notebook, dual-surface controls, Theory Board, accessibility, and Chromium/Firefox/WebKit Playwright suites. Do not loosen prior public assertions.
 
 ## Dev Notes
 
@@ -159,13 +159,35 @@ GPT-5.6 Codex
 - Ultimate context engine analysis completed - comprehensive developer guide created.
 - Status set to `ready-for-dev`.
 - The story is intentionally in-memory and append-only; persistence, import/export, and print remain Story 1.8 scope.
+- Implemented immutable authored consultation/peer-review rules, pure selectors/evaluator, typed store actions, and append-only frozen decision history.
+- Added semantic consultation, peer-review, and decision-history panels without adding Phaser authority or external dependencies.
+- Validated with 99 Vitest tests, typecheck, production build, offline/a11y E2E, and Chromium/Firefox/WebKit Playwright suites.
 
 ### File List
 
-- `_bmad-output/implementation-artifacts/1-7-consultations-peer-review-and-revision-history.md` (new story record)
+- `_bmad-output/implementation-artifacts/1-7-consultations-peer-review-and-revision-history.md` (updated story record)
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (status update)
-- Expected implementation paths: `src/domain/cases/CaseDefinition.ts`, `src/schemas/CaseDefinitionSchema.ts`, `public/cases/young-interference/case.json`, `src/domain/review/*`, `src/core/store/{AppAction,AppState,selectors}.ts`, `src/ui/review/*`, `src/main.ts`, `index.html`, `public/style.css`, and focused unit/integration/E2E/a11y specs.
+- `src/domain/cases/CaseDefinition.ts`
+- `src/schemas/CaseDefinitionSchema.ts`
+- `public/cases/young-interference/case.json`
+- `src/domain/review/ConsultationRule.ts`
+- `src/domain/review/peerReviewRules.ts`
+- `src/core/store/AppAction.ts`
+- `src/core/store/AppState.ts`
+- `src/core/store/selectors.ts`
+- `src/ui/review/ConsultationPanel.ts`
+- `src/ui/review/ConclusionReviewPanel.ts`
+- `src/ui/review/DecisionHistoryPanel.ts`
+- `src/main.ts`
+- `index.html`
+- `public/style.css`
+- `tests/unit/CaseDefinition.test.ts`
+- `tests/unit/ReviewRules.test.ts`
+- `tests/integration/ReviewFlow.test.ts`
+- `tests/e2e/theory-board.spec.ts`
+- `tests/e2e/accessibility.spec.ts`
 
 ## Change Log
 
 - 2026-08-04: Ultimate context engine analysis completed - comprehensive developer guide created; status set to ready-for-dev.
+- 2026-08-04: Implemented consultations, peer review, and revision history; status set to review.

@@ -1,6 +1,9 @@
 import type { ContextualArtifact, PrimaryControl } from '../../domain/cases/CaseDefinition';
 import type { RunRecord } from '../../domain/evidence/RunRecord';
 import type { AppState, ComparisonNote } from './AppState';
+import type { ConsultationProjection } from '../../domain/review/ConsultationRule';
+import type { PeerReviewProjection } from '../../domain/review/peerReviewRules';
+import type { DecisionHistoryEntry } from './AppState';
 import { evaluateConclusionReadiness, type ConclusionReadiness, type TheoryBoardDraft } from '../../domain/theory/conclusionReadiness';
 import type { CasePhase } from '../../domain/cases/CaseProgress';
 
@@ -70,3 +73,9 @@ export const selectConclusionReadiness = (state: AppState): ConclusionReadiness 
     runs: state.runs,
     inspectedSourceIds: state.inspectedSourceIds
 }, state.theory);
+
+export const selectConsultation = (state: AppState): ConsultationProjection | undefined => state.consultation;
+
+export const selectPeerReview = (state: AppState): PeerReviewProjection | undefined => state.peerReview;
+
+export const selectDecisionHistory = (state: AppState): readonly DecisionHistoryEntry[] => state.decisionHistory;

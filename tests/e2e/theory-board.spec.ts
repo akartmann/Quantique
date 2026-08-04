@@ -2,6 +2,16 @@ import { expect, test } from '@playwright/test';
 
 test('supports a keyboard-accessible evidence-to-conclusion draft with recoverable readiness guidance', async ({ page }) => {
     await page.goto('/');
+    const consultation = page.getByRole('region', { name: 'Evidence-responsive consultation' });
+    const consultationRequest = consultation.getByRole('button', { name: 'Request consultation' });
+    await consultationRequest.focus();
+    await page.keyboard.press('Space');
+    await expect(consultationRequest).toBeFocused();
+    await expect(consultation.getByRole('status')).toHaveText('A next actionable step is available below.');
+    await expect(consultation.getByText('Record a second observation in the measurement notebook.')).toBeVisible();
+    await expect(consultation.getByText('In-play observation')).toBeVisible();
+    await expect(consultation.getByText('Plain-language guidance')).toBeVisible();
+    await expect(consultation.getByText('Technical or source detail')).toBeVisible();
     const board = page.getByRole('region', { name: 'Theory board' });
     await expect(board).toBeVisible();
     await expect(board.getByText('Record observations in the measurement notebook before selecting support.')).toBeVisible();

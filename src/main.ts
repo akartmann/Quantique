@@ -9,6 +9,9 @@ import { createBootShell, setBootShellStatus } from './ui/BootShell';
 import { mountNotebookPanel } from './ui/notebook/NotebookPanel';
 import { mountCuratedRecord } from './ui/sources/CuratedRecord';
 import { mountTheoryBoard } from './ui/theory/TheoryBoard';
+import { mountConsultationPanel } from './ui/review/ConsultationPanel';
+import { mountConclusionReviewPanel } from './ui/review/ConclusionReviewPanel';
+import { mountDecisionHistoryPanel } from './ui/review/DecisionHistoryPanel';
 
 const calculatePreparedObservation: CalculateExperimentResult = () => ({
     ok: true,
@@ -21,8 +24,11 @@ const initializeLaboratory = async (): Promise<void> => {
     const controlsRoot = document.querySelector<HTMLElement>('#apparatus-controls');
     const notebookRoot = document.querySelector<HTMLElement>('#measurement-notebook');
     const theoryBoardRoot = document.querySelector<HTMLElement>('#theory-board');
+    const consultationRoot = document.querySelector<HTMLElement>('#consultation-panel');
+    const conclusionReviewRoot = document.querySelector<HTMLElement>('#conclusion-review');
+    const decisionHistoryRoot = document.querySelector<HTMLElement>('#decision-history');
 
-    if (!bootShell || !curatedRecordRoot || !controlsRoot || !notebookRoot || !theoryBoardRoot) {
+    if (!bootShell || !curatedRecordRoot || !controlsRoot || !notebookRoot || !theoryBoardRoot || !consultationRoot || !conclusionReviewRoot || !decisionHistoryRoot) {
         return;
     }
 
@@ -48,6 +54,9 @@ const initializeLaboratory = async (): Promise<void> => {
         calculateResult: calculatePreparedObservation
     }, store.getState().runs.map(({ id }) => id)));
     mountTheoryBoard(theoryBoardRoot, store);
+    mountConsultationPanel(consultationRoot, store);
+    mountConclusionReviewPanel(conclusionReviewRoot, store);
+    mountDecisionHistoryPanel(decisionHistoryRoot, store);
     StartGame('game-container', store);
 };
 

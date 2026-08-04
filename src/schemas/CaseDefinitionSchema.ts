@@ -41,6 +41,35 @@ const ContextualArtifactSchema = z.object({
     caseRelationship: z.string().trim().min(1)
 }).strict();
 
+const ConsultationPredicateSchema = z.object({
+    kind: z.enum(['missing-run', 'missing-source', 'alternative-test', 'missing-limitation']),
+    sourceId: stableId.optional(),
+    controlId: z.enum(['slitSpacingMm', 'screenDistanceM']).optional()
+}).strict();
+
+const ConsultationRuleSchema = z.object({
+    id: stableId,
+    predicate: ConsultationPredicateSchema,
+    layers: z.object({
+        observation: z.string().trim().min(1),
+        plainLanguage: z.string().trim().min(1),
+        technicalDetail: z.string().trim().min(1)
+    }).strict(),
+    nextStep: z.string().trim().min(1)
+}).strict();
+
+const PeerReviewRuleSchema = z.object({
+    id: stableId,
+    predicate: z.object({
+        kind: z.enum(['missing-evidence', 'unsupported-support', 'overreach']),
+        overreachPhrases: z.array(z.string().trim().min(1)).min(1).optional()
+    }).strict(),
+    feedback: z.string().trim().min(1),
+    revisionPath: z.string().trim().min(1)
+}).strict();
+
+const forbiddenPath = /(?:\b(?:scene|phase|route)\b|→|->)/i;
+
 export const AssetManifestSchema = z.object({
     manifestVersion: z.string().trim().min(1),
     entries: z.array(z.object({
@@ -76,6 +105,8 @@ export const CaseDefinitionSchema = z.object({
         }).strict()
     }).strict(),
     requirements: z.object({ minimumRuns: z.literal(2), minimumSources: z.literal(2) }).strict(),
+    consultationRules: z.array(ConsultationRuleSchema).min(4),
+    peerReviewRules: z.array(PeerReviewRuleSchema).min(3),
     flow: z.object({
         openingDispute: z.literal(true),
         curatedRecord: z.literal(true),
@@ -107,5 +138,32 @@ export const CaseDefinitionSchema = z.object({
     if (new Set(definition.contextualArtifacts.map((artifact) => artifact.id)).size !== 2) {
         context.addIssue({ code: 'custom', message: 'Contextual artifact IDs must be stable and unique.', path: ['contextualArtifacts'] });
     }
+
+    const consultationIds = definition.consultationRules.map((rule) => rule.id);
+    const peerReviewIds = definition.peerReviewRules.map((rule) => rule.id);
+    if (new Set(consultationIds).size !== consultationIds.length || new Set(peerReviewIds).size !== peerReviewIds.length) {
+        context.addIssue({ code: 'custom', message: 'Consultation and peer-review rule IDs must be unique.', path: ['consultationRules'] });
+    }
+    const sourceIds = new Set(definition.contextualArtifacts.map((artifact) => artifact.id));
+    const controlIds = new Set(definition.apparatus.primaryControls.map((control) => control.id));
+    definition.consultationRules.forEach((rule, index) => {
+        if (rule.predicate.sourceId && !sourceIds.has(rule.predicate.sourceId)) {
+            context.addIssue({ code: 'custom', message: 'Consultation rules may only reference authored sources.', path: ['consultationRules', index, 'predicate', 'sourceId'] });
+        }
+        if (rule.predicate.controlId && !controlIds.has(rule.predicate.controlId)) {
+            context.addIssue({ code: 'custom', message: 'Consultation rules may only reference authored controls.', path: ['consultationRules', index, 'predicate', 'controlId'] });
+        }
+        if (Object.values(rule.layers).some((text) => forbiddenPath.test(text)) || forbiddenPath.test(rule.nextStep)) {
+            context.addIssue({ code: 'custom', message: 'Authored help content must not encode a scene, route, or phase path.', path: ['consultationRules', index] });
+        }
+    });
+    definition.peerReviewRules.forEach((rule, index) => {
+        if (forbiddenPath.test(rule.feedback) || forbiddenPath.test(rule.revisionPath)) {
+            context.addIssue({ code: 'custom', message: 'Peer-review content must not encode a scene, route, or phase path.', path: ['peerReviewRules', index] });
+        }
+        if (rule.predicate.kind === 'overreach' && !rule.predicate.overreachPhrases) {
+            context.addIssue({ code: 'custom', message: 'An overreach rule needs authored signal phrases.', path: ['peerReviewRules', index, 'predicate'] });
+        }
+    });
 
 });

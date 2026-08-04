@@ -5,6 +5,8 @@ import { advanceCasePhase } from '../../domain/cases/caseReducer';
 import type { CasePhase } from '../../domain/cases/CaseProgress';
 import { createRunRecord, type RunRecord } from '../../domain/evidence/RunRecord';
 import { createTheoryBoardDraft, evaluateConclusionReadiness, type TheoryBoardDraft } from '../../domain/theory/conclusionReadiness';
+import { selectConsultation, type ConsultationProjection } from '../../domain/review/ConsultationRule';
+import { evaluatePeerReview, type PeerReviewProjection } from '../../domain/review/peerReviewRules';
 import type { AppAction } from './AppAction';
 
 export type ComparisonNote = Readonly<{
@@ -17,6 +19,17 @@ export type ComparisonState = Readonly<{
     notes: readonly ComparisonNote[];
 }>;
 
+export type DecisionHistoryEntry = Readonly<{
+    version: number;
+    priorConclusion: string;
+    conclusion: string;
+    limitation: string;
+    selectedRunIds: readonly string[];
+    selectedSourceIds: readonly string[];
+    feedback: PeerReviewProjection;
+    timestamp: string;
+}>;
+
 export type AppState = Readonly<{
     caseDefinition: CaseDefinition;
     phase: CasePhase;
@@ -25,6 +38,9 @@ export type AppState = Readonly<{
     runs: readonly RunRecord[];
     comparison: ComparisonState;
     theory: TheoryBoardDraft;
+    consultation?: ConsultationProjection;
+    peerReview?: PeerReviewProjection;
+    decisionHistory: readonly DecisionHistoryEntry[];
 }>;
 
 const freezeComparison = (comparison: ComparisonState): ComparisonState => Object.freeze({
@@ -46,7 +62,25 @@ const freezeState = (state: AppState): AppState => Object.freeze({
         selectedSourceIds: Object.freeze([...state.theory.selectedSourceIds]),
         conclusion: state.theory.conclusion,
         limitation: state.theory.limitation
-    })
+    }),
+    consultation: state.consultation && Object.freeze({
+        ruleId: state.consultation.ruleId,
+        layers: Object.freeze({ ...state.consultation.layers }),
+        nextStep: state.consultation.nextStep
+    }),
+    peerReview: state.peerReview && Object.freeze({
+        status: state.peerReview.status,
+        issues: Object.freeze(state.peerReview.issues.map((issue) => Object.freeze({ ...issue })))
+    }),
+    decisionHistory: Object.freeze(state.decisionHistory.map((entry) => Object.freeze({
+        ...entry,
+        selectedRunIds: Object.freeze([...entry.selectedRunIds]),
+        selectedSourceIds: Object.freeze([...entry.selectedSourceIds]),
+        feedback: Object.freeze({
+            status: entry.feedback.status,
+            issues: Object.freeze(entry.feedback.issues.map((issue) => Object.freeze({ ...issue })))
+        })
+    })))
 });
 
 export const createInitialAppState = (caseDefinition: CaseDefinition): AppState => freezeState({
@@ -58,7 +92,8 @@ export const createInitialAppState = (caseDefinition: CaseDefinition): AppState 
     inspectedSourceIds: [],
     runs: [],
     comparison: { selectedRunIds: [], notes: [] },
-    theory: createTheoryBoardDraft()
+    theory: createTheoryBoardDraft(),
+    decisionHistory: []
 });
 
 const failure = (code: string, message: string): Result<never> => ({ ok: false, error: { code, message } });
@@ -157,7 +192,7 @@ const reduceSourceInspection = (state: AppState, sourceId: string): Result<AppSt
 
 const withTheory = (state: AppState, theory: TheoryBoardDraft): Result<AppState> => ({
     ok: true,
-    value: freezeState({ ...state, theory })
+    value: freezeState({ ...state, theory, peerReview: undefined })
 });
 
 const reduceTheorySupportRun = (state: AppState, runId: string, selected: boolean): Result<AppState> => {
@@ -203,6 +238,47 @@ const reduceTheoryReviewRequest = (state: AppState): Result<AppState> => {
     return reduceCasePhaseAdvance(state, 'review');
 };
 
+const reviewEvidence = (state: AppState) => ({ runs: state.runs, inspectedSourceIds: state.inspectedSourceIds });
+
+const reduceConsultationRequest = (state: AppState): Result<AppState> => {
+    const consultation = selectConsultation(state.caseDefinition.consultationRules, { ...reviewEvidence(state), theory: state.theory });
+    return consultation
+        ? { ok: true, value: freezeState({ ...state, consultation }) }
+        : failure('consultation-unavailable', 'No additional authored consultation applies to the current evidence.');
+};
+
+const reducePeerReviewRequest = (state: AppState): Result<AppState> => {
+    if (state.phase !== 'review') {
+        return failure('peer-review-unavailable', 'Move the bounded theory draft to review before requesting peer feedback.');
+    }
+    return { ok: true, value: freezeState({ ...state, peerReview: evaluatePeerReview(state.caseDefinition, reviewEvidence(state), state.theory) }) };
+};
+
+const reduceRevisionSave = (state: AppState, timestamp: string): Result<AppState> => {
+    if (!state.peerReview) return failure('revision-review-required', 'Request peer feedback before saving a revision.');
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(timestamp)) return failure('invalid-revision-timestamp', 'Provide a valid revision timestamp.');
+    const knownRunIds = new Set(state.runs.map(({ id }) => id));
+    const knownSourceIds = new Set(state.inspectedSourceIds);
+    if (new Set(state.theory.selectedRunIds).size !== state.theory.selectedRunIds.length || !state.theory.selectedRunIds.every((id) => knownRunIds.has(id))) {
+        return failure('invalid-revision-runs', 'Revision support must reference unique recorded observations.');
+    }
+    if (new Set(state.theory.selectedSourceIds).size !== state.theory.selectedSourceIds.length || !state.theory.selectedSourceIds.every((id) => knownSourceIds.has(id))) {
+        return failure('invalid-revision-sources', 'Revision support must reference unique inspected sources.');
+    }
+    const previous = state.decisionHistory[state.decisionHistory.length - 1];
+    const entry: DecisionHistoryEntry = {
+        version: state.decisionHistory.length + 1,
+        priorConclusion: previous?.conclusion ?? '',
+        conclusion: state.theory.conclusion,
+        limitation: state.theory.limitation,
+        selectedRunIds: state.theory.selectedRunIds,
+        selectedSourceIds: state.theory.selectedSourceIds,
+        feedback: state.peerReview,
+        timestamp
+    };
+    return { ok: true, value: freezeState({ ...state, decisionHistory: [...state.decisionHistory, entry] }) };
+};
+
 export const reduceAppState = (state: AppState, action: AppAction): Result<AppState> => {
     switch (action.type) {
         case 'apparatus.controlSet':
@@ -231,6 +307,12 @@ export const reduceAppState = (state: AppState, action: AppAction): Result<AppSt
             return withTheory(state, { ...state.theory, limitation: action.limitation });
         case 'theory.reviewRequested':
             return reduceTheoryReviewRequest(state);
+        case 'consultation.requested':
+            return reduceConsultationRequest(state);
+        case 'peerReview.requested':
+            return reducePeerReviewRequest(state);
+        case 'revision.saved':
+            return reduceRevisionSave(state, action.timestamp);
         case 'case.phaseAdvance':
             return reduceCasePhaseAdvance(state, action.nextPhase);
     }

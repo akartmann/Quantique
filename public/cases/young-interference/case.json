@@ -37,6 +37,68 @@
     "resetPath": { "recoveryRoute": "replication", "description": "Repeat the observation after aligning the screen." }
   },
   "requirements": { "minimumRuns": 2, "minimumSources": 2 },
+  "consultationRules": [
+    {
+      "id": "observe-two-runs",
+      "predicate": { "kind": "missing-run" },
+      "layers": {
+        "observation": "The notebook has fewer than two recorded observations.",
+        "plainLanguage": "Record another observation so you can compare what changed.",
+        "technicalDetail": "Use a different bounded apparatus setting and preserve its recorded controls and result."
+      },
+      "nextStep": "Record a second observation in the measurement notebook."
+    },
+    {
+      "id": "inspect-young-source",
+      "predicate": { "kind": "missing-source", "sourceId": "young-lecture-1801" },
+      "layers": {
+        "observation": "The Young lecture record has not been inspected.",
+        "plainLanguage": "Inspect the lecture record before using it as evidence.",
+        "technicalDetail": "Compare the source’s provenance and case relationship with your recorded observations."
+      },
+      "nextStep": "Inspect Thomas Young’s 1801 lecture record in the Curated Record."
+    },
+    {
+      "id": "try-control-change",
+      "predicate": { "kind": "alternative-test", "controlId": "screenDistanceM" },
+      "layers": {
+        "observation": "The recorded observations use the same screen-distance setting.",
+        "plainLanguage": "Try a different screen distance to make the comparison more informative.",
+        "technicalDetail": "Keep the observation record intact while changing only a bounded primary control."
+      },
+      "nextStep": "Adjust screen distance and record an additional observation."
+    },
+    {
+      "id": "state-a-limit",
+      "predicate": { "kind": "missing-limitation" },
+      "layers": {
+        "observation": "No limitation or alternative explanation is recorded with the draft.",
+        "plainLanguage": "State what the available evidence does not settle.",
+        "technicalDetail": "A limitation distinguishes the observed record from a claim that goes beyond it."
+      },
+      "nextStep": "Add a limitation or alternative explanation to the Theory Board."
+    }
+  ],
+  "peerReviewRules": [
+    {
+      "id": "review-missing-evidence",
+      "predicate": { "kind": "missing-evidence" },
+      "feedback": "The draft needs more selected, inspected evidence before it can be reviewed as a bounded claim.",
+      "revisionPath": "Return to the Theory Board and select the missing evidence."
+    },
+    {
+      "id": "review-unsupported-support",
+      "predicate": { "kind": "unsupported-support" },
+      "feedback": "One or more selected support references are no longer available in the current evidence record.",
+      "revisionPath": "Return to the Theory Board and replace unavailable support with current evidence."
+    },
+    {
+      "id": "review-overreach",
+      "predicate": { "kind": "overreach", "overreachPhrases": ["proves", "certainly", "without question"] },
+      "feedback": "The draft uses language that may reach beyond the recorded evidence. Consider a more bounded statement.",
+      "revisionPath": "Return to the Theory Board and qualify the claim using the available evidence and limitation."
+    }
+  ],
   "flow": {
     "openingDispute": true,
     "curatedRecord": true,
