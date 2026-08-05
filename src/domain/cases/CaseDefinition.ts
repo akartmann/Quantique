@@ -3,10 +3,35 @@ export type RecoveryRoute = 'replication' | 'control-change' | 'source-compariso
 export type SourceProvenanceCategory = 'primary-material' | 'reconstruction' | 'later-interpretation' | 'deliberate-fiction';
 export type SourceType = 'lecture-record' | 'published-book' | 'reconstruction' | 'interpretive-essay' | 'fictionalized-account';
 export type SourceRightsStatus = 'reviewed' | 'incomplete' | 'unavailable';
+/** Current authored source locale. Adding translations requires a separately approved case-contract extension. */
+export type RenditionLocale = 'en';
 
 export type SourceProvenance = Readonly<{
     category: SourceProvenanceCategory;
     reference: string;
+}>;
+
+/** Immutable, locally rendered primary-source text. Locale selection is deliberately a future UI concern. */
+export type TextualRenditionSection = Readonly<{
+    id: string;
+    heading: string;
+    paragraphs: readonly string[];
+    sourcePages: readonly number[];
+}>;
+
+export type LocalizedTextualRendition = Readonly<{
+    locale: RenditionLocale;
+    sections: readonly TextualRenditionSection[];
+}>;
+
+export type TextualRendition = Readonly<{
+    readerLabel: string;
+    citation: Readonly<{
+        reuseStatement: string;
+        citationText: string;
+        archiveUrl: string;
+    }>;
+    renditions: readonly [LocalizedTextualRendition];
 }>;
 
 export type ContextualArtifact = Readonly<{
@@ -17,6 +42,7 @@ export type ContextualArtifact = Readonly<{
     provenance: SourceProvenance;
     rightsStatus: SourceRightsStatus;
     caseRelationship: string;
+    textualRendition?: TextualRendition;
 }>;
 
 export const isSourceEligibleForInspection = (source: ContextualArtifact): boolean => source.rightsStatus === 'reviewed';

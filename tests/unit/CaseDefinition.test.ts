@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it, vi } from 'vitest';
 
 import { loadCaseDefinition } from '../../src/adapters/content/loadCaseDefinition';
-import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
+import type { CaseDefinition, TextualRendition } from '../../src/domain/cases/CaseDefinition';
 import { createInitialCaseProgress } from '../../src/domain/cases/CaseProgress';
 import { advanceCasePhase, resetCaseProgress } from '../../src/domain/cases/caseReducer';
 import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
@@ -78,6 +78,19 @@ const validYoungCase: CaseDefinition = {
 
 const cloneValidCase = (): CaseDefinition => structuredClone(validYoungCase);
 
+const localLectureRendition = (): TextualRendition => ({
+    readerLabel: 'Read the lecture record',
+    citation: {
+        reuseStatement: 'Public Domain Mark source.',
+        citationText: 'Young, The Bakerian lecture.',
+        archiveUrl: 'https://wellcomecollection.org/works/u5dr8rgg'
+    },
+    renditions: [{
+        locale: 'en',
+        sections: [{ id: 'young-bakerian-page-12', heading: 'Printed page 12', paragraphs: ['Opening text.'], sourcePages: [12] }]
+    }]
+});
+
 describe('CaseDefinitionSchema', () => {
     it('accepts focused source records in the minimal Young contract', () => {
         expect(CaseDefinitionSchema.safeParse(validYoungCase)).toMatchObject({ success: true });
@@ -139,6 +152,45 @@ describe('CaseDefinitionSchema', () => {
         mutate(definition);
         expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
     });
+
+    it('accepts a reviewed, locale-tagged local rendition and preserves its stable section IDs', () => {
+        const definition = cloneValidCase();
+        definition.contextualArtifacts[0] = { ...definition.contextualArtifacts[0], textualRendition: localLectureRendition() };
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
+    });
+
+    it.each([
+        ['unreviewed reader source', (definition: Record<string, unknown>) => {
+            const source = (definition.contextualArtifacts as Array<Record<string, unknown>>)[0];
+            source.rightsStatus = 'incomplete';
+            source.textualRendition = localLectureRendition();
+        }],
+        ['duplicate stable section ID', (definition: Record<string, unknown>) => {
+            const rendition = structuredClone(localLectureRendition()) as unknown as { renditions: Array<{ sections: Array<{ id: string; heading: string; paragraphs: string[]; sourcePages: number[] }> }> };
+            rendition.renditions[0].sections.push({ ...rendition.renditions[0].sections[0] });
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
+        }],
+        ['invalid reader archive URL', (definition: Record<string, unknown>) => {
+            const rendition = localLectureRendition();
+            rendition.citation.archiveUrl = 'http://example.test/archive';
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
+        }],
+        ['unregistered rendition locale', (definition: Record<string, unknown>) => {
+            const rendition = structuredClone(localLectureRendition()) as unknown as { renditions: Array<{ locale: string }> };
+            rendition.renditions[0].locale = 'zz';
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
+        }],
+        ['unknown rendition field', (definition: Record<string, unknown>) => {
+            const rendition = localLectureRendition() as Record<string, unknown>;
+            rendition.unreviewed = true;
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
+        }]
+    ])('rejects %s', (_description, mutate) => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        mutate(definition);
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
 });
 
 describe('loadCaseDefinition', () => {
@@ -152,6 +204,19 @@ describe('loadCaseDefinition', () => {
         const result = await loadCaseDefinition('young-interference', fetchCase);
 
         expect(result).toMatchObject({ ok: true, value: { id: 'young-interference' } });
+        if (result.ok) {
+            const rendition = result.value.contextualArtifacts[0].textualRendition;
+            expect(rendition?.renditions[0].locale).toBe('en');
+            expect(rendition?.renditions[0].sections.map(({ id }) => id)).toEqual(
+                Array.from({ length: 37 }, (_, index) => `young-bakerian-page-${index + 12}`)
+            );
+            expect(rendition?.renditions[0].sections.map(({ sourcePages }) => sourcePages)).toEqual(
+                Array.from({ length: 37 }, (_, index) => [index + 12])
+            );
+            expect(rendition?.renditions[0].sections.find(({ id }) => id === 'young-bakerian-page-39')?.paragraphs[1]).toContain(
+                'Extreme red — .0000266 — 37640 — 463'
+            );
+        }
         expect(JSON.parse(manifestContent)).toEqual(validYoungCase.assets);
         expect(fetchCase).toHaveBeenNthCalledWith(1, '/cases/young-interference/case.json');
         expect(fetchCase).toHaveBeenNthCalledWith(2, '/cases/young-interference/asset-manifest.json');

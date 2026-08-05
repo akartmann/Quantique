@@ -1,4 +1,5 @@
 import type { AppStore } from '../../core/store/createStore';
+import type { ContextualArtifact } from '../../domain/cases/CaseDefinition';
 import {
     selectCasePhase,
     selectContextualReadiness,
@@ -16,11 +17,18 @@ const phaseCopy = (phase: string): string => {
 };
 
 /** Semantic owner of the Young context and prediction gates; source cards remain in Curated Record. */
-export const mountCaseContextAndPrediction = (root: HTMLElement, store: AppStore): (() => void) => {
+export type CaseContextAndPredictionController = Readonly<{
+    destroy: () => void;
+    openLectureRecord: (source: ContextualArtifact, returnFocus: () => void) => void;
+}>;
+
+export const mountCaseContextAndPrediction = (root: HTMLElement, store: AppStore): CaseContextAndPredictionController => {
     let statusMessage = '';
     let draftPrediction = '';
     let lastSavedPrediction = '';
     let requestedFocusKey: string | undefined;
+    let openLectureRecord: ContextualArtifact | undefined;
+    let returnFocusToSourceCard: (() => void) | undefined;
 
     const activeFocusKey = (): string | undefined => {
         const activeElement = document.activeElement;
@@ -66,6 +74,64 @@ export const mountCaseContextAndPrediction = (root: HTMLElement, store: AppStore
         status.setAttribute('aria-label', 'Context and prediction status');
         status.textContent = statusMessage;
         panel.append(heading, dispute, guidance, sourceSummary, status);
+
+        if (openLectureRecord?.textualRendition) {
+            const englishRendition = openLectureRecord.textualRendition.renditions.find(({ locale }) => locale === 'en');
+            if (englishRendition) {
+                const reader = document.createElement('article');
+                reader.className = 'contextual-text-reader';
+                reader.dataset.contextPredictionFocus = 'lecture-reader';
+                reader.tabIndex = -1;
+                reader.setAttribute('aria-label', openLectureRecord.textualRendition.readerLabel);
+                const readerHeading = document.createElement('h3');
+                readerHeading.textContent = openLectureRecord.textualRendition.readerLabel;
+                const sourceIdentity = document.createElement('p');
+                sourceIdentity.textContent = `${openLectureRecord.creatorOrOrigin}. ${openLectureRecord.caseRelationship}`;
+                const readingNote = document.createElement('p');
+                readingNote.className = 'contextual-reader-note';
+                readingNote.textContent = 'Reading this local rendition does not record the source as inspected evidence.';
+                const reuse = document.createElement('p');
+                reuse.textContent = openLectureRecord.textualRendition.citation.reuseStatement;
+                const citation = document.createElement('p');
+                citation.textContent = `${openLectureRecord.textualRendition.citation.citationText} `;
+                const archive = document.createElement('a');
+                archive.href = openLectureRecord.textualRendition.citation.archiveUrl;
+                archive.target = '_blank';
+                archive.rel = 'noopener noreferrer';
+                archive.textContent = 'View the Wellcome Collection facsimile (opens in a new tab).';
+                citation.append(archive);
+                const close = document.createElement('button');
+                close.type = 'button';
+                close.dataset.contextPredictionFocus = 'close-lecture-reader';
+                close.textContent = 'Return to Curated Record';
+                close.addEventListener('click', () => {
+                    openLectureRecord = undefined;
+                    const returnFocus = returnFocusToSourceCard;
+                    returnFocusToSourceCard = undefined;
+                    render();
+                    returnFocus?.();
+                });
+                reader.append(readerHeading, sourceIdentity, readingNote, reuse, citation, close);
+                englishRendition.sections.forEach((section) => {
+                    const sourceSection = document.createElement('section');
+                    sourceSection.className = 'contextual-text-section';
+                    sourceSection.id = section.id;
+                    const sectionHeading = document.createElement('h4');
+                    sectionHeading.textContent = section.heading;
+                    const pageReference = document.createElement('p');
+                    pageReference.className = 'contextual-source-pages';
+                    pageReference.textContent = `Source page${section.sourcePages.length === 1 ? '' : 's'} ${section.sourcePages.join(', ')}.`;
+                    sourceSection.append(sectionHeading, pageReference);
+                    section.paragraphs.forEach((text) => {
+                        const paragraph = document.createElement('p');
+                        paragraph.textContent = text;
+                        sourceSection.append(paragraph);
+                    });
+                    reader.append(sourceSection);
+                });
+                panel.append(reader);
+            }
+        }
 
         const predictionLabel = document.createElement('label');
         predictionLabel.htmlFor = 'case-prediction';
@@ -114,5 +180,13 @@ export const mountCaseContextAndPrediction = (root: HTMLElement, store: AppStore
 
     const unsubscribe = store.subscribe(render);
     render();
-    return () => { unsubscribe(); root.replaceChildren(); };
+    return {
+        destroy: () => { unsubscribe(); root.replaceChildren(); },
+        openLectureRecord: (source, returnFocus) => {
+            openLectureRecord = source;
+            returnFocusToSourceCard = returnFocus;
+            requestedFocusKey = 'lecture-reader';
+            render();
+        }
+    };
 };

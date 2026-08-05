@@ -28,6 +28,33 @@ const SourceProvenanceCategorySchema = z.enum(['primary-material', 'reconstructi
 const SourceTypeSchema = z.enum(['lecture-record', 'published-book', 'reconstruction', 'interpretive-essay', 'fictionalized-account']);
 const SourceRightsStatusSchema = z.enum(['reviewed', 'incomplete', 'unavailable']);
 
+const TextualRenditionSectionSchema = z.object({
+    id: stableId,
+    heading: z.string().trim().min(1),
+    paragraphs: z.array(z.string().trim().min(1)).min(1),
+    sourcePages: z.array(z.number().int().positive()).min(1)
+}).strict();
+
+const LocalizedTextualRenditionSchema = z.object({
+    locale: z.literal('en'),
+    sections: z.array(TextualRenditionSectionSchema).min(1)
+}).strict().superRefine((rendition, context) => {
+    const ids = rendition.sections.map(({ id }) => id);
+    if (new Set(ids).size !== ids.length) {
+        context.addIssue({ code: 'custom', message: 'Rendition section IDs must be stable and unique.', path: ['sections'] });
+    }
+});
+
+const TextualRenditionSchema = z.object({
+    readerLabel: z.string().trim().min(1),
+    citation: z.object({
+        reuseStatement: z.string().trim().min(1),
+        citationText: z.string().trim().min(1),
+        archiveUrl: z.string().url().refine((url) => new URL(url).protocol === 'https:', 'Archive URLs must use HTTPS.')
+    }).strict(),
+    renditions: z.tuple([LocalizedTextualRenditionSchema])
+}).strict();
+
 const ContextualArtifactSchema = z.object({
     id: stableId,
     displayName: z.string().trim().min(1),
@@ -38,7 +65,8 @@ const ContextualArtifactSchema = z.object({
         reference: sourceRef
     }).strict(),
     rightsStatus: SourceRightsStatusSchema,
-    caseRelationship: z.string().trim().min(1)
+    caseRelationship: z.string().trim().min(1),
+    textualRendition: TextualRenditionSchema.optional()
 }).strict();
 
 const ConsultationPredicateSchema = z.discriminatedUnion('kind', [
@@ -157,6 +185,11 @@ export const CaseDefinitionSchema = z.object({
         context.addIssue({ code: 'custom', message: 'Consultation and peer-review rule IDs must be unique.', path: ['consultationRules'] });
     }
     const sourceIds = new Set(definition.contextualArtifacts.map((artifact) => artifact.id));
+    definition.contextualArtifacts.forEach((artifact, index) => {
+        if (artifact.textualRendition && artifact.rightsStatus !== 'reviewed') {
+            context.addIssue({ code: 'custom', message: 'Only reviewed sources may provide a local textual rendition.', path: ['contextualArtifacts', index, 'textualRendition'] });
+        }
+    });
     if (definition.debrief.historicalComparison.sourceIds.some((sourceId) => !sourceIds.has(sourceId)
         || definition.debrief.historicalComparison.sourceIds[0] === definition.debrief.historicalComparison.sourceIds[1])) {
         context.addIssue({ code: 'custom', message: 'Historical comparison must cite two distinct authored sources.', path: ['debrief', 'historicalComparison', 'sourceIds'] });

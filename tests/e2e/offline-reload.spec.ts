@@ -49,6 +49,10 @@ test('restores saved progress and decision history after an offline reload', asy
     await expect(recognition).toContainText('Source discipline recorded');
     await expect(recognition).toContainText('Replication recorded');
     await expect(recognition).toContainText('Calibrated conclusion recorded');
+    await page.getByRole('region', { name: 'Curated Record' }).getByRole('button', { name: 'Read the lecture record' }).click();
+    const reader = page.getByRole('region', { name: 'Young context and prediction' }).getByRole('article', { name: 'Read the lecture record' });
+    await expect(reader.locator('.contextual-text-section')).toHaveCount(37);
+    await expect(reader).toContainText('Source page 48.');
 });
 
 test('loads the cached validation route after an online warm-up without progress controls', async ({ page, context }) => {

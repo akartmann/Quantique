@@ -66,8 +66,13 @@ const initializeLaboratory = async (): Promise<void> => {
     }
     const store = createStore(initialState);
     if (validationMode) mountValidationSessionDisclosure(validationDisclosureRoot);
-    mountCuratedRecord(curatedRecordRoot, store);
-    mountCaseContextAndPrediction(contextPredictionRoot, store);
+    const contextAndPrediction = mountCaseContextAndPrediction(contextPredictionRoot, store);
+    let curatedRecord: ReturnType<typeof mountCuratedRecord> | undefined;
+    curatedRecord = mountCuratedRecord(curatedRecordRoot, store, {
+        onReadLectureRecord: (source) => {
+            contextAndPrediction.openLectureRecord(source, () => curatedRecord?.focusReaderTrigger(source.id));
+        }
+    });
     mountApparatusControls(controlsRoot, store);
     mountNotebookPanel(notebookRoot, store);
     mountTheoryBoard(theoryBoardRoot, store);

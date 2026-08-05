@@ -2,6 +2,15 @@ import type { AppStore } from '../../core/store/createStore';
 import { selectContextualArtifacts, selectIsSourceInspected } from '../../core/store/selectors';
 import type { ContextualArtifact } from '../../domain/cases/CaseDefinition';
 
+export type CuratedRecordController = Readonly<{
+    destroy: () => void;
+    focusReaderTrigger: (sourceId: string) => void;
+}>;
+
+export type CuratedRecordOptions = Readonly<{
+    onReadLectureRecord: (source: ContextualArtifact) => void;
+}>;
+
 const definition = (term: string, value: string): HTMLDivElement => {
     const item = document.createElement('div');
     const definitionTerm = document.createElement('dt');
@@ -23,7 +32,7 @@ const categoryMarker = (source: ContextualArtifact): string => {
     }
 };
 
-export const mountCuratedRecord = (root: HTMLElement, store: AppStore): (() => void) => {
+export const mountCuratedRecord = (root: HTMLElement, store: AppStore, options: CuratedRecordOptions): CuratedRecordController => {
     let statusMessage = '';
     let renderedInspectionIds: string | undefined;
     let requestedFocusKey: string | undefined;
@@ -99,6 +108,14 @@ export const mountCuratedRecord = (root: HTMLElement, store: AppStore): (() => v
                 }
             });
             card.append(title, details, provenance, marker, rights, inspect);
+            if (source.textualRendition && source.rightsStatus === 'reviewed') {
+                const read = document.createElement('button');
+                read.type = 'button';
+                read.dataset.curatedRecordFocus = `read-${source.id}`;
+                read.textContent = source.textualRendition.readerLabel;
+                read.addEventListener('click', () => options.onReadLectureRecord(source));
+                card.append(read);
+            }
             if (selectIsSourceInspected(state, source.id)) {
                 const inspected = document.createElement('p');
                 inspected.className = 'source-inspected-state';
@@ -119,8 +136,14 @@ export const mountCuratedRecord = (root: HTMLElement, store: AppStore): (() => v
 
     const unsubscribe = store.subscribe(render);
     render();
-    return () => {
-        unsubscribe();
-        root.replaceChildren();
+    return {
+        destroy: () => {
+            unsubscribe();
+            root.replaceChildren();
+        },
+        focusReaderTrigger: (sourceId: string) => {
+            requestedFocusKey = `read-${sourceId}`;
+            render(true);
+        }
     };
 };

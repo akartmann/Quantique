@@ -31,6 +31,52 @@ test('inspects both Young contextual sources through the semantic Curated Record
     await expect(record.getByText('Inspection recorded')).toHaveCount(2);
 });
 
+test('opens the complete local Young lecture reader without treating reading as evidence inspection', async ({ page }) => {
+    await page.goto('/');
+
+    const record = page.getByRole('region', { name: 'Curated Record' });
+    const readerTrigger = record.getByRole('button', { name: 'Read the lecture record' });
+    await readerTrigger.focus();
+    await page.keyboard.press('Enter');
+
+    const context = page.getByRole('region', { name: 'Young context and prediction' });
+    const reader = context.getByRole('article', { name: 'Read the lecture record' });
+    await expect(reader).toBeFocused();
+    await expect(reader).toContainText('Royal Society Bakerian Lecture');
+    await expect(reader).toContainText('Reading this local rendition does not record the source as inspected evidence.');
+    await expect(reader.getByRole('link', { name: 'View the Wellcome Collection facsimile (opens in a new tab).' })).toHaveAttribute(
+        'href',
+        'https://wellcomecollection.org/works/u5dr8rgg'
+    );
+    await expect(reader.locator('.contextual-text-section')).toHaveCount(37);
+    await expect(reader.locator('.contextual-text-section').first()).toHaveAttribute('id', 'young-bakerian-page-12');
+    await expect(reader.locator('.contextual-text-section').last()).toHaveAttribute('id', 'young-bakerian-page-48');
+    await expect(reader.locator('.contextual-source-pages')).toHaveText(
+        Array.from({ length: 37 }, (_, index) => `Source page ${index + 12}.`)
+    );
+    await expect(record.getByText('Inspection recorded')).toHaveCount(0);
+
+    const close = reader.getByRole('button', { name: 'Return to Curated Record' });
+    await close.click();
+    await expect(readerTrigger).toBeFocused();
+
+    await readerTrigger.click();
+    await context.getByRole('article', { name: 'Read the lecture record' }).getByRole('button', { name: 'Return to Curated Record' }).click();
+    await expect(readerTrigger).toBeFocused();
+});
+
+test('uses the authored reader label from the case definition', async ({ page }) => {
+    await page.route('**/cases/young-interference/case.json', async (route) => {
+        const response = await route.fetch();
+        const definition = await response.json() as { contextualArtifacts: Array<{ textualRendition?: { readerLabel: string } }> };
+        definition.contextualArtifacts[0].textualRendition!.readerLabel = 'Open the local primary source';
+        await route.fulfill({ response, json: definition });
+    });
+    await page.goto('/');
+
+    await expect(page.getByRole('region', { name: 'Curated Record' }).getByRole('button', { name: 'Open the local primary source' })).toBeVisible();
+});
+
 test('snapshots inspected source labels into a new notebook observation', async ({ page }) => {
     await page.goto('/');
 
