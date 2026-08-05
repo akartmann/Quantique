@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+import { CASE_PHASES } from '../domain/cases/CaseProgress';
+import { SCENE_KEYS } from '../domain/cases/ScenarioScript';
+
 const stableId = z.string().trim().min(1);
 const sourceRef = z.string().trim().min(1);
 const isOnStep = (value: number, min: number, step: number): boolean =>
@@ -98,6 +101,31 @@ const PeerReviewRuleSchema = z.object({
     revisionPath: z.string().trim().min(1)
 }).strict();
 
+const ScenarioDialogueBeatSchema = z.object({
+    id: stableId,
+    speakerId: stableId,
+    textKey: stableId
+}).strict();
+
+const ScenarioSceneSchema = z.object({
+    phase: z.enum(CASE_PHASES),
+    sceneKey: z.enum(SCENE_KEYS),
+    dialogueBeats: z.array(ScenarioDialogueBeatSchema).min(1).optional()
+}).strict();
+
+const ScenarioScriptSchema = z.object({
+    scenes: z.array(ScenarioSceneSchema).min(CASE_PHASES.length)
+}).strict().superRefine((script, context) => {
+    const phases = script.scenes.map(({ phase }) => phase);
+    if (new Set(phases).size !== phases.length || CASE_PHASES.some((phase) => !phases.includes(phase))) {
+        context.addIssue({
+            code: 'custom',
+            message: 'The scenario script must map every case phase exactly once.',
+            path: ['scenes']
+        });
+    }
+});
+
 const forbiddenPath = /(?:\b(?:scene|phase|route)\b|→|->)/i;
 
 export const AssetManifestSchema = z.object({
@@ -151,6 +179,7 @@ export const CaseDefinitionSchema = z.object({
         historicalDebrief: z.literal(true),
         optionalReplay: z.literal(true)
     }).strict(),
+    scenarioScript: ScenarioScriptSchema,
     debrief: z.object({
         summary: z.string().trim().min(1),
         sourceRefs: z.array(sourceRef).min(1),

@@ -70,6 +70,9 @@ test('loads the cached validation route after an online warm-up without progress
     await expect(page.getByRole('button', { name: 'Enter laboratory' })).toBeVisible();
     await page.waitForFunction(() => navigator.serviceWorker.ready);
     await page.reload();
+    // The worker caches as it fetches, so let the warm-up finish loading the case content
+    // (case.json and asset-manifest.json) before the network is cut.
+    await expect(page.getByRole('region', { name: 'Young validation session' })).toBeVisible();
 
     await context.setOffline(true);
     await page.reload();

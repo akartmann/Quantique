@@ -3,15 +3,13 @@ import { Scene } from 'phaser';
 import type { AppStore } from '../../../core/store/createStore';
 import { createPhaserStoreAdapter } from '../PhaserStoreAdapter';
 import { ApparatusRenderer } from '../renderers/ApparatusRenderer';
-import { LectureBookRenderer, type LectureBookController } from '../renderers/LectureBookRenderer';
 
 export class LaboratoryScene extends Scene {
     private unsubscribe?: () => void;
     private apparatusRenderer?: ApparatusRenderer;
-    private lectureBookRenderer?: LectureBookRenderer;
     private readonly refreshCanvasInputBounds = (): void => this.scale.updateBounds();
 
-    public constructor(private readonly store: AppStore, private readonly onLectureBookReady?: (controller: LectureBookController) => void) {
+    public constructor(private readonly store: AppStore) {
         super('Laboratory');
     }
 
@@ -19,8 +17,6 @@ export class LaboratoryScene extends Scene {
         this.cameras.main.setBackgroundColor(0x10252c);
         this.apparatusRenderer = new ApparatusRenderer(this, createPhaserStoreAdapter(this.store));
         this.apparatusRenderer.create();
-        this.lectureBookRenderer = new LectureBookRenderer(this, (visible) => this.apparatusRenderer?.setInputEnabled(!visible));
-        this.onLectureBookReady?.(this.lectureBookRenderer.controller);
         // The canvas is sticky. Phaser caches bounds in document coordinates, so refresh them
         // whenever document scrolling changes the canvas viewport position.
         window.addEventListener('scroll', this.refreshCanvasInputBounds, { passive: true });
@@ -34,13 +30,16 @@ export class LaboratoryScene extends Scene {
         this.events.once('shutdown', this.shutdown, this);
     }
 
+    /** Lets the overlaying reference book suppress apparatus input while it is open. */
+    public setApparatusInputEnabled(enabled: boolean): void {
+        this.apparatusRenderer?.setInputEnabled(enabled);
+    }
+
     private shutdown(): void {
         window.removeEventListener('scroll', this.refreshCanvasInputBounds);
         this.unsubscribe?.();
         this.unsubscribe = undefined;
         this.apparatusRenderer?.destroy();
         this.apparatusRenderer = undefined;
-        this.lectureBookRenderer?.destroy();
-        this.lectureBookRenderer = undefined;
     }
 }

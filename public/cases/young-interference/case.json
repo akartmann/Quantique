@@ -639,6 +639,16 @@
     "historicalDebrief": true,
     "optionalReplay": true
   },
+  "scenarioScript": {
+    "scenes": [
+      { "phase": "context", "sceneKey": "Library" },
+      { "phase": "prediction", "sceneKey": "Colleagues" },
+      { "phase": "experiment", "sceneKey": "Laboratory" },
+      { "phase": "synthesis", "sceneKey": "TheoryBoard" },
+      { "phase": "review", "sceneKey": "TheoryBoard" },
+      { "phase": "debrief", "sceneKey": "Debrief" }
+    ]
+  },
   "debrief": {
     "summary": "Compare the observed pattern with the available evidence before drawing a conclusion.",
     "sourceRefs": [

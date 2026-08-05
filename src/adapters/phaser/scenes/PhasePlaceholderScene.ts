@@ -1,0 +1,47 @@
+import { Scene } from 'phaser';
+
+import type { AppStore } from '../../../core/store/createStore';
+import { selectCasePhase } from '../../../core/store/selectors';
+import type { SceneKey } from '../../../domain/cases/ScenarioScript';
+
+/**
+ * Routing shell for a scene whose content lands in a later story (Library 2.1, Colleagues 1.11,
+ * TheoryBoard 1.6-rework/2.3, Debrief 2.3). It renders a neutral development marker only —
+ * authored player-facing copy waits for the EN+FR foundation (Story 1.1b / ADR-010).
+ *
+ * The scene mirrors the phase and never dispatches: it reads the phase purely to label itself.
+ */
+export abstract class PhasePlaceholderScene extends Scene {
+    private unsubscribe?: () => void;
+    private marker?: Phaser.GameObjects.Text;
+
+    protected constructor(private readonly sceneKey: SceneKey, private readonly store: AppStore) {
+        super(sceneKey);
+    }
+
+    public create(): void {
+        this.cameras.main.setBackgroundColor(0x10252c);
+        this.marker = this.add.text(512, 384, '', {
+            fontFamily: 'monospace',
+            fontSize: '20px',
+            color: '#8fb3bd',
+            align: 'center'
+        }).setOrigin(0.5);
+        this.renderMarker();
+
+        this.unsubscribe = this.store.subscribe(() => this.renderMarker());
+        this.events.once('shutdown', this.shutdown, this);
+    }
+
+    private renderMarker(): void {
+        // A single scene can host more than one phase, so the marker reads the live phase.
+        this.marker?.setText(`${this.sceneKey} (placeholder)\n${selectCasePhase(this.store.getState())}`);
+    }
+
+    private shutdown(): void {
+        this.unsubscribe?.();
+        this.unsubscribe = undefined;
+        this.marker?.destroy();
+        this.marker = undefined;
+    }
+}

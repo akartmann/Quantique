@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { loadCaseDefinition } from '../../src/adapters/content/loadCaseDefinition';
 import type { CaseDefinition, TextualRendition } from '../../src/domain/cases/CaseDefinition';
-import { createInitialCaseProgress } from '../../src/domain/cases/CaseProgress';
+import { CASE_PHASES, createInitialCaseProgress } from '../../src/domain/cases/CaseProgress';
 import { advanceCasePhase, resetCaseProgress } from '../../src/domain/cases/caseReducer';
 import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
 
@@ -67,6 +67,16 @@ const validYoungCase: CaseDefinition = {
         theoryBoardReview: true,
         historicalDebrief: true,
         optionalReplay: true
+    },
+    scenarioScript: {
+        scenes: [
+            { phase: 'context', sceneKey: 'Library' },
+            { phase: 'prediction', sceneKey: 'Colleagues' },
+            { phase: 'experiment', sceneKey: 'Laboratory' },
+            { phase: 'synthesis', sceneKey: 'TheoryBoard' },
+            { phase: 'review', sceneKey: 'TheoryBoard' },
+            { phase: 'debrief', sceneKey: 'Debrief' }
+        ]
     },
     debrief: {
         summary: 'Compare the observed pattern with the available evidence before drawing a conclusion.', sourceRefs: ['young-1801-lecture'],
@@ -150,6 +160,49 @@ describe('CaseDefinitionSchema', () => {
     ])('rejects %s', (_description, mutate) => {
         const definition = cloneValidCase() as unknown as Record<string, unknown>;
         mutate(definition);
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
+
+    it('accepts a scenario script that maps every case phase to an authored scene', () => {
+        const definition = cloneValidCase();
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed).toMatchObject({ success: true });
+        expect(definition.scenarioScript.scenes.map(({ phase }) => phase)).toEqual([...CASE_PHASES]);
+    });
+
+    it('accepts an optional dialogue beat placeholder on a scenario scene', () => {
+        const definition = cloneValidCase() as unknown as { scenarioScript: { scenes: Array<Record<string, unknown>> } };
+        definition.scenarioScript.scenes[1].dialogueBeats = [{ id: 'colleague-intro', speakerId: 'colleague-1', textKey: 'young.prediction.intro' }];
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
+    });
+
+    it.each([
+        ['a missing scenario script', (definition: Record<string, unknown>) => { delete definition.scenarioScript; }],
+        ['a scenario script that skips a phase', (definition: Record<string, unknown>) => {
+            const script = definition.scenarioScript as { scenes: Array<{ phase: string }> };
+            script.scenes = script.scenes.filter(({ phase }) => phase !== 'synthesis');
+        }],
+        ['a scenario script that maps a phase twice', (definition: Record<string, unknown>) => {
+            const script = definition.scenarioScript as { scenes: Array<{ phase: string; sceneKey: string }> };
+            script.scenes.push({ phase: 'debrief', sceneKey: 'Library' });
+        }],
+        ['an unknown scene key', (definition: Record<string, unknown>) => {
+            ((definition.scenarioScript as { scenes: Array<{ sceneKey: string }> }).scenes[0]).sceneKey = 'RivalLab';
+        }],
+        ['an unknown case phase', (definition: Record<string, unknown>) => {
+            ((definition.scenarioScript as { scenes: Array<{ phase: string }> }).scenes[0]).phase = 'onboarding';
+        }],
+        ['an unknown scenario scene field', (definition: Record<string, unknown>) => {
+            ((definition.scenarioScript as { scenes: Array<Record<string, unknown>> }).scenes[0]).transition = 'fade';
+        }],
+        ['an empty scenario script', (definition: Record<string, unknown>) => { (definition.scenarioScript as { scenes: unknown[] }).scenes = []; }]
+    ])('rejects %s', (_description, mutate) => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        mutate(definition);
+
         expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
     });
 

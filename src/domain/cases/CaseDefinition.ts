@@ -1,3 +1,5 @@
+import type { ScenarioScript } from './ScenarioScript';
+
 export type RecoveryRoute = 'replication' | 'control-change' | 'source-comparison';
 
 export type SourceProvenanceCategory = 'primary-material' | 'reconstruction' | 'later-interpretation' | 'deliberate-fiction';
@@ -123,6 +125,8 @@ export type CaseDefinition = Readonly<{
         historicalDebrief: true;
         optionalReplay: true;
     }>;
+    /** Drives the SceneRouter: the case, not the code, decides which scene mirrors each phase (ADR-009). */
+    scenarioScript: ScenarioScript;
     debrief: Readonly<{
         summary: string;
         sourceRefs: readonly string[];

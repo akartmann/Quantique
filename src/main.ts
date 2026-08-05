@@ -1,4 +1,5 @@
 import { registerOfflineCache } from './adapters/OfflineCache';
+import { createSceneRouter } from './adapters/phaser/SceneRouter';
 import { loadCaseDefinition } from './adapters/content/loadCaseDefinition';
 import { CaseRecordRepository } from './adapters/persistence/caseRecordRepository';
 import { createAppStateFromCaseRecord, createInitialAppState } from './core/store/AppState';
@@ -35,6 +36,7 @@ const initializeLaboratory = async (): Promise<void> => {
     const printRoot = document.querySelector<HTMLElement>('#print-record');
     const recognitionRoot = document.querySelector<HTMLElement>('#inquiry-recognition');
     const debriefRoot = document.querySelector<HTMLElement>('#historical-debrief');
+    const gameContainer = document.querySelector<HTMLElement>('#game-container');
 
     if (!bootShell || !validationDisclosureRoot || !curatedRecordRoot || !contextPredictionRoot || !controlsRoot || !notebookRoot || !theoryBoardRoot || !consultationRoot || !conclusionReviewRoot || !decisionHistoryRoot || !progressRoot || !printRoot || !recognitionRoot || !debriefRoot) {
         return;
@@ -94,10 +96,22 @@ const initializeLaboratory = async (): Promise<void> => {
         mountCaseProgressPanel(progressRoot, store, repository);
         mountCaseRecordPrintView(printRoot, store);
     }
-    StartGame('game-container', store, (controller) => {
+    const game = StartGame('game-container', store, (controller) => {
         lectureBookController = controller;
         if (pendingLectureBookPresentation) controller.show(pendingLectureBookPresentation);
     });
+    // The routed Phaser game is the surface whose active scene mirrors the authoritative phase.
+    createSceneRouter(
+        {
+            start: (sceneKey) => game.scene.start(sceneKey, {}),
+            stop: (sceneKey) => game.scene.stop(sceneKey),
+            isActive: (sceneKey) => game.scene.isActive(sceneKey)
+        },
+        store,
+        caseResult.value.scenarioScript,
+        // A stable hook so the active scene is observable without reaching into Phaser internals.
+        (sceneKey) => gameContainer?.setAttribute('data-active-scene', sceneKey)
+    );
 };
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { enterYoungExperiment } from './youngExperimentHelpers';
+
 test('offers the authored slit-spacing control outside the canvas and announces normalized keyboard changes', async ({ page }) => {
     await page.goto('/');
 
@@ -49,6 +51,9 @@ test('keeps the Phaser laboratory surface proportionate beside the populated Cur
 
 test('projects Phaser pointer and touch changes through the same semantic readout', async ({ page, browser }) => {
     await page.goto('/');
+    // The apparatus lives in the routed laboratory scene, which the SceneRouter activates in the
+    // experiment phase.
+    await enterYoungExperiment(page);
 
     const control = page.getByLabel('Slit spacing (mm)');
     await expect(control).toHaveValue('0.25');
@@ -68,6 +73,7 @@ test('projects Phaser pointer and touch changes through the same semantic readou
     const touchContext = await browser.newContext({ hasTouch: true, viewport: { width: 1280, height: 720 } });
     const touchPage = await touchContext.newPage();
     await touchPage.goto('/');
+    await enterYoungExperiment(touchPage);
 
     const touchControl = touchPage.getByLabel('Slit spacing (mm)');
     const touchCanvas = touchPage.locator('#game-container canvas');
@@ -94,6 +100,8 @@ test('keeps laboratory controls read-only on phones', async ({ browser }) => {
     });
     const phonePage = await phoneContext.newPage();
     await phonePage.goto('/');
+    // Reach the laboratory scene so the canvas tap below has a live apparatus to reject.
+    await enterYoungExperiment(phonePage);
 
     const control = phonePage.getByLabel('Slit spacing (mm)');
     await expect(control).toBeDisabled();
