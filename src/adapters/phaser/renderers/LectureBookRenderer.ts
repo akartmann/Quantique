@@ -37,11 +37,15 @@ const BODY_TOP_Y = 222;
 const BODY_MAX_HEIGHT = 382;
 const MAX_BODY_FONT_SIZE = 13;
 const MIN_BODY_FONT_SIZE = 8;
+const CONTROL_Y = 678;
+const CONTROL_WIDTH = 150;
+const CONTROL_HEIGHT = 42;
 
 export class LectureBookRenderer {
     private overlay?: Phaser.GameObjects.Container;
     private pages?: Phaser.GameObjects.Container;
     private blocker?: Phaser.GameObjects.Rectangle;
+    private interactionSurface?: Phaser.GameObjects.Zone;
     private title?: Phaser.GameObjects.Text;
     private source?: Phaser.GameObjects.Text;
     private currentPresentation?: LectureBookPresentation;
@@ -66,6 +70,7 @@ export class LectureBookRenderer {
         if (!this.overlay) this.createOverlay();
         const overlay = this.overlay;
         if (!overlay) return;
+        this.interactionSurface?.setInteractive({ useHandCursor: true });
         // Opening again during the close tween keeps the existing book rather than letting a stale completion remove it.
         this.scene.tweens.killTweensOf(overlay);
         this.isClosing = false;
@@ -80,6 +85,7 @@ export class LectureBookRenderer {
         const overlay = this.overlay;
         this.currentPresentation = undefined;
         this.isClosing = true;
+        this.interactionSurface?.disableInteractive();
         this.scene.tweens.killTweensOf(overlay);
         if (this.prefersReducedMotion()) {
             this.destroyOverlay();
@@ -120,6 +126,15 @@ export class LectureBookRenderer {
         this.overlay = this.scene.add.container(0, 0, [this.blocker, paper, spine, this.title, this.source, this.pages]);
         this.overlay.setDepth(10_000);
         this.overlay.setSize(width, height);
+        // This direct Scene zone has an unambiguous top-left coordinate system. It routes
+        // only visible book-button bounds, avoiding Container origin and child-input ordering.
+        this.interactionSurface = this.scene.add.zone(width / 2, height / 2, width, height)
+            .setDepth(10_001)
+            .setInteractive({ useHandCursor: true });
+        this.interactionSurface.on('pointerup', (_pointer: Phaser.Input.Pointer, localX: number, localY: number, event?: Phaser.Types.Input.EventData) => {
+            event?.stopPropagation();
+            this.activateControl(localX, localY);
+        });
         this.onOverlayVisibilityChange(true);
     }
 
@@ -131,9 +146,9 @@ export class LectureBookRenderer {
         presentation.pages.forEach((page, pageIndex) => {
             if (page) this.drawPage(page, pageIndex);
         });
-        this.drawControl(188, 678, '‹ Previous', presentation.canGoPrevious, presentation.onPrevious);
-        this.drawControl(512, 678, 'Close book', true, presentation.onClose);
-        this.drawControl(836, 678, 'Next ›', presentation.canGoNext, presentation.onNext);
+        this.drawControl(188, CONTROL_Y, '‹ Previous', presentation.canGoPrevious);
+        this.drawControl(512, CONTROL_Y, 'Close book', true);
+        this.drawControl(836, CONTROL_Y, 'Next ›', presentation.canGoNext);
     }
 
     private drawPage(page: LectureBookPagePresentation, pageIndex: number): void {
@@ -165,46 +180,69 @@ export class LectureBookRenderer {
         }
     }
 
-    private drawControl(x: number, y: number, label: string, enabled: boolean, callback: () => void): void {
+    private drawControl(x: number, y: number, label: string, enabled: boolean): void {
         const background = this.scene.add.rectangle(x, y, 150, 42, enabled ? 0xe7c866 : 0x9aa7a6, enabled ? 1 : 0.55)
             .setStrokeStyle(2, 0x4c5d60);
         const text = this.scene.add.text(x, y, label, {
             color: '#10252c', fontFamily: 'system-ui', fontSize: '15px', fontStyle: 'bold', resolution: this.resolution
         }).setOrigin(0.5);
-        if (enabled) {
-            background.setInteractive({ useHandCursor: true });
-            background.on('pointerup', (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event?: Phaser.Types.Input.EventData) => {
-                event?.stopPropagation();
-                callback();
-            });
-        }
         this.pages?.add([background, text]);
+    }
+
+    private activateControl(localX: number, localY: number): void {
+        const presentation = this.currentPresentation;
+        if (!presentation || Math.abs(localY - CONTROL_Y) > CONTROL_HEIGHT / 2) return;
+        const isWithin = (x: number): boolean => Math.abs(localX - x) <= CONTROL_WIDTH / 2;
+        if (isWithin(188) && presentation.canGoPrevious) presentation.onPrevious();
+        else if (isWithin(512)) presentation.onClose();
+        else if (isWithin(836) && presentation.canGoNext) presentation.onNext();
     }
 
     private animateOpen(): void {
         if (!this.overlay) return;
+        this.interactionSurface?.disableInteractive();
         if (this.prefersReducedMotion()) {
             this.overlay.setAlpha(1).setScale(1);
+            this.interactionSurface?.setInteractive({ useHandCursor: true });
             return;
         }
         this.overlay.setAlpha(0).setScale(0.84);
-        this.scene.tweens.add({ targets: this.overlay, alpha: 1, scaleX: 1, scaleY: 1, duration: 260, ease: 'Back.easeOut' });
+        this.scene.tweens.add({
+            targets: this.overlay,
+            alpha: 1,
+            scaleX: 1,
+            scaleY: 1,
+            duration: 260,
+            ease: 'Back.easeOut',
+            onComplete: () => this.interactionSurface?.setInteractive({ useHandCursor: true })
+        });
     }
 
     private animateTurn(): void {
         if (!this.pages || this.prefersReducedMotion()) return;
+        this.interactionSurface?.disableInteractive();
         this.scene.tweens.killTweensOf(this.pages);
         this.pages.setAlpha(0.2).setX(28).setScale(0.97, 1);
-        this.scene.tweens.add({ targets: this.pages, alpha: 1, x: 0, scaleX: 1, duration: 170, ease: 'Sine.easeOut' });
+        this.scene.tweens.add({
+            targets: this.pages,
+            alpha: 1,
+            x: 0,
+            scaleX: 1,
+            duration: 170,
+            ease: 'Sine.easeOut',
+            onComplete: () => this.interactionSurface?.setInteractive({ useHandCursor: true })
+        });
     }
 
     private destroyOverlay(): void {
         if (!this.overlay) return;
         this.scene.tweens.killTweensOf([this.overlay, this.pages].filter(Boolean));
         this.overlay.destroy(true);
+        this.interactionSurface?.destroy();
         this.overlay = undefined;
         this.pages = undefined;
         this.blocker = undefined;
+        this.interactionSurface = undefined;
         this.title = undefined;
         this.source = undefined;
         this.isClosing = false;
