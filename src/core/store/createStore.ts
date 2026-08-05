@@ -3,10 +3,15 @@ import type { CaseRecord } from '../../schemas/CaseRecordSchema';
 import type { AppAction } from './AppAction';
 import { createAppStateFromCaseRecord, reduceAppState, type AppState } from './AppState';
 
+export type StoreUpdate = Readonly<{
+    kind: 'transition' | 'record-replaced';
+}>;
+
 export type AppStore = Readonly<{
     getState: () => AppState;
     dispatch: (action: AppAction) => Result<void>;
     subscribe: (listener: () => void) => () => void;
+    subscribeToUpdates: (listener: (update: StoreUpdate) => void) => () => void;
     replaceWithValidatedRecord: (record: CaseRecord) => Result<void>;
     acquireExclusiveOperation: () => Result<() => void>;
 }>;
@@ -14,7 +19,12 @@ export type AppStore = Readonly<{
 export const createStore = (initialState: AppState): AppStore => {
     let state = initialState;
     const listeners = new Set<() => void>();
+    const updateListeners = new Set<(update: StoreUpdate) => void>();
     let exclusiveOperation = false;
+    const notify = (update: StoreUpdate): void => {
+        listeners.forEach((listener) => listener());
+        updateListeners.forEach((listener) => listener(update));
+    };
 
     return {
         getState: () => state,
@@ -28,18 +38,22 @@ export const createStore = (initialState: AppState): AppStore => {
             }
 
             state = transition.value;
-            listeners.forEach((listener) => listener());
+            notify({ kind: 'transition' });
             return { ok: true, value: undefined };
         },
         subscribe: (listener) => {
             listeners.add(listener);
             return () => listeners.delete(listener);
         },
+        subscribeToUpdates: (listener) => {
+            updateListeners.add(listener);
+            return () => updateListeners.delete(listener);
+        },
         replaceWithValidatedRecord: (record) => {
             const restored = createAppStateFromCaseRecord(record, state.caseDefinition);
             if (!restored.ok) return restored;
             state = restored.value;
-            listeners.forEach((listener) => listener());
+            notify({ kind: 'record-replaced' });
             return { ok: true, value: undefined };
         },
         acquireExclusiveOperation: () => {

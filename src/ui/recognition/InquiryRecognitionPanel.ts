@@ -8,26 +8,28 @@ const achievedIds = (store: AppStore): Set<string> => new Set(selectRecognition(
 /** A calm semantic projection of authoritative, non-gating inquiry recognition. */
 export const mountInquiryRecognitionPanel = (root: HTMLElement, store: AppStore): (() => void) => {
     let announcedIds = achievedIds(store);
-    let statusMessage = '';
+
+    const panel = document.createElement('section');
+    panel.className = 'inquiry-recognition-panel';
+    panel.setAttribute('aria-label', 'Inquiry recognition');
+    panel.dataset.inquiryRecognitionFocus = 'panel';
+
+    const heading = document.createElement('h2');
+    heading.textContent = 'Inquiry recognition';
+    const introduction = document.createElement('p');
+    introduction.textContent = 'This record notes careful investigation. It does not change what remains available in the case.';
+    const status = document.createElement('p');
+    status.className = 'inquiry-recognition-status';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.setAttribute('aria-label', 'Inquiry recognition updates');
+    const content = document.createElement('div');
+    panel.append(heading, introduction, status, content);
+    root.replaceChildren(panel);
 
     const render = (): void => {
         const recognition = selectRecognition(store.getState());
         const achieved = recognition.items.filter(({ achieved }) => achieved);
-        const panel = document.createElement('section');
-        panel.className = 'inquiry-recognition-panel';
-        panel.setAttribute('aria-label', 'Inquiry recognition');
-        panel.dataset.inquiryRecognitionFocus = 'panel';
-
-        const heading = document.createElement('h2');
-        heading.textContent = 'Inquiry recognition';
-        const introduction = document.createElement('p');
-        introduction.textContent = 'This record notes careful investigation. It does not change what remains available in the case.';
-        const status = document.createElement('p');
-        status.className = 'inquiry-recognition-status';
-        status.setAttribute('role', 'status');
-        status.setAttribute('aria-live', 'polite');
-        status.setAttribute('aria-label', 'Inquiry recognition updates');
-        status.textContent = statusMessage;
         const list = document.createElement('ul');
         list.className = 'inquiry-recognition-list';
 
@@ -50,15 +52,20 @@ export const mountInquiryRecognitionPanel = (root: HTMLElement, store: AppStore)
         const audio = document.createElement('p');
         audio.className = 'inquiry-audio-status';
         audio.textContent = 'Optional audio feedback is unavailable for this investigation. All feedback is available as text.';
-        panel.append(heading, introduction, status, list, audio);
-        root.replaceChildren(panel);
+        content.replaceChildren(list, audio);
     };
 
-    const unsubscribe = store.subscribe(() => {
+    const unsubscribe = store.subscribeToUpdates((update) => {
         const recognition = selectRecognition(store.getState());
+        if (update.kind === 'record-replaced') {
+            announcedIds = achievedIds(store);
+            status.textContent = '';
+            render();
+            return;
+        }
         const newlyAchieved = recognition.items.filter((item) => item.achieved && !announcedIds.has(item.id));
         newlyAchieved.forEach(({ id }) => announcedIds.add(id));
-        statusMessage = newlyAchieved.length > 0
+        status.textContent = newlyAchieved.length > 0
             ? newlyAchieved.map(({ label }) => `${label}.`).join(' ')
             : '';
         render();

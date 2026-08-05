@@ -60,6 +60,16 @@ describe('inquiry recognition rules', () => {
         ]);
     });
 
+    it('does not treat a reviewed revision with any remaining readiness issue as calibrated', () => {
+        const recognition = deriveRecognition(definition, {
+            inspectedSourceIds: [],
+            runs: [],
+            decisionHistory: [{ feedback: { status: 'reviewed', issues: [{ code: 'missing-evidence' }] } }]
+        });
+
+        expect(recognition.items.find(({ id }) => id === 'calibrated-conclusion')).toMatchObject({ achieved: false });
+    });
+
     it('is deterministic and idempotent for repeated snapshots', () => {
         const progress = { inspectedSourceIds: ['reviewed-source'], runs: [run('run-1', 2), run('run-2', 2)], decisionHistory: [] };
         expect(deriveRecognition(definition, progress)).toEqual(deriveRecognition(definition, progress));

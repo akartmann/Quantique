@@ -24,18 +24,30 @@ test('exports only portable progress and recovers from invalid or incompatible i
     expect(exported).not.toHaveProperty('caseDefinition');
     expect(exported).toMatchObject({ recognition: { version: 1 } });
     expect((exported.recognition as { items: readonly { id: string; achieved: boolean }[] }).items)
-        .toContainEqual({ id: 'source-discipline', achieved: false });
+        .toContainEqual(expect.objectContaining({ id: 'source-discipline', achieved: false }));
 
     const input = progress.getByLabel('Import a progress record');
-    await input.setInputFiles({ name: 'valid-progress.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(exported)) });
+    const importedRecognition = {
+        ...exported,
+        inspectedSourceIds: ['young-lecture-1801', 'newton-opticks'],
+        recognition: {
+            ...(exported.recognition as { version: number; items: readonly Record<string, unknown>[] }),
+            items: (exported.recognition as { items: readonly Record<string, unknown>[] }).items.map((item) =>
+                item.id === 'source-discipline' ? { ...item, achieved: true } : item)
+        }
+    };
+    const inquiryRecognition = page.getByRole('region', { name: 'Inquiry recognition' });
+    const recognitionUpdates = inquiryRecognition.getByRole('status', { name: 'Inquiry recognition updates' });
+    await input.setInputFiles({ name: 'valid-progress.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(importedRecognition)) });
     await expect(progress.getByRole('status', { name: 'Progress status' })).toHaveText('Progress imported and saved on this device.');
-    await expect(page.getByText('Inspection recorded')).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Inquiry recognition' })).toContainText('No inquiry recognitions are recorded yet.');
+    await expect(page.getByText('Inspection recorded').first()).toBeVisible();
+    await expect(inquiryRecognition).toContainText('Source discipline recorded');
+    await expect(recognitionUpdates).toHaveText('');
 
     await input.setInputFiles({ name: 'invalid-progress.json', mimeType: 'application/json', buffer: Buffer.from('{') });
     await expect(progress.getByRole('status', { name: 'Progress status' })).toHaveText('This progress record could not be used. Your current work is unchanged.');
     await expect(input).toBeFocused();
-    await expect(page.getByText('Inspection recorded')).toBeVisible();
+    await expect(page.getByText('Inspection recorded').first()).toBeVisible();
 
     await input.setInputFiles({ name: 'other-version.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ ...exported, caseDefinitionVersion: '2.0.0' })) });
     await expect(progress.getByRole('status', { name: 'Progress status' })).toHaveText('This progress record could not be used. Your current work is unchanged.');

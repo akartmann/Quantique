@@ -7,6 +7,8 @@ test('keeps inquiry recognition semantic, non-intrusive, and available without a
 
     const recognition = page.getByRole('region', { name: 'Inquiry recognition' });
     const updates = recognition.getByRole('status', { name: 'Inquiry recognition updates' });
+    const statusElement = await updates.elementHandle();
+    if (!statusElement) throw new Error('The inquiry recognition live region should be mounted at startup.');
     await expect(updates).toHaveText('');
     await expect(recognition).toContainText('Optional audio feedback is unavailable for this investigation. All feedback is available as text.');
 
@@ -18,6 +20,7 @@ test('keeps inquiry recognition semantic, non-intrusive, and available without a
     await curatedRecord.getByRole('button', { name: 'Inspect Opticks reference' }).click();
     await expect(recognition).toContainText('Source discipline recorded');
     await expect(updates).toHaveText('Source discipline recorded.');
+    expect(await statusElement.evaluate((element) => element === document.querySelector('.inquiry-recognition-status'))).toBe(true);
 
     const observation = page.getByRole('button', { name: 'Record prepared observation' });
     await observation.click();

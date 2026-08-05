@@ -67,7 +67,7 @@ export const deriveRecognition = (definition: CaseDefinition, progress: Recognit
         replication: hasIdenticalControls(progress.runs, definition),
         'variable-curiosity': hasDifferentControls(progress.runs, definition),
         'calibrated-conclusion': progress.decisionHistory.some(({ feedback }) =>
-            feedback.status === 'reviewed' && !feedback.issues.some(({ code }) => code === 'overreach'))
+            feedback.status === 'reviewed' && feedback.issues.length === 0)
     };
 
     return Object.freeze({

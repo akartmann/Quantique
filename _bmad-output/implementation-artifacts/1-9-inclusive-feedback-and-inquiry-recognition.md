@@ -4,7 +4,7 @@ baseline_commit: d58379f
 
 # Story 1.9: Inclusive feedback and inquiry recognition
 
-Status: review
+Status: done
 
 ## Story
 
@@ -75,6 +75,12 @@ so that I am encouraged to test, replicate, and make appropriately limited claim
   - [x] Add integration tests using public store actions/selectors—not private component/Phaser fields—proving DOM and Phaser-origin equivalent actions produce the same recognition and no duplicate announcement/state.
   - [x] Extend Playwright coverage for the named semantic recognition region, source/run/review feedback, keyboard focus retention/recovery, no-colour text readability, reduced-motion behaviour, audio-unavailable behaviour, and recognition persistence through export/import/offline reload. Run axe against the new surface.
   - [x] Execute `npm test`, `npm run typecheck`, `npm run build`, accessibility E2E, and Chromium/Firefox/WebKit Playwright suites. Manually verify keyboard-only flow, screen-reader announcements, focus recovery, text scaling/zoom, non-colour meaning, no-sound operation, and audio controls/captions if audio is shipped. Axe is necessary but not sufficient.
+
+### Review Findings
+
+- [x] [Review][Patch] Keep recognition notifications in a persistent live region [src/ui/recognition/InquiryRecognitionPanel.ts:13]
+- [x] [Review][Patch] Suppress recognition success announcements after import or restoration [src/ui/recognition/InquiryRecognitionPanel.ts:57]
+- [x] [Review][Patch] Require ready evidence for calibrated-conclusion recognition [src/domain/recognition/recognitionRules.ts:69]
 
 ## Dev Notes
 
