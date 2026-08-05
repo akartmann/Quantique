@@ -41,4 +41,8 @@ test('restores saved progress and decision history after an offline reload', asy
     await expect(page.locator('#boot-status')).toHaveText('Laboratory shell ready.');
     await expect(page.getByRole('region', { name: 'Measurement notebook' }).getByText('Observed result')).toHaveCount(2);
     await expect(page.getByRole('region', { name: 'Decision history' }).getByRole('heading', { name: 'Version 1' })).toBeVisible();
+    const recognition = page.getByRole('region', { name: 'Inquiry recognition' });
+    await expect(recognition).toContainText('Source discipline recorded');
+    await expect(recognition).toContainText('Replication recorded');
+    await expect(recognition).toContainText('Calibrated conclusion recorded');
 });

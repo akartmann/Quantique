@@ -22,11 +22,15 @@ test('exports only portable progress and recovers from invalid or incompatible i
     const exported = JSON.parse(await readFile(downloadPath, 'utf8')) as Record<string, unknown>;
     expect(exported).toMatchObject({ schemaVersion: 1, caseId: 'young-interference', runs: [{ id: expect.any(String) }] });
     expect(exported).not.toHaveProperty('caseDefinition');
+    expect(exported).toMatchObject({ recognition: { version: 1 } });
+    expect((exported.recognition as { items: readonly { id: string; achieved: boolean }[] }).items)
+        .toContainEqual({ id: 'source-discipline', achieved: false });
 
     const input = progress.getByLabel('Import a progress record');
     await input.setInputFiles({ name: 'valid-progress.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(exported)) });
     await expect(progress.getByRole('status', { name: 'Progress status' })).toHaveText('Progress imported and saved on this device.');
     await expect(page.getByText('Inspection recorded')).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Inquiry recognition' })).toContainText('No inquiry recognitions are recorded yet.');
 
     await input.setInputFiles({ name: 'invalid-progress.json', mimeType: 'application/json', buffer: Buffer.from('{') });
     await expect(progress.getByRole('status', { name: 'Progress status' })).toHaveText('This progress record could not be used. Your current work is unchanged.');

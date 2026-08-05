@@ -15,6 +15,7 @@ import { mountConclusionReviewPanel } from './ui/review/ConclusionReviewPanel';
 import { mountDecisionHistoryPanel } from './ui/review/DecisionHistoryPanel';
 import { mountCaseProgressPanel } from './ui/persistence/CaseProgressPanel';
 import { mountCaseRecordPrintView } from './ui/print/CaseRecordPrintView';
+import { mountInquiryRecognitionPanel } from './ui/recognition/InquiryRecognitionPanel';
 
 const calculatePreparedObservation: CalculateExperimentResult = () => ({
     ok: true,
@@ -32,8 +33,9 @@ const initializeLaboratory = async (): Promise<void> => {
     const decisionHistoryRoot = document.querySelector<HTMLElement>('#decision-history');
     const progressRoot = document.querySelector<HTMLElement>('#case-progress');
     const printRoot = document.querySelector<HTMLElement>('#print-record');
+    const recognitionRoot = document.querySelector<HTMLElement>('#inquiry-recognition');
 
-    if (!bootShell || !curatedRecordRoot || !controlsRoot || !notebookRoot || !theoryBoardRoot || !consultationRoot || !conclusionReviewRoot || !decisionHistoryRoot || !progressRoot || !printRoot) {
+    if (!bootShell || !curatedRecordRoot || !controlsRoot || !notebookRoot || !theoryBoardRoot || !consultationRoot || !conclusionReviewRoot || !decisionHistoryRoot || !progressRoot || !printRoot || !recognitionRoot) {
         return;
     }
 
@@ -72,6 +74,7 @@ const initializeLaboratory = async (): Promise<void> => {
     mountConsultationPanel(consultationRoot, store);
     mountConclusionReviewPanel(conclusionReviewRoot, store);
     mountDecisionHistoryPanel(decisionHistoryRoot, store);
+    mountInquiryRecognitionPanel(recognitionRoot, store);
     mountCaseProgressPanel(progressRoot, store, repository);
     mountCaseRecordPrintView(printRoot, store);
     StartGame('game-container', store);

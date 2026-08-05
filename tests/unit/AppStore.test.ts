@@ -4,6 +4,7 @@ import { createInitialAppState, reduceAppState } from '../../src/core/store/AppS
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 
 const caseDefinition = {
+    contextualArtifacts: [],
     apparatus: {
         primaryControls: [
             { id: 'slitSpacingMm', label: 'Slit spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
@@ -21,6 +22,8 @@ describe('AppState', () => {
 
         expect(initial.activeControlValues.slitSpacingMm).toBe(0.25);
         expect(Object.isFrozen(initial.activeControlValues)).toBe(true);
+        expect(Object.isFrozen(initial.recognition)).toBe(true);
+        expect(Object.isFrozen(initial.recognition.items)).toBe(true);
         expect(transition).toMatchObject({ ok: true, value: { activeControlValues: { slitSpacingMm: 0.25 } } });
         if (transition.ok) {
             expect(Object.isFrozen(transition.value.activeControlValues)).toBe(true);

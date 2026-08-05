@@ -5,6 +5,16 @@ const failure = (code: 'invalid-import' | 'incompatible-record-version', message
     error: { code, message }
 });
 
+const legacyRecognition = () => ({
+    version: 0 as const,
+    items: [] as const
+});
+
+const migrateLegacyRecognition = (input: Record<string, unknown>): Record<string, unknown> =>
+    !('recognition' in input) || (input.recognition && typeof input.recognition === 'object' && !Array.isArray(input.recognition) && Object.keys(input.recognition).length === 0)
+        ? { ...input, recognition: legacyRecognition() }
+        : input;
+
 /** Migrates only explicitly supported portable record versions. */
 export const migrateCaseRecord = (input: unknown): Result<unknown> => {
     if (!input || typeof input !== 'object' || Array.isArray(input)) {
@@ -18,9 +28,9 @@ export const migrateCaseRecord = (input: unknown): Result<unknown> => {
 
     switch (version) {
         case 0:
-            return { ok: true, value: { ...(input as Record<string, unknown>), schemaVersion: 1 } };
+            return { ok: true, value: migrateLegacyRecognition({ ...(input as Record<string, unknown>), schemaVersion: 1 }) };
         case 1:
-            return { ok: true, value: input };
+            return { ok: true, value: migrateLegacyRecognition(input as Record<string, unknown>) };
         default:
             return failure('incompatible-record-version', 'This progress record uses an unsupported version. Your current work is unchanged.');
     }

@@ -6,6 +6,7 @@ import { isSourceEligibleForInspection, type CaseDefinition } from '../domain/ca
 import { createRunRecord } from '../domain/evidence/RunRecord';
 import { evaluateConclusionReadiness } from '../domain/theory/conclusionReadiness';
 import { evaluatePeerReview } from '../domain/review/peerReviewRules';
+import { deriveRecognition, RECOGNITION_IDS, recognitionDefinitions } from '../domain/recognition/recognitionRules';
 import { migrateCaseRecord } from './migrations/migrateCaseRecord';
 
 const text = z.string().trim().min(1);
@@ -38,6 +39,37 @@ const PeerReviewSchema = z.discriminatedUnion('status', [
     }).strict()
 ]);
 
+const recognitionDefinitionById = new Map(recognitionDefinitions().map((item) => [item.id, item]));
+const RecognitionItemSchema = z.object({
+    id: z.enum(RECOGNITION_IDS),
+    label: text,
+    description: text,
+    achieved: z.boolean()
+}).strict();
+
+const CurrentRecognitionSchema = z.object({
+    version: z.literal(1),
+    items: z.array(RecognitionItemSchema).length(RECOGNITION_IDS.length)
+}).strict().superRefine((recognition, context) => {
+    const ids = recognition.items.map(({ id }) => id);
+    if (new Set(ids).size !== ids.length || RECOGNITION_IDS.some((id) => !ids.includes(id))) {
+        context.addIssue({ code: 'custom', message: 'Recognition items must include each stable recognition ID once.' });
+        return;
+    }
+    recognition.items.forEach((item) => {
+        const expected = recognitionDefinitionById.get(item.id);
+        if (!expected || item.label !== expected.label || item.description !== expected.description) {
+            context.addIssue({ code: 'custom', message: 'Recognition labels and descriptions must match the authored contract.' });
+        }
+    });
+});
+
+/** Legacy marker is emitted only by explicit migration and is canonicalized on the next projection. */
+const RecognitionSchema = z.discriminatedUnion('version', [
+    z.object({ version: z.literal(0), items: z.tuple([]) }).strict(),
+    CurrentRecognitionSchema
+]);
+
 export const CaseRecordSchema = z.object({
     schemaVersion: z.literal(1),
     caseId: z.literal('young-interference'),
@@ -61,7 +93,7 @@ export const CaseRecordSchema = z.object({
         feedback: PeerReviewSchema,
         timestamp
     }).strict()),
-    recognition: z.record(z.string(), z.unknown()).optional()
+    recognition: RecognitionSchema
 }).strict();
 
 export type CaseRecord = z.infer<typeof CaseRecordSchema>;
@@ -150,6 +182,12 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         runs: record.runs,
         inspectedSourceIds: record.inspectedSourceIds
     }, record.theory).status !== 'ready') {
+        return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+    }
+
+    const derivedRecognition = deriveRecognition(definition, record);
+    if (record.recognition.version === 1 && record.recognition.items.some((item) =>
+        item.achieved !== derivedRecognition.items.find(({ id }) => id === item.id)?.achieved)) {
         return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
     }
 

@@ -4,6 +4,7 @@ import { openPrintDialog } from '../../adapters/print/openPrintDialog';
 import { CaseRecordRepository } from '../../adapters/persistence/caseRecordRepository';
 import type { AppStore } from '../../core/store/createStore';
 import { selectPortableCaseRecord } from '../../core/store/selectors';
+import { createAppStateFromCaseRecord } from '../../core/store/AppState';
 
 const neutralImportMessage = 'This progress record could not be used. Your current work is unchanged.';
 
@@ -67,12 +68,24 @@ export const mountCaseProgressPanel = (root: HTMLElement, store: AppStore, repos
             }
             try {
                 const imported = await importCaseRecord(file);
-                if (!imported.ok || !(await repository.save(imported.value)).ok) {
+                if (!imported.ok) {
                     statusMessage = neutralImportMessage;
                     render();
                     return;
                 }
-                statusMessage = store.replaceWithValidatedRecord(imported.value).ok
+                const candidate = createAppStateFromCaseRecord(imported.value, store.getState().caseDefinition);
+                if (!candidate.ok) {
+                    statusMessage = neutralImportMessage;
+                    render();
+                    return;
+                }
+                const candidateRecord = selectPortableCaseRecord(candidate.value);
+                if (!candidateRecord.ok || !(await repository.save(candidateRecord.value)).ok) {
+                    statusMessage = neutralImportMessage;
+                    render();
+                    return;
+                }
+                statusMessage = store.replaceWithValidatedRecord(candidateRecord.value).ok
                     ? 'Progress imported and saved on this device.'
                     : neutralImportMessage;
                 render();

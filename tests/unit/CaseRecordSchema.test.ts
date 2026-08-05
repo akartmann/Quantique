@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { CaseRecordSchema, parseAndMigrateCaseRecord, validateCaseRecordForDefinition } from '../../src/schemas/CaseRecordSchema';
 import { createAppStateFromCaseRecord, createInitialAppState } from '../../src/core/store/AppState';
 import { createStore } from '../../src/core/store/createStore';
+import { createCaseRecordProjection } from '../../src/core/store/CaseRecordProjection';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 
 const definition = {
@@ -33,7 +34,15 @@ const validRecord = {
     comparison: { selectedRunIds: ['run-001'], notes: [] },
     theory: { selectedRunIds: ['run-001'], selectedSourceIds: ['source-1'], conclusion: 'A bounded conclusion.', limitation: 'A limitation.' },
     decisionHistory: [],
-    recognition: {}
+    recognition: {
+        version: 1,
+        items: [
+            { id: 'source-discipline', label: 'Source discipline recorded', description: 'Each reviewed contextual source has been inspected as evidence.', achieved: false },
+            { id: 'replication', label: 'Replication recorded', description: 'Two observations use the same setup for comparison.', achieved: false },
+            { id: 'variable-curiosity', label: 'Variable curiosity recorded', description: 'Two observations use different authored control settings for comparison.', achieved: false },
+            { id: 'calibrated-conclusion', label: 'Calibrated conclusion recorded', description: 'A reviewed revision makes a bounded claim without an overreach finding.', achieved: false }
+        ]
+    }
 };
 
 describe('portable case records', () => {
@@ -51,6 +60,18 @@ describe('portable case records', () => {
         expect(validateCaseRecordForDefinition(duplicate, definition)).toMatchObject({ ok: false, error: { code: 'invalid-case-record' } });
         const mismatch = CaseRecordSchema.parse({ ...validRecord, caseDefinitionVersion: '2.0.0' });
         expect(validateCaseRecordForDefinition(mismatch, definition)).toMatchObject({ ok: false, error: { code: 'incompatible-case-record' } });
+        expect(CaseRecordSchema.safeParse({
+            ...validRecord,
+            recognition: { ...validRecord.recognition, items: [...validRecord.recognition.items.slice(0, 3), validRecord.recognition.items[0]] }
+        }).success).toBe(false);
+        const unjustifiedRecognition = CaseRecordSchema.parse({
+            ...validRecord,
+            recognition: {
+                ...validRecord.recognition,
+                items: validRecord.recognition.items.map((item) => item.id === 'source-discipline' ? { ...item, achieved: true } : item)
+            }
+        });
+        expect(validateCaseRecordForDefinition(unjustifiedRecognition, definition)).toMatchObject({ ok: false, error: { code: 'invalid-case-record' } });
     });
 
     it('rejects impossible historical snapshots, bypassed debriefs, and malformed history', () => {
@@ -78,6 +99,8 @@ describe('portable case records', () => {
         expect(parseAndMigrateCaseRecord('{')).toMatchObject({ ok: false, error: { code: 'invalid-import' } });
         expect(parseAndMigrateCaseRecord(JSON.stringify({ ...validRecord, schemaVersion: 2 }))).toMatchObject({ ok: false, error: { code: 'incompatible-record-version' } });
         expect(parseAndMigrateCaseRecord(JSON.stringify({ ...validRecord, schemaVersion: -1 }))).toMatchObject({ ok: false, error: { code: 'invalid-import' } });
+        const migratedRecognition = parseAndMigrateCaseRecord(JSON.stringify({ ...validRecord, recognition: {} }));
+        expect(migratedRecognition).toMatchObject({ ok: true, value: { recognition: { version: 0, items: [] } } });
     });
 
     it('creates a frozen restored state only from a definition-compatible record', () => {
@@ -88,6 +111,15 @@ describe('portable case records', () => {
             expect(Object.isFrozen(restored.value.runs[0])).toBe(true);
             expect(Object.isFrozen(restored.value.runs[0].controls)).toBe(true);
         }
+    });
+
+    it('projects and hydrates strict recognition with the portable record', () => {
+        const projected = createCaseRecordProjection(createInitialAppState(definition));
+        expect(projected).toMatchObject({ ok: true, value: { recognition: { version: 1 } } });
+        if (!projected.ok) return;
+        expect(projected.value.recognition.items[0]).toMatchObject({ id: 'source-discipline', achieved: false });
+        const restored = createAppStateFromCaseRecord(projected.value, definition);
+        expect(restored).toMatchObject({ ok: true, value: { recognition: projected.value.recognition } });
     });
 
     it('only replaces store state through record validation and serializes progress operations', () => {

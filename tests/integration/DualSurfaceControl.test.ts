@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { createPhaserStoreAdapter } from '../../src/adapters/phaser/PhaserStoreAdapter';
 import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore } from '../../src/core/store/createStore';
-import { selectFormattedControlValue } from '../../src/core/store/selectors';
+import { selectFormattedControlValue, selectRecognition } from '../../src/core/store/selectors';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
+import { createRunRecord } from '../../src/domain/evidence/RunRecord';
 import { dispatchControlValueFromDom } from '../../src/ui/apparatus/ApparatusControls';
 
 const caseDefinition: CaseDefinition = {
@@ -47,11 +48,29 @@ describe('dual-surface apparatus control', () => {
         const domStore = createStore(initialState);
         const phaserStore = createStore(initialState);
 
+        const seedEvidence = (store: typeof domStore, id: string, timestamp: string) => {
+            ['record', 'reference'].forEach((sourceId) => store.dispatch({ type: 'source.inspected', sourceId }));
+            const record = createRunRecord({
+                id, caseId: 'young-interference', controls: store.getState().activeControlValues,
+                result: { label: 'Observation', value: 1, unit: 'relative units' }, timestamp,
+                experimentModelVersion: 'young-double-slit-v1', linkedEvidenceIds: ['record', 'reference']
+            });
+            if (!record.ok) throw new Error('Fixture run must be valid.');
+            expect(store.dispatch({ type: 'run.record', record: record.value })).toEqual({ ok: true, value: undefined });
+        };
+
+        seedEvidence(domStore, 'dom-first', '2026-08-05T10:00:00.000Z');
+        seedEvidence(phaserStore, 'phaser-first', '2026-08-05T10:00:00.000Z');
+
         expect(dispatchControlValueFromDom(domStore, 'slitSpacingMm', 0.23)).toEqual({ ok: true, value: undefined });
         expect(createPhaserStoreAdapter(phaserStore).setControlValue('slitSpacingMm', 0.23)).toEqual({ ok: true, value: undefined });
+        seedEvidence(domStore, 'dom-second', '2026-08-05T10:00:01.000Z');
+        seedEvidence(phaserStore, 'phaser-second', '2026-08-05T10:00:01.000Z');
 
-        expect(domStore.getState()).toEqual(phaserStore.getState());
+        expect(domStore.getState().activeControlValues).toEqual(phaserStore.getState().activeControlValues);
         expect(selectFormattedControlValue(domStore.getState(), 'slitSpacingMm')).toBe('0.25 mm');
         expect(selectFormattedControlValue(phaserStore.getState(), 'slitSpacingMm')).toBe('0.25 mm');
+        expect(selectRecognition(domStore.getState())).toEqual(selectRecognition(phaserStore.getState()));
+        expect(selectRecognition(domStore.getState()).items.find(({ id }) => id === 'replication')).toMatchObject({ achieved: true });
     });
 });

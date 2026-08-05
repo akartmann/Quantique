@@ -9,6 +9,7 @@ import type { CasePhase } from '../../domain/cases/CaseProgress';
 import { createCaseRecordProjection } from './CaseRecordProjection';
 import type { Result } from '../errors/Result';
 import type { CaseRecord } from '../../schemas/CaseRecordSchema';
+import type { RecognitionState } from '../../domain/recognition/recognitionRules';
 
 const decimalPlaces = (value: number): number => value.toString().split('.')[1]?.length ?? 0;
 
@@ -82,5 +83,7 @@ export const selectConsultation = (state: AppState): ConsultationProjection | un
 export const selectPeerReview = (state: AppState): PeerReviewProjection | undefined => state.peerReview;
 
 export const selectDecisionHistory = (state: AppState): readonly DecisionHistoryEntry[] => state.decisionHistory;
+
+export const selectRecognition = (state: AppState): RecognitionState => state.recognition;
 
 export const selectPortableCaseRecord = (state: AppState): Result<CaseRecord> => createCaseRecordProjection(state);

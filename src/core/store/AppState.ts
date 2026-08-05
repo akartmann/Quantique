@@ -7,6 +7,7 @@ import { createRunRecord, type RunRecord } from '../../domain/evidence/RunRecord
 import { createTheoryBoardDraft, evaluateConclusionReadiness, type TheoryBoardDraft } from '../../domain/theory/conclusionReadiness';
 import { selectConsultation, type ConsultationProjection } from '../../domain/review/ConsultationRule';
 import { evaluatePeerReview, type PeerReviewProjection } from '../../domain/review/peerReviewRules';
+import { deriveRecognition, type RecognitionState } from '../../domain/recognition/recognitionRules';
 import { validateCaseRecordForDefinition, type CaseRecord } from '../../schemas/CaseRecordSchema';
 import type { AppAction } from './AppAction';
 
@@ -42,6 +43,7 @@ export type AppState = Readonly<{
     consultation?: ConsultationProjection;
     peerReview?: PeerReviewProjection;
     decisionHistory: readonly DecisionHistoryEntry[];
+    recognition: RecognitionState;
 }>;
 
 const freezeComparison = (comparison: ComparisonState): ComparisonState => Object.freeze({
@@ -59,7 +61,7 @@ const freezePeerReview = (review: PeerReviewProjection): PeerReviewProjection =>
         issues: Object.freeze(review.issues.map((issue) => Object.freeze({ ...issue })))
     });
 
-const freezeState = (state: AppState): AppState => Object.freeze({
+const freezeState = (state: Omit<AppState, 'recognition'>): AppState => Object.freeze({
     ...state,
     activeControlValues: Object.freeze({ ...state.activeControlValues }),
     inspectedSourceIds: Object.freeze([...state.inspectedSourceIds]),
@@ -82,7 +84,8 @@ const freezeState = (state: AppState): AppState => Object.freeze({
         selectedRunIds: Object.freeze([...entry.selectedRunIds]),
         selectedSourceIds: Object.freeze([...entry.selectedSourceIds]),
         feedback: freezePeerReview(entry.feedback)
-    })))
+    }))),
+    recognition: deriveRecognition(state.caseDefinition, state)
 });
 
 export const createInitialAppState = (caseDefinition: CaseDefinition): AppState => freezeState({

@@ -15,7 +15,7 @@ export const createCaseRecordProjection = (state: AppState): Result<CaseRecord> 
         comparison: state.comparison,
         theory: state.theory,
         decisionHistory: state.decisionHistory,
-        recognition: {}
+        recognition: state.recognition
     });
     return parsed.success
         ? { ok: true, value: parsed.data }

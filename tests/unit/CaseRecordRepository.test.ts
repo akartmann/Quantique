@@ -7,7 +7,16 @@ const record = CaseRecordSchema.parse({
     schemaVersion: 1, caseId: 'young-interference', caseDefinitionVersion: '1.0.0', phase: 'context',
     activeControlValues: { slitSpacingMm: 0.25, screenDistanceM: 2 }, inspectedSourceIds: [], runs: [],
     comparison: { selectedRunIds: [], notes: [] }, theory: { selectedRunIds: [], selectedSourceIds: [], conclusion: '', limitation: '' },
-    decisionHistory: []
+    decisionHistory: [],
+    recognition: {
+        version: 1,
+        items: [
+            { id: 'source-discipline', label: 'Source discipline recorded', description: 'Each reviewed contextual source has been inspected as evidence.', achieved: false },
+            { id: 'replication', label: 'Replication recorded', description: 'Two observations use the same setup for comparison.', achieved: false },
+            { id: 'variable-curiosity', label: 'Variable curiosity recorded', description: 'Two observations use different authored control settings for comparison.', achieved: false },
+            { id: 'calibrated-conclusion', label: 'Calibrated conclusion recorded', description: 'A reviewed revision makes a bounded claim without an overreach finding.', achieved: false }
+        ]
+    }
 });
 
 describe('case record repository', () => {

@@ -4,7 +4,7 @@ baseline_commit: d58379f
 
 # Story 1.9: Inclusive feedback and inquiry recognition
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -34,47 +34,47 @@ so that I am encouraged to test, replicate, and make appropriately limited claim
 
 ## Tasks / Subtasks
 
-- [ ] Define pure, data-driven recognition rules and immutable state (AC: 1, 2, 5)
-  - [ ] Create `src/domain/recognition/recognitionRules.ts`. It must be pure TypeScript and accept only `CaseDefinition` plus authoritative progress/history snapshots; it must not import Phaser, DOM, browser APIs, IndexedDB, clock/timer APIs, or persistence code.
-  - [ ] Define a compact typed recognition contract with stable IDs, semantic label, explanatory text, and achieved state. Prefer a fixed readonly set keyed by the four behaviours above, with no numeric points, streaks, rank, rarity, currency, inventory, randomization, or hidden completion flag.
-  - [ ] Derive source discipline only from reviewed inspected-source IDs; derive replication/variable curiosity only from immutable `RunRecord.controls`; derive calibration only from a completed reviewed revision and its feedback. Do not inspect Phaser scene state, DOM state, input origin, elapsed time, or result value.
-  - [ ] Preserve current scientific authority: runs retain recorded result/model/timestamp; the finite `context → prediction → experiment → synthesis → review → debrief` machine and `evaluateConclusionReadiness` remain the only completion authorities.
-  - [ ] Extend `src/core/store/AppState.ts` with deeply frozen recognition state. Compute/recompute it inside the successful immutable reducer transition path, never in a component subscription. Preserve existing invalidation of stale consultation/peer-review projections, append-only decision history, and rejected-transition behaviour.
-  - [ ] Extend `src/core/store/AppAction.ts` only if a narrowly typed acknowledgement/action is genuinely necessary. Do not add a general state patch, reward action, counter, or UI-owned mutation. Add public selectors in `src/core/store/selectors.ts` for the semantic panel and portable projection.
+- [x] Define pure, data-driven recognition rules and immutable state (AC: 1, 2, 5)
+  - [x] Create `src/domain/recognition/recognitionRules.ts`. It must be pure TypeScript and accept only `CaseDefinition` plus authoritative progress/history snapshots; it must not import Phaser, DOM, browser APIs, IndexedDB, clock/timer APIs, or persistence code.
+  - [x] Define a compact typed recognition contract with stable IDs, semantic label, explanatory text, and achieved state. Prefer a fixed readonly set keyed by the four behaviours above, with no numeric points, streaks, rank, rarity, currency, inventory, randomization, or hidden completion flag.
+  - [x] Derive source discipline only from reviewed inspected-source IDs; derive replication/variable curiosity only from immutable `RunRecord.controls`; derive calibration only from a completed reviewed revision and its feedback. Do not inspect Phaser scene state, DOM state, input origin, elapsed time, or result value.
+  - [x] Preserve current scientific authority: runs retain recorded result/model/timestamp; the finite `context → prediction → experiment → synthesis → review → debrief` machine and `evaluateConclusionReadiness` remain the only completion authorities.
+  - [x] Extend `src/core/store/AppState.ts` with deeply frozen recognition state. Compute/recompute it inside the successful immutable reducer transition path, never in a component subscription. Preserve existing invalidation of stale consultation/peer-review projections, append-only decision history, and rejected-transition behaviour.
+  - [x] Extend `src/core/store/AppAction.ts` only if a narrowly typed acknowledgement/action is genuinely necessary. Do not add a general state patch, reward action, counter, or UI-owned mutation. Add public selectors in `src/core/store/selectors.ts` for the semantic panel and portable projection.
 
-- [ ] Make recognition portable, validated, and backward-safe (AC: 2, 5)
-  - [ ] Replace the opaque optional `recognition: z.record(z.string(), z.unknown())` boundary in `src/schemas/CaseRecordSchema.ts` with a strict, versioned recognition schema matching the domain contract. Reject unknown keys, duplicate IDs, invalid labels/descriptions, impossible combinations, and recognition that cannot be justified by the imported progress/history.
-  - [ ] Update `src/core/store/CaseRecordProjection.ts` to project the frozen authoritative recognition state instead of `{}`; update `createAppStateFromCaseRecord` to validate and hydrate it rather than losing it. Hydrated recognition must be consistent with the loaded immutable definition and evidence.
-  - [ ] Update `src/schemas/migrations/migrateCaseRecord.ts` explicitly for records produced by Story 1.8 with an empty recognition object or absent recognition. Revalidate after migration, preserve all valid progress/history, and reject future/unsupported/malformed records neutrally. Do not bump or weaken unrelated run, source, comparison, theory, or review contracts.
-  - [ ] Preserve Story 1.8’s import ordering and atomicity: parse untrusted JSON → schema/version dispatch → explicit migration → revalidation → validate against loaded immutable definition → build candidate state → persist/replace. On any failure, leave both current in-memory state and last valid IndexedDB record untouched.
-  - [ ] Keep `CaseRecordRepository`, IndexedDB, export/import, and service-worker caching as separate adapter concerns. Domain modules remain free of browser APIs; do not create a second progress or recognition store.
+- [x] Make recognition portable, validated, and backward-safe (AC: 2, 5)
+  - [x] Replace the opaque optional `recognition: z.record(z.string(), z.unknown())` boundary in `src/schemas/CaseRecordSchema.ts` with a strict, versioned recognition schema matching the domain contract. Reject unknown keys, duplicate IDs, invalid labels/descriptions, impossible combinations, and recognition that cannot be justified by the imported progress/history.
+  - [x] Update `src/core/store/CaseRecordProjection.ts` to project the frozen authoritative recognition state instead of `{}`; update `createAppStateFromCaseRecord` to validate and hydrate it rather than losing it. Hydrated recognition must be consistent with the loaded immutable definition and evidence.
+  - [x] Update `src/schemas/migrations/migrateCaseRecord.ts` explicitly for records produced by Story 1.8 with an empty recognition object or absent recognition. Revalidate after migration, preserve all valid progress/history, and reject future/unsupported/malformed records neutrally. Do not bump or weaken unrelated run, source, comparison, theory, or review contracts.
+  - [x] Preserve Story 1.8’s import ordering and atomicity: parse untrusted JSON → schema/version dispatch → explicit migration → revalidation → validate against loaded immutable definition → build candidate state → persist/replace. On any failure, leave both current in-memory state and last valid IndexedDB record untouched.
+  - [x] Keep `CaseRecordRepository`, IndexedDB, export/import, and service-worker caching as separate adapter concerns. Domain modules remain free of browser APIs; do not create a second progress or recognition store.
 
-- [ ] Provide one calm, semantic recognition and feedback surface (AC: 1, 2, 4, 5)
-  - [ ] Add a focused component such as `src/ui/recognition/InquiryRecognitionPanel.ts`, mounted from `src/main.ts` through a named `index.html` root. It reads selectors and dispatches typed public actions only; it never evaluates or persists recognition itself.
-  - [ ] Present each achieved recognition with a short explicit text label and evidence-based explanation. Use calm declarative copy (for example, “Replication recorded” / “Two observations use the same setup for comparison”), never score language, exclamation-led praise, “right/wrong”, “perfect”, “winner”, or implication that the case is complete.
-  - [ ] Use a persistent, initially empty `role="status"` / polite live region for concise changed-state announcements. Do not move focus to a routine status update and do not re-announce unchanged recognition on every store render. Reserve assertive alerts for genuinely urgent system failures only.
-  - [ ] Follow existing `CuratedRecord`, notebook, theory, review, and progress-panel conventions: stable `data-*` focus key, focus restoration after `replaceChildren`, semantic heading/region, `unsubscribe` teardown, and no global mutable feedback bus. A new panel must not steal focus from the control that initiated the action.
-  - [ ] Integrate with existing local semantic feedback rather than duplicating it. Existing run/source/review messages must remain readable and recoverable; recognition adds context but must not hide errors, consultation, peer feedback, or decision history.
-  - [ ] Update `public/style.css` and `index.html` using the UX spine: text contrast ≥4.5:1, visible focus treatment, 44×44 px interactive targets, named labels, text + non-colour cue for every state, reduced-motion-safe styling, responsive sequential/tablet layout, and no flashing or celebratory burst. Do not repurpose the `signal` colour as a score/answer indicator; use the error colour only for input/persistence failures, never for scientific-review feedback.
+- [x] Provide one calm, semantic recognition and feedback surface (AC: 1, 2, 4, 5)
+  - [x] Add a focused component such as `src/ui/recognition/InquiryRecognitionPanel.ts`, mounted from `src/main.ts` through a named `index.html` root. It reads selectors and dispatches typed public actions only; it never evaluates or persists recognition itself.
+  - [x] Present each achieved recognition with a short explicit text label and evidence-based explanation. Use calm declarative copy (for example, “Replication recorded” / “Two observations use the same setup for comparison”), never score language, exclamation-led praise, “right/wrong”, “perfect”, “winner”, or implication that the case is complete.
+  - [x] Use a persistent, initially empty `role="status"` / polite live region for concise changed-state announcements. Do not move focus to a routine status update and do not re-announce unchanged recognition on every store render. Reserve assertive alerts for genuinely urgent system failures only.
+  - [x] Follow existing `CuratedRecord`, notebook, theory, review, and progress-panel conventions: stable `data-*` focus key, focus restoration after `replaceChildren`, semantic heading/region, `unsubscribe` teardown, and no global mutable feedback bus. A new panel must not steal focus from the control that initiated the action.
+  - [x] Integrate with existing local semantic feedback rather than duplicating it. Existing run/source/review messages must remain readable and recoverable; recognition adds context but must not hide errors, consultation, peer feedback, or decision history.
+  - [x] Update `public/style.css` and `index.html` using the UX spine: text contrast ≥4.5:1, visible focus treatment, 44×44 px interactive targets, named labels, text + non-colour cue for every state, reduced-motion-safe styling, responsive sequential/tablet layout, and no flashing or celebratory burst. Do not repurpose the `signal` colour as a score/answer indicator; use the error colour only for input/persistence failures, never for scientific-review feedback.
 
-- [ ] Handle optional audio accessibly without making it a dependency (AC: 1, 3, 4)
-  - [ ] If an authored reviewed audio entry is added to the case manifest during implementation, validate it at the existing content boundary and keep playback in a constructor-injected adapter (for example, `src/adapters/audio/PhaserAudioAdapter.ts`), never in a reducer, domain module, or Phaser update loop.
-  - [ ] Add a semantic settings control only for available optional audio: clear name, mute on/off, 0–1 volume semantics, keyboard operation, persistent preference through the existing local-record/settings boundary, and a text/caption equivalent adjacent to the triggering feedback. Audio failure, autoplay lock, or no-audio device is a recoverable silent degradation—never a raw error, blocker, or loss of scientific meaning.
-  - [ ] Phaser audio is global and can outlive a scene. Stop/destroy any owned sound on scene shutdown, respect browser user-gesture/autoplay constraints, avoid per-frame audio work, and do not rely on sound completion to update recognition or state.
-  - [ ] If no reviewed audio content is added, retain the explicit audio-unavailable semantic state and test it. Do not create a decorative placeholder asset merely to make the setting visible.
+- [x] Handle optional audio accessibly without making it a dependency (AC: 1, 3, 4)
+  - [x] If an authored reviewed audio entry is added to the case manifest during implementation, validate it at the existing content boundary and keep playback in a constructor-injected adapter (for example, `src/adapters/audio/PhaserAudioAdapter.ts`), never in a reducer, domain module, or Phaser update loop.
+  - [x] Add a semantic settings control only for available optional audio: clear name, mute on/off, 0–1 volume semantics, keyboard operation, persistent preference through the existing local-record/settings boundary, and a text/caption equivalent adjacent to the triggering feedback. Audio failure, autoplay lock, or no-audio device is a recoverable silent degradation—never a raw error, blocker, or loss of scientific meaning.
+  - [x] Phaser audio is global and can outlive a scene. Stop/destroy any owned sound on scene shutdown, respect browser user-gesture/autoplay constraints, avoid per-frame audio work, and do not rely on sound completion to update recognition or state.
+  - [x] If no reviewed audio content is added, retain the explicit audio-unavailable semantic state and test it. Do not create a decorative placeholder asset merely to make the setting visible.
 
-- [ ] Preserve dual-surface and persistence composition (AC: 1, 2, 4)
-  - [ ] Keep `src/adapters/phaser/PhaserStoreAdapter.ts`, `LaboratoryScene.ts`, and renderer factories as visual projections. If a non-essential visual recognition cue is added, it must subscribe to the same store state, have a semantic equivalent, own and clean up its Phaser objects, and never calculate or mutate recognition.
-  - [ ] Keep DOM/Phaser actions routed to the same typed store. A successful DOM-origin and Phaser-origin action with identical authoritative state must produce identical recognition; input `origin` remains diagnostic-only.
-  - [ ] Keep `src/main.ts` composition order: load/freeze case definition, load/validate/migrate compatible record, construct restored/fresh store, mount semantic UI, then start Phaser. Persistence/audio failures must not prevent the laboratory from opening.
-  - [ ] Do not add telemetry, accounts, cloud saves, a backend, remote config, analytics, network-critical play, or logging of learner-entered conclusions.
+- [x] Preserve dual-surface and persistence composition (AC: 1, 2, 4)
+  - [x] Keep `src/adapters/phaser/PhaserStoreAdapter.ts`, `LaboratoryScene.ts`, and renderer factories as visual projections. If a non-essential visual recognition cue is added, it must subscribe to the same store state, have a semantic equivalent, own and clean up its Phaser objects, and never calculate or mutate recognition.
+  - [x] Keep DOM/Phaser actions routed to the same typed store. A successful DOM-origin and Phaser-origin action with identical authoritative state must produce identical recognition; input `origin` remains diagnostic-only.
+  - [x] Keep `src/main.ts` composition order: load/freeze case definition, load/validate/migrate compatible record, construct restored/fresh store, mount semantic UI, then start Phaser. Persistence/audio failures must not prevent the laboratory from opening.
+  - [x] Do not add telemetry, accounts, cloud saves, a backend, remote config, analytics, network-critical play, or logging of learner-entered conclusions.
 
-- [ ] Verify behaviour, accessibility, and regressions (AC: 1–5)
-  - [ ] Add Vitest unit tests for every recognition rule, no-recognition boundary, deduplication/idempotence, deterministic restore, deep freeze, rejected action behaviour, source eligibility, identical-control replication, changed-control curiosity, and calibrated-vs-overreaching review. Assert that recognition does not alter phase, readiness, runs, or decision history.
-  - [ ] Extend `CaseRecordSchema`/migration/repository tests for strict recognition validation, legacy empty recognition migration, projection/hydration round trip, impossible imported recognition, future versions, and atomic import/save failure. Ensure current valid records and all immutable historical snapshots remain intact.
-  - [ ] Add integration tests using public store actions/selectors—not private component/Phaser fields—proving DOM and Phaser-origin equivalent actions produce the same recognition and no duplicate announcement/state.
-  - [ ] Extend Playwright coverage for the named semantic recognition region, source/run/review feedback, keyboard focus retention/recovery, no-colour text readability, reduced-motion behaviour, audio-unavailable behaviour, and recognition persistence through export/import/offline reload. Run axe against the new surface.
-  - [ ] Execute `npm test`, `npm run typecheck`, `npm run build`, accessibility E2E, and Chromium/Firefox/WebKit Playwright suites. Manually verify keyboard-only flow, screen-reader announcements, focus recovery, text scaling/zoom, non-colour meaning, no-sound operation, and audio controls/captions if audio is shipped. Axe is necessary but not sufficient.
+- [x] Verify behaviour, accessibility, and regressions (AC: 1–5)
+  - [x] Add Vitest unit tests for every recognition rule, no-recognition boundary, deduplication/idempotence, deterministic restore, deep freeze, rejected action behaviour, source eligibility, identical-control replication, changed-control curiosity, and calibrated-vs-overreaching review. Assert that recognition does not alter phase, readiness, runs, or decision history.
+  - [x] Extend `CaseRecordSchema`/migration/repository tests for strict recognition validation, legacy empty recognition migration, projection/hydration round trip, impossible imported recognition, future versions, and atomic import/save failure. Ensure current valid records and all immutable historical snapshots remain intact.
+  - [x] Add integration tests using public store actions/selectors—not private component/Phaser fields—proving DOM and Phaser-origin equivalent actions produce the same recognition and no duplicate announcement/state.
+  - [x] Extend Playwright coverage for the named semantic recognition region, source/run/review feedback, keyboard focus retention/recovery, no-colour text readability, reduced-motion behaviour, audio-unavailable behaviour, and recognition persistence through export/import/offline reload. Run axe against the new surface.
+  - [x] Execute `npm test`, `npm run typecheck`, `npm run build`, accessibility E2E, and Chromium/Firefox/WebKit Playwright suites. Manually verify keyboard-only flow, screen-reader announcements, focus recovery, text scaling/zoom, non-colour meaning, no-sound operation, and audio controls/captions if audio is shipped. Axe is necessary but not sufficient.
 
 ## Dev Notes
 
@@ -139,13 +139,43 @@ GPT-5.6 Codex
 - Ultimate context engine analysis completed: complete Epic 1, GDD, UX, architecture, project context, prior story, current source/test seams, git history, and current official technical documentation reviewed.
 - Parallel artifact analysis confirmed that recognition is intentionally reserved in the portable record but has no domain/state/UI implementation; this story closes that seam with strict, evidence-derived, non-gating state.
 - Validation checklist applied: tasks prevent duplicate reward systems, untyped/invalid imported recognition, completion bypasses, raw learner-text analysis/logging, canvas/audio-only feedback, focus theft, noisy re-announcements, unreviewed audio assets, and Story 1.8 persistence regressions.
+- Implemented a pure four-item recognition projection, strict portable-record boundary, explicit legacy migration marker, semantic panel, and atomic import candidate flow.
+- Validation passed: `npm test` (115 tests), `npm run typecheck`, `npm run build`, Chromium accessibility E2E, and Chromium/Firefox/WebKit Playwright suites.
 
 ### Completion Notes List
 
 - Ultimate context engine analysis completed - comprehensive developer guide created.
 - Status set to `ready-for-dev`.
+- Completed Story 1.9: authoritative inquiry recognition is frozen with application state, non-gating, and derived solely from reviewed sources, immutable runs, and reviewed revision snapshots.
+- Added an accessible, non-intrusive recognition panel with a persistent polite live region, text-only feedback, keyboard focus retention, and explicit no-audio state for the current reviewed case manifest.
+- Replaced opaque recognition persistence with strict versioned data; legacy empty data migrates explicitly and is canonicalized on projection. Imports validate a candidate against the immutable definition before persistence or state replacement.
 
 ### File List
 
-- `_bmad-output/implementation-artifacts/1-9-inclusive-feedback-and-inquiry-recognition.md` (created story record)
+- `_bmad-output/implementation-artifacts/1-9-inclusive-feedback-and-inquiry-recognition.md` (updated story record)
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (status update)
+- `index.html` (recognition root)
+- `public/style.css` (recognition surface styling)
+- `src/domain/recognition/recognitionRules.ts` (new pure recognition rules)
+- `src/core/store/AppState.ts` (frozen authoritative recognition)
+- `src/core/store/CaseRecordProjection.ts` (portable recognition projection)
+- `src/core/store/selectors.ts` (recognition selector)
+- `src/schemas/CaseRecordSchema.ts` (strict recognition validation)
+- `src/schemas/migrations/migrateCaseRecord.ts` (legacy recognition migration)
+- `src/ui/recognition/InquiryRecognitionPanel.ts` (new semantic recognition UI)
+- `src/ui/persistence/CaseProgressPanel.ts` (definition-validated atomic import flow)
+- `src/main.ts` (recognition composition)
+- `tests/unit/RecognitionRules.test.ts` (recognition rule coverage)
+- `tests/unit/AppStore.test.ts` (frozen state coverage)
+- `tests/unit/CaseRecordSchema.test.ts` (strict/migrated portable recognition coverage)
+- `tests/unit/CaseRecordRepository.test.ts` (strict repository fixture)
+- `tests/integration/RecognitionStore.test.ts` (successful/rejected transition coverage)
+- `tests/integration/DualSurfaceControl.test.ts` (DOM/Phaser equivalence coverage)
+- `tests/e2e/inquiry-recognition.spec.ts` (semantic panel, keyboard, audio-unavailable, axe coverage)
+- `tests/e2e/accessibility.spec.ts` (recognition axe coverage)
+- `tests/e2e/progress-portability.spec.ts` (recognition export/import coverage)
+- `tests/e2e/offline-reload.spec.ts` (recognition offline restore coverage)
+
+## Change Log
+
+- 2026-08-05: Implemented inclusive feedback and inquiry recognition; story is ready for review.

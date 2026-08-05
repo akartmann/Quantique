@@ -37,6 +37,10 @@ test('has no automated accessibility violations in the boot shell, Curated Recor
 
     expect(reviewSurfaceResults.violations).toEqual([]);
 
+    const recognitionResults = await new AxeBuilder({ page }).include('.inquiry-recognition-panel').analyze();
+
+    expect(recognitionResults.violations).toEqual([]);
+
     const portabilityResults = await new AxeBuilder({ page })
         .include('.case-progress-panel')
         .include('.case-record-print-view')
