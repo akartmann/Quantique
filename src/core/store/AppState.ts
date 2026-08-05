@@ -87,11 +87,22 @@ const freezeDecision = (entry: DecisionHistoryEntry): DecisionHistoryEntry => Ob
     feedback: freezePeerReview(entry.feedback)
 });
 
+const freezeRun = (run: RunRecord): RunRecord => Object.freeze({
+    id: run.id,
+    caseId: run.caseId,
+    controls: Object.freeze({ ...run.controls }),
+    ...(run.modelInputs ? { modelInputs: Object.freeze({ ...run.modelInputs }) } : {}),
+    result: Object.freeze({ ...run.result }),
+    timestamp: run.timestamp,
+    experimentModelVersion: run.experimentModelVersion,
+    linkedEvidenceIds: Object.freeze([...run.linkedEvidenceIds])
+});
+
 const freezeCompletion = (completion: CompletionSnapshot | undefined): CompletionSnapshot | undefined => completion && Object.freeze({
     completedAt: completion.completedAt,
     finalDecision: freezeDecision(completion.finalDecision),
     decisionHistory: Object.freeze(completion.decisionHistory.map(freezeDecision)),
-    runs: Object.freeze([...completion.runs]),
+    runs: Object.freeze(completion.runs.map(freezeRun)),
     inspectedSourceIds: Object.freeze([...completion.inspectedSourceIds]),
     comparison: freezeComparison(completion.comparison),
     recognition: Object.freeze({
@@ -106,7 +117,7 @@ const freezeState = (state: Omit<AppState, 'recognition'>): AppState => Object.f
     selectedWavelengthNm: state.selectedWavelengthNm,
     selectedWavelengthMode: state.selectedWavelengthMode,
     inspectedSourceIds: Object.freeze([...state.inspectedSourceIds]),
-    runs: Object.freeze([...state.runs]),
+    runs: Object.freeze(state.runs.map(freezeRun)),
     comparison: freezeComparison(state.comparison),
     theory: Object.freeze({
         selectedRunIds: Object.freeze([...state.theory.selectedRunIds]),
@@ -203,7 +214,7 @@ const reduceControlSet = (state: AppState, action: Extract<AppAction, { type: 'a
 };
 
 const reduceRecordRun = (state: AppState, record: RunRecord): Result<AppState> => {
-    if (state.phase !== 'experiment' && record.modelInputs) {
+    if (state.phase !== 'experiment') {
         return failure('experiment-phase-required', 'Enter the experiment phase before running the apparatus.');
     }
     const validated = createRunRecord(record, state.runs.map(({ id }) => id));
@@ -404,6 +415,9 @@ const reduceTheorySupportSource = (state: AppState, sourceId: string, selected: 
 };
 
 const reduceCasePhaseAdvance = (state: AppState, nextPhase: CasePhase): Result<AppState> => {
+    if (state.phase === 'review' && nextPhase === 'debrief') {
+        return failure('debrief-completion-required', 'Open the historical debrief only through the reviewed completion action.');
+    }
     const transition = advanceCasePhase({ definition: state.caseDefinition, phase: state.phase }, nextPhase);
     if (!transition.ok) return transition;
     if (state.phase === 'context' && nextPhase === 'prediction') {
@@ -422,7 +436,8 @@ const reduceCasePhaseAdvance = (state: AppState, nextPhase: CasePhase): Result<A
 const reduceTheoryReviewRequest = (state: AppState): Result<AppState> => {
     const readiness = evaluateConclusionReadiness(state.caseDefinition, {
         runs: state.runs,
-        inspectedSourceIds: state.inspectedSourceIds
+        inspectedSourceIds: state.inspectedSourceIds,
+        comparisonNotes: state.comparison.notes
     }, state.theory);
     if (readiness.status === 'incomplete') {
         return failure('conclusion-not-ready', readiness.missing[0].message);
@@ -490,6 +505,9 @@ const reduceDebriefComplete = (state: AppState, timestamp: string): Result<AppSt
         || JSON.stringify(finalDecision.selectedRunIds) !== JSON.stringify(state.theory.selectedRunIds)
         || JSON.stringify(finalDecision.selectedSourceIds) !== JSON.stringify(state.theory.selectedSourceIds)) {
         return failure('reviewed-revision-required', 'Save the reviewed revision before opening the historical debrief.');
+    }
+    if (new Date(timestamp).getTime() < new Date(finalDecision.timestamp).getTime()) {
+        return failure('invalid-completion-timestamp', 'Provide a completion timestamp no earlier than the saved reviewed revision.');
     }
     const transition = advanceCasePhase({ definition: state.caseDefinition, phase: state.phase }, 'debrief');
     if (!transition.ok) return transition;

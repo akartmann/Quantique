@@ -37,6 +37,9 @@ describe('inquiry recognition store projection', () => {
 
         store.dispatch({ type: 'source.inspected', sourceId: 'source-1' });
         store.dispatch({ type: 'source.inspected', sourceId: 'source-2' });
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
+        store.dispatch({ type: 'prediction.recorded', prediction: 'A patterned result may appear.' });
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
         store.dispatch({ type: 'run.record', record: record('run-1', 2) });
         store.dispatch({ type: 'run.record', record: record('run-2', 2) });
         store.dispatch({ type: 'run.record', record: record('run-3', 3) });
@@ -44,7 +47,7 @@ describe('inquiry recognition store projection', () => {
         expect(selectRecognition(store.getState()).items.map(({ id, achieved }) => [id, achieved])).toEqual([
             ['source-discipline', true], ['replication', true], ['variable-curiosity', true], ['calibrated-conclusion', false]
         ]);
-        expect(store.getState().phase).toBe(initialPhase);
+        expect(store.getState().phase).toBe('experiment');
         expect(store.getState().decisionHistory).toEqual(initialHistory);
         const recognition = store.getState().recognition;
         expect(store.dispatch({ type: 'source.inspected', sourceId: 'source-2' })).toMatchObject({ ok: false, error: { code: 'duplicate-inspected-source' } });

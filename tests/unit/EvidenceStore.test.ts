@@ -37,7 +37,7 @@ const caseDefinition = {
             creatorOrOrigin: 'Collection record',
             sourceType: 'interpretive-essay',
             provenance: { category: 'later-interpretation', reference: 'collection-placeholder' },
-            rightsStatus: 'incomplete',
+            rightsStatus: 'reviewed',
             caseRelationship: 'A contextual item that cannot be treated as verified evidence.'
         }
     ],
@@ -55,6 +55,14 @@ const createRecord = (id: string, value: number) => {
     });
     if (!result.ok) throw new Error('Fixture run must be valid.');
     return result.value;
+};
+
+const enterExperiment = (store: ReturnType<typeof createStore>): void => {
+    store.dispatch({ type: 'source.inspected', sourceId: 'young-lecture-1801' });
+    store.dispatch({ type: 'source.inspected', sourceId: 'unavailable-source' });
+    store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
+    store.dispatch({ type: 'prediction.recorded', prediction: 'A patterned result may appear.' });
+    store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
 };
 
 describe('evidence store transitions', () => {
@@ -76,15 +84,14 @@ describe('evidence store transitions', () => {
         expect(store.dispatch({ type: 'source.inspected', sourceId: 'young-lecture-1801' })).toMatchObject({
             ok: false, error: { code: 'duplicate-inspected-source' }
         });
-        expect(store.dispatch({ type: 'source.inspected', sourceId: 'unavailable-source' })).toMatchObject({
-            ok: false, error: { code: 'source-not-eligible' }
-        });
-        expect(selectInspectedSourceIds(store.getState())).toEqual(['young-lecture-1801']);
-        expect(notifications).toBe(1);
+        expect(store.dispatch({ type: 'source.inspected', sourceId: 'unavailable-source' })).toEqual({ ok: true, value: undefined });
+        expect(selectInspectedSourceIds(store.getState())).toEqual(['young-lecture-1801', 'unavailable-source']);
+        expect(notifications).toBe(2);
     });
 
     it('rejects a run that links evidence not inspected in the current state', () => {
         const store = createStore(createInitialAppState(caseDefinition));
+        enterExperiment(store);
         const record = createRunRecord({
             id: 'uninspected-evidence-run',
             caseId: 'young-interference',
@@ -92,7 +99,7 @@ describe('evidence store transitions', () => {
             result: { label: 'Observed fringe spacing', value: 1, unit: 'mm' },
             timestamp: '2026-08-04T10:15:01.000Z',
             experimentModelVersion: 'young-observation-v1',
-            linkedEvidenceIds: ['young-lecture-1801']
+            linkedEvidenceIds: ['uninspected-source']
         });
         if (!record.ok) throw new Error('Fixture run must be valid.');
         let notifications = 0;
@@ -107,6 +114,7 @@ describe('evidence store transitions', () => {
 
     it('records ordered immutable observations and never notifies on a rejected duplicate', () => {
         const store = createStore(createInitialAppState(caseDefinition));
+        enterExperiment(store);
         const first = createRecord('run-001', 1);
         let notifications = 0;
         store.subscribe(() => { notifications += 1; });
@@ -123,6 +131,7 @@ describe('evidence store transitions', () => {
 
     it('rejects evidence from a different investigation without notifying subscribers', () => {
         const store = createStore(createInitialAppState(caseDefinition));
+        enterExperiment(store);
         const foreign = createRunRecord({
             id: 'foreign-run',
             caseId: 'another-investigation',
@@ -144,6 +153,7 @@ describe('evidence store transitions', () => {
 
     it('allows any two distinct saved runs to be selected in selection order', () => {
         const store = createStore(createInitialAppState(caseDefinition));
+        enterExperiment(store);
         const first = createRecord('run-001', 1);
         const second = createRecord('run-002', 2);
         const third = createRecord('run-003', 3);
@@ -166,6 +176,7 @@ describe('evidence store transitions', () => {
 
     it('associates notes only with the selected pair and preserves notes for other pairs', () => {
         const store = createStore(createInitialAppState(caseDefinition));
+        enterExperiment(store);
         const first = createRecord('run-001', 1);
         const second = createRecord('run-002', 2);
         const third = createRecord('run-003', 3);
@@ -190,6 +201,7 @@ describe('evidence store transitions', () => {
 
     it('keeps notes distinct when run IDs contain the former pair-key delimiter', () => {
         const store = createStore(createInitialAppState(caseDefinition));
+        enterExperiment(store);
         const first = createRecord('a', 1);
         const second = createRecord('b::c', 2);
         const third = createRecord('a::b', 3);

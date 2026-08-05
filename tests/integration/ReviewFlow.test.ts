@@ -4,7 +4,6 @@ import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore } from '../../src/core/store/createStore';
 import { selectDecisionHistory, selectPeerReview } from '../../src/core/store/selectors';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
-import { createRunRecord } from '../../src/domain/evidence/RunRecord';
 
 const definition = {
     id: 'young-interference', prediction: { required: true }, requirements: { minimumRuns: 2, minimumSources: 2 },
@@ -15,30 +14,27 @@ const definition = {
     experiment: { modelVersion: 'young-v1' }
 } as CaseDefinition;
 
-const makeRun = (id: string, screenDistanceM: number) => {
-    const result = createRunRecord({ id, caseId: 'young-interference', controls: { slitSpacingMm: 0.25, screenDistanceM }, result: { label: 'Observation', value: 1, unit: 'relative units' }, timestamp: '2026-08-04T12:00:00.000Z', experimentModelVersion: 'young-v1', linkedEvidenceIds: ['source-1', 'source-2'] });
-    if (!result.ok) throw new Error('valid run fixture required');
-    return result.value;
-};
-
 describe('consultation, peer review, and revision public flow', () => {
     it('retains authoritative evidence and appends an inspectable reviewed snapshot', () => {
         const store = createStore(createInitialAppState(definition));
         store.dispatch({ type: 'consultation.requested' });
         ['source-1', 'source-2'].forEach((sourceId) => store.dispatch({ type: 'source.inspected', sourceId }));
-        const first = makeRun('run-1', 2);
-        const second = makeRun('run-2', 3);
-        store.dispatch({ type: 'run.record', record: first });
-        store.dispatch({ type: 'run.record', record: second });
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
+        store.dispatch({ type: 'prediction.recorded', prediction: 'A tentative pattern may appear.' });
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
+        store.dispatch({ type: 'experiment.run', id: 'run-1', timestamp: '2026-08-04T12:00:00.000Z' });
+        store.dispatch({ type: 'apparatus.controlSet', controlId: 'screenDistanceM', value: 3, origin: 'dom' });
+        store.dispatch({ type: 'experiment.run', id: 'run-2', timestamp: '2026-08-04T12:01:00.000Z' });
+        const [first, second] = store.getState().runs;
+        if (!first || !second) throw new Error('Physical fixture observations must be recorded.');
         store.dispatch({ type: 'comparison.runSelected', runId: 'run-1' });
         store.dispatch({ type: 'comparison.runSelected', runId: 'run-2' });
+        store.dispatch({ type: 'comparison.noteSaved', note: 'The recorded spacing differs across these configurations.' });
         ['run-1', 'run-2'].forEach((runId) => store.dispatch({ type: 'theory.supportRunSelected', runId }));
         ['source-1', 'source-2'].forEach((sourceId) => store.dispatch({ type: 'theory.supportSourceSelected', sourceId }));
         store.dispatch({ type: 'theory.conclusionSet', conclusion: 'This proves a conclusion.' });
         store.dispatch({ type: 'theory.limitationSet', limitation: 'Alternatives remain possible.' });
-        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
-        store.dispatch({ type: 'prediction.recorded', prediction: 'A tentative pattern may appear.' });
-        ['experiment', 'synthesis'].forEach((nextPhase) => store.dispatch({ type: 'case.phaseAdvance', nextPhase }));
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' });
         expect(store.dispatch({ type: 'theory.reviewRequested' })).toEqual({ ok: true, value: undefined });
         expect(store.dispatch({ type: 'peerReview.requested' })).toEqual({ ok: true, value: undefined });
         const peerReview = selectPeerReview(store.getState());

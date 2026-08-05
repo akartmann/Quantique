@@ -4,7 +4,7 @@ baseline_commit: f40373f19ff96043bed2ce45663cb92e0bc4846d
 
 # Story 2.3: Young synthesis, debrief, and replay
 
-Status: review
+Status: done
 
 ## Story
 
@@ -167,3 +167,14 @@ GPT-5.6 Codex
 ## Change Log
 
 - 2026-08-05: Implemented Young synthesis, historical debrief, immutable completion archive, counterfactual replay, and schema-v3 progress migration; marked ready for review.
+
+### Review Findings
+
+- [x] [Review][Patch] Prevent generic phase advancement from bypassing authoritative completion [src/core/store/AppState.ts:406]
+- [x] [Review][Patch] Enforce physical, distinct, compared runs before review [src/core/store/AppState.ts:422]
+- [x] [Review][Patch] Restore phase-gating for every recorded observation [src/core/store/AppState.ts:205]
+- [x] [Review][Patch] Persist a completed counterfactual replay coherently [src/core/store/AppState.ts:496]
+- [x] [Review][Patch] Reject a completion timestamp before its reviewed revision [src/core/store/AppState.ts:483]
+- [x] [Review][Patch] Validate completion-run model inputs against archived controls [src/schemas/CaseRecordSchema.ts:261]
+- [x] [Review][Patch] Derive and verify archived completion recognition [src/schemas/CaseRecordSchema.ts:249]
+- [x] [Review][Patch] Deep-freeze restored completion evidence [src/core/store/AppState.ts:90]

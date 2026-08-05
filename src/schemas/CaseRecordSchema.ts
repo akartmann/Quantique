@@ -258,12 +258,18 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         }
         const completionRuns = new Map(completion.runs.map((run) => [run.id, run]));
         let priorRunTimestamp = '';
+        let fixedMinimumRunCount = 0;
         const validCompletionRuns = completion.runs.every((run) => {
             const parsedRun = createRunRecord(run);
             if (!parsedRun.ok || !parsedRun.value.modelInputs
                 || parsedRun.value.caseId !== definition.id
                 || parsedRun.value.experimentModelVersion !== definition.experiment.modelVersion
                 || !parsedRun.value.linkedEvidenceIds.every((sourceId) => completion.inspectedSourceIds.includes(sourceId))
+                || parsedRun.value.modelInputs.slitSpacingMm !== parsedRun.value.controls.slitSpacingMm
+                || parsedRun.value.modelInputs.screenDistanceM !== parsedRun.value.controls.screenDistanceM
+                || (parsedRun.value.modelInputs.wavelengthMode === 'advanced'
+                    && (!definition.experiment.wavelengthComparison?.advancedChoicesNm.includes(parsedRun.value.modelInputs.wavelengthNm as 450 | 650)
+                        || fixedMinimumRunCount < definition.requirements.minimumRuns))
                 || definition.apparatus.primaryControls.some((control) => {
                     const normalized = normalizeControlValue(control, parsedRun.value.controls[control.id]);
                     return !normalized.ok || normalized.value !== parsedRun.value.controls[control.id];
@@ -273,6 +279,7 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
                 && calculated.value.value === parsedRun.value.result.value && calculated.value.unit === parsedRun.value.result.unit;
             const chronological = !priorRunTimestamp || parsedRun.value.timestamp >= priorRunTimestamp;
             priorRunTimestamp = parsedRun.value.timestamp;
+            if (parsedRun.value.modelInputs.wavelengthMode === 'minimum' && parsedRun.value.modelInputs.wavelengthNm === 550) fixedMinimumRunCount += 1;
             return validResult && chronological;
         });
         const validCompletionHistory = completion.decisionHistory.every((entry, index) => {
@@ -284,13 +291,15 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
                 && feedback.status === 'reviewed' && entry.feedback.status === 'reviewed'
                 && JSON.stringify(feedback.issues) === JSON.stringify(entry.feedback.issues);
         });
+        const derivedCompletionRecognition = deriveRecognition(definition, completion);
         if (completionRuns.size !== completion.runs.length || !validCompletionRuns || !validCompletionHistory
             || !completion.decisionHistory.every((entry) => validIds(entry.selectedRunIds, new Set(completionRuns.keys())) && validIds(entry.selectedSourceIds, new Set(completion.inspectedSourceIds)))
-            || !completion.comparison.notes.some((note) => note.runIds.includes(completion.finalDecision.selectedRunIds[0]!) && note.runIds.includes(completion.finalDecision.selectedRunIds[1]!))) {
+            || !completion.comparison.notes.some((note) => note.runIds.includes(completion.finalDecision.selectedRunIds[0]!) && note.runIds.includes(completion.finalDecision.selectedRunIds[1]!))
+            || completion.recognition.items.some((item) => item.achieved !== derivedCompletionRecognition.items.find(({ id }) => id === item.id)?.achieved)) {
             return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
         }
         const completionReadiness = evaluateConclusionReadiness(definition, { runs: completion.runs, inspectedSourceIds: completion.inspectedSourceIds, comparisonNotes: completion.comparison.notes }, completion.finalDecision);
-        if (completionReadiness.status !== 'ready' || (record.phase === 'debrief' && record.replay.isCounterfactual)) {
+        if (completionReadiness.status !== 'ready') {
             return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
         }
     } else if (record.phase === 'debrief' || record.replay.isCounterfactual) {

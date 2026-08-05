@@ -8,6 +8,7 @@ import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 
 const caseDefinition = {
     id: 'young-interference',
+    contextualArtifacts: [],
     apparatus: {
         primaryControls: [
             { id: 'slitSpacingMm', label: 'Slit spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
@@ -34,6 +35,9 @@ const fixtureRun = (id: string, controls: { slitSpacingMm: number; screenDistanc
 describe('measurement notebook public store projection', () => {
     it('projects saved evidence and its pair note without recalculating historical values', () => {
         const store = createStore(createInitialAppState(caseDefinition));
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
+        store.dispatch({ type: 'prediction.recorded', prediction: 'A patterned result may appear.' });
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
         const first = fixtureRun('run-001', { slitSpacingMm: 0.25, screenDistanceM: 2 }, 1);
         const second = fixtureRun('run-002', { slitSpacingMm: 0.3, screenDistanceM: 2.5 }, 2);
         store.dispatch({ type: 'run.record', record: first });

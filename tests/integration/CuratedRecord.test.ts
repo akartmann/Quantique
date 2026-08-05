@@ -47,18 +47,19 @@ describe('Curated Record public evidence flow', () => {
         const earlier = prepareRun(store, 'run-001');
         expect(earlier).toMatchObject({ ok: true, value: { linkedEvidenceIds: [] } });
         if (!earlier.ok) throw new Error('Fixture run must be valid.');
-        store.dispatch({ type: 'run.record', record: earlier.value });
-
         expect(store.dispatch({ type: 'source.inspected', sourceId: 'young-lecture-1801' })).toEqual({ ok: true, value: undefined });
+        expect(store.dispatch({ type: 'source.inspected', sourceId: 'newton-opticks' })).toEqual({ ok: true, value: undefined });
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
+        store.dispatch({ type: 'run.record', record: earlier.value });
         const later = prepareRun(store, 'run-002');
         if (!later.ok) throw new Error('Fixture run must be valid.');
         store.dispatch({ type: 'run.record', record: later.value });
-        store.dispatch({ type: 'source.inspected', sourceId: 'newton-opticks' });
 
         expect(selectInspectedSourceIds(store.getState())).toEqual(['young-lecture-1801', 'newton-opticks']);
         expect(selectNotebookObservations(store.getState())).toMatchObject([
             { id: 'run-001', linkedEvidenceIds: [] },
-            { id: 'run-002', linkedEvidenceIds: ['young-lecture-1801'] }
+            { id: 'run-002', linkedEvidenceIds: ['young-lecture-1801', 'newton-opticks'] }
         ]);
     });
 });

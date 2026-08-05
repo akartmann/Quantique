@@ -16,7 +16,7 @@ const definition = {
     experiment: { modelVersion: 'young-double-slit-v1', wavelengthComparison: { fixedMinimumPathNm: 550, advancedChoicesNm: [450, 650] } }
 } as CaseDefinition;
 
-const completeToReview = () => {
+const completeToReview = (withComparison = true) => {
     const store = createStore(createInitialAppState(definition));
     ['source-1', 'source-2'].forEach((sourceId) => store.dispatch({ type: 'source.inspected', sourceId }));
     store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
@@ -26,12 +26,13 @@ const completeToReview = () => {
     store.dispatch({ type: 'apparatus.controlSet', controlId: 'screenDistanceM', value: 3, origin: 'dom' });
     store.dispatch({ type: 'experiment.run', id: 'run-2', timestamp: '2026-08-05T12:01:00.000Z' });
     ['run-1', 'run-2'].forEach((runId) => store.dispatch({ type: 'comparison.runSelected', runId }));
-    store.dispatch({ type: 'comparison.noteSaved', note: 'The spacing changes with the screen distance.' });
+    if (withComparison) store.dispatch({ type: 'comparison.noteSaved', note: 'The spacing changes with the screen distance.' });
     ['run-1', 'run-2'].forEach((runId) => store.dispatch({ type: 'theory.supportRunSelected', runId }));
     ['source-1', 'source-2'].forEach((sourceId) => store.dispatch({ type: 'theory.supportSourceSelected', sourceId }));
     store.dispatch({ type: 'theory.conclusionSet', conclusion: 'The two recorded patterns support an interference inference.' });
     store.dispatch({ type: 'theory.limitationSet', limitation: 'The observations do not settle every account of light.' });
     store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' });
+    if (!withComparison) return store;
     expect(store.dispatch({ type: 'theory.reviewRequested' })).toEqual({ ok: true, value: undefined });
     expect(store.dispatch({ type: 'peerReview.requested' })).toEqual({ ok: true, value: undefined });
     expect(store.dispatch({ type: 'revision.saved', timestamp: '2026-08-05T12:02:00.000Z' })).toEqual({ ok: true, value: undefined });
@@ -39,6 +40,16 @@ const completeToReview = () => {
 };
 
 describe('authoritative Young completion and replay', () => {
+    it('does not allow generic phase advancement or review without the saved comparison evidence', () => {
+        const incomplete = completeToReview(false);
+        expect(incomplete.getState().phase).toBe('synthesis');
+        expect(incomplete.dispatch({ type: 'theory.reviewRequested' })).toMatchObject({ ok: false, error: { code: 'conclusion-not-ready' } });
+
+        const reviewed = completeToReview();
+        expect(reviewed.dispatch({ type: 'case.phaseAdvance', nextPhase: 'debrief' })).toMatchObject({ ok: false, error: { code: 'debrief-completion-required' } });
+        expect(reviewed.dispatch({ type: 'case.debriefCompleted', timestamp: '2026-08-05T12:01:59.000Z' })).toMatchObject({ ok: false, error: { code: 'invalid-completion-timestamp' } });
+    });
+
     it('requires a saved comparison and reviewed revision before freezing debrief completion', () => {
         const store = completeToReview();
         expect(store.dispatch({ type: 'case.debriefCompleted', timestamp: '2026-08-05T12:03:00.000Z' })).toEqual({ ok: true, value: undefined });
@@ -48,6 +59,7 @@ describe('authoritative Young completion and replay', () => {
             finalDecision: { selectedRunIds: ['run-1', 'run-2'] }
         });
         expect(Object.isFrozen(selectCompletionSnapshot(store.getState()))).toBe(true);
+        expect(Object.isFrozen(selectCompletionSnapshot(store.getState())?.runs[0]?.controls)).toBe(true);
     });
 
     it('starts a labelled counterfactual workspace without mutating the historical completion', () => {

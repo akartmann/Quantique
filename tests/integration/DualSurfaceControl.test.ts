@@ -49,7 +49,12 @@ describe('dual-surface apparatus control', () => {
         const phaserStore = createStore(initialState);
 
         const seedEvidence = (store: typeof domStore, id: string, timestamp: string) => {
-            ['record', 'reference'].forEach((sourceId) => store.dispatch({ type: 'source.inspected', sourceId }));
+            if (store.getState().phase === 'context') {
+                ['record', 'reference'].forEach((sourceId) => store.dispatch({ type: 'source.inspected', sourceId }));
+                store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
+                store.dispatch({ type: 'prediction.recorded', prediction: 'A patterned result may appear.' });
+                store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
+            }
             const record = createRunRecord({
                 id, caseId: 'young-interference', controls: store.getState().activeControlValues,
                 result: { label: 'Observation', value: 1, unit: 'relative units' }, timestamp,

@@ -87,7 +87,8 @@ export const selectSelectedSupportingSources = (state: AppState): readonly Conte
 
 export const selectConclusionReadiness = (state: AppState): ConclusionReadiness => evaluateConclusionReadiness(state.caseDefinition, {
     runs: state.runs,
-    inspectedSourceIds: state.inspectedSourceIds
+    inspectedSourceIds: state.inspectedSourceIds,
+    comparisonNotes: state.comparison.notes
 }, state.theory);
 
 export const selectConsultation = (state: AppState): ConsultationProjection | undefined => state.consultation;
