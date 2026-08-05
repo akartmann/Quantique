@@ -43,10 +43,17 @@ export class ApparatusRenderer {
             this.readouts.get(control.id)?.setText(`${control.label}: ${selectFormattedControlValue(state, control.id)}`);
         });
         const latest = state.runs[state.runs.length - 1];
+        const latestMatchesActiveSetup = latest?.modelInputs
+            && latest.modelInputs.slitSpacingMm === state.activeControlValues.slitSpacingMm
+            && latest.modelInputs.screenDistanceM === state.activeControlValues.screenDistanceM
+            && latest.modelInputs.wavelengthNm === state.selectedWavelengthNm
+            && latest.modelInputs.wavelengthMode === state.selectedWavelengthMode;
         this.resultReadout?.setText(latest?.modelInputs
-            ? `Recorded pattern: ${latest.result.value} ${latest.result.unit} at ${latest.modelInputs.wavelengthNm} nm (${latest.modelInputs.wavelengthMode} path).`
+            ? latestMatchesActiveSetup
+                ? `Recorded pattern: ${latest.result.value} ${latest.result.unit} at ${latest.modelInputs.wavelengthNm} nm (${latest.modelInputs.wavelengthMode} path).`
+                : `Last recorded result: ${latest.result.value} ${latest.result.unit}. The changed setup is an unrecorded preview.`
             : 'No fringe spacing recorded yet. Enter the experiment phase and use Run experiment in the semantic controls.');
-        this.renderApparatusGeometry(state, latest?.result.value);
+        this.renderApparatusGeometry(state, latestMatchesActiveSetup ? latest?.result.value : undefined);
         if (latest && latest.id !== this.lastRunId) this.animateRecordedRun();
         this.lastRunId = latest?.id;
     }

@@ -169,10 +169,29 @@ const reduceControlSet = (state: AppState, action: Extract<AppAction, { type: 'a
 };
 
 const reduceRecordRun = (state: AppState, record: RunRecord): Result<AppState> => {
+    if (state.phase !== 'experiment') {
+        return failure('experiment-phase-required', 'Enter the experiment phase before running the apparatus.');
+    }
     const validated = createRunRecord(record, state.runs.map(({ id }) => id));
     if (!validated.ok) return validated;
     if (validated.value.caseId !== state.caseDefinition.id) {
         return failure('run-case-mismatch', 'That observation belongs to a different investigation.');
+    }
+    if (validated.value.experimentModelVersion !== state.caseDefinition.experiment.modelVersion
+        || !validated.value.modelInputs
+        || validated.value.controls.slitSpacingMm !== state.activeControlValues.slitSpacingMm
+        || validated.value.controls.screenDistanceM !== state.activeControlValues.screenDistanceM
+        || validated.value.modelInputs.slitSpacingMm !== state.activeControlValues.slitSpacingMm
+        || validated.value.modelInputs.screenDistanceM !== state.activeControlValues.screenDistanceM
+        || validated.value.modelInputs.wavelengthNm !== state.selectedWavelengthNm
+        || validated.value.modelInputs.wavelengthMode !== state.selectedWavelengthMode) {
+        return failure('mismatched-experiment-record', 'The observation does not match the current validated experiment setup.');
+    }
+    const calculated = calculateYoungFringeSpacing(validated.value.modelInputs);
+    if (!calculated.ok || calculated.value.label !== validated.value.result.label
+        || calculated.value.value !== validated.value.result.value
+        || calculated.value.unit !== validated.value.result.unit) {
+        return failure('mismatched-experiment-record', 'The observation does not match the deterministic Young model.');
     }
     if (!validated.value.linkedEvidenceIds.every((sourceId) => state.inspectedSourceIds.includes(sourceId))) {
         return failure('uninspected-linked-evidence', 'Linked evidence must be inspected before recording an observation.');
@@ -211,15 +230,20 @@ const reduceApparatusReset = (state: AppState): Result<AppState> => ({
         ...state,
         activeControlValues: Object.fromEntries(state.caseDefinition.apparatus.primaryControls.map((control) => [control.id, control.defaultValue])) as Record<PrimaryControl['id'], number>,
         selectedWavelengthNm: 550,
-        selectedWavelengthMode: 'minimum',
-        consultation: undefined,
-        peerReview: undefined
+        selectedWavelengthMode: 'minimum'
     })
 });
 
 const reduceExperimentRun = (state: AppState, action: Extract<AppAction, { type: 'experiment.run' }>): Result<AppState> => {
     if (state.phase !== 'experiment') {
         return failure('experiment-phase-required', 'Enter the experiment phase before running the apparatus.');
+    }
+    const advancedChoices: readonly number[] = state.caseDefinition.experiment.wavelengthComparison?.advancedChoicesNm ?? [];
+    if ((state.selectedWavelengthMode === 'minimum' && state.selectedWavelengthNm !== 550)
+        || (state.selectedWavelengthMode === 'advanced'
+            && (!advancedChoices.includes(state.selectedWavelengthNm as 450 | 650)
+                || minimumPathRunCount(state) < state.caseDefinition.requirements.minimumRuns))) {
+        return failure('advanced-wavelength-locked', 'Record two fixed 550 nm observations before using the optional wavelength comparison.');
     }
     const result = calculateYoungFringeSpacing({
         slitSpacingMm: state.activeControlValues.slitSpacingMm,

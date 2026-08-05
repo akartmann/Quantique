@@ -4,7 +4,7 @@ baseline_commit: 1740311a42a21923b9ca7f27f9aeaeb2d2afc959
 
 # Story 2.2: Young double-slit experiment
 
-Status: ready-for-dev
+Status: in-progress
 
 ## Story
 
@@ -64,6 +64,17 @@ so that I can test how each variable affects the interference pattern.
   - [ ] Extend integration coverage so the exact same controlled UUID/timestamp/configuration set through DOM and Phaser paths produces byte-identical run records/results for **both** primary controls. Assert public actions/selectors, not Phaser private fields or pixels.
   - [ ] Update Playwright flows that currently record before prediction: establish both inspected sources → saved prediction → authoritative transition to `experiment` first. Cover both labels/ranges/steps/readouts/statuses, keyboard focus, pointer and touch parity, accessible result/assumption text, run/record, reset retention, advanced gating/selection, reload/export/import/offline persistence, and axe after the new semantic UI is exposed.
   - [ ] Verify proportionately with `npm run typecheck`, `npm test`, `npm run build`, relevant Chromium E2E/axe/offline suites, and `npm run test:e2e:cross-browser` when browsers are available. Manually verify keyboard-only flow, screen-reader announcements, non-colour interpretation, zoom/text scaling, tablet touch, reduced motion, and the 10-minute 1280×720 low-end-laptop performance target.
+
+### Review Findings
+
+- [x] [Review][Patch] Restrict `run.record` to the authoritative experiment path; it now rejects non-experiment, non-model, stale, or mismatched records. [src/core/store/AppState.ts:171]
+- [x] [Review][Patch] Verify imported model-backed results against the deterministic Young calculator before accepting a portable record. [src/schemas/CaseRecordSchema.ts:160]
+- [x] [Review][Patch] Reject or segregate legacy pre-model observations so they cannot satisfy Young evidence completion. [src/domain/theory/conclusionReadiness.ts:64]
+- [x] [Review][Patch] Enforce the two fixed-550-nm gate when restoring or executing an advanced wavelength selection. [src/schemas/CaseRecordSchema.ts:170]
+- [x] [Review][Patch] Preserve consultation and peer-review projections when resetting the apparatus. [src/core/store/AppState.ts:208]
+- [x] [Review][Patch] Honour `prefers-reduced-motion` for the semantic experiment animation. [public/style.css:107]
+- [x] [Review][Patch] Avoid pairing a historical fringe result with geometry from subsequently changed controls in the Phaser visual. [src/adapters/phaser/renderers/ApparatusRenderer.ts:112]
+- [ ] [Review][Patch] Convert the legacy test fixtures that use `run.record` to phase-gated physical Young runs, then restore the full regression suite. [tests/unit/EvidenceStore.test.ts:45]
 
 ## Dev Notes
 

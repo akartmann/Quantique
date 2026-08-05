@@ -61,7 +61,7 @@ export const evaluateConclusionReadiness = (
     draft: TheoryBoardDraft
 ): ConclusionReadiness => {
     const requirements: MissingConclusionRequirement[] = [];
-    const runIds = new Set(evidence.runs.map(({ id }) => id));
+    const runIds = new Set(evidence.runs.filter((run) => run.modelInputs !== undefined).map(({ id }) => id));
     const inspectedSourceIds = new Set(evidence.inspectedSourceIds);
     const selectedKnownRunIds = draft.selectedRunIds.filter((id) => runIds.has(id));
     const selectedKnownSourceIds = draft.selectedSourceIds.filter((id) => inspectedSourceIds.has(id));

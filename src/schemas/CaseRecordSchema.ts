@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import type { Result } from '../core/errors/Result';
 import { normalizeControlValue } from '../domain/apparatus/ApparatusControl';
+import { calculateYoungFringeSpacing } from '../domain/apparatus/calculateYoungFringeSpacing';
 import { isSourceEligibleForInspection, type CaseDefinition } from '../domain/cases/CaseDefinition';
 import { createRunRecord } from '../domain/evidence/RunRecord';
 import { evaluateConclusionReadiness } from '../domain/theory/conclusionReadiness';
@@ -158,16 +159,29 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
             return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
         }
         const modelInputs = validatedRun.value.modelInputs;
+        const calculated = modelInputs && calculateYoungFringeSpacing(modelInputs);
         if (modelInputs && (modelInputs.slitSpacingMm !== validatedRun.value.controls.slitSpacingMm
             || modelInputs.screenDistanceM !== validatedRun.value.controls.screenDistanceM
             || (modelInputs.wavelengthMode === 'minimum' && modelInputs.wavelengthNm !== 550)
-            || (modelInputs.wavelengthMode === 'advanced' && !definition.experiment.wavelengthComparison?.advancedChoicesNm.includes(modelInputs.wavelengthNm as 450 | 650)))) {
+            || (modelInputs.wavelengthMode === 'advanced' && !definition.experiment.wavelengthComparison?.advancedChoicesNm.includes(modelInputs.wavelengthNm as 450 | 650))
+            || !calculated?.ok
+            || calculated.value.label !== validatedRun.value.result.label
+            || calculated.value.value !== validatedRun.value.result.value
+            || calculated.value.unit !== validatedRun.value.result.unit)) {
             return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
         }
         runIds.push(validatedRun.value.id);
     }
 
-    if ((record.selectedWavelengthMode ?? 'minimum') === 'minimum' && (record.selectedWavelengthNm ?? 550) !== 550) {
+    const selectedWavelengthMode = record.selectedWavelengthMode ?? 'minimum';
+    const selectedWavelengthNm = record.selectedWavelengthNm ?? 550;
+    const fixedMinimumRunCount = record.runs.filter((run) =>
+        run.modelInputs?.wavelengthMode === 'minimum' && run.modelInputs.wavelengthNm === 550
+    ).length;
+    if ((selectedWavelengthMode === 'minimum' && selectedWavelengthNm !== 550)
+        || (selectedWavelengthMode === 'advanced'
+            && (!definition.experiment.wavelengthComparison?.advancedChoicesNm.includes(selectedWavelengthNm as 450 | 650)
+                || fixedMinimumRunCount < definition.requirements.minimumRuns))) {
         return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
     }
 
