@@ -72,7 +72,7 @@ development_status:
   1-7-consultations-peer-review-and-revision-history: done  # rework:pivot -> colleague hints + rival-lab critique
   1-8-offline-progress-export-import-and-print: done  # kept (print/export retained)
   1-9-inclusive-feedback-and-inquiry-recognition: done  # rework:pivot -> in-scene feedback, a11y descoped
-  1-10-scene-router-and-adventure-flow: backlog  # new (pivot)
+  1-10-scene-router-and-adventure-flow: ready-for-dev  # new (pivot)
   1-11-colleague-cast-and-proposal-system: backlog  # new (pivot)
   1-12-phaser-dialogue-and-choice-ui: backlog  # new (pivot)
   epic-1-retrospective: skipped
