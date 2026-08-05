@@ -33,6 +33,8 @@ export class LectureBookRenderer {
     private overlay?: Phaser.GameObjects.Container;
     private pages?: Phaser.GameObjects.Container;
     private blocker?: Phaser.GameObjects.Rectangle;
+    private title?: Phaser.GameObjects.Text;
+    private source?: Phaser.GameObjects.Text;
     private currentPresentation?: LectureBookPresentation;
     private isClosing = false;
     private readonly resolution = Math.min(window.devicePixelRatio || 1, 2);
@@ -97,17 +99,19 @@ export class LectureBookRenderer {
         this.blocker = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x07161a, 0.88)
             .setInteractive({ useHandCursor: false });
         // The blocker is deliberately interactive even where the book has no visible paper.
-        this.blocker.on('pointerdown', (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => event.stopPropagation());
+        this.blocker.on('pointerdown', (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event?: Phaser.Types.Input.EventData) => {
+            event?.stopPropagation();
+        });
         const paper = this.scene.add.rectangle(width / 2, height / 2, 850, 610, PAPER).setStrokeStyle(5, 0xc1a973);
         const spine = this.scene.add.rectangle(width / 2, height / 2, 8, 576, 0xb79a65);
-        const title = this.scene.add.text(width / 2, 116, '', {
+        this.title = this.scene.add.text(width / 2, 116, '', {
             color: INK, fontFamily: 'Georgia, serif', fontSize: '21px', fontStyle: 'bold', resolution: this.resolution
         }).setOrigin(0.5);
-        const source = this.scene.add.text(width / 2, 143, '', {
+        this.source = this.scene.add.text(width / 2, 143, '', {
             color: '#53626a', fontFamily: 'system-ui', fontSize: '13px', resolution: this.resolution
         }).setOrigin(0.5);
         this.pages = this.scene.add.container(0, 0);
-        this.overlay = this.scene.add.container(0, 0, [this.blocker, paper, spine, title, source, this.pages]);
+        this.overlay = this.scene.add.container(0, 0, [this.blocker, paper, spine, this.title, this.source, this.pages]);
         this.overlay.setDepth(10_000);
         this.overlay.setSize(width, height);
         this.onOverlayVisibilityChange(true);
@@ -115,9 +119,8 @@ export class LectureBookRenderer {
 
     private drawSpread(presentation: LectureBookPresentation): void {
         if (!this.pages || !this.overlay) return;
-        const [title, source] = this.overlay.list.filter((object): object is Phaser.GameObjects.Text => object instanceof Phaser.GameObjects.Text);
-        title?.setText(presentation.title);
-        source?.setText(`${presentation.sourceLabel} · spread ${presentation.index + 1} of ${presentation.total}`);
+        this.title?.setText(presentation.title);
+        this.source?.setText(`${presentation.sourceLabel} · spread ${presentation.index + 1} of ${presentation.total}`);
         this.pages.removeAll(true);
         presentation.pages.forEach((page, pageIndex) => {
             if (page) this.drawPage(page, pageIndex);
@@ -154,8 +157,8 @@ export class LectureBookRenderer {
         }).setOrigin(0.5);
         if (enabled) {
             background.setInteractive({ useHandCursor: true });
-            background.on('pointerup', (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
-                event.stopPropagation();
+            background.on('pointerup', (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event?: Phaser.Types.Input.EventData) => {
+                event?.stopPropagation();
                 callback();
             });
         }
@@ -186,6 +189,8 @@ export class LectureBookRenderer {
         this.overlay = undefined;
         this.pages = undefined;
         this.blocker = undefined;
+        this.title = undefined;
+        this.source = undefined;
         this.isClosing = false;
         this.onOverlayVisibilityChange(false);
     }
