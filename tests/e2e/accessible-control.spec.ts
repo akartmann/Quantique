@@ -38,7 +38,13 @@ test('keeps the Phaser laboratory surface proportionate beside the populated Cur
     }
 
     expect(recordBounds.height).toBeGreaterThan(canvasBounds.height);
+    expect(canvasBounds.height).toBeLessThanOrEqual(720);
     expect(canvasBounds.width / canvasBounds.height).toBeCloseTo(1024 / 768, 2);
+
+    await page.mouse.wheel(0, 900);
+    await expect(canvas).toBeVisible();
+    const stickyBounds = await page.locator('#game-container').boundingBox();
+    expect(stickyBounds?.y).toBeCloseTo(0, 0);
 });
 
 test('projects Phaser pointer and touch changes through the same semantic readout', async ({ page, browser }) => {
@@ -54,8 +60,8 @@ test('projects Phaser pointer and touch changes through the same semantic readou
         throw new Error('The laboratory surface did not render.');
     }
 
-    const plusX = bounds.x + (450 / 1024) * bounds.width;
-    const plusY = bounds.y + (180 / 768) * bounds.height;
+    const plusX = bounds.x + (540 / 1024) * bounds.width;
+    const plusY = bounds.y + (603 / 768) * bounds.height;
     await page.mouse.click(plusX, plusY);
     await expect(control).toHaveValue('0.3');
 
@@ -72,8 +78,8 @@ test('projects Phaser pointer and touch changes through the same semantic readou
     }
 
     await touchPage.touchscreen.tap(
-        touchBounds.x + (450 / 1024) * touchBounds.width,
-        touchBounds.y + (180 / 768) * touchBounds.height
+        touchBounds.x + (540 / 1024) * touchBounds.width,
+        touchBounds.y + (603 / 768) * touchBounds.height
     );
     await expect(touchControl).toHaveValue('0.3');
     await expect(touchPage.locator('#slitSpacingMm-readout')).toHaveText('0.30 mm');

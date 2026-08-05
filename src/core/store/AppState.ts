@@ -1,6 +1,7 @@
 import type { Result } from '../errors/Result';
 import { normalizeControlValue } from '../../domain/apparatus/ApparatusControl';
-import { isSourceEligibleForInspection, type CaseDefinition, type PrimaryControl } from '../../domain/cases/CaseDefinition';
+import { calculateYoungFringeSpacing } from '../../domain/apparatus/calculateYoungFringeSpacing';
+import { isSourceEligibleForInspection, type CaseDefinition, type PrimaryControl, type WavelengthMode } from '../../domain/cases/CaseDefinition';
 import { advanceCasePhase } from '../../domain/cases/caseReducer';
 import { evaluateContextReadiness, evaluatePredictionReadiness } from '../../domain/cases/contextPredictionReadiness';
 import type { CasePhase } from '../../domain/cases/CaseProgress';
@@ -37,6 +38,8 @@ export type AppState = Readonly<{
     caseDefinition: CaseDefinition;
     phase: CasePhase;
     activeControlValues: Readonly<Record<PrimaryControl['id'], number>>;
+    selectedWavelengthNm: 450 | 550 | 650;
+    selectedWavelengthMode: WavelengthMode;
     inspectedSourceIds: readonly string[];
     prediction: string;
     runs: readonly RunRecord[];
@@ -66,6 +69,8 @@ const freezePeerReview = (review: PeerReviewProjection): PeerReviewProjection =>
 const freezeState = (state: Omit<AppState, 'recognition'>): AppState => Object.freeze({
     ...state,
     activeControlValues: Object.freeze({ ...state.activeControlValues }),
+    selectedWavelengthNm: state.selectedWavelengthNm,
+    selectedWavelengthMode: state.selectedWavelengthMode,
     inspectedSourceIds: Object.freeze([...state.inspectedSourceIds]),
     runs: Object.freeze([...state.runs]),
     comparison: freezeComparison(state.comparison),
@@ -96,6 +101,8 @@ export const createInitialAppState = (caseDefinition: CaseDefinition): AppState 
     activeControlValues: Object.fromEntries(
         caseDefinition.apparatus.primaryControls.map((control) => [control.id, control.defaultValue])
     ) as Record<PrimaryControl['id'], number>,
+    selectedWavelengthNm: 550,
+    selectedWavelengthMode: 'minimum',
     inspectedSourceIds: [],
     prediction: '',
     runs: [],
@@ -122,6 +129,8 @@ export const createAppStateFromCaseRecord = (record: CaseRecord, caseDefinition:
             caseDefinition,
             phase: record.phase,
             activeControlValues: record.activeControlValues,
+            selectedWavelengthNm: record.selectedWavelengthNm ?? 550,
+            selectedWavelengthMode: record.selectedWavelengthMode ?? 'minimum',
             inspectedSourceIds: record.inspectedSourceIds,
             prediction: record.prediction,
             runs,
@@ -170,6 +179,71 @@ const reduceRecordRun = (state: AppState, record: RunRecord): Result<AppState> =
     }
 
     return { ok: true, value: freezeState({ ...state, runs: [...state.runs, validated.value], consultation: undefined, peerReview: undefined }) };
+};
+
+const minimumPathRunCount = (state: AppState): number => state.runs.filter((run) =>
+    run.modelInputs?.wavelengthMode === 'minimum' && run.modelInputs.wavelengthNm === 550
+).length;
+
+const reduceWavelengthSet = (state: AppState, wavelengthNm: 450 | 550 | 650): Result<AppState> => {
+    if (wavelengthNm === 550) {
+        return { ok: true, value: freezeState({ ...state, selectedWavelengthNm: 550, selectedWavelengthMode: 'minimum', consultation: undefined, peerReview: undefined }) };
+    }
+    const choices: readonly number[] = state.caseDefinition.experiment.wavelengthComparison?.advancedChoicesNm ?? [];
+    if (!choices.includes(wavelengthNm)) {
+        return failure('unavailable-wavelength', 'That authored wavelength comparison is unavailable.');
+    }
+    if (minimumPathRunCount(state) < state.caseDefinition.requirements.minimumRuns) {
+        return failure('advanced-wavelength-locked', 'Record two fixed 550 nm observations before using the optional wavelength comparison.');
+    }
+    return { ok: true, value: freezeState({
+        ...state,
+        selectedWavelengthNm: wavelengthNm,
+        selectedWavelengthMode: 'advanced',
+        consultation: undefined,
+        peerReview: undefined
+    }) };
+};
+
+const reduceApparatusReset = (state: AppState): Result<AppState> => ({
+    ok: true,
+    value: freezeState({
+        ...state,
+        activeControlValues: Object.fromEntries(state.caseDefinition.apparatus.primaryControls.map((control) => [control.id, control.defaultValue])) as Record<PrimaryControl['id'], number>,
+        selectedWavelengthNm: 550,
+        selectedWavelengthMode: 'minimum',
+        consultation: undefined,
+        peerReview: undefined
+    })
+});
+
+const reduceExperimentRun = (state: AppState, action: Extract<AppAction, { type: 'experiment.run' }>): Result<AppState> => {
+    if (state.phase !== 'experiment') {
+        return failure('experiment-phase-required', 'Enter the experiment phase before running the apparatus.');
+    }
+    const result = calculateYoungFringeSpacing({
+        slitSpacingMm: state.activeControlValues.slitSpacingMm,
+        screenDistanceM: state.activeControlValues.screenDistanceM,
+        wavelengthNm: state.selectedWavelengthNm
+    });
+    if (!result.ok) return result;
+    const record = createRunRecord({
+        id: action.id,
+        caseId: state.caseDefinition.id,
+        controls: state.activeControlValues,
+        modelInputs: {
+            slitSpacingMm: state.activeControlValues.slitSpacingMm,
+            screenDistanceM: state.activeControlValues.screenDistanceM,
+            wavelengthNm: state.selectedWavelengthNm,
+            wavelengthMode: state.selectedWavelengthMode
+        },
+        result: result.value,
+        timestamp: action.timestamp,
+        experimentModelVersion: state.caseDefinition.experiment.modelVersion,
+        linkedEvidenceIds: state.inspectedSourceIds
+    }, state.runs.map(({ id }) => id));
+    if (!record.ok) return record;
+    return reduceRecordRun(state, record.value);
 };
 
 const reduceSelectRun = (state: AppState, runId: string): Result<AppState> => {
@@ -348,6 +422,12 @@ export const reduceAppState = (state: AppState, action: AppAction): Result<AppSt
             return reduceControlSet(state, action);
         case 'run.record':
             return reduceRecordRun(state, action.record);
+        case 'experiment.run':
+            return reduceExperimentRun(state, action);
+        case 'apparatus.wavelengthSet':
+            return reduceWavelengthSet(state, action.wavelengthNm);
+        case 'apparatus.reset':
+            return reduceApparatusReset(state);
         case 'comparison.runSelected':
             return reduceSelectRun(state, action.runId);
         case 'comparison.runUnselected':

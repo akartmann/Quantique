@@ -21,6 +21,12 @@ const RunRecordSchema = z.object({
     id: text,
     caseId: text,
     controls: z.object({ slitSpacingMm: z.number().finite(), screenDistanceM: z.number().finite() }).strict(),
+    modelInputs: z.object({
+        slitSpacingMm: z.number().finite(),
+        screenDistanceM: z.number().finite(),
+        wavelengthNm: z.union([z.literal(450), z.literal(550), z.literal(650)]),
+        wavelengthMode: z.enum(['minimum', 'advanced'])
+    }).strict().optional(),
     result: z.object({ label: text, value: z.number().finite(), unit: text }).strict(),
     timestamp,
     experimentModelVersion: text,
@@ -77,6 +83,8 @@ export const CaseRecordSchema = z.object({
     caseDefinitionVersion: text,
     phase: z.enum(['context', 'prediction', 'experiment', 'synthesis', 'review', 'debrief']),
     activeControlValues: z.object({ slitSpacingMm: z.number().finite(), screenDistanceM: z.number().finite() }).strict(),
+    selectedWavelengthNm: z.union([z.literal(450), z.literal(550), z.literal(650)]).optional(),
+    selectedWavelengthMode: z.enum(['minimum', 'advanced']).optional(),
     inspectedSourceIds: z.array(text),
     prediction: z.string().refine((value) => value === value.trim(), 'Prediction must be trimmed.'),
     runs: z.array(RunRecordSchema),
@@ -109,7 +117,9 @@ const validIds = (values: readonly string[], available: ReadonlySet<string>): bo
 
 /** Revalidates untrusted progress against the immutable definition already loaded by the app. */
 export const validateCaseRecordForDefinition = (record: CaseRecord, definition: CaseDefinition): Result<CaseRecord> => {
-    if (record.caseId !== definition.id || record.caseDefinitionVersion !== definition.version) {
+    const compatibleDefinitionVersion = record.caseDefinitionVersion === definition.version
+        || (definition.version === '1.1.0' && record.caseDefinitionVersion === '1.0.0');
+    if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }
 
@@ -147,7 +157,18 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
             })) {
             return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
         }
+        const modelInputs = validatedRun.value.modelInputs;
+        if (modelInputs && (modelInputs.slitSpacingMm !== validatedRun.value.controls.slitSpacingMm
+            || modelInputs.screenDistanceM !== validatedRun.value.controls.screenDistanceM
+            || (modelInputs.wavelengthMode === 'minimum' && modelInputs.wavelengthNm !== 550)
+            || (modelInputs.wavelengthMode === 'advanced' && !definition.experiment.wavelengthComparison?.advancedChoicesNm.includes(modelInputs.wavelengthNm as 450 | 650)))) {
+            return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+        }
         runIds.push(validatedRun.value.id);
+    }
+
+    if ((record.selectedWavelengthMode ?? 'minimum') === 'minimum' && (record.selectedWavelengthNm ?? 550) !== 550) {
+        return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
     }
 
     const knownRunIds = new Set(runIds);

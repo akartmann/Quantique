@@ -94,6 +94,10 @@ export const CaseDefinitionSchema = z.object({
     experiment: z.object({
         modelVersion: z.string().trim().min(1),
         wavelengthNm: z.literal(550),
+        wavelengthComparison: z.object({
+            fixedMinimumPathNm: z.literal(550),
+            advancedChoicesNm: z.tuple([z.literal(450), z.literal(650)])
+        }).strict().optional(),
         assumptions: z.array(z.string().trim().min(1)).min(1),
         confound: z.object({
             id: stableId,

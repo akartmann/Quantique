@@ -15,9 +15,9 @@ so that I can test how each variable affects the interference pattern.
 ## Acceptance Criteria
 
 1. **Given** the Young case definition, **when** the laboratory loads, **then** slit spacing permits **0.10–0.50 mm** in **0.05 mm** steps and screen distance permits **1.0–4.0 m** in **0.25 m** steps; **and** each control is available through the shared dual-surface interaction path.
-2. **Given** a valid configuration, **when** I run the apparatus, **then** a deterministic **550 nm** model produces and records fringe spacing within three seconds; **and** reset is immediate and does not erase saved observations.
+2. **Given** a valid configuration in the authoritatively reached `experiment` phase, **when** I run the apparatus, **then** a deterministic **550 nm** model produces and records fringe spacing within three seconds; **and** reset is immediate and does not erase saved observations. Before that phase, the semantic run action must explain the prerequisite without silently failing.
 3. **Given** I choose the optional advanced wavelength comparison after the minimum Young path, **when** I select one of the authored wavelength values, **then** the value, result, and versioned deterministic-model inputs are recorded with the run; **and** wavelength remains optional and cannot alter the fixed-550-nm minimum-path history.
-4. **Given** DOM and Phaser interactions, **when** they set the same Young configuration, **then** the resulting run record is identical; **and** unit and integration tests cover the calculation and input parity.
+4. **Given** DOM and Phaser interactions, **when** they set the same Young configuration, **then** the resulting run record is identical; **and** unit and integration tests cover the calculation and input parity. Phaser must visibly mirror slit spacing, screen distance, and the saved fringe-spacing result; it must fit responsively in its desktop laboratory panel and remain a non-authoritative visual surface.
 
 ## Tasks / Subtasks
 
@@ -50,9 +50,9 @@ so that I can test how each variable affects the interference pattern.
 
 - [ ] Deliver the complete accessible dual-surface laboratory (AC: 1, 2, 4)
   - [ ] Refactor `src/ui/apparatus/ApparatusControls.ts` so it renders both authored primary controls from the definition. Each control must retain native labelled input/stepper semantics, current value and unit, min/max/step instructions, ArrowUp/ArrowDown behavior, focus restoration, and an initially empty polite status region. Do not hard-code only slit spacing.
-  - [ ] Add an explicit semantic **Run experiment** action, readable fringe-spacing result, formula/model-assumption explanation, and **Reset apparatus** action. A successful run is immediate deterministic work (therefore within three seconds); do not introduce timers, per-frame calculation, loading spinners, or artificial delay. Results and recovery announcements must not move focus.
+  - [ ] Add an explicit semantic **Run experiment** action, readable fringe-spacing result, formula/model-assumption explanation, and **Reset apparatus** action. A successful run is immediate deterministic work (therefore within three seconds): do not delay calculation, record creation, or the semantic result. A finite, presentation-only post-record animation is permitted to show wave propagation and the saved interference pattern; it must not calculate science, block input, or delay the record, and must resolve immediately under `prefers-reduced-motion`. Results and recovery announcements must not move focus.
   - [ ] Add the advanced wavelength selector as semantic HTML with its own label, current value/unit, availability explanation, and polite status. It is optional—not a canvas-only gesture—and must remain disabled/unavailable until the two fixed runs are saved.
-  - [ ] Extend `ApparatusRenderer.ts`, `PhaserStoreAdapter.ts`, and only the necessary scene wiring so Phaser mirrors both primary controls and their shared `apparatus.controlSet` intents. It may visualize the resulting pattern but may not own run records, model inputs, selection, reset, accessibility status, or phase rules. Keep the canvas `aria-hidden`.
+  - [ ] Extend `ApparatusRenderer.ts`, `PhaserStoreAdapter.ts`, and only the necessary scene wiring so Phaser mirrors both primary controls and their shared `apparatus.controlSet` intents. It must visibly reposition the slits and screen as settings change, and animate source → wavefront → recorded screen bands after a successful run. Use responsive fit scaling inside the sticky desktop panel and reflow on browser resize. It may not own run records, model inputs, selection, reset, accessibility status, or phase rules. Keep the canvas `aria-hidden`.
   - [ ] Preserve the existing phone read-only behavior at `max-width: 767px` for every laboratory interaction, and maintain keyboard/pointer/touch equivalence at tablet/desktop widths. Clean up all scene subscriptions, input handlers, display objects, and resize listeners at `shutdown`; Phaser scenes can restart.
   - [ ] Add only focused UI/CSS roots needed for the experiment surface. Follow the UX spines: labelled numeric values, non-colour result meaning, 44px touch targets, visible focus, no score/correctness language, `prefers-reduced-motion`, and no essential sound.
 
@@ -106,7 +106,7 @@ so that I can test how each variable affects the interference pattern.
 - One-way flow is mandatory: semantic HTML or Phaser gesture → typed action → pure immutable store/domain result → selectors/subscriptions → DOM and Phaser projections. `origin` is diagnostics-only; it must not affect scientific result or progression.
 - `src/domain/` cannot import Phaser, DOM, `fetch`, IndexedDB, or browser APIs. Repositories alone fetch/validate content; adapters alone perform browser effects. No per-frame calculations, DOM work, storage, JSON parsing, logging, or transient allocations.
 - Semantic HTML owns controls, values/units, instructions, result, model assumptions, focus, and announcements. Visual patterns must have labelled numerical/text equivalents; colour/sound are never sole meaning carriers.
-- Use native controls and an initially present `role="status"` / polite live region for non-urgent result/recovery updates; do not focus the status region. [Source: MDN, *ARIA status role*](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/status_role)
+- Use native controls and an initially present `role="status"` / polite live region for non-urgent result/recovery updates; do not focus the status region. Before the experiment phase, Run experiment must provide its phase prerequisite as recovery text rather than looking active and silently ignoring input. [Source: MDN, *ARIA status role*](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/status_role)
 - Each Phaser shutdown must release resources because a shutdown scene may later restart. [Source: Phaser, *Scene shutdown event*](https://docs.phaser.io/api-documentation/4.0.0/event/scenes-events)
 - Test UI through semantic roles/labels and public selectors/actions; Playwright recommends user-facing locators. Axe is necessary automated coverage but does not replace manual assistive-technology checks. [Source: Playwright, *Locators*](https://playwright.dev/docs/locators), [*Accessibility testing*](https://playwright.dev/docs/accessibility-testing)
 
@@ -141,13 +141,28 @@ GPT-5.6 Codex
 
 - Ultimate context engine analysis completed: complete sprint status, epics, GDD, architecture, UX spines, project context, Story 2.1, current code/test seams, Git history, and current technical guidance were analyzed.
 - The developer guide explicitly closes the missing authored-wavelength and run-snapshot decisions, and calls out record-version compatibility so implementation does not silently corrupt or strand learner evidence.
+- Implemented the deterministic Young calculator, authoritative phase-gated run action, frozen model-input snapshots, fixed/advanced wavelength gate, reset preservation, and compatible legacy-record restore path.
+- Added the semantic dual-control experiment surface and a rich, non-canvas-only Young interference visual mirrored by Phaser. Focused unit/store and Chromium E2E coverage pass.
 
 ### Completion Notes List
 
 - Ultimate context engine analysis completed - comprehensive developer guide created.
 - Status set to `ready-for-dev`.
+- Implemented the Story 2.2 production path: 550 nm runs calculate and persist fringe spacing, and the optional 450/650 nm comparison unlocks after two fixed-path runs.
+- The apparatus now exposes both controls, results, assumptions, reset, live recovery text, a rich accessible pattern visual, and matching Phaser controls without renderer-owned state.
+- Verification passed: `npm run typecheck`, `npm test` (130 tests), `npm run build`, and focused Chromium Young experiment E2E.
+- Follow-up: Phaser apparatus geometry now visibly responds to slit spacing and screen distance; its bright/dim interference bands use the saved fringe-spacing result after a run. The semantic surface explicitly explains the prerequisite phase when Run experiment is unavailable.
 
 ### File List
 
 - `_bmad-output/implementation-artifacts/2-2-young-double-slit-experiment.md` (story tracking)
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (Story 2.2 status)
+- `public/cases/young-interference/case.json` (authored comparison wavelengths)
+- `public/style.css` (experiment and interference visual styling)
+- `src/domain/apparatus/calculateYoungFringeSpacing.ts` (pure deterministic model)
+- `src/domain/evidence/RunRecord.ts` (immutable physical model snapshots)
+- `src/core/store/AppAction.ts`, `src/core/store/AppState.ts`, `src/core/store/CaseRecordProjection.ts` (authoritative experiment state/actions/persistence)
+- `src/schemas/CaseDefinitionSchema.ts`, `src/schemas/CaseRecordSchema.ts` (strict authored/progress validation)
+- `src/ui/apparatus/ApparatusControls.ts`, `src/ui/notebook/NotebookPanel.ts`, `src/ui/theory/TheoryBoard.ts`, `src/ui/print/CaseRecordPrintView.ts` (semantic experiment and historical evidence presentation)
+- `src/adapters/phaser/renderers/ApparatusRenderer.ts`, `src/main.ts` (visual mirror and production composition)
+- `tests/unit/calculateYoungFringeSpacing.test.ts`, `tests/unit/YoungExperimentStore.test.ts`, `tests/e2e/young-experiment.spec.ts` (model, state, and browser coverage)

@@ -14,6 +14,21 @@ export type RunRecordAction = Readonly<{
     record: RunRecord;
 }>;
 
+export type ExperimentRunAction = Readonly<{
+    type: 'experiment.run';
+    id: string;
+    timestamp: string;
+}>;
+
+export type ApparatusWavelengthSetAction = Readonly<{
+    type: 'apparatus.wavelengthSet';
+    wavelengthNm: 450 | 550 | 650;
+}>;
+
+export type ApparatusResetAction = Readonly<{
+    type: 'apparatus.reset';
+}>;
+
 export type ComparisonRunSelectAction = Readonly<{
     type: 'comparison.runSelected';
     runId: string;
@@ -93,6 +108,9 @@ export type CasePhaseAdvanceAction = Readonly<{
 
 export type AppAction = ApparatusControlSetAction
     | RunRecordAction
+    | ExperimentRunAction
+    | ApparatusWavelengthSetAction
+    | ApparatusResetAction
     | ComparisonRunSelectAction
     | ComparisonRunUnselectAction
     | ComparisonNoteSaveAction

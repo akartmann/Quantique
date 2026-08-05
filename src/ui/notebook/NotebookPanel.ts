@@ -28,6 +28,7 @@ const recordDetails = (record: RunRecord, observationNumber: number, store: AppS
         definition('Recorded order', String(observationNumber)),
         definition('Timestamp', record.timestamp),
         definition('Experiment model version', record.experimentModelVersion),
+        definition('Wavelength', record.modelInputs ? `${record.modelInputs.wavelengthNm} nm (${record.modelInputs.wavelengthMode} path)` : 'Pre-model observation'),
         definition(slitSpacing.label, `${record.controls.slitSpacingMm} ${slitSpacing.unit}`),
         definition(screenDistance.label, `${record.controls.screenDistanceM} ${screenDistance.unit}`),
         definition('Observed result', `${record.result.label}: ${record.result.value} ${record.result.unit}`),
@@ -39,7 +40,7 @@ const recordDetails = (record: RunRecord, observationNumber: number, store: AppS
     return article;
 };
 
-export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRun: PrepareRun): (() => void) => {
+export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRun?: PrepareRun): (() => void) => {
     let statusMessage = '';
     let noteDraft = '';
     let noteDraftPairKey = '';
@@ -72,26 +73,20 @@ export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRu
         const heading = document.createElement('h2');
         heading.textContent = 'Measurement notebook';
         const introduction = document.createElement('p');
-        introduction.textContent = 'Record prepared observations, then compare any two saved observations as evidence.';
-        const recordButton = document.createElement('button');
-        recordButton.type = 'button';
-        recordButton.dataset.notebookFocus = 'record';
-        recordButton.textContent = 'Record prepared observation';
-        recordButton.addEventListener('click', () => {
-            requestedFocusKey = recordButton.dataset.notebookFocus;
-            const prepared = prepareRun();
-            if (!prepared.ok) {
-                setRecovery();
-                render(true);
-                return;
-            }
-
-            statusMessage = `Observation ${store.getState().runs.length + 1} recorded.`;
-            if (!store.dispatch({ type: 'run.record', record: prepared.value }).ok) {
-                setRecovery();
-                render(true);
-            }
-        });
+        introduction.textContent = 'Every recorded observation preserves its exact Young model inputs and result. Compare any two saved observations as evidence.';
+        const recordButton = prepareRun ? document.createElement('button') : undefined;
+        if (recordButton && prepareRun) {
+            recordButton.type = 'button';
+            recordButton.dataset.notebookFocus = 'record';
+            recordButton.textContent = 'Record fixture observation';
+            recordButton.addEventListener('click', () => {
+                requestedFocusKey = recordButton.dataset.notebookFocus;
+                const prepared = prepareRun();
+                if (!prepared.ok) { setRecovery(); render(true); return; }
+                statusMessage = `Observation ${store.getState().runs.length + 1} recorded.`;
+                if (!store.dispatch({ type: 'run.record', record: prepared.value }).ok) { setRecovery(); render(true); }
+            });
+        }
 
         const status = document.createElement('p');
         status.className = 'notebook-status';
@@ -128,7 +123,7 @@ export const mountNotebookPanel = (root: HTMLElement, store: AppStore, prepareRu
             list.append(item);
         });
 
-        panel.append(heading, introduction, recordButton, status, observationsHeading, list);
+        panel.append(heading, introduction, ...(recordButton ? [recordButton] : []), status, observationsHeading, list);
         const selectedPair = selectSelectedComparisonPair(state);
         if (selectedPair) {
             const selectedPairKey = JSON.stringify([selectedPair[0].id, selectedPair[1].id].sort());

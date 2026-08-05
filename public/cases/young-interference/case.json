@@ -1,6 +1,6 @@
 {
   "id": "young-interference",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "openingDispute": "Does light travel as particles, waves, or something more subtle?",
   "contextualArtifacts": [
     {
@@ -32,6 +32,10 @@
   "experiment": {
     "modelVersion": "young-double-slit-v1",
     "wavelengthNm": 550,
+    "wavelengthComparison": {
+      "fixedMinimumPathNm": 550,
+      "advancedChoicesNm": [450, 650]
+    },
     "assumptions": ["The light is monochromatic.", "The slit openings are narrow and identical."],
     "confound": { "id": "misaligned-screen", "description": "The screen begins slightly misaligned.", "discoverableBy": "replication" },
     "resetPath": { "recoveryRoute": "replication", "description": "Repeat the observation after aligning the screen." }

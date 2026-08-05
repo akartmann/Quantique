@@ -26,6 +26,7 @@ const runDetails = (record: RunRecord, order: number, store: AppStore): HTMLElem
         definition('Recorded order', String(order)),
         definition('Timestamp', record.timestamp),
         definition('Experiment model version', record.experimentModelVersion),
+        definition('Wavelength', record.modelInputs ? `${record.modelInputs.wavelengthNm} nm (${record.modelInputs.wavelengthMode} path)` : 'Pre-model observation'),
         definition('Control settings', Object.entries(record.controls)
             .map(([controlId, value]) => `${controlId}: ${value}`)
             .join('; ')),

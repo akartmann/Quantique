@@ -10,6 +10,8 @@ export const createCaseRecordProjection = (state: AppState): Result<CaseRecord> 
         caseDefinitionVersion: state.caseDefinition.version,
         phase: state.phase,
         activeControlValues: state.activeControlValues,
+        selectedWavelengthNm: state.selectedWavelengthNm,
+        selectedWavelengthMode: state.selectedWavelengthMode,
         inspectedSourceIds: state.inspectedSourceIds,
         prediction: state.prediction,
         runs: state.runs,

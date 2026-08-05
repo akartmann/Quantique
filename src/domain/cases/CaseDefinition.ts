@@ -31,6 +31,13 @@ export type PrimaryControl = Readonly<{
     defaultValue: number;
 }>;
 
+export type WavelengthMode = 'minimum' | 'advanced';
+
+export type WavelengthComparison = Readonly<{
+    fixedMinimumPathNm: 550;
+    advancedChoicesNm: readonly [450, 650];
+}>;
+
 export type ConsultationPredicateKind = 'missing-run' | 'missing-source' | 'alternative-test' | 'missing-limitation';
 export type PeerReviewPredicateKind = 'missing-evidence' | 'unsupported-support' | 'overreach';
 
@@ -70,6 +77,7 @@ export type CaseDefinition = Readonly<{
     experiment: Readonly<{
         modelVersion: string;
         wavelengthNm: 550;
+        wavelengthComparison?: WavelengthComparison;
         assumptions: readonly string[];
         confound: Readonly<{ id: string; description: string; discoverableBy: RecoveryRoute }>;
         resetPath: Readonly<{ recoveryRoute: RecoveryRoute; description: string }>;

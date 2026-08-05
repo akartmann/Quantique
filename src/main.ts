@@ -3,7 +3,6 @@ import { loadCaseDefinition } from './adapters/content/loadCaseDefinition';
 import { CaseRecordRepository } from './adapters/persistence/caseRecordRepository';
 import { createAppStateFromCaseRecord, createInitialAppState } from './core/store/AppState';
 import { createStore } from './core/store/createStore';
-import { createCalculatedRunRecord, type CalculateExperimentResult } from './domain/evidence/RunRecord';
 import StartGame from './game/main';
 import { mountApparatusControls } from './ui/apparatus/ApparatusControls';
 import { createBootShell, setBootShellStatus } from './ui/BootShell';
@@ -17,11 +16,6 @@ import { mountDecisionHistoryPanel } from './ui/review/DecisionHistoryPanel';
 import { mountCaseProgressPanel } from './ui/persistence/CaseProgressPanel';
 import { mountCaseRecordPrintView } from './ui/print/CaseRecordPrintView';
 import { mountInquiryRecognitionPanel } from './ui/recognition/InquiryRecognitionPanel';
-
-const calculatePreparedObservation: CalculateExperimentResult = () => ({
-    ok: true,
-    value: { label: 'Prepared observation', value: 1, unit: 'relative units' }
-});
 
 const initializeLaboratory = async (): Promise<void> => {
     const bootShell = document.querySelector<HTMLElement>('#boot-shell');
@@ -64,15 +58,7 @@ const initializeLaboratory = async (): Promise<void> => {
     mountCuratedRecord(curatedRecordRoot, store);
     mountCaseContextAndPrediction(contextPredictionRoot, store);
     mountApparatusControls(controlsRoot, store);
-    mountNotebookPanel(notebookRoot, store, () => createCalculatedRunRecord({
-        id: crypto.randomUUID(),
-        caseId: store.getState().caseDefinition.id,
-        controls: store.getState().activeControlValues,
-        timestamp: new Date().toISOString(),
-        experimentModelVersion: store.getState().caseDefinition.experiment.modelVersion,
-        linkedEvidenceIds: store.getState().inspectedSourceIds,
-        calculateResult: calculatePreparedObservation
-    }, store.getState().runs.map(({ id }) => id)));
+    mountNotebookPanel(notebookRoot, store);
     mountTheoryBoard(theoryBoardRoot, store);
     mountConsultationPanel(consultationRoot, store);
     mountConclusionReviewPanel(conclusionReviewRoot, store);

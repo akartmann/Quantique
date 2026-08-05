@@ -29,7 +29,7 @@ export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): ((
         const observationList = document.createElement('ol');
         selectNotebookObservations(state).forEach((run, index) => {
             const item = document.createElement('li');
-            item.textContent = `Observation ${index + 1}: ${run.result.label}: ${run.result.value} ${run.result.unit}. ${run.timestamp}. Model ${run.experimentModelVersion}.`;
+            item.textContent = `Observation ${index + 1}: ${run.result.label}: ${run.result.value} ${run.result.unit}. ${run.timestamp}. Model ${run.experimentModelVersion}. ${run.modelInputs ? `Inputs: ${run.modelInputs.wavelengthNm} nm (${run.modelInputs.wavelengthMode}), ${run.modelInputs.screenDistanceM} m screen distance, ${run.modelInputs.slitSpacingMm} mm slit spacing.` : 'Pre-model observation; not treated as a physical Young measurement.'}`;
             observationList.append(item);
         });
         if (!observationList.children.length) observationList.append(Object.assign(document.createElement('li'), { textContent: 'No observations recorded.' }));

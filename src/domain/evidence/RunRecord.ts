@@ -1,5 +1,5 @@
 import type { Result } from '../../core/errors/Result';
-import type { PrimaryControl } from '../cases/CaseDefinition';
+import type { PrimaryControl, WavelengthMode } from '../cases/CaseDefinition';
 
 export type RunControls = Readonly<Record<PrimaryControl['id'], number>>;
 
@@ -9,10 +9,18 @@ export type ExperimentResult = Readonly<{
     unit: string;
 }>;
 
+export type YoungModelInputs = Readonly<{
+    slitSpacingMm: number;
+    screenDistanceM: number;
+    wavelengthNm: 450 | 550 | 650;
+    wavelengthMode: WavelengthMode;
+}>;
+
 export type RunRecord = Readonly<{
     id: string;
     caseId: string;
     controls: RunControls;
+    modelInputs?: YoungModelInputs;
     result: ExperimentResult;
     timestamp: string;
     experimentModelVersion: string;
@@ -23,6 +31,7 @@ export type CreateRunRecordInput = Readonly<{
     id: string;
     caseId: string;
     controls: RunControls;
+    modelInputs?: YoungModelInputs;
     result: ExperimentResult;
     timestamp: string;
     experimentModelVersion: string;
@@ -90,6 +99,28 @@ const validateResult = (result: unknown): Result<ExperimentResult> => {
     return { ok: true, value: Object.freeze({ label: snapshot.label, value: snapshot.value, unit: snapshot.unit }) };
 };
 
+const validateModelInputs = (modelInputs: unknown): Result<YoungModelInputs | undefined> => {
+    if (modelInputs === undefined) return { ok: true, value: undefined };
+    if (!modelInputs || typeof modelInputs !== 'object'
+        || !Number.isFinite((modelInputs as YoungModelInputs).slitSpacingMm)
+        || !Number.isFinite((modelInputs as YoungModelInputs).screenDistanceM)
+        || ![450, 550, 650].includes((modelInputs as YoungModelInputs).wavelengthNm)
+        || !['minimum', 'advanced'].includes((modelInputs as YoungModelInputs).wavelengthMode)) {
+        return failure('invalid-run-model-inputs', 'A physical Young run needs complete, valid model inputs.');
+    }
+    const inputs = modelInputs as YoungModelInputs;
+    if ((inputs.wavelengthMode === 'minimum' && inputs.wavelengthNm !== 550)
+        || (inputs.wavelengthMode === 'advanced' && inputs.wavelengthNm === 550)) {
+        return failure('invalid-run-model-inputs', 'The selected wavelength mode does not match the recorded wavelength.');
+    }
+    return { ok: true, value: Object.freeze({
+        slitSpacingMm: inputs.slitSpacingMm,
+        screenDistanceM: inputs.screenDistanceM,
+        wavelengthNm: inputs.wavelengthNm,
+        wavelengthMode: inputs.wavelengthMode
+    }) };
+};
+
 const validateLinkedEvidence = (linkedEvidenceIds: unknown): Result<readonly string[]> => {
     if (!Array.isArray(linkedEvidenceIds)) {
         return failure('invalid-linked-evidence', 'Linked evidence IDs must be unique, non-empty identifiers.');
@@ -119,6 +150,8 @@ export const createRunRecord = (
     if (!controls.ok) return controls;
     const result = validateResult(input.result);
     if (!result.ok) return result;
+    const modelInputs = validateModelInputs(input.modelInputs);
+    if (!modelInputs.ok) return modelInputs;
     const linkedEvidence = validateLinkedEvidence(input.linkedEvidenceIds ?? []);
     if (!linkedEvidence.ok) return linkedEvidence;
 
@@ -128,6 +161,7 @@ export const createRunRecord = (
             id: input.id,
             caseId: input.caseId,
             controls: controls.value,
+            ...(modelInputs.value ? { modelInputs: modelInputs.value } : {}),
             result: result.value,
             timestamp: input.timestamp,
             experimentModelVersion: input.experimentModelVersion,
@@ -147,6 +181,7 @@ export const createCalculatedRunRecord = (
         id: input.id,
         caseId: input.caseId,
         controls: input.controls,
+        modelInputs: input.modelInputs,
         result: calculated.value,
         timestamp: input.timestamp,
         experimentModelVersion: input.experimentModelVersion,
