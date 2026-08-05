@@ -1,5 +1,5 @@
 import type { AppStore } from '../../core/store/createStore';
-import { selectContextualArtifacts, selectDecisionHistory, selectNotebookObservations, selectSavedPrediction, selectTheoryBoardDraft } from '../../core/store/selectors';
+import { selectCompletionSnapshot, selectContextualArtifacts, selectDecisionHistory, selectNotebookObservations, selectSavedPrediction, selectTheoryBoardDraft } from '../../core/store/selectors';
 
 const term = (label: string, value: string): HTMLDivElement => {
     const item = document.createElement('div');
@@ -91,7 +91,16 @@ export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): ((
         });
         if (!historyList.children.length) historyList.append(Object.assign(document.createElement('li'), { textContent: 'No reviewed revisions saved.' }));
         history.append(historyHeading, historyList);
-        record.append(heading, settings, observations, sources, prediction, comparison, conclusion, history);
+        const completion = selectCompletionSnapshot(state);
+        if (completion) {
+            const completed = document.createElement('section');
+            const completedHeading = document.createElement('h3'); completedHeading.textContent = 'Historical completion snapshot';
+            const completedText = document.createElement('p'); completedText.textContent = `Completed ${completion.completedAt}. Final conclusion: ${completion.finalDecision.conclusion}. The historical record remains unchanged during counterfactual replay.`;
+            completed.append(completedHeading, completedText);
+            record.append(heading, settings, observations, sources, prediction, comparison, conclusion, history, completed);
+        } else {
+            record.append(heading, settings, observations, sources, prediction, comparison, conclusion, history);
+        }
         root.replaceChildren(record);
     };
     const unsubscribe = store.subscribe(render);

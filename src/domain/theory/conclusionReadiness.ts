@@ -11,12 +11,16 @@ export type TheoryBoardDraft = Readonly<{
 export type AuthoritativeEvidence = Readonly<{
     runs: readonly RunRecord[];
     inspectedSourceIds: readonly string[];
+    comparisonNotes?: readonly Readonly<{ runIds: readonly [string, string] }> [];
 }>;
 
 export type MissingConclusionRequirementCode =
     | 'duplicate-run-selection'
     | 'unknown-run-selection'
     | 'minimum-runs'
+    | 'non-physical-young-run'
+    | 'distinct-run-configurations'
+    | 'saved-comparison'
     | 'duplicate-source-selection'
     | 'unknown-source-selection'
     | 'minimum-sources'
@@ -61,7 +65,7 @@ export const evaluateConclusionReadiness = (
     draft: TheoryBoardDraft
 ): ConclusionReadiness => {
     const requirements: MissingConclusionRequirement[] = [];
-    const runIds = new Set(evidence.runs.filter((run) => run.modelInputs !== undefined).map(({ id }) => id));
+    const runIds = new Set(evidence.runs.map(({ id }) => id));
     const inspectedSourceIds = new Set(evidence.inspectedSourceIds);
     const selectedKnownRunIds = draft.selectedRunIds.filter((id) => runIds.has(id));
     const selectedKnownSourceIds = draft.selectedSourceIds.filter((id) => inspectedSourceIds.has(id));
@@ -74,6 +78,23 @@ export const evaluateConclusionReadiness = (
     }
     if (new Set(selectedKnownRunIds).size < definition.requirements.minimumRuns) {
         requirements.push(missing('minimum-runs', `Select at least ${definition.requirements.minimumRuns} recorded observations.`));
+    }
+    const selectedRuns = evidence.runs.filter((run) => selectedKnownRunIds.includes(run.id));
+    if (evidence.comparisonNotes && selectedRuns.some((run) => !run.modelInputs)) {
+        requirements.push(missing('non-physical-young-run', 'Use recorded physical Young observations as conclusion support.'));
+    }
+    if (evidence.comparisonNotes && selectedRuns.length >= definition.requirements.minimumRuns) {
+        const [first, ...rest] = selectedRuns;
+        if (first && !rest.some((run) => run.modelInputs && first.modelInputs && (
+            run.modelInputs.slitSpacingMm !== first.modelInputs.slitSpacingMm
+            || run.modelInputs.screenDistanceM !== first.modelInputs.screenDistanceM
+            || run.modelInputs.wavelengthNm !== first.modelInputs.wavelengthNm
+        ))) {
+            requirements.push(missing('distinct-run-configurations', 'Select observations from two different recorded Young configurations.'));
+        }
+        const hasComparison = evidence.comparisonNotes.some((note) =>
+            note.runIds.includes(selectedKnownRunIds[0]!) && note.runIds.includes(selectedKnownRunIds[1]!));
+        if (!hasComparison) requirements.push(missing('saved-comparison', 'Save an intentional comparison of the two selected observations.'));
     }
     if (hasDuplicates(draft.selectedSourceIds)) {
         requirements.push(missing('duplicate-source-selection', 'Choose each supporting source only once.'));

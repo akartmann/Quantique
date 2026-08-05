@@ -1,6 +1,6 @@
 {
   "id": "young-interference",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "openingDispute": "Does light travel as particles, waves, or something more subtle?",
   "contextualArtifacts": [
     {
@@ -115,7 +115,17 @@
   },
   "debrief": {
     "summary": "Compare the observed pattern with the available evidence before drawing a conclusion.",
-    "sourceRefs": ["young-1801-lecture"]
+    "sourceRefs": ["young-1801-lecture", "newton-opticks-1704"],
+    "historicalComparison": {
+      "title": "Young’s record and the earlier Opticks reference",
+      "text": "The fixed historical record places Young’s 1801 lecture alongside Newton’s earlier Opticks reference. Your investigation is a bounded reconstruction and does not alter either source.",
+      "sourceIds": ["young-lecture-1801", "newton-opticks"]
+    },
+    "deeperTheory": {
+      "title": "Optional deeper theory",
+      "text": "The recorded fringe-spacing model describes how the selected wavelength, slit spacing, and screen distance relate in this reconstruction. It does not by itself settle every later interpretation of light."
+    },
+    "replayLabel": "Start counterfactual replay — not the recorded historical result"
   },
   "assets": {
     "manifestVersion": "1.0.0",

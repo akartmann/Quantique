@@ -20,7 +20,7 @@ const definition = {
 } as CaseDefinition;
 
 const validRecord = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     caseId: 'young-interference',
     caseDefinitionVersion: '1.0.0',
     phase: 'context',
@@ -35,6 +35,7 @@ const validRecord = {
     comparison: { selectedRunIds: ['run-001'], notes: [] },
     theory: { selectedRunIds: ['run-001'], selectedSourceIds: ['source-1'], conclusion: 'A bounded conclusion.', limitation: 'A limitation.' },
     decisionHistory: [],
+    replay: { isCounterfactual: false },
     recognition: {
         version: 1,
         items: [
@@ -97,10 +98,13 @@ describe('portable case records', () => {
 
     it('migrates only supported prior versions and rejects malformed, future, and unsupported versions', () => {
         const { prediction: _prediction, ...legacyRecord } = validRecord;
-        expect(parseAndMigrateCaseRecord(JSON.stringify({ ...legacyRecord, schemaVersion: 0 }))).toMatchObject({ ok: true, value: { schemaVersion: 2, prediction: '' } });
+        expect(parseAndMigrateCaseRecord(JSON.stringify({ ...legacyRecord, schemaVersion: 0 }))).toMatchObject({ ok: true, value: { schemaVersion: 3, prediction: '' } });
         expect(parseAndMigrateCaseRecord('{')).toMatchObject({ ok: false, error: { code: 'invalid-import' } });
-        expect(parseAndMigrateCaseRecord(JSON.stringify({ ...legacyRecord, schemaVersion: 1 }))).toMatchObject({ ok: true, value: { schemaVersion: 2, prediction: '' } });
-        expect(parseAndMigrateCaseRecord(JSON.stringify({ ...validRecord, schemaVersion: 3 }))).toMatchObject({ ok: false, error: { code: 'incompatible-record-version' } });
+        expect(parseAndMigrateCaseRecord(JSON.stringify({ ...legacyRecord, schemaVersion: 1 }))).toMatchObject({ ok: true, value: { schemaVersion: 3, prediction: '' } });
+        const v2 = { ...validRecord, schemaVersion: 2 };
+        delete (v2 as { replay?: unknown }).replay;
+        expect(parseAndMigrateCaseRecord(JSON.stringify(v2))).toMatchObject({ ok: true, value: { schemaVersion: 3, replay: { isCounterfactual: false } } });
+        expect(parseAndMigrateCaseRecord(JSON.stringify({ ...validRecord, schemaVersion: 4 }))).toMatchObject({ ok: false, error: { code: 'incompatible-record-version' } });
         expect(parseAndMigrateCaseRecord(JSON.stringify({ ...validRecord, schemaVersion: -1 }))).toMatchObject({ ok: false, error: { code: 'invalid-import' } });
         const migratedRecognition = parseAndMigrateCaseRecord(JSON.stringify({ ...validRecord, recognition: {} }));
         expect(migratedRecognition).toMatchObject({ ok: true, value: { recognition: { version: 0, items: [] } } });
@@ -131,7 +135,7 @@ describe('portable case records', () => {
 
     it('projects and hydrates strict recognition with the portable record', () => {
         const projected = createCaseRecordProjection(createInitialAppState(definition));
-        expect(projected).toMatchObject({ ok: true, value: { schemaVersion: 2, prediction: '', recognition: { version: 1 } } });
+        expect(projected).toMatchObject({ ok: true, value: { schemaVersion: 3, prediction: '', recognition: { version: 1 } } });
         if (!projected.ok) return;
         expect(projected.value.recognition.items[0]).toMatchObject({ id: 'source-discipline', achieved: false });
         const restored = createAppStateFromCaseRecord(projected.value, definition);

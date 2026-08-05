@@ -138,7 +138,7 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .case-context-prediction textarea:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
 .case-context-prediction button { min-height: 44px; }
 
-.curated-record, .case-context-prediction, .measurement-notebook, .run-comparison, .theory-board, .review-panel, .inquiry-recognition-panel, .case-progress-panel, .case-record-print-view {
+.curated-record, .case-context-prediction, .measurement-notebook, .run-comparison, .theory-board, .review-panel, .historical-debrief-panel, .inquiry-recognition-panel, .case-progress-panel, .case-record-print-view {
     background: #f7f4ef;
     border: 2px solid #f4d35e;
     border-radius: 0.5rem;
@@ -185,6 +185,13 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .review-status { min-height: 1.5rem; }
 .review-panel details { border: 1px solid #34515a; border-radius: 0.3rem; padding: 0.75rem; }
 .review-panel summary { cursor: pointer; font-weight: 700; min-height: 44px; }
+.historical-debrief-panel h2, .historical-debrief-panel h3 { margin: 0; }
+.historical-debrief-panel section { display: grid; gap: 0.5rem; }
+.historical-debrief-panel button { min-height: 44px; }
+.historical-debrief-panel button:focus-visible, .historical-debrief-panel summary:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
+.historical-debrief-panel details { border: 1px solid #34515a; border-radius: 0.3rem; padding: 0.75rem; }
+.historical-debrief-panel summary { cursor: pointer; font-weight: 700; min-height: 44px; }
+.counterfactual-replay-label { border-left: 4px solid #34515a; font-weight: 700; padding-left: 0.75rem; }
 .decision-history-panel ol { display: grid; gap: 1rem; margin: 0; padding-left: 1.5rem; }
 .decision-history-panel li { border: 1px solid #34515a; border-radius: 0.3rem; padding: 1rem; }
 .decision-history-panel dl { display: grid; gap: 0.5rem; margin: 0; }

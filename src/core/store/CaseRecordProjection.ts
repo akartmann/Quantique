@@ -5,7 +5,7 @@ import type { AppState } from './AppState';
 /** Projects only portable player progress; immutable case content and transient UI projections are omitted. */
 export const createCaseRecordProjection = (state: AppState): Result<CaseRecord> => {
     const parsed = CaseRecordSchema.safeParse({
-        schemaVersion: 2,
+        schemaVersion: 3,
         caseId: state.caseDefinition.id,
         caseDefinitionVersion: state.caseDefinition.version,
         phase: state.phase,
@@ -18,6 +18,8 @@ export const createCaseRecordProjection = (state: AppState): Result<CaseRecord> 
         comparison: state.comparison,
         theory: state.theory,
         decisionHistory: state.decisionHistory,
+        completion: state.completion,
+        replay: state.replay,
         recognition: state.recognition
     });
     return parsed.success

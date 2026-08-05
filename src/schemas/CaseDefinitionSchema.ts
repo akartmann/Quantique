@@ -124,7 +124,14 @@ export const CaseDefinitionSchema = z.object({
     }).strict(),
     debrief: z.object({
         summary: z.string().trim().min(1),
-        sourceRefs: z.array(sourceRef).min(1)
+        sourceRefs: z.array(sourceRef).min(1),
+        historicalComparison: z.object({
+            title: z.string().trim().min(1),
+            text: z.string().trim().min(1),
+            sourceIds: z.tuple([stableId, stableId])
+        }).strict(),
+        deeperTheory: z.object({ title: z.string().trim().min(1), text: z.string().trim().min(1) }).strict(),
+        replayLabel: z.string().trim().min(1)
     }).strict(),
     assets: AssetManifestSchema
 }).strict().superRefine((definition, context) => {
@@ -150,6 +157,10 @@ export const CaseDefinitionSchema = z.object({
         context.addIssue({ code: 'custom', message: 'Consultation and peer-review rule IDs must be unique.', path: ['consultationRules'] });
     }
     const sourceIds = new Set(definition.contextualArtifacts.map((artifact) => artifact.id));
+    if (definition.debrief.historicalComparison.sourceIds.some((sourceId) => !sourceIds.has(sourceId)
+        || definition.debrief.historicalComparison.sourceIds[0] === definition.debrief.historicalComparison.sourceIds[1])) {
+        context.addIssue({ code: 'custom', message: 'Historical comparison must cite two distinct authored sources.', path: ['debrief', 'historicalComparison', 'sourceIds'] });
+    }
     const controlIds = new Set(definition.apparatus.primaryControls.map((control) => control.id));
     definition.consultationRules.forEach((rule, index) => {
         if (rule.predicate.kind === 'missing-source' && !sourceIds.has(rule.predicate.sourceId)) {

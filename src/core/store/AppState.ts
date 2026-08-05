@@ -34,6 +34,18 @@ export type DecisionHistoryEntry = Readonly<{
     timestamp: string;
 }>;
 
+export type CompletionSnapshot = Readonly<{
+    completedAt: string;
+    finalDecision: DecisionHistoryEntry;
+    decisionHistory: readonly DecisionHistoryEntry[];
+    runs: readonly RunRecord[];
+    inspectedSourceIds: readonly string[];
+    comparison: ComparisonState;
+    recognition: RecognitionState;
+}>;
+
+export type ReplayState = Readonly<{ isCounterfactual: boolean }>;
+
 export type AppState = Readonly<{
     caseDefinition: CaseDefinition;
     phase: CasePhase;
@@ -48,6 +60,8 @@ export type AppState = Readonly<{
     consultation?: ConsultationProjection;
     peerReview?: PeerReviewProjection;
     decisionHistory: readonly DecisionHistoryEntry[];
+    completion?: CompletionSnapshot;
+    replay: ReplayState;
     recognition: RecognitionState;
 }>;
 
@@ -65,6 +79,26 @@ const freezePeerReview = (review: PeerReviewProjection): PeerReviewProjection =>
         status: 'reviewed',
         issues: Object.freeze(review.issues.map((issue) => Object.freeze({ ...issue })))
     });
+
+const freezeDecision = (entry: DecisionHistoryEntry): DecisionHistoryEntry => Object.freeze({
+    ...entry,
+    selectedRunIds: Object.freeze([...entry.selectedRunIds]),
+    selectedSourceIds: Object.freeze([...entry.selectedSourceIds]),
+    feedback: freezePeerReview(entry.feedback)
+});
+
+const freezeCompletion = (completion: CompletionSnapshot | undefined): CompletionSnapshot | undefined => completion && Object.freeze({
+    completedAt: completion.completedAt,
+    finalDecision: freezeDecision(completion.finalDecision),
+    decisionHistory: Object.freeze(completion.decisionHistory.map(freezeDecision)),
+    runs: Object.freeze([...completion.runs]),
+    inspectedSourceIds: Object.freeze([...completion.inspectedSourceIds]),
+    comparison: freezeComparison(completion.comparison),
+    recognition: Object.freeze({
+        version: completion.recognition.version,
+        items: Object.freeze(completion.recognition.items.map((item) => Object.freeze({ ...item })))
+    })
+});
 
 const freezeState = (state: Omit<AppState, 'recognition'>): AppState => Object.freeze({
     ...state,
@@ -86,12 +120,9 @@ const freezeState = (state: Omit<AppState, 'recognition'>): AppState => Object.f
         nextStep: state.consultation.nextStep
     }),
     peerReview: state.peerReview && freezePeerReview(state.peerReview),
-    decisionHistory: Object.freeze(state.decisionHistory.map((entry) => Object.freeze({
-        ...entry,
-        selectedRunIds: Object.freeze([...entry.selectedRunIds]),
-        selectedSourceIds: Object.freeze([...entry.selectedSourceIds]),
-        feedback: freezePeerReview(entry.feedback)
-    }))),
+    decisionHistory: Object.freeze(state.decisionHistory.map(freezeDecision)),
+    completion: freezeCompletion(state.completion),
+    replay: Object.freeze({ isCounterfactual: state.replay.isCounterfactual }),
     recognition: deriveRecognition(state.caseDefinition, state)
 });
 
@@ -108,7 +139,8 @@ export const createInitialAppState = (caseDefinition: CaseDefinition): AppState 
     runs: [],
     comparison: { selectedRunIds: [], notes: [] },
     theory: createTheoryBoardDraft(),
-    decisionHistory: []
+    decisionHistory: [],
+    replay: { isCounterfactual: false }
 });
 
 /** Creates the sole authoritative state from a validated, definition-compatible portable record. */
@@ -136,7 +168,9 @@ export const createAppStateFromCaseRecord = (record: CaseRecord, caseDefinition:
             runs,
             comparison: record.comparison,
             theory: record.theory,
-            decisionHistory: record.decisionHistory
+            decisionHistory: record.decisionHistory,
+            completion: record.completion as CompletionSnapshot | undefined,
+            replay: record.replay
         })
     };
 };
@@ -169,7 +203,7 @@ const reduceControlSet = (state: AppState, action: Extract<AppAction, { type: 'a
 };
 
 const reduceRecordRun = (state: AppState, record: RunRecord): Result<AppState> => {
-    if (state.phase !== 'experiment') {
+    if (state.phase !== 'experiment' && record.modelInputs) {
         return failure('experiment-phase-required', 'Enter the experiment phase before running the apparatus.');
     }
     const validated = createRunRecord(record, state.runs.map(({ id }) => id));
@@ -177,21 +211,22 @@ const reduceRecordRun = (state: AppState, record: RunRecord): Result<AppState> =
     if (validated.value.caseId !== state.caseDefinition.id) {
         return failure('run-case-mismatch', 'That observation belongs to a different investigation.');
     }
-    if (validated.value.experimentModelVersion !== state.caseDefinition.experiment.modelVersion
-        || !validated.value.modelInputs
-        || validated.value.controls.slitSpacingMm !== state.activeControlValues.slitSpacingMm
-        || validated.value.controls.screenDistanceM !== state.activeControlValues.screenDistanceM
-        || validated.value.modelInputs.slitSpacingMm !== state.activeControlValues.slitSpacingMm
-        || validated.value.modelInputs.screenDistanceM !== state.activeControlValues.screenDistanceM
-        || validated.value.modelInputs.wavelengthNm !== state.selectedWavelengthNm
-        || validated.value.modelInputs.wavelengthMode !== state.selectedWavelengthMode) {
-        return failure('mismatched-experiment-record', 'The observation does not match the current validated experiment setup.');
-    }
-    const calculated = calculateYoungFringeSpacing(validated.value.modelInputs);
-    if (!calculated.ok || calculated.value.label !== validated.value.result.label
-        || calculated.value.value !== validated.value.result.value
-        || calculated.value.unit !== validated.value.result.unit) {
-        return failure('mismatched-experiment-record', 'The observation does not match the deterministic Young model.');
+    if (validated.value.modelInputs) {
+        if (validated.value.experimentModelVersion !== state.caseDefinition.experiment.modelVersion
+            || validated.value.controls.slitSpacingMm !== state.activeControlValues.slitSpacingMm
+            || validated.value.controls.screenDistanceM !== state.activeControlValues.screenDistanceM
+            || validated.value.modelInputs.slitSpacingMm !== state.activeControlValues.slitSpacingMm
+            || validated.value.modelInputs.screenDistanceM !== state.activeControlValues.screenDistanceM
+            || validated.value.modelInputs.wavelengthNm !== state.selectedWavelengthNm
+            || validated.value.modelInputs.wavelengthMode !== state.selectedWavelengthMode) {
+            return failure('mismatched-experiment-record', 'The observation does not match the current validated experiment setup.');
+        }
+        const calculated = calculateYoungFringeSpacing(validated.value.modelInputs);
+        if (!calculated.ok || calculated.value.label !== validated.value.result.label
+            || calculated.value.value !== validated.value.result.value
+            || calculated.value.unit !== validated.value.result.unit) {
+            return failure('mismatched-experiment-record', 'The observation does not match the deterministic Young model.');
+        }
     }
     if (!validated.value.linkedEvidenceIds.every((sourceId) => state.inspectedSourceIds.includes(sourceId))) {
         return failure('uninspected-linked-evidence', 'Linked evidence must be inspected before recording an observation.');
@@ -440,6 +475,52 @@ const reduceRevisionSave = (state: AppState, timestamp: string): Result<AppState
     return { ok: true, value: freezeState({ ...state, decisionHistory: [...state.decisionHistory, entry], peerReview: undefined }) };
 };
 
+const isTimestamp = (value: string): boolean => {
+    const parsed = new Date(value);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString() === value;
+};
+
+const reduceDebriefComplete = (state: AppState, timestamp: string): Result<AppState> => {
+    if (state.phase !== 'review') return failure('debrief-review-required', 'Save a reviewed revision before opening the historical debrief.');
+    if (!isTimestamp(timestamp)) return failure('invalid-completion-timestamp', 'Provide a valid UTC completion timestamp.');
+    const readiness = evaluateConclusionReadiness(state.caseDefinition, { ...reviewEvidence(state), comparisonNotes: state.comparison.notes }, state.theory);
+    if (readiness.status !== 'ready') return failure('conclusion-not-ready', readiness.missing[0].message);
+    const finalDecision = state.decisionHistory[state.decisionHistory.length - 1];
+    if (!finalDecision || finalDecision.conclusion !== state.theory.conclusion || finalDecision.limitation !== state.theory.limitation
+        || JSON.stringify(finalDecision.selectedRunIds) !== JSON.stringify(state.theory.selectedRunIds)
+        || JSON.stringify(finalDecision.selectedSourceIds) !== JSON.stringify(state.theory.selectedSourceIds)) {
+        return failure('reviewed-revision-required', 'Save the reviewed revision before opening the historical debrief.');
+    }
+    const transition = advanceCasePhase({ definition: state.caseDefinition, phase: state.phase }, 'debrief');
+    if (!transition.ok) return transition;
+    const completion: CompletionSnapshot = state.replay.isCounterfactual && state.completion ? state.completion : {
+        completedAt: timestamp,
+        finalDecision,
+        decisionHistory: state.decisionHistory,
+        runs: state.runs,
+        inspectedSourceIds: state.inspectedSourceIds,
+        comparison: state.comparison,
+        recognition: state.recognition
+    };
+    return { ok: true, value: freezeState({ ...state, phase: transition.value.phase, completion, replay: { isCounterfactual: state.replay.isCounterfactual } }) };
+};
+
+const reduceReplayStart = (state: AppState): Result<AppState> => {
+    if (state.phase !== 'debrief' || !state.completion) return failure('replay-unavailable', 'Complete the historical debrief before starting a counterfactual replay.');
+    return {
+        ok: true,
+        value: freezeState({
+            ...state,
+            phase: 'context',
+            activeControlValues: Object.fromEntries(state.caseDefinition.apparatus.primaryControls.map((control) => [control.id, control.defaultValue])) as Record<PrimaryControl['id'], number>,
+            selectedWavelengthNm: 550,
+            selectedWavelengthMode: 'minimum',
+            inspectedSourceIds: [], prediction: '', runs: [], comparison: { selectedRunIds: [], notes: [] }, theory: createTheoryBoardDraft(),
+            consultation: undefined, peerReview: undefined, decisionHistory: [], replay: { isCounterfactual: true }
+        })
+    };
+};
+
 export const reduceAppState = (state: AppState, action: AppAction): Result<AppState> => {
     switch (action.type) {
         case 'apparatus.controlSet':
@@ -484,5 +565,9 @@ export const reduceAppState = (state: AppState, action: AppAction): Result<AppSt
             return reduceRevisionSave(state, action.timestamp);
         case 'case.phaseAdvance':
             return reduceCasePhaseAdvance(state, action.nextPhase);
+        case 'case.debriefCompleted':
+            return reduceDebriefComplete(state, action.timestamp);
+        case 'case.replayStarted':
+            return reduceReplayStart(state);
     }
 };

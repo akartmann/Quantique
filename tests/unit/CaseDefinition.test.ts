@@ -68,7 +68,11 @@ const validYoungCase: CaseDefinition = {
         historicalDebrief: true,
         optionalReplay: true
     },
-    debrief: { summary: 'Compare the observed pattern with the available evidence before drawing a conclusion.', sourceRefs: ['young-1801-lecture'] },
+    debrief: {
+        summary: 'Compare the observed pattern with the available evidence before drawing a conclusion.', sourceRefs: ['young-1801-lecture'],
+        historicalComparison: { title: 'Young and Opticks', text: 'The authored records remain fixed.', sourceIds: ['young-lecture-1801', 'newton-opticks'] },
+        deeperTheory: { title: 'Deeper theory', text: 'A reconstruction is not the historical record.' }, replayLabel: 'Start counterfactual replay'
+    },
     assets: { manifestVersion: '1.0.0', entries: [{ id: 'quantique-logo', type: 'image', path: '/assets/logo.png' }] }
 };
 

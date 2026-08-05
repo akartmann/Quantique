@@ -1,6 +1,6 @@
 import type { ContextualArtifact, PrimaryControl } from '../../domain/cases/CaseDefinition';
 import type { RunRecord } from '../../domain/evidence/RunRecord';
-import type { AppState, ComparisonNote } from './AppState';
+import type { AppState, ComparisonNote, CompletionSnapshot, ReplayState } from './AppState';
 import type { ConsultationProjection } from '../../domain/review/ConsultationRule';
 import type { PeerReviewProjection } from '../../domain/review/peerReviewRules';
 import type { DecisionHistoryEntry } from './AppState';
@@ -97,5 +97,9 @@ export const selectPeerReview = (state: AppState): PeerReviewProjection | undefi
 export const selectDecisionHistory = (state: AppState): readonly DecisionHistoryEntry[] => state.decisionHistory;
 
 export const selectRecognition = (state: AppState): RecognitionState => state.recognition;
+
+export const selectCompletionSnapshot = (state: AppState): CompletionSnapshot | undefined => state.completion;
+
+export const selectReplayState = (state: AppState): ReplayState => state.replay;
 
 export const selectPortableCaseRecord = (state: AppState): Result<CaseRecord> => createCaseRecordProjection(state);

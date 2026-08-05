@@ -106,6 +106,15 @@ export type CasePhaseAdvanceAction = Readonly<{
     nextPhase: CasePhase;
 }>;
 
+export type CaseDebriefCompleteAction = Readonly<{
+    type: 'case.debriefCompleted';
+    timestamp: string;
+}>;
+
+export type CaseReplayStartAction = Readonly<{
+    type: 'case.replayStarted';
+}>;
+
 export type AppAction = ApparatusControlSetAction
     | RunRecordAction
     | ExperimentRunAction
@@ -126,4 +135,6 @@ export type AppAction = ApparatusControlSetAction
     | ConsultationRequestAction
     | PeerReviewRequestAction
     | RevisionSaveAction
-    | CasePhaseAdvanceAction;
+    | CasePhaseAdvanceAction
+    | CaseDebriefCompleteAction
+    | CaseReplayStartAction;

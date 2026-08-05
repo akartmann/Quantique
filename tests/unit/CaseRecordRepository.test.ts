@@ -4,10 +4,11 @@ import { CaseRecordRepository } from '../../src/adapters/persistence/caseRecordR
 import { CaseRecordSchema } from '../../src/schemas/CaseRecordSchema';
 
 const record = CaseRecordSchema.parse({
-    schemaVersion: 2, caseId: 'young-interference', caseDefinitionVersion: '1.0.0', phase: 'context',
+    schemaVersion: 3, caseId: 'young-interference', caseDefinitionVersion: '1.0.0', phase: 'context',
     activeControlValues: { slitSpacingMm: 0.25, screenDistanceM: 2 }, inspectedSourceIds: [], runs: [],
     prediction: '', comparison: { selectedRunIds: [], notes: [] }, theory: { selectedRunIds: [], selectedSourceIds: [], conclusion: '', limitation: '' },
     decisionHistory: [],
+    replay: { isCounterfactual: false },
     recognition: {
         version: 1,
         items: [

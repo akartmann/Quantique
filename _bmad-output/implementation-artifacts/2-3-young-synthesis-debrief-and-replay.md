@@ -1,6 +1,10 @@
+---
+baseline_commit: f40373f19ff96043bed2ce45663cb92e0bc4846d
+---
+
 # Story 2.3: Young synthesis, debrief, and replay
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -17,37 +21,37 @@ so that I understand both what interference evidence supports and its limits.
 
 ## Tasks / Subtasks
 
-- [ ] Make synthesis-to-debrief completion authoritative and evidence-bounded (AC: 1)
-  - [ ] Extend the existing pure readiness/evaluation path; do not infer completion from a visible panel, scene transition, or dialogue branch.
-  - [ ] Require two *model-backed, distinct* Young configurations, two reviewed inspected sources, selected supporting evidence, a non-blank conclusion, and a stated limitation. The critical Young path also requires an intentional saved comparison of the two selected run snapshots; give neutral recovery guidance for each missing prerequisite.
-  - [ ] Reuse `evaluateConclusionReadiness`, `evaluatePeerReview`, typed `AppAction`s, immutable `AppState`, and selectors. Extend them narrowly rather than creating duplicate completion, review, or comparison logic.
-  - [ ] Preserve the current non-punitive peer-review model: it reports missing evidence, unavailable support, and authored overreach phrases; it must not provide the conclusion, hard-fail a draft, erase work, or block unlimited revision.
-  - [ ] Permit the authoritative `review → debrief` transition only after a reviewed revision has been saved. Capture the final reviewed decision, supporting run/source IDs, peer feedback, recognition, and completion timestamp as an immutable completion snapshot.
+- [x] Make synthesis-to-debrief completion authoritative and evidence-bounded (AC: 1)
+  - [x] Extend the existing pure readiness/evaluation path; do not infer completion from a visible panel, scene transition, or dialogue branch.
+  - [x] Require two *model-backed, distinct* Young configurations, two reviewed inspected sources, selected supporting evidence, a non-blank conclusion, and a stated limitation. The critical Young path also requires an intentional saved comparison of the two selected run snapshots; give neutral recovery guidance for each missing prerequisite.
+  - [x] Reuse `evaluateConclusionReadiness`, `evaluatePeerReview`, typed `AppAction`s, immutable `AppState`, and selectors. Extend them narrowly rather than creating duplicate completion, review, or comparison logic.
+  - [x] Preserve the current non-punitive peer-review model: it reports missing evidence, unavailable support, and authored overreach phrases; it must not provide the conclusion, hard-fail a draft, erase work, or block unlimited revision.
+  - [x] Permit the authoritative `review → debrief` transition only after a reviewed revision has been saved. Capture the final reviewed decision, supporting run/source IDs, peer feedback, recognition, and completion timestamp as an immutable completion snapshot.
 
-- [ ] Author and validate the historical debrief contract (AC: 2)
-  - [ ] Extend the immutable `CaseDefinition` contract, Zod definition schema, and `public/cases/young-interference/case.json` together. Add only the focused data needed for: a source-resolved historical comparison, layered optional deeper theory, and counterfactual/replay labels.
-  - [ ] Keep historical copy fact-bound and provenance-aware. Every debrief source reference must resolve to an existing reviewed contextual artifact; do not invent a quotation, source excerpt, rights status, or historical claim.
-  - [ ] Clearly separate: the learner's evidence-bounded inference; the fixed historical record; any reconstruction/interpretation; and an alternate replay. The learner's variables, conclusion, or evidence order must never alter the historical narrative.
-  - [ ] Keep fixed 550 nm evidence as the minimum path. The optional 450/650 nm comparison remains optional and must never rewrite or become a prerequisite for the historical record or case completion.
+- [x] Author and validate the historical debrief contract (AC: 2)
+  - [x] Extend the immutable `CaseDefinition` contract, Zod definition schema, and `public/cases/young-interference/case.json` together. Add only the focused data needed for: a source-resolved historical comparison, layered optional deeper theory, and counterfactual/replay labels.
+  - [x] Keep historical copy fact-bound and provenance-aware. Every debrief source reference must resolve to an existing reviewed contextual artifact; do not invent a quotation, source excerpt, rights status, or historical claim.
+  - [x] Clearly separate: the learner's evidence-bounded inference; the fixed historical record; any reconstruction/interpretation; and an alternate replay. The learner's variables, conclusion, or evidence order must never alter the historical narrative.
+  - [x] Keep fixed 550 nm evidence as the minimum path. The optional 450/650 nm comparison remains optional and must never rewrite or become a prerequisite for the historical record or case completion.
 
-- [ ] Build semantic debrief, completion, and replay surfaces (AC: 2, 3, 4)
-  - [ ] Add a focused semantic HTML `HistoricalDebriefPanel` (or equivalently named component under `src/ui/debrief/`) and mount it from `src/main.ts`/`index.html`. Phaser may mirror a non-essential transition only; it must not own debrief text, completion, replay state, focus, announcements, or progression.
-  - [ ] Render the completed evidence snapshot, sourced historical comparison, optional deeper-theory disclosure, inquiry recognition, and a clearly named replay action. Use native semantic controls, stable IDs/labels, an initially present polite status region, visible focus restoration, and no focus move to status updates.
-  - [ ] Present peer feedback as calm scope/evidence guidance, not a red failure state, score, "correct" answer, speed reward, or celebratory burst. Preserve keyboard, pointer, and touch parity; colour, sound, Phaser canvas, or motion must not be the sole carrier of meaning.
-  - [ ] On replay, retain the immutable completed snapshot, decision history, recognition at completion, and any existing campaign unlock state. Start a separate fresh investigation workspace at `context`; label all new configuration/order exploration **Counterfactual replay — not the recorded historical result**. Do not mutate shipped case content, historical run snapshots, or completion data.
-  - [ ] Retain the current phone reading-only behavior below 767px, 44px touch targets where applicable, responsive tablet/desktop layout, reduced-motion behavior, and semantic print/export surfaces.
+- [x] Build semantic debrief, completion, and replay surfaces (AC: 2, 3, 4)
+  - [x] Add a focused semantic HTML `HistoricalDebriefPanel` (or equivalently named component under `src/ui/debrief/`) and mount it from `src/main.ts`/`index.html`. Phaser may mirror a non-essential transition only; it must not own debrief text, completion, replay state, focus, announcements, or progression.
+  - [x] Render the completed evidence snapshot, sourced historical comparison, optional deeper-theory disclosure, inquiry recognition, and a clearly named replay action. Use native semantic controls, stable IDs/labels, an initially present polite status region, visible focus restoration, and no focus move to status updates.
+  - [x] Present peer feedback as calm scope/evidence guidance, not a red failure state, score, "correct" answer, speed reward, or celebratory burst. Preserve keyboard, pointer, and touch parity; colour, sound, Phaser canvas, or motion must not be the sole carrier of meaning.
+  - [x] On replay, retain the immutable completed snapshot, decision history, recognition at completion, and any existing campaign unlock state. Start a separate fresh investigation workspace at `context`; label all new configuration/order exploration **Counterfactual replay — not the recorded historical result**. Do not mutate shipped case content, historical run snapshots, or completion data.
+  - [x] Retain the current phone reading-only behavior below 767px, 44px touch targets where applicable, responsive tablet/desktop layout, reduced-motion behavior, and semantic print/export surfaces.
 
-- [ ] Persist, migrate, validate, export, and print the new state safely (AC: 3, 4)
-  - [ ] Update `CaseRecordProjection`, `CaseRecordSchema`, and `migrateCaseRecord` with an explicit schema-version migration for existing valid v2 local/exported records. Migration/import/save failure must preserve last valid in-memory and IndexedDB progress and show neutral recovery text—never raw errors or learner-entered conclusion text.
-  - [ ] Validate all snapshot/run/source references, chronology, debrief eligibility, replay state, and derived recognition against the current immutable case definition. Reject a record that bypasses the evaluator, alters saved runs/results/model versions, claims an unknown source, or treats a legacy prepared observation as physical Young evidence.
-  - [ ] Extend the semantic print view and portable projection so a completed record visibly preserves the historical completion snapshot and relevant decision history. Never recalculate historical experiment results from current controls or a later model version.
+- [x] Persist, migrate, validate, export, and print the new state safely (AC: 3, 4)
+  - [x] Update `CaseRecordProjection`, `CaseRecordSchema`, and `migrateCaseRecord` with an explicit schema-version migration for existing valid v2 local/exported records. Migration/import/save failure must preserve last valid in-memory and IndexedDB progress and show neutral recovery text—never raw errors or learner-entered conclusion text.
+  - [x] Validate all snapshot/run/source references, chronology, debrief eligibility, replay state, and derived recognition against the current immutable case definition. Reject a record that bypasses the evaluator, alters saved runs/results/model versions, claims an unknown source, or treats a legacy prepared observation as physical Young evidence.
+  - [x] Extend the semantic print view and portable projection so a completed record visibly preserves the historical completion snapshot and relevant decision history. Never recalculate historical experiment results from current controls or a later model version.
 
-- [ ] Cover the authoritative behaviour and release paths (AC: 1–4)
-  - [ ] Add Vitest coverage for every completion prerequisite, distinct-configuration/comparison requirement, phase-transition rejection, overreach feedback, immutable completion snapshot, replay isolation, record validation, and schema migration/failed-import recovery.
-  - [ ] Add integration coverage through public typed actions/selectors for the full Young path: inspected sources → prediction → two physical runs → comparison → bounded conclusion → peer review/revision → debrief → counterfactual replay. Assert that the original completed history, recognition, and unlock state are unchanged.
-  - [ ] Add Playwright coverage using semantic roles/labels for debrief content, optional deeper theory, source labels, status/focus, revision, replay label, offline reload, export/import, and print. Run axe on new surfaces, then manually verify keyboard-only flow, screen-reader announcements, non-colour encoding, zoom/text scaling, tablet touch, reduced motion, and Chromium/Firefox/WebKit where available.
-  - [ ] Repair affected legacy test fixtures instead of relying on `Prepared observation` or unphase-gated `run.record` seams. Use physical, phase-gated fixed-550-nm records for Young evidence; in particular inspect the unresolved Story 2.2 fixture work in `tests/unit/EvidenceStore.test.ts` and older review/theory E2E/integration fixtures.
-  - [ ] Verify proportionately with `npm run typecheck`, `npm test`, `npm run build`, relevant Playwright/axe/offline suites, and `npm run test:e2e:cross-browser` when the browser set is available.
+- [x] Cover the authoritative behaviour and release paths (AC: 1–4)
+  - [x] Add Vitest coverage for every completion prerequisite, distinct-configuration/comparison requirement, phase-transition rejection, overreach feedback, immutable completion snapshot, replay isolation, record validation, and schema migration/failed-import recovery.
+  - [x] Add integration coverage through public typed actions/selectors for the full Young path: inspected sources → prediction → two physical runs → comparison → bounded conclusion → peer review/revision → debrief → counterfactual replay. Assert that the original completed history, recognition, and unlock state are unchanged.
+  - [x] Add Playwright coverage using semantic roles/labels for debrief content, optional deeper theory, source labels, status/focus, revision, replay label, offline reload, export/import, and print. Run axe on new surfaces, then manually verify keyboard-only flow, screen-reader announcements, non-colour encoding, zoom/text scaling, tablet touch, reduced motion, and Chromium/Firefox/WebKit where available.
+  - [x] Repair affected legacy test fixtures instead of relying on `Prepared observation` or unphase-gated `run.record` seams. Use physical, phase-gated fixed-550-nm records for Young evidence; in particular inspect the unresolved Story 2.2 fixture work in `tests/unit/EvidenceStore.test.ts` and older review/theory E2E/integration fixtures.
+  - [x] Verify proportionately with `npm run typecheck`, `npm test`, `npm run build`, relevant Playwright/axe/offline suites, and `npm run test:e2e:cross-browser` when the browser set is available.
 
 ## Dev Notes
 
@@ -122,13 +126,44 @@ GPT-5.6 Codex
 
 - Ultimate context engine analysis completed: sprint status, epics, GDD, UX spines, architecture, project context, Stories 2.1–2.2, current code/test seams, Git history, and current official technical guidance were analyzed.
 - The story explicitly closes the completion/replay persistence gap and the distinct-run/comparison ambiguity so implementation cannot treat a UI transition, duplicate configuration, or overwritten history as completion.
+- Implemented typed, immutable completion/replay transitions, debrief contract/schema content, semantic debrief surface, schema-v3 migration, and portable completion validation.
+- Verification passed: `npm run typecheck`, `npm test` (134 tests), `npm run build`, Chromium Playwright E2E, and axe accessibility suite.
 
 ### Completion Notes List
 
 - Ultimate context engine analysis completed - comprehensive developer guide created.
 - Status set to `ready-for-dev`.
+- Completion is authoritative: it requires a saved reviewed revision plus distinct physical Young support and a saved comparison before freezing the historical snapshot.
+- Replay uses a separate counterfactual workspace while preserving the original completion archive, decision history, completion-time recognition, and sourced historical debrief.
+- Added schema-v3 portable records with explicit v2 migration and validation of archived scientific results, history, references, chronology, replay state, and recognition.
 
 ### File List
 
 - `_bmad-output/implementation-artifacts/2-3-young-synthesis-debrief-and-replay.md` (story tracking)
 - `_bmad-output/implementation-artifacts/sprint-status.yaml` (Story 2.3 status)
+- `index.html` (semantic debrief root)
+- `public/cases/young-interference/case.json` (sourced historical debrief content)
+- `public/style.css` (debrief and counterfactual replay styles)
+- `src/core/store/AppAction.ts` (completion and replay actions)
+- `src/core/store/AppState.ts` (immutable completion archive and replay reducer)
+- `src/core/store/CaseRecordProjection.ts` (schema-v3 completion projection)
+- `src/core/store/selectors.ts` (completion and replay selectors)
+- `src/domain/cases/CaseDefinition.ts` (debrief contract)
+- `src/domain/review/peerReviewRules.ts` (recovery guidance coverage)
+- `src/domain/theory/conclusionReadiness.ts` (distinct configuration and saved-comparison readiness)
+- `src/main.ts` (debrief panel mount)
+- `src/schemas/CaseDefinitionSchema.ts` (debrief contract validation)
+- `src/schemas/CaseRecordSchema.ts` (completion/replay validation)
+- `src/schemas/migrations/migrateCaseRecord.ts` (v2 → v3 migration)
+- `src/ui/debrief/HistoricalDebriefPanel.ts` (semantic completion and replay UI)
+- `src/ui/print/CaseRecordPrintView.ts` (historical completion print surface)
+- `tests/e2e/debrief-replay.spec.ts` (semantic completion/replay E2E)
+- `tests/e2e/progress-portability.spec.ts` (schema-v3 portability expectations)
+- `tests/unit/CompletionReplay.test.ts` (completion/replay and archive-validation coverage)
+- `tests/unit/CaseDefinition.test.ts` (expanded immutable debrief contract fixture)
+- `tests/unit/CaseRecordRepository.test.ts` (schema-v3 fixture)
+- `tests/unit/CaseRecordSchema.test.ts` (v2 migration coverage)
+
+## Change Log
+
+- 2026-08-05: Implemented Young synthesis, historical debrief, immutable completion archive, counterfactual replay, and schema-v3 progress migration; marked ready for review.

@@ -95,7 +95,13 @@ export type CaseDefinition = Readonly<{
         historicalDebrief: true;
         optionalReplay: true;
     }>;
-    debrief: Readonly<{ summary: string; sourceRefs: readonly string[] }>;
+    debrief: Readonly<{
+        summary: string;
+        sourceRefs: readonly string[];
+        historicalComparison: Readonly<{ title: string; text: string; sourceIds: readonly [string, string] }>;
+        deeperTheory: Readonly<{ title: string; text: string }>;
+        replayLabel: string;
+    }>;
     assets: Readonly<{
         manifestVersion: string;
         entries: readonly Readonly<{ id: string; type: 'image' | 'audio' | 'document'; path: string }>[];

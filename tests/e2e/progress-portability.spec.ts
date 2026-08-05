@@ -21,11 +21,11 @@ test('exports only portable progress and recovers from invalid or incompatible i
     const downloadPromise = page.waitForEvent('download');
     await progress.getByRole('button', { name: 'Export progress' }).click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toBe('young-interference-progress-v2.json');
+    expect(download.suggestedFilename()).toBe('young-interference-progress-v3.json');
     const downloadPath = await download.path();
     if (!downloadPath) throw new Error('The exported record should be available to the test runner.');
     const exported = JSON.parse(await readFile(downloadPath, 'utf8')) as Record<string, unknown>;
-    expect(exported).toMatchObject({ schemaVersion: 2, caseId: 'young-interference', prediction: 'A stable pattern may appear.', runs: [{ id: expect.any(String) }] });
+    expect(exported).toMatchObject({ schemaVersion: 3, caseId: 'young-interference', prediction: 'A stable pattern may appear.', runs: [{ id: expect.any(String) }] });
     expect(exported).not.toHaveProperty('caseDefinition');
     expect(exported).toMatchObject({ recognition: { version: 1 } });
     expect((exported.recognition as { items: readonly { id: string; achieved: boolean }[] }).items)

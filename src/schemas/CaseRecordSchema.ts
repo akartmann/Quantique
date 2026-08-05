@@ -47,6 +47,17 @@ const PeerReviewSchema = z.discriminatedUnion('status', [
     }).strict()
 ]);
 
+const DecisionHistoryEntrySchema = z.object({
+    version: z.number().int().positive(),
+    priorConclusion: z.string(),
+    conclusion: z.string(),
+    limitation: z.string(),
+    selectedRunIds: z.array(text),
+    selectedSourceIds: z.array(text),
+    feedback: PeerReviewSchema,
+    timestamp
+}).strict();
+
 const recognitionDefinitionById = new Map(recognitionDefinitions().map((item) => [item.id, item]));
 const RecognitionItemSchema = z.object({
     id: z.enum(RECOGNITION_IDS),
@@ -79,7 +90,7 @@ const RecognitionSchema = z.discriminatedUnion('version', [
 ]);
 
 export const CaseRecordSchema = z.object({
-    schemaVersion: z.literal(2),
+    schemaVersion: z.literal(3),
     caseId: z.literal('young-interference'),
     caseDefinitionVersion: text,
     phase: z.enum(['context', 'prediction', 'experiment', 'synthesis', 'review', 'debrief']),
@@ -94,16 +105,20 @@ export const CaseRecordSchema = z.object({
         notes: z.array(z.object({ runIds: z.tuple([text, text]), text }).strict())
     }).strict(),
     theory: z.object({ selectedRunIds: z.array(text), selectedSourceIds: z.array(text), conclusion: z.string(), limitation: z.string() }).strict(),
-    decisionHistory: z.array(z.object({
-        version: z.number().int().positive(),
-        priorConclusion: z.string(),
-        conclusion: z.string(),
-        limitation: z.string(),
-        selectedRunIds: z.array(text),
-        selectedSourceIds: z.array(text),
-        feedback: PeerReviewSchema,
-        timestamp
-    }).strict()),
+    decisionHistory: z.array(DecisionHistoryEntrySchema),
+    completion: z.object({
+        completedAt: timestamp,
+        finalDecision: DecisionHistoryEntrySchema,
+        decisionHistory: z.array(DecisionHistoryEntrySchema).min(1),
+        runs: z.array(RunRecordSchema),
+        inspectedSourceIds: z.array(text),
+        comparison: z.object({
+            selectedRunIds: z.array(text).max(2),
+            notes: z.array(z.object({ runIds: z.tuple([text, text]), text }).strict())
+        }).strict(),
+        recognition: RecognitionSchema
+    }).strict().optional(),
+    replay: z.object({ isCounterfactual: z.boolean() }).strict(),
     recognition: RecognitionSchema
 }).strict();
 
@@ -119,7 +134,7 @@ const validIds = (values: readonly string[], available: ReadonlySet<string>): bo
 /** Revalidates untrusted progress against the immutable definition already loaded by the app. */
 export const validateCaseRecordForDefinition = (record: CaseRecord, definition: CaseDefinition): Result<CaseRecord> => {
     const compatibleDefinitionVersion = record.caseDefinitionVersion === definition.version
-        || (definition.version === '1.1.0' && record.caseDefinitionVersion === '1.0.0');
+        || (definition.version === '1.2.0' && ['1.0.0', '1.1.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }
@@ -225,8 +240,60 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
 
     if ((record.phase === 'review' || record.phase === 'debrief') && evaluateConclusionReadiness(definition, {
         runs: record.runs,
-        inspectedSourceIds: record.inspectedSourceIds
+        inspectedSourceIds: record.inspectedSourceIds,
+        comparisonNotes: record.comparison.notes
     }, record.theory).status !== 'ready') {
+        return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+    }
+
+    if (record.completion) {
+        const completion = record.completion;
+        if (!isTimestampAfterHistory(completion.completedAt, completion.decisionHistory)
+            || completion.finalDecision.version !== completion.decisionHistory.length
+            || JSON.stringify(completion.finalDecision) !== JSON.stringify(completion.decisionHistory[completion.decisionHistory.length - 1])
+            || !validIds(completion.inspectedSourceIds, new Set(sources.keys()))
+            || !completion.inspectedSourceIds.every((sourceId) => isSourceEligibleForInspection(sources.get(sourceId)!))
+            || completion.recognition.version !== 1) {
+            return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+        }
+        const completionRuns = new Map(completion.runs.map((run) => [run.id, run]));
+        let priorRunTimestamp = '';
+        const validCompletionRuns = completion.runs.every((run) => {
+            const parsedRun = createRunRecord(run);
+            if (!parsedRun.ok || !parsedRun.value.modelInputs
+                || parsedRun.value.caseId !== definition.id
+                || parsedRun.value.experimentModelVersion !== definition.experiment.modelVersion
+                || !parsedRun.value.linkedEvidenceIds.every((sourceId) => completion.inspectedSourceIds.includes(sourceId))
+                || definition.apparatus.primaryControls.some((control) => {
+                    const normalized = normalizeControlValue(control, parsedRun.value.controls[control.id]);
+                    return !normalized.ok || normalized.value !== parsedRun.value.controls[control.id];
+                })) return false;
+            const calculated = calculateYoungFringeSpacing(parsedRun.value.modelInputs);
+            const validResult = calculated.ok && calculated.value.label === parsedRun.value.result.label
+                && calculated.value.value === parsedRun.value.result.value && calculated.value.unit === parsedRun.value.result.unit;
+            const chronological = !priorRunTimestamp || parsedRun.value.timestamp >= priorRunTimestamp;
+            priorRunTimestamp = parsedRun.value.timestamp;
+            return validResult && chronological;
+        });
+        const validCompletionHistory = completion.decisionHistory.every((entry, index) => {
+            const prior = completion.decisionHistory[index - 1];
+            const feedback = evaluatePeerReview(definition, { runs: completion.runs, inspectedSourceIds: completion.inspectedSourceIds }, entry);
+            return (!prior || entry.timestamp > prior.timestamp)
+                && entry.version === index + 1
+                && (index === 0 ? entry.priorConclusion === '' : entry.priorConclusion === prior.conclusion)
+                && feedback.status === 'reviewed' && entry.feedback.status === 'reviewed'
+                && JSON.stringify(feedback.issues) === JSON.stringify(entry.feedback.issues);
+        });
+        if (completionRuns.size !== completion.runs.length || !validCompletionRuns || !validCompletionHistory
+            || !completion.decisionHistory.every((entry) => validIds(entry.selectedRunIds, new Set(completionRuns.keys())) && validIds(entry.selectedSourceIds, new Set(completion.inspectedSourceIds)))
+            || !completion.comparison.notes.some((note) => note.runIds.includes(completion.finalDecision.selectedRunIds[0]!) && note.runIds.includes(completion.finalDecision.selectedRunIds[1]!))) {
+            return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+        }
+        const completionReadiness = evaluateConclusionReadiness(definition, { runs: completion.runs, inspectedSourceIds: completion.inspectedSourceIds, comparisonNotes: completion.comparison.notes }, completion.finalDecision);
+        if (completionReadiness.status !== 'ready' || (record.phase === 'debrief' && record.replay.isCounterfactual)) {
+            return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+        }
+    } else if (record.phase === 'debrief' || record.replay.isCounterfactual) {
         return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
     }
 
@@ -238,6 +305,8 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
 
     return { ok: true, value: record };
 };
+
+const isTimestampAfterHistory = (completedAt: string, history: readonly { timestamp: string }[]): boolean => !history.length || completedAt >= history[history.length - 1]!.timestamp;
 
 /** Parses a selected JSON payload, migrates a supported record, and validates the current schema again. */
 export const parseAndMigrateCaseRecord = (json: string): Result<CaseRecord> => {

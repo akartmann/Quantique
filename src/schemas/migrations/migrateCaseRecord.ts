@@ -28,6 +28,12 @@ const migrateV1Prediction = (input: Record<string, unknown>): Record<string, unk
         : input.phase
 });
 
+const migrateV2Completion = (input: Record<string, unknown>): Record<string, unknown> => ({
+    ...migrateLegacyRecognition(input),
+    schemaVersion: 3,
+    replay: { isCounterfactual: false }
+});
+
 /** Migrates only explicitly supported portable record versions. */
 export const migrateCaseRecord = (input: unknown): Result<unknown> => {
     if (!input || typeof input !== 'object' || Array.isArray(input)) {
@@ -41,10 +47,12 @@ export const migrateCaseRecord = (input: unknown): Result<unknown> => {
 
     switch (version) {
         case 0:
-            return { ok: true, value: migrateV1Prediction({ ...(input as Record<string, unknown>), schemaVersion: 1 }) };
+            return { ok: true, value: migrateV2Completion(migrateV1Prediction({ ...(input as Record<string, unknown>), schemaVersion: 1 })) };
         case 1:
-            return { ok: true, value: migrateV1Prediction(input as Record<string, unknown>) };
+            return { ok: true, value: migrateV2Completion(migrateV1Prediction(input as Record<string, unknown>)) };
         case 2:
+            return { ok: true, value: migrateV2Completion(input as Record<string, unknown>) };
+        case 3:
             return { ok: true, value: migrateLegacyRecognition(input as Record<string, unknown>) };
         default:
             return failure('incompatible-record-version', 'This progress record uses an unsupported version. Your current work is unchanged.');
