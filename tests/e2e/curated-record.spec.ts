@@ -48,10 +48,10 @@ test('opens a synchronized local Young lecture book without treating reading as 
         'href',
         'https://wellcomecollection.org/works/u5dr8rgg'
     );
-    await expect(reader.getByRole('status')).toHaveText('Book spread 1 of 50.');
+    await expect(reader.getByRole('status')).toHaveText('Book spread 1 of 19.');
     await expect(reader.locator('.contextual-text-section')).toHaveCount(2);
     await expect(reader.locator('.contextual-text-section').first()).toHaveAttribute('data-source-section-id', 'young-bakerian-page-12');
-    await expect(reader.locator('.contextual-source-pages')).toHaveText(['Source page 12.', 'Source page 12.']);
+    await expect(reader.locator('.contextual-source-pages')).toHaveText(['Source page 12.', 'Source page 13.']);
     await expect(record.getByText('Inspection recorded')).toHaveCount(0);
 
     const canvas = page.locator('#game-container canvas');
@@ -63,13 +63,13 @@ test('opens a synchronized local Young lecture book without treating reading as 
     await expect(page.getByLabel('Slit spacing (mm)')).toHaveValue('0.25');
 
     await page.mouse.click(
-        canvasBounds.x + (724 / 1024) * canvasBounds.width,
-        canvasBounds.y + (682 / 768) * canvasBounds.height
+        canvasBounds.x + (836 / 1024) * canvasBounds.width,
+        canvasBounds.y + (678 / 768) * canvasBounds.height
     );
-    await expect(reader.getByRole('status')).toHaveText('Book spread 2 of 50.');
+    await expect(reader.getByRole('status')).toHaveText('Book spread 2 of 19.');
     await expect(reader.getByRole('button', { name: 'Previous page' })).toBeEnabled();
     await reader.getByRole('button', { name: 'Next page' }).click();
-    await expect(reader.getByRole('status')).toHaveText('Book spread 3 of 50.');
+    await expect(reader.getByRole('status')).toHaveText('Book spread 3 of 19.');
 
     await reader.getByRole('button', { name: 'Close book' }).click();
     await expect(readerTrigger).toBeFocused();
@@ -81,7 +81,7 @@ test('opens a synchronized local Young lecture book without treating reading as 
     if (!reopenedCanvasBounds) throw new Error('The laboratory surface did not render.');
     await page.mouse.click(
         reopenedCanvasBounds.x + (512 / 1024) * reopenedCanvasBounds.width,
-        reopenedCanvasBounds.y + (682 / 768) * reopenedCanvasBounds.height
+        reopenedCanvasBounds.y + (678 / 768) * reopenedCanvasBounds.height
     );
     await expect(context.getByRole('article', { name: 'Read the lecture record' })).toHaveCount(0);
     await expect(readerTrigger).toBeFocused();
@@ -93,9 +93,9 @@ test('opens, pages, and closes the local book without decorative motion when red
 
     await page.getByRole('button', { name: 'Read the lecture record' }).click();
     const reader = page.getByRole('article', { name: 'Read the lecture record' });
-    await expect(reader.getByRole('status')).toHaveText('Book spread 1 of 50.');
+    await expect(reader.getByRole('status')).toHaveText('Book spread 1 of 19.');
     await reader.getByRole('button', { name: 'Next page' }).click();
-    await expect(reader.getByRole('status')).toHaveText('Book spread 2 of 50.');
+    await expect(reader.getByRole('status')).toHaveText('Book spread 2 of 19.');
     await reader.getByRole('button', { name: 'Close book' }).click();
     await expect(reader).toHaveCount(0);
 });

@@ -52,9 +52,9 @@ test('restores saved progress and decision history after an offline reload', asy
     await page.getByRole('region', { name: 'Curated Record' }).getByRole('button', { name: 'Read the lecture record' }).click();
     const reader = page.getByRole('region', { name: 'Young context and prediction' }).getByRole('article', { name: 'Read the lecture record' });
     await expect(reader.locator('.contextual-text-section')).toHaveCount(2);
-    await expect(reader.getByRole('status')).toHaveText('Book spread 1 of 50.');
+    await expect(reader.getByRole('status')).toHaveText('Book spread 1 of 19.');
     await reader.getByRole('button', { name: 'Next page' }).click();
-    await expect(reader.getByRole('status')).toHaveText('Book spread 2 of 50.');
+    await expect(reader.getByRole('status')).toHaveText('Book spread 2 of 19.');
 });
 
 test('loads the cached validation route after an online warm-up without progress controls', async ({ page, context }) => {

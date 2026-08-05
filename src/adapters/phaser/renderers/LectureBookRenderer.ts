@@ -28,6 +28,15 @@ export type LectureBookController = Readonly<{
 
 const PAPER = 0xf7f0dd;
 const INK = '#28343a';
+const PAPER_CENTER_Y = 428;
+const PAPER_WIDTH = 890;
+const PAPER_HEIGHT = 570;
+const PAGE_LEFT_X = [101, 550] as const;
+const PAGE_TEXT_WIDTH = 372;
+const BODY_TOP_Y = 222;
+const BODY_MAX_HEIGHT = 382;
+const MAX_BODY_FONT_SIZE = 13;
+const MIN_BODY_FONT_SIZE = 8;
 
 export class LectureBookRenderer {
     private overlay?: Phaser.GameObjects.Container;
@@ -96,18 +105,15 @@ export class LectureBookRenderer {
     private createOverlay(): void {
         const width = this.scene.scale.width;
         const height = this.scene.scale.height;
-        this.blocker = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x07161a, 0.88)
-            .setInteractive({ useHandCursor: false });
-        // The blocker is deliberately interactive even where the book has no visible paper.
-        this.blocker.on('pointerdown', (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event?: Phaser.Types.Input.EventData) => {
-            event?.stopPropagation();
-        });
-        const paper = this.scene.add.rectangle(width / 2, height / 2, 850, 610, PAPER).setStrokeStyle(5, 0xc1a973);
-        const spine = this.scene.add.rectangle(width / 2, height / 2, 8, 576, 0xb79a65);
-        this.title = this.scene.add.text(width / 2, 116, '', {
+        // The dimmer is passive: apparatus input is gated through onOverlayVisibilityChange,
+        // leaving the visible book controls as the only interactive Phaser objects.
+        this.blocker = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x07161a, 0.88);
+        const paper = this.scene.add.rectangle(width / 2, PAPER_CENTER_Y, PAPER_WIDTH, PAPER_HEIGHT, PAPER).setStrokeStyle(5, 0xc1a973);
+        const spine = this.scene.add.rectangle(width / 2, PAPER_CENTER_Y, 8, PAPER_HEIGHT - 34, 0xb79a65);
+        this.title = this.scene.add.text(width / 2, 55, '', {
             color: INK, fontFamily: 'Georgia, serif', fontSize: '21px', fontStyle: 'bold', resolution: this.resolution
         }).setOrigin(0.5);
-        this.source = this.scene.add.text(width / 2, 143, '', {
+        this.source = this.scene.add.text(width / 2, 85, '', {
             color: '#53626a', fontFamily: 'system-ui', fontSize: '13px', resolution: this.resolution
         }).setOrigin(0.5);
         this.pages = this.scene.add.container(0, 0);
@@ -125,28 +131,38 @@ export class LectureBookRenderer {
         presentation.pages.forEach((page, pageIndex) => {
             if (page) this.drawPage(page, pageIndex);
         });
-        this.drawControl(183, 682, '‹ Previous', presentation.canGoPrevious, presentation.onPrevious);
-        this.drawControl(512, 682, 'Close book', true, presentation.onClose);
-        this.drawControl(724, 682, 'Next ›', presentation.canGoNext, presentation.onNext);
+        this.drawControl(188, 678, '‹ Previous', presentation.canGoPrevious, presentation.onPrevious);
+        this.drawControl(512, 678, 'Close book', true, presentation.onClose);
+        this.drawControl(836, 678, 'Next ›', presentation.canGoNext, presentation.onNext);
     }
 
     private drawPage(page: LectureBookPagePresentation, pageIndex: number): void {
-        const left = pageIndex === 0 ? 118 : 525;
-        const heading = this.scene.add.text(left, 178, page.heading, {
+        const left = PAGE_LEFT_X[pageIndex];
+        const heading = this.scene.add.text(left, 166, page.heading, {
             color: INK, fontFamily: 'Georgia, serif', fontSize: '18px', fontStyle: 'bold', resolution: this.resolution,
-            wordWrap: { width: 354 }
+            wordWrap: { width: PAGE_TEXT_WIDTH }
         });
-        const reference = this.scene.add.text(left, 207, `Source page${page.sourcePages.length === 1 ? '' : 's'} ${page.sourcePages.join(', ')}.`, {
+        const reference = this.scene.add.text(left, 195, `Source page${page.sourcePages.length === 1 ? '' : 's'} ${page.sourcePages.join(', ')}.`, {
             color: '#53626a', fontFamily: 'system-ui', fontSize: '12px', fontStyle: 'bold', resolution: this.resolution
         });
-        const text = this.scene.add.text(left, 234, page.paragraphs.join('\n\n'), {
-            color: INK, fontFamily: 'Georgia, serif', fontSize: '13px', lineSpacing: 3, resolution: this.resolution,
-            wordWrap: { width: 354 }
+        const text = this.scene.add.text(left, BODY_TOP_Y, page.paragraphs.join('\n\n'), {
+            color: INK, fontFamily: 'Georgia, serif', fontSize: `${MAX_BODY_FONT_SIZE}px`, resolution: this.resolution,
+            wordWrap: { width: PAGE_TEXT_WIDTH }
         });
-        const pageNumber = this.scene.add.text(left + 170, 642, pageIndex === 0 ? '—' : '—', {
+        this.fitBodyText(text);
+        const pageNumber = this.scene.add.text(left + (PAGE_TEXT_WIDTH / 2), 635, `Printed page ${page.sourcePages.join(', ')}.`, {
             color: '#53626a', fontFamily: 'Georgia, serif', fontSize: '14px', resolution: this.resolution
         }).setOrigin(0.5);
         this.pages?.add([heading, reference, text, pageNumber]);
+    }
+
+    /** Calculates a bounded fitting size only when the authored leaf is redrawn. */
+    private fitBodyText(text: Phaser.GameObjects.Text): void {
+        for (let fontSize = MAX_BODY_FONT_SIZE; fontSize >= MIN_BODY_FONT_SIZE; fontSize -= 1) {
+            text.setFontSize(fontSize);
+            text.setLineSpacing(Math.max(1, Math.round(fontSize * 0.2)));
+            if (text.height <= BODY_MAX_HEIGHT) return;
+        }
     }
 
     private drawControl(x: number, y: number, label: string, enabled: boolean, callback: () => void): void {

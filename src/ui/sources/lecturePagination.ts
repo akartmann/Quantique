@@ -1,8 +1,5 @@
 import type { LocalizedTextualRendition } from '../../domain/cases/CaseDefinition';
 
-/** Kept deliberately small enough for the generated book and semantic reading spread. */
-export const LECTURE_PAGE_WORD_LIMIT = 140;
-
 export type LecturePage = Readonly<{
     id: string;
     sourceSectionId: string;
@@ -24,50 +21,18 @@ export type LecturePagination = Readonly<{
     spreadCount: number;
 }>;
 
-const words = (text: string): readonly string[] => text.trim().split(/\s+/).filter(Boolean);
-
 /**
  * Produces stable leaves without inspecting the DOM or mutating the immutable case rendition.
- * Joining each page's paragraph words recreates the authored text in its original order.
+ * A source section is an authored printed page, so it must remain a single book leaf.
  */
-export const paginateLectureRendition = (
-    rendition: LocalizedTextualRendition,
-    wordLimit = LECTURE_PAGE_WORD_LIMIT
-): LecturePagination => {
-    if (!Number.isInteger(wordLimit) || wordLimit < 1) throw new RangeError('Lecture word limit must be a positive integer.');
-
-    const pages: LecturePage[] = [];
-    rendition.sections.forEach((section) => {
-        let leafNumber = 1;
-        let leafWords: string[] = [];
-        let paragraphs: string[] = [];
-        const appendLeaf = (): void => {
-            if (leafWords.length === 0) return;
-            pages.push({
-                id: `${section.id}-leaf-${leafNumber}`,
-                sourceSectionId: section.id,
-                heading: leafNumber === 1 ? section.heading : `${section.heading} (continued)`,
-                paragraphs,
-                sourcePages: section.sourcePages
-            });
-            leafNumber += 1;
-            leafWords = [];
-            paragraphs = [];
-        };
-
-        section.paragraphs.forEach((paragraph) => {
-            const paragraphWords = words(paragraph);
-            for (let start = 0; start < paragraphWords.length;) {
-                const room = wordLimit - leafWords.length;
-                const part = paragraphWords.slice(start, start + room);
-                paragraphs.push(part.join(' '));
-                leafWords.push(...part);
-                start += part.length;
-                if (leafWords.length === wordLimit) appendLeaf();
-            }
-        });
-        appendLeaf();
-    });
+export const paginateLectureRendition = (rendition: LocalizedTextualRendition): LecturePagination => {
+    const pages = rendition.sections.map((section) => ({
+        id: section.id,
+        sourceSectionId: section.id,
+        heading: section.heading,
+        paragraphs: section.paragraphs,
+        sourcePages: section.sourcePages
+    }));
 
     return { pages, spreadCount: Math.ceil(pages.length / 2) };
 };
