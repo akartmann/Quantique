@@ -104,6 +104,19 @@ describe('portable case records', () => {
         expect(parseAndMigrateCaseRecord(JSON.stringify({ ...validRecord, schemaVersion: -1 }))).toMatchObject({ ok: false, error: { code: 'invalid-import' } });
         const migratedRecognition = parseAndMigrateCaseRecord(JSON.stringify({ ...validRecord, recognition: {} }));
         expect(migratedRecognition).toMatchObject({ ok: true, value: { recognition: { version: 0, items: [] } } });
+
+        const legacyProgress = parseAndMigrateCaseRecord(JSON.stringify({
+            ...legacyRecord,
+            schemaVersion: 1,
+            phase: 'experiment',
+            inspectedSourceIds: ['source-1', 'source-2'],
+            recognition: { version: 0, items: [] }
+        }));
+        expect(legacyProgress).toMatchObject({ ok: true, value: { phase: 'prediction', prediction: '' } });
+        if (legacyProgress.ok) {
+            const migrated = CaseRecordSchema.parse(legacyProgress.value);
+            expect(validateCaseRecordForDefinition(migrated, definition)).toEqual({ ok: true, value: migrated });
+        }
     });
 
     it('creates a frozen restored state only from a definition-compatible record', () => {

@@ -21,7 +21,7 @@ test('exports only portable progress and recovers from invalid or incompatible i
     const downloadPromise = page.waitForEvent('download');
     await progress.getByRole('button', { name: 'Export progress' }).click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toBe('young-interference-progress-v1.json');
+    expect(download.suggestedFilename()).toBe('young-interference-progress-v2.json');
     const downloadPath = await download.path();
     if (!downloadPath) throw new Error('The exported record should be available to the test runner.');
     const exported = JSON.parse(await readFile(downloadPath, 'utf8')) as Record<string, unknown>;
@@ -29,12 +29,13 @@ test('exports only portable progress and recovers from invalid or incompatible i
     expect(exported).not.toHaveProperty('caseDefinition');
     expect(exported).toMatchObject({ recognition: { version: 1 } });
     expect((exported.recognition as { items: readonly { id: string; achieved: boolean }[] }).items)
-        .toContainEqual(expect.objectContaining({ id: 'source-discipline', achieved: false }));
+        .toContainEqual(expect.objectContaining({ id: 'source-discipline', achieved: true }));
 
     const input = progress.getByLabel('Import a progress record');
     const importedRecognition = {
         ...exported,
         inspectedSourceIds: ['young-lecture-1801', 'newton-opticks'],
+        prediction: 'An imported prediction.',
         recognition: {
             ...(exported.recognition as { version: number; items: readonly Record<string, unknown>[] }),
             items: (exported.recognition as { items: readonly Record<string, unknown>[] }).items.map((item) =>
@@ -45,7 +46,7 @@ test('exports only portable progress and recovers from invalid or incompatible i
     const recognitionUpdates = inquiryRecognition.getByRole('status', { name: 'Inquiry recognition updates' });
     await input.setInputFiles({ name: 'valid-progress.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(importedRecognition)) });
     await expect(progress.getByRole('status', { name: 'Progress status' })).toHaveText('Progress imported and saved on this device.');
-    await expect(context.getByLabel('Tentative prediction')).toHaveValue('A stable pattern may appear.');
+    await expect(context.getByLabel('Tentative prediction')).toHaveValue('An imported prediction.');
     await expect(page.getByText('Inspection recorded').first()).toBeVisible();
     await expect(inquiryRecognition).toContainText('Source discipline recorded');
     await expect(recognitionUpdates).toHaveText('');

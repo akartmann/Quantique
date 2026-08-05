@@ -25,6 +25,10 @@ describe('context and prediction gates', () => {
         const blockedContext = reduceAppState(state, { type: 'case.phaseAdvance', nextPhase: 'prediction' });
         expect(blockedContext).toMatchObject({ ok: false, error: { code: 'missing-contextual-sources' } });
         expect(state).toBe(beforeGate);
+        expect(reduceAppState(state, { type: 'prediction.recorded', prediction: 'A premature prediction.' })).toMatchObject({
+            ok: false, error: { code: 'missing-contextual-sources' }
+        });
+        expect(state).toBe(beforeGate);
 
         for (const sourceId of ['young-lecture-1801', 'newton-opticks']) {
             const inspected = reduceAppState(state, { type: 'source.inspected', sourceId });
@@ -34,6 +38,9 @@ describe('context and prediction gates', () => {
         const predictionPhase = reduceAppState(state, { type: 'case.phaseAdvance', nextPhase: 'prediction' });
         if (!predictionPhase.ok) throw new Error('Inspected context must unlock prediction.');
         state = predictionPhase.value;
+        expect(reduceAppState(state, { type: 'prediction.recorded', prediction: '   ' })).toMatchObject({
+            ok: false, error: { code: 'invalid-prediction' }
+        });
         const missingPrediction = reduceAppState(state, { type: 'case.phaseAdvance', nextPhase: 'experiment' });
         expect(missingPrediction).toMatchObject({ ok: false, error: { code: 'missing-prediction' } });
 
@@ -55,7 +62,7 @@ describe('context and prediction gates', () => {
             ok: false, error: { code: 'missing-contextual-sources' }
         });
         expect(store.dispatch({ type: 'prediction.recorded', prediction: '   ' })).toMatchObject({
-            ok: false, error: { code: 'invalid-prediction' }
+            ok: false, error: { code: 'missing-contextual-sources' }
         });
         expect(notifications).toBe(0);
 

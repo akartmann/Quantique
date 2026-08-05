@@ -4,7 +4,7 @@ baseline_commit: c66607605eeccb29cf2e799a9576ec7e10542573
 
 # Story 2.1: Young contextual record and prediction
 
-Status: review
+Status: done
 
 ## Story
 
@@ -45,6 +45,13 @@ so that my later conclusion begins with a testable expectation.
   - [x] Add unit coverage for prediction validation, each gate failure, successful progression, deep immutability, and record schema/migration/hydration.
   - [x] Add integration coverage for source inspection → prediction → phase transition, failed attempts preserving source/prediction work, and public selector/action behavior.
   - [x] Add Playwright coverage for the semantic context/prediction flow, named missing-context feedback, keyboard focus/live status, and prediction persistence across reload/export/import. Include the new semantic panel in the relevant axe check; manual release acceptance still covers keyboard-only and screen-reader behavior.
+
+### Review Findings
+
+- [x] [Review][Patch] Migrate legacy progressed records back to prediction while retaining saved work [src/schemas/migrations/migrateCaseRecord.ts:18]
+- [x] [Review][Patch] Block recording a prediction until required contextual artifacts are inspected [src/core/store/AppState.ts:229]
+- [x] [Review][Patch] Synchronize the prediction draft after a successful progress import [src/ui/context/CaseContextAndPrediction.ts:39]
+- [x] [Review][Patch] Expect the schema-v2 export filename in progress-portability E2E coverage [tests/e2e/progress-portability.spec.ts:24]
 
 ## Dev Notes
 
@@ -177,3 +184,4 @@ GPT-5.6 Codex
 ## Change Log
 
 - 2026-08-05: Implemented authoritative Young context/prediction gating, semantic interaction, schema-v2 progress portability, and cross-browser accessibility coverage; moved story to review.
+- 2026-08-05: Code review completed; repaired legacy-progress migration, context-gated prediction recording, imported prediction hydration, and portability coverage.

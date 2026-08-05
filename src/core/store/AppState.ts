@@ -227,6 +227,10 @@ const reduceSourceInspection = (state: AppState, sourceId: string): Result<AppSt
 };
 
 const reducePredictionRecord = (state: AppState, prediction: string): Result<AppState> => {
+    const readiness = evaluateContextReadiness(state.caseDefinition, state.inspectedSourceIds);
+    if (readiness.status === 'incomplete') {
+        return failure('missing-contextual-sources', `Inspect ${readiness.missingArtifactLabels[0]} before recording a prediction.`);
+    }
     const normalized = prediction.trim();
     if (!normalized) return failure('invalid-prediction', 'Enter a tentative prediction before recording it.');
     return {

@@ -19,6 +19,7 @@ const phaseCopy = (phase: string): string => {
 export const mountCaseContextAndPrediction = (root: HTMLElement, store: AppStore): (() => void) => {
     let statusMessage = '';
     let draftPrediction = '';
+    let lastSavedPrediction = '';
     let requestedFocusKey: string | undefined;
 
     const activeFocusKey = (): string | undefined => {
@@ -36,7 +37,10 @@ export const mountCaseContextAndPrediction = (root: HTMLElement, store: AppStore
         const readiness = selectContextualReadiness(state);
         const missingLabels = selectMissingContextArtifactLabels(state);
         const savedPrediction = selectSavedPrediction(state);
-        if (!draftPrediction && savedPrediction) draftPrediction = savedPrediction;
+        if (savedPrediction !== lastSavedPrediction) {
+            draftPrediction = savedPrediction;
+            lastSavedPrediction = savedPrediction;
+        }
 
         const panel = document.createElement('section');
         panel.className = 'case-context-prediction';

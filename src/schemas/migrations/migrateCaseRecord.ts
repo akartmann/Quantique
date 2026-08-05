@@ -15,10 +15,17 @@ const migrateLegacyRecognition = (input: Record<string, unknown>): Record<string
         ? { ...input, recognition: legacyRecognition() }
         : input;
 
+const requiresPrediction = (phase: unknown): boolean => ['experiment', 'synthesis', 'review', 'debrief'].includes(phase as string);
+const hasCompleteLegacyContext = (sourceIds: unknown): boolean =>
+    Array.isArray(sourceIds) && new Set(sourceIds).size >= 2;
+
 const migrateV1Prediction = (input: Record<string, unknown>): Record<string, unknown> => ({
     ...migrateLegacyRecognition(input),
     schemaVersion: 2,
-    prediction: ''
+    prediction: '',
+    phase: requiresPrediction(input.phase)
+        ? hasCompleteLegacyContext(input.inspectedSourceIds) ? 'prediction' : 'context'
+        : input.phase
 });
 
 /** Migrates only explicitly supported portable record versions. */
