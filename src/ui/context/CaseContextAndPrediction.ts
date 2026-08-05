@@ -123,7 +123,7 @@ export const mountCaseContextAndPrediction = (
         archive.href = source.textualRendition!.citation.archiveUrl;
         archive.target = '_blank';
         archive.rel = 'noopener noreferrer';
-        archive.textContent = 'View the Wellcome Collection facsimile (opens in a new tab).';
+        archive.textContent = 'View the cited archive facsimile (opens in a new tab).';
         citation.append(archive);
         const controls = document.createElement('div');
         controls.className = 'lecture-reader-controls';

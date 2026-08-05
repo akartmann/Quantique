@@ -44,7 +44,7 @@ test('opens a synchronized local Young lecture book without treating reading as 
     await expect(reader).toBeFocused();
     await expect(reader).toContainText('Royal Society Bakerian Lecture');
     await expect(reader).toContainText('Reading this local rendition does not record the source as inspected evidence.');
-    await expect(reader.getByRole('link', { name: 'View the Wellcome Collection facsimile (opens in a new tab).' })).toHaveAttribute(
+    await expect(reader.getByRole('link', { name: 'View the cited archive facsimile (opens in a new tab).' })).toHaveAttribute(
         'href',
         'https://wellcomecollection.org/works/u5dr8rgg'
     );
@@ -101,6 +101,55 @@ test('opens a synchronized local Young lecture book without treating reading as 
     );
     await expect(context.getByRole('article', { name: 'Read the lecture record' })).toHaveCount(0);
     await expect(readerTrigger).toBeFocused();
+});
+
+test('opens the local Opticks archive book without recording source inspection', async ({ page }) => {
+    await page.goto('/');
+
+    const record = page.getByRole('region', { name: 'Curated Record' });
+    const readerTrigger = record.getByRole('button', { name: 'Read the Opticks reference' });
+    await readerTrigger.click();
+
+    const context = page.getByRole('region', { name: 'Young context and prediction' });
+    const reader = context.getByRole('article', { name: 'Read the Opticks reference' });
+    await expect(reader).toContainText('Isaac Newton, published work');
+    await expect(reader).toContainText('fourth edition, 1730');
+    await expect(reader).toContainText('printed pages 371–376 (Queries 29–31)');
+    await expect(reader.getByRole('link', { name: 'View the cited archive facsimile (opens in a new tab).' })).toHaveAttribute(
+        'href',
+        'https://archive.org/details/opticksortreatis1730newt'
+    );
+    await expect(reader.getByRole('status')).toHaveText('Book spread 1 of 3.');
+    await expect(reader.locator('.contextual-text-section')).toHaveCount(2);
+    await expect(reader.locator('.contextual-text-section').first()).toHaveAttribute('data-source-section-id', 'newton-opticks-page-371');
+    await expect(reader.locator('.contextual-source-pages')).toHaveText(['Source page 371.', 'Source page 372.']);
+    await expect(record.getByText('Inspection recorded')).toHaveCount(0);
+
+    await page.waitForTimeout(300);
+    await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight / 2 }));
+    await page.waitForFunction(() => window.scrollY > 0);
+    const canvas = page.locator('#game-container canvas');
+    const canvasBounds = await canvas.boundingBox();
+    if (!canvasBounds) throw new Error('The sticky laboratory surface did not remain visible after scrolling.');
+    await page.mouse.click(
+        canvasBounds.x + (836 / 1024) * canvasBounds.width,
+        canvasBounds.y + (678 / 768) * canvasBounds.height
+    );
+    await expect(reader.getByRole('status')).toHaveText('Book spread 2 of 3.');
+    await reader.getByRole('button', { name: 'Next page' }).click();
+    await expect(reader.getByRole('status')).toHaveText('Book spread 3 of 3.');
+    await expect(reader.getByRole('button', { name: 'Next page' })).toBeDisabled();
+    await reader.getByRole('button', { name: 'Previous page' }).click();
+    await expect(reader.getByRole('status')).toHaveText('Book spread 2 of 3.');
+
+    await page.waitForTimeout(200);
+    await page.mouse.click(
+        canvasBounds.x + (512 / 1024) * canvasBounds.width,
+        canvasBounds.y + (678 / 768) * canvasBounds.height
+    );
+    await expect(context.getByRole('article', { name: 'Read the Opticks reference' })).toHaveCount(0);
+    await expect(readerTrigger).toBeFocused();
+    await expect(record.getByText('Inspection recorded')).toHaveCount(0);
 });
 
 test('opens, pages, and closes the local book without decorative motion when reduced motion is preferred', async ({ page }) => {

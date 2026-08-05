@@ -37,6 +37,8 @@ _This file contains critical rules and patterns that AI agents must follow when 
 - Phaser scenes only mirror case phase: `context → prediction → experiment → synthesis → review → debrief`. Scenes must not define or infer progression.
 - Domain code must never import Phaser classes. Phaser objects are created, updated, and destroyed only by renderer factories under `src/adapters/phaser/`.
 - Use Phaser scene lifecycle for assets/rendering; clean up scene subscriptions and display objects on shutdown.
+- For an archival record, render a local immutable `textualRendition` through the semantic reader and Phaser book from the same pure source-page pagination. A book leaf represents one authored printed page; fit its body type once when redrawn rather than splitting its source page. Reading, paging, and closing remain ephemeral and never inspect evidence or alter progression.
+- The Phaser archival book uses one direct Scene `Zone` as its visual input surface; keep semantic controls equivalent. When the canvas is sticky, refresh `this.scale.updateBounds()` from a passive `window` scroll listener registered and removed by the scene lifecycle, because Phaser caches bounds in document coordinates. Browser tests must scroll before exercising Phaser page and close controls.
 - Do not use Arcade or Matter physics for scientific results. Experiments use deterministic, versioned domain calculations.
 
 ### Performance Rules

@@ -216,6 +216,19 @@ describe('loadCaseDefinition', () => {
             expect(rendition?.renditions[0].sections.find(({ id }) => id === 'young-bakerian-page-39')?.paragraphs[1]).toContain(
                 'Extreme red — .0000266 — 37640 — 463'
             );
+            const opticksRendition = result.value.contextualArtifacts[1].textualRendition;
+            expect(opticksRendition).toMatchObject({
+                readerLabel: 'Read the Opticks reference',
+                citation: { archiveUrl: 'https://archive.org/details/opticksortreatis1730newt' }
+            });
+            expect(opticksRendition?.renditions[0].sections.map(({ id }) => id)).toEqual(
+                Array.from({ length: 6 }, (_, index) => `newton-opticks-page-${index + 371}`)
+            );
+            expect(opticksRendition?.renditions[0].sections.map(({ heading, sourcePages }) => ({ heading, sourcePages }))).toEqual(
+                Array.from({ length: 6 }, (_, index) => ({ heading: `Printed page ${index + 371}`, sourcePages: [index + 371] }))
+            );
+            expect(opticksRendition?.renditions[0].sections[0].paragraphs[0].startsWith('Light at a distance in refracting')).toBe(true);
+            expect(opticksRendition?.renditions[0].sections[5].paragraphs[0].endsWith('or Vitriol,')).toBe(true);
         }
         expect(JSON.parse(manifestContent)).toEqual(validYoungCase.assets);
         expect(fetchCase).toHaveBeenNthCalledWith(1, '/cases/young-interference/case.json');

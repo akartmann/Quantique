@@ -1,6 +1,6 @@
 {
   "id": "young-interference",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "openingDispute": "Does light travel as particles, waves, or something more subtle?",
   "contextualArtifacts": [
     {
@@ -412,10 +412,73 @@
       "sourceType": "published-book",
       "provenance": {
         "category": "primary-material",
-        "reference": "newton-opticks-1704"
+        "reference": "newton-opticks-1730"
       },
       "rightsStatus": "reviewed",
-      "caseRelationship": "Earlier source that frames the corpuscular account considered by Young."
+      "caseRelationship": "Earlier source that frames the corpuscular account considered by Young.",
+      "textualRendition": {
+        "readerLabel": "Read the Opticks reference",
+        "citation": {
+          "reuseStatement": "This locally rendered English text transcribes printed pages 371–376 (Queries 29–31) from the reviewed Project Gutenberg transcription of the public-domain fourth edition, 1730.",
+          "citationText": "Newton, Isaac. Opticks: Or, a Treatise of the Reflexions, Refractions, Inflexions and Colours of Light. 4th ed., 1730, printed pages 371–376 (Queries 29–31). Public domain. Source: Project Gutenberg, eBook 33504.",
+          "archiveUrl": "https://archive.org/details/opticksortreatis1730newt"
+        },
+        "renditions": [
+          {
+            "locale": "en",
+            "sections": [
+              {
+                "id": "newton-opticks-page-371",
+                "heading": "Printed page 371",
+                "paragraphs": [
+                  "Light at a distance in refracting, reflecting, and inflecting them, and the Rays mutually agitate the Parts of those Substances at a distance for heating them; and this Action and Re-action at a distance very much resembles an attractive Force between Bodies. If Refraction be perform'd by Attraction of the Rays, the Sines of Incidence must be to the Sines of Refraction in a given Proportion, as we shew'd in our Principles of Philosophy: And this Rule is true by Experience. The Rays of Light in going out of Glass into a Vacuum, are bent towards the Glass; and if they fall too obliquely on the Vacuum, they are bent backwards into the Glass, and totally reflected; and this Reflexion cannot be ascribed to the Resistance of an absolute Vacuum, but must be caused by the Power of the Glass attracting the Rays at their going out of it into the Vacuum, and bringing them back. For if the farther Surface of the Glass be moisten'd with Water or clear Oil, or liquid and clear Honey, the Rays which would otherwise be reflected will go into the Water, Oil, or Honey; and therefore are not reflected before they arrive at the farther Surface of the Glass, and begin to go out of it. If they go out of it into the Water, Oil, or Honey, they go on, because the Attraction of the Glass is almost balanced and rendered ineffectual by the contrary Attraction of the Liquor. But if they go out of it into a Vacuum which has no Attraction to balance that of the Glass, the Attraction of the Glass either bends and refracts them, or brings them back and reflects them. And this is still more evident by laying together"
+                ],
+                "sourcePages": [371]
+              },
+              {
+                "id": "newton-opticks-page-372",
+                "heading": "Printed page 372",
+                "paragraphs": [
+                  "two Prisms of Glass, or two Object-glasses of very long Telescopes, the one plane, the other a little convex, and so compressing them that they do not fully touch, nor are too far asunder. For the Light which falls upon the farther Surface of the first Glass where the Interval between the Glasses is not above the ten hundred thousandth Part of an Inch, will go through that Surface, and through the Air or Vacuum between the Glasses, and enter into the second Glass, as was explain'd in the first, fourth, and eighth Observations of the first Part of the second Book. But, if the second Glass be taken away, the Light which goes out of the second Surface of the first Glass into the Air or Vacuum, will not go on forwards, but turns back into the first Glass, and is reflected; and therefore it is drawn back by the Power of the first Glass, there being nothing else to turn it back. Nothing more is requisite for producing all the variety of Colours, and degrees of Refrangibility, than that the Rays of Light be Bodies of different Sizes, the least of which may take violet the weakest and darkest of the Colours, and be more easily diverted by refracting Surfaces from the right Course; and the rest as they are bigger and bigger, may make the stronger and more lucid Colours, blue, green, yellow, and red, and be more and more difficultly diverted. Nothing more is requisite for putting the Rays of Light into Fits of easy Reflexion and easy Transmission, than that they be small Bodies which by their attractive Powers, or some other Force, stir up Vibrations in what they act upon, which Vibrations"
+                ],
+                "sourcePages": [372]
+              },
+              {
+                "id": "newton-opticks-page-373",
+                "heading": "Printed page 373",
+                "paragraphs": [
+                  "being swifter than the Rays, overtake them successively, and agitate them so as by turns to increase and decrease their Velocities, and thereby put them into those Fits. And lastly, the unusual Refraction of Island-Crystal looks very much as if it were perform'd by some kind of attractive virtue lodged in certain Sides both of the Rays, and of the Particles of the Crystal. For were it not for some kind of Disposition or Virtue lodged in some Sides of the Particles of the Crystal, and not in their other Sides, and which inclines and bends the Rays towards the Coast of unusual Refraction, the Rays which fall perpendicularly on the Crystal, would not be refracted towards that Coast rather than towards any other Coast, both at their Incidence and at their Emergence, so as to emerge perpendicularly by a contrary Situation of the Coast of unusual Refraction at the second Surface; the Crystal acting upon the Rays after they have pass'd through it, and are emerging into the Air; or, if you please, into a Vacuum. And since the Crystal by this Disposition or Virtue does not act upon the Rays, unless when one of their Sides of unusual Refraction looks towards that Coast, this argues a Virtue or Disposition in those Sides of the Rays, which answers to, and sympathizes with that Virtue or Disposition of the Crystal, as the Poles of two Magnets answer to one another. And as Magnetism may be intended and remitted, and is found only in the Magnet and in Iron: So this Virtue of refracting the perpendicular Rays is greater in Island-Crystal, less in Crystal of"
+                ],
+                "sourcePages": [373]
+              },
+              {
+                "id": "newton-opticks-page-374",
+                "heading": "Printed page 374",
+                "paragraphs": [
+                  "the Rock, and is not yet found in other Bodies. I do not say that this Virtue is magnetical: It seems to be of another kind. I only say, that whatever it be, it's difficult to conceive how the Rays of Light, unless they be Bodies, can have a permanent Virtue in two of their Sides which is not in their other Sides, and this without any regard to their Position to the Space or Medium through which they pass. What I mean in this Question by a Vacuum, and by the Attractions of the Rays of Light towards Glass or Crystal, may be understood by what was said in the 18th, 19th, and 20th Questions. Quest. 30. Are not gross Bodies and Light convertible into one another, and may not Bodies receive much of their Activity from the Particles of Light which enter their Composition? For all fix'd Bodies being heated emit Light so long as they continue sufficiently hot, and Light mutually stops in Bodies as often as its Rays strike upon their Parts, as we shew'd above. I know no Body less apt to shine than Water; and yet Water by frequent Distillations changes into fix'd Earth, as Mr. Boyle has try'd; and then this Earth being enabled to endure a sufficient Heat, shines by Heat like other Bodies. The changing of Bodies into Light, and Light into Bodies, is very conformable to the Course of Nature, which seems delighted with Transmutations. Water, which is a very fluid tasteless Salt, she changes by Heat into Vapour, which is a sort of Air, and by Cold into Ice, which is a hard, pellucid, brittle, fusible Stone; and this Stone returns into Water by Heat,"
+                ],
+                "sourcePages": [374]
+              },
+              {
+                "id": "newton-opticks-page-375",
+                "heading": "Printed page 375",
+                "paragraphs": [
+                  "and Vapour returns into Water by Cold. Earth by Heat becomes Fire, and by Cold returns into Earth. Dense Bodies by Fermentation rarify into several sorts of Air, and this Air by Fermentation, and sometimes without it, returns into dense Bodies. Mercury appears sometimes in the form of a fluid Metal, sometimes in the form of a hard brittle Metal, sometimes in the form of a corrosive pellucid Salt call'd Sublimate, sometimes in the form of a tasteless, pellucid, volatile white Earth, call'd Mercurius Dulcis; or in that of a red opake volatile Earth, call'd Cinnaber; or in that of a red or white Precipitate, or in that of a fluid Salt; and in Distillation it turns into Vapour, and being agitated in Vacuo, it shines like Fire. And after all these Changes it returns again into its first form of Mercury. Eggs grow from insensible Magnitudes, and change into Animals; Tadpoles into Frogs; and Worms into Flies. All Birds, Beasts and Fishes, Insects, Trees, and other Vegetables, with their several Parts, grow out of Water and watry Tinctures and Salts, and by Putrefaction return again into watry Substances. And Water standing a few Days in the open Air, yields a Tincture, which (like that of Malt) by standing longer yields a Sediment and a Spirit, but before Putrefaction is fit Nourishment for Animals and Vegetables. And among such various and strange Transmutations, why may not Nature change Bodies into Light, and Light into Bodies? Quest. 31. Have not the small Particles of Bodies certain Powers, Virtues, or Forces, by which they"
+                ],
+                "sourcePages": [375]
+              },
+              {
+                "id": "newton-opticks-page-376",
+                "heading": "Printed page 376",
+                "paragraphs": [
+                  "act at a distance, not only upon the Rays of Light for reflecting, refracting, and inflecting them, but also upon one another for producing a great Part of the Phænomena of Nature? For it's well known, that Bodies act one upon another by the Attractions of Gravity, Magnetism, and Electricity; and these Instances shew the Tenor and Course of Nature, and make it not improbable but that there may be more attractive Powers than these. For Nature is very consonant and conformable to her self. How these Attractions may be perform'd, I do not here consider. What I call Attraction may be perform'd by impulse, or by some other means unknown to me. I use that Word here to signify only in general any Force by which Bodies tend towards one another, whatsoever be the Cause. For we must learn from the Phænomena of Nature what Bodies attract one another, and what are the Laws and Properties of the Attraction, before we enquire the Cause by which the Attraction is perform'd. The Attractions of Gravity, Magnetism, and Electricity, reach to very sensible distances, and so have been observed by vulgar Eyes, and there may be others which reach to so small distances as hitherto escape Observation; and perhaps electrical Attraction may reach to such small distances, even without being excited by Friction. For when Salt of Tartar runs per Deliquium, is not this done by an Attraction between the Particles of the Salt of Tartar, and the Particles of the Water which float in the Air in the form of Vapours? And why does not common Salt, or Salt-petre, or Vitriol,"
+                ],
+                "sourcePages": [376]
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "prediction": {
@@ -568,7 +631,7 @@
     "summary": "Compare the observed pattern with the available evidence before drawing a conclusion.",
     "sourceRefs": [
       "young-1801-lecture",
-      "newton-opticks-1704"
+      "newton-opticks-1730"
     ],
     "historicalComparison": {
       "title": "Young’s record and the earlier Opticks reference",
