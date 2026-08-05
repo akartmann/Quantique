@@ -6,6 +6,7 @@ export type AppStore = Readonly<{
     getState: () => AppState;
     dispatch: (action: AppAction) => Result<void>;
     subscribe: (listener: () => void) => () => void;
+    replaceWithValidatedState: (nextState: AppState) => Result<void>;
 }>;
 
 export const createStore = (initialState: AppState): AppStore => {
@@ -27,6 +28,14 @@ export const createStore = (initialState: AppState): AppStore => {
         subscribe: (listener) => {
             listeners.add(listener);
             return () => listeners.delete(listener);
+        },
+        replaceWithValidatedState: (nextState) => {
+            if (!Object.isFrozen(nextState)) {
+                return { ok: false, error: { code: 'invalid-restored-state', message: 'This progress record could not be used. Your current work is unchanged.' } };
+            }
+            state = nextState;
+            listeners.forEach((listener) => listener());
+            return { ok: true, value: undefined };
         }
     };
 };

@@ -101,7 +101,7 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .source-category-marker, .source-inspected-state { font-weight: 700; }
 .curated-record button { min-height: 44px; }
 
-.curated-record, .measurement-notebook, .run-comparison, .theory-board, .review-panel {
+.curated-record, .measurement-notebook, .run-comparison, .theory-board, .review-panel, .case-progress-panel, .case-record-print-view {
     background: #f7f4ef;
     border: 2px solid #f4d35e;
     border-radius: 0.5rem;
@@ -153,6 +153,16 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .decision-history-panel dl { display: grid; gap: 0.5rem; margin: 0; }
 .decision-history-panel dt { font-weight: 700; }
 .decision-history-panel dd { margin: 0; }
+.case-progress-panel { display: grid; gap: 1rem; }
+.case-progress-panel h2, .case-record-print-view h2, .case-record-print-view h3 { margin: 0; }
+.case-progress-panel button, .case-progress-panel input { min-height: 44px; }
+.case-progress-panel input:focus-visible, .case-progress-panel button:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
+.case-progress-status { min-height: 1.5rem; }
+.case-record-print-view { color: #10252c; }
+.case-record-print-view section { display: grid; gap: 0.5rem; }
+.case-record-print-view dl { display: grid; gap: 0.5rem; margin: 0; }
+.case-record-print-view dt { font-weight: 700; }
+.case-record-print-view dd { margin: 0; }
 
 #game-container { min-height: 20rem; }
 
@@ -166,4 +176,13 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}
+
+@media print {
+    body { background: #fff; color: #000; }
+    #boot-shell { display: block; min-height: 0; }
+    .boot-shell { display: block; max-width: none; padding: 0; }
+    .boot-shell > :not(#print-record), #game-container { display: none !important; }
+    .case-record-print-view { border: 0; color: #000; display: block; padding: 0; }
+    .case-record-print-view section { break-inside: avoid; margin: 0 0 1rem; }
 }

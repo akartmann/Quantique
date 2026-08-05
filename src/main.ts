@@ -1,6 +1,7 @@
 import { registerOfflineCache } from './adapters/OfflineCache';
 import { loadCaseDefinition } from './adapters/content/loadCaseDefinition';
-import { createInitialAppState } from './core/store/AppState';
+import { CaseRecordRepository } from './adapters/persistence/caseRecordRepository';
+import { createAppStateFromCaseRecord, createInitialAppState } from './core/store/AppState';
 import { createStore } from './core/store/createStore';
 import { createCalculatedRunRecord, type CalculateExperimentResult } from './domain/evidence/RunRecord';
 import StartGame from './game/main';
@@ -12,6 +13,8 @@ import { mountTheoryBoard } from './ui/theory/TheoryBoard';
 import { mountConsultationPanel } from './ui/review/ConsultationPanel';
 import { mountConclusionReviewPanel } from './ui/review/ConclusionReviewPanel';
 import { mountDecisionHistoryPanel } from './ui/review/DecisionHistoryPanel';
+import { mountCaseProgressPanel } from './ui/persistence/CaseProgressPanel';
+import { mountCaseRecordPrintView } from './ui/print/CaseRecordPrintView';
 
 const calculatePreparedObservation: CalculateExperimentResult = () => ({
     ok: true,
@@ -27,8 +30,10 @@ const initializeLaboratory = async (): Promise<void> => {
     const consultationRoot = document.querySelector<HTMLElement>('#consultation-panel');
     const conclusionReviewRoot = document.querySelector<HTMLElement>('#conclusion-review');
     const decisionHistoryRoot = document.querySelector<HTMLElement>('#decision-history');
+    const progressRoot = document.querySelector<HTMLElement>('#case-progress');
+    const printRoot = document.querySelector<HTMLElement>('#print-record');
 
-    if (!bootShell || !curatedRecordRoot || !controlsRoot || !notebookRoot || !theoryBoardRoot || !consultationRoot || !conclusionReviewRoot || !decisionHistoryRoot) {
+    if (!bootShell || !curatedRecordRoot || !controlsRoot || !notebookRoot || !theoryBoardRoot || !consultationRoot || !conclusionReviewRoot || !decisionHistoryRoot || !progressRoot || !printRoot) {
         return;
     }
 
@@ -41,7 +46,17 @@ const initializeLaboratory = async (): Promise<void> => {
         return;
     }
 
-    const store = createStore(createInitialAppState(caseResult.value));
+    const repository = new CaseRecordRepository();
+    const saved = await repository.load(caseResult.value.id);
+    const restored = saved.ok && saved.value
+        ? createAppStateFromCaseRecord(saved.value, caseResult.value)
+        : undefined;
+    const store = createStore(restored?.ok ? restored.value : createInitialAppState(caseResult.value));
+    if (saved.ok && saved.value && !restored?.ok) {
+        setBootShellStatus(bootShell, 'Saved progress could not be used. A fresh investigation is ready.');
+    } else if (!saved.ok) {
+        setBootShellStatus(bootShell, 'Saved progress is unavailable right now. The investigation is ready to continue.');
+    }
     mountCuratedRecord(curatedRecordRoot, store);
     mountApparatusControls(controlsRoot, store);
     mountNotebookPanel(notebookRoot, store, () => createCalculatedRunRecord({
@@ -57,6 +72,8 @@ const initializeLaboratory = async (): Promise<void> => {
     mountConsultationPanel(consultationRoot, store);
     mountConclusionReviewPanel(conclusionReviewRoot, store);
     mountDecisionHistoryPanel(decisionHistoryRoot, store);
+    mountCaseProgressPanel(progressRoot, store, repository);
+    mountCaseRecordPrintView(printRoot, store);
     StartGame('game-container', store);
 };
 

@@ -6,6 +6,9 @@ import type { PeerReviewProjection } from '../../domain/review/peerReviewRules';
 import type { DecisionHistoryEntry } from './AppState';
 import { evaluateConclusionReadiness, type ConclusionReadiness, type TheoryBoardDraft } from '../../domain/theory/conclusionReadiness';
 import type { CasePhase } from '../../domain/cases/CaseProgress';
+import { createCaseRecordProjection } from './CaseRecordProjection';
+import type { Result } from '../errors/Result';
+import type { CaseRecord } from '../../schemas/CaseRecordSchema';
 
 const decimalPlaces = (value: number): number => value.toString().split('.')[1]?.length ?? 0;
 
@@ -79,3 +82,5 @@ export const selectConsultation = (state: AppState): ConsultationProjection | un
 export const selectPeerReview = (state: AppState): PeerReviewProjection | undefined => state.peerReview;
 
 export const selectDecisionHistory = (state: AppState): readonly DecisionHistoryEntry[] => state.decisionHistory;
+
+export const selectPortableCaseRecord = (state: AppState): Result<CaseRecord> => createCaseRecordProjection(state);

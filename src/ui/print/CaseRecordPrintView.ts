@@ -1,0 +1,82 @@
+import type { AppStore } from '../../core/store/createStore';
+import { selectContextualArtifacts, selectDecisionHistory, selectNotebookObservations, selectTheoryBoardDraft } from '../../core/store/selectors';
+
+const term = (label: string, value: string): HTMLDivElement => {
+    const item = document.createElement('div');
+    const dt = document.createElement('dt');
+    const dd = document.createElement('dd');
+    dt.textContent = label;
+    dd.textContent = value;
+    item.append(dt, dd);
+    return item;
+};
+
+/** Semantic, selector-driven print record; it does not inspect the Phaser canvas. */
+export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): (() => void) => {
+    const render = (): void => {
+        const state = store.getState();
+        const record = document.createElement('article');
+        record.className = 'case-record-print-view';
+        record.setAttribute('aria-label', 'Printable investigation record');
+        const heading = document.createElement('h2'); heading.textContent = 'Investigation record';
+        const settings = document.createElement('section');
+        const settingsHeading = document.createElement('h3'); settingsHeading.textContent = 'Apparatus settings';
+        const settingsList = document.createElement('dl');
+        state.caseDefinition.apparatus.primaryControls.forEach((control) => settingsList.append(term(control.label, `${state.activeControlValues[control.id]} ${control.unit}`)));
+        settings.append(settingsHeading, settingsList);
+        const observations = document.createElement('section');
+        const observationsHeading = document.createElement('h3'); observationsHeading.textContent = 'Recorded observations';
+        const observationList = document.createElement('ol');
+        selectNotebookObservations(state).forEach((run, index) => {
+            const item = document.createElement('li');
+            item.textContent = `Observation ${index + 1}: ${run.result.label}: ${run.result.value} ${run.result.unit}. ${run.timestamp}. Model ${run.experimentModelVersion}.`;
+            observationList.append(item);
+        });
+        if (!observationList.children.length) observationList.append(Object.assign(document.createElement('li'), { textContent: 'No observations recorded.' }));
+        observations.append(observationsHeading, observationList);
+        const sources = document.createElement('section');
+        const sourceHeading = document.createElement('h3'); sourceHeading.textContent = 'Inspected sources';
+        const sourceList = document.createElement('ul');
+        selectContextualArtifacts(state).filter((source) => state.inspectedSourceIds.includes(source.id)).forEach((source) => {
+            const item = document.createElement('li');
+            item.textContent = `${source.displayName} — ${source.provenance.category.replace(/-/g, ' ')}; ${source.provenance.reference}.`;
+            sourceList.append(item);
+        });
+        if (!sourceList.children.length) sourceList.append(Object.assign(document.createElement('li'), { textContent: 'No sources inspected.' }));
+        sources.append(sourceHeading, sourceList);
+        const comparison = document.createElement('section');
+        const comparisonHeading = document.createElement('h3'); comparisonHeading.textContent = 'Comparison notes';
+        const comparisonList = document.createElement('ul');
+        state.comparison.notes.forEach((note) => {
+            const item = document.createElement('li');
+            item.textContent = `${note.runIds.map((id) => {
+                const index = state.runs.findIndex((run) => run.id === id);
+                return index === -1 ? 'Unavailable observation' : `Observation ${index + 1}`;
+            }).join(' and ')}: ${note.text}`;
+            comparisonList.append(item);
+        });
+        if (!comparisonList.children.length) comparisonList.append(Object.assign(document.createElement('li'), { textContent: 'No comparison notes saved.' }));
+        comparison.append(comparisonHeading, comparisonList);
+        const theory = selectTheoryBoardDraft(state);
+        const conclusion = document.createElement('section');
+        const conclusionHeading = document.createElement('h3'); conclusionHeading.textContent = 'Conclusion and limitation';
+        const conclusionList = document.createElement('dl');
+        conclusionList.append(term('Conclusion', theory.conclusion || 'No conclusion recorded.'), term('Stated limitation', theory.limitation || 'No limitation recorded.'));
+        conclusion.append(conclusionHeading, conclusionList);
+        const history = document.createElement('section');
+        const historyHeading = document.createElement('h3'); historyHeading.textContent = 'Decision history';
+        const historyList = document.createElement('ol');
+        selectDecisionHistory(state).forEach((entry) => {
+            const item = document.createElement('li');
+            item.textContent = `Version ${entry.version}, saved ${entry.timestamp}: ${entry.conclusion}`;
+            historyList.append(item);
+        });
+        if (!historyList.children.length) historyList.append(Object.assign(document.createElement('li'), { textContent: 'No reviewed revisions saved.' }));
+        history.append(historyHeading, historyList);
+        record.append(heading, settings, observations, sources, comparison, conclusion, history);
+        root.replaceChildren(record);
+    };
+    const unsubscribe = store.subscribe(render);
+    render();
+    return () => { unsubscribe(); root.replaceChildren(); };
+};

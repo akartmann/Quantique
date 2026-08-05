@@ -36,4 +36,11 @@ test('has no automated accessibility violations in the boot shell, Curated Recor
     const reviewSurfaceResults = await new AxeBuilder({ page }).include('.review-panel').analyze();
 
     expect(reviewSurfaceResults.violations).toEqual([]);
+
+    const portabilityResults = await new AxeBuilder({ page })
+        .include('.case-progress-panel')
+        .include('.case-record-print-view')
+        .analyze();
+
+    expect(portabilityResults.violations).toEqual([]);
 });

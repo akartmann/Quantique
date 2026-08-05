@@ -7,6 +7,7 @@ import { createRunRecord, type RunRecord } from '../../domain/evidence/RunRecord
 import { createTheoryBoardDraft, evaluateConclusionReadiness, type TheoryBoardDraft } from '../../domain/theory/conclusionReadiness';
 import { selectConsultation, type ConsultationProjection } from '../../domain/review/ConsultationRule';
 import { evaluatePeerReview, type PeerReviewProjection } from '../../domain/review/peerReviewRules';
+import { validateCaseRecordForDefinition, type CaseRecord } from '../../schemas/CaseRecordSchema';
 import type { AppAction } from './AppAction';
 
 export type ComparisonNote = Readonly<{
@@ -96,6 +97,33 @@ export const createInitialAppState = (caseDefinition: CaseDefinition): AppState 
     theory: createTheoryBoardDraft(),
     decisionHistory: []
 });
+
+/** Creates the sole authoritative state from a validated, definition-compatible portable record. */
+export const createAppStateFromCaseRecord = (record: CaseRecord, caseDefinition: CaseDefinition): Result<AppState> => {
+    const compatible = validateCaseRecordForDefinition(record, caseDefinition);
+    if (!compatible.ok) return compatible;
+
+    const runs: RunRecord[] = [];
+    for (const recordRun of record.runs) {
+        const snapshot = createRunRecord(recordRun, runs.map(({ id }) => id));
+        if (!snapshot.ok) return { ok: false, error: snapshot.error };
+        runs.push(snapshot.value);
+    }
+
+    return {
+        ok: true,
+        value: freezeState({
+            caseDefinition,
+            phase: record.phase,
+            activeControlValues: record.activeControlValues,
+            inspectedSourceIds: record.inspectedSourceIds,
+            runs,
+            comparison: record.comparison,
+            theory: record.theory,
+            decisionHistory: record.decisionHistory
+        })
+    };
+};
 
 const failure = (code: string, message: string): Result<never> => ({ ok: false, error: { code, message } });
 
