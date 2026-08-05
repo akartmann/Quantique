@@ -14,6 +14,8 @@ export type LectureBookPresentation = Readonly<{
     index: number;
     total: number;
     pages: readonly [LectureBookPagePresentation, LectureBookPagePresentation?];
+    /** Optional authored one-page overview surfaced via the on-book "Show summary" control. */
+    summary?: readonly string[];
     canGoPrevious: boolean;
     canGoNext: boolean;
     onPrevious: () => void;
@@ -40,6 +42,11 @@ const MIN_BODY_FONT_SIZE = 8;
 const CONTROL_Y = 678;
 const CONTROL_WIDTH = 150;
 const CONTROL_HEIGHT = 42;
+const SUMMARY_TOGGLE_X = 848;
+const SUMMARY_TOGGLE_Y = 55;
+const SUMMARY_TEXT_WIDTH = 760;
+const SUMMARY_MAX_HEIGHT = 420;
+const CENTER_X = 512;
 
 export class LectureBookRenderer {
     private overlay?: Phaser.GameObjects.Container;
@@ -50,6 +57,7 @@ export class LectureBookRenderer {
     private source?: Phaser.GameObjects.Text;
     private currentPresentation?: LectureBookPresentation;
     private isClosing = false;
+    private summaryOpen = false;
     private readonly resolution = Math.min(window.devicePixelRatio || 1, 2);
 
     public constructor(
@@ -66,6 +74,7 @@ export class LectureBookRenderer {
         const wasOpen = Boolean(this.overlay);
         const wasClosing = this.isClosing;
         const changedSpread = this.currentPresentation?.index !== presentation.index;
+        const changedSource = this.currentPresentation?.sourceLabel !== presentation.sourceLabel;
         this.currentPresentation = presentation;
         if (!this.overlay) this.createOverlay();
         const overlay = this.overlay;
@@ -75,7 +84,11 @@ export class LectureBookRenderer {
         this.scene.tweens.killTweensOf(overlay);
         this.isClosing = false;
         if (wasClosing) overlay.setAlpha(1).setScale(1);
-        this.drawSpread(presentation);
+        // A fresh book, a page turn, or a switch to another source returns to the spread;
+        // incidental same-source re-publishes keep the summary open.
+        if (!wasOpen || changedSpread || changedSource) this.summaryOpen = false;
+        if (this.summaryOpen && presentation.summary?.length) this.drawSummary(presentation);
+        else { this.summaryOpen = false; this.drawSpread(presentation); }
         if (!wasOpen) this.animateOpen();
         else if (changedSpread) this.animateTurn();
     }
@@ -149,6 +162,37 @@ export class LectureBookRenderer {
         this.drawControl(188, CONTROL_Y, '‹ Previous', presentation.canGoPrevious);
         this.drawControl(512, CONTROL_Y, 'Close book', true);
         this.drawControl(836, CONTROL_Y, 'Next ›', presentation.canGoNext);
+        if (presentation.summary?.length) this.drawControl(SUMMARY_TOGGLE_X, SUMMARY_TOGGLE_Y, 'Show summary', true);
+    }
+
+    private drawSummary(presentation: LectureBookPresentation): void {
+        if (!this.pages) return;
+        this.title?.setText(presentation.title);
+        this.source?.setText(`${presentation.sourceLabel} · summary`);
+        this.pages.removeAll(true);
+        // A clean single panel over the paper so the book's centre spine does not cross the summary text.
+        const panel = this.scene.add.rectangle(CENTER_X, PAPER_CENTER_Y, PAPER_WIDTH - 40, PAPER_HEIGHT - 30, PAPER);
+        this.pages.add(panel);
+        const heading = this.scene.add.text(CENTER_X, 166, 'Summary', {
+            color: INK, fontFamily: 'Georgia, serif', fontSize: '20px', fontStyle: 'bold', resolution: this.resolution
+        }).setOrigin(0.5, 0);
+        const body = this.scene.add.text(CENTER_X, 214, (presentation.summary ?? []).join('\n\n'), {
+            color: INK, fontFamily: 'Georgia, serif', fontSize: '15px', resolution: this.resolution,
+            align: 'left', wordWrap: { width: SUMMARY_TEXT_WIDTH }
+        }).setOrigin(0.5, 0);
+        this.fitSummaryText(body);
+        this.pages.add([heading, body]);
+        this.drawControl(512, CONTROL_Y, 'Close summary', true);
+    }
+
+    private fitSummaryText(text: Phaser.GameObjects.Text): void {
+        for (let fontSize = 15; fontSize >= 9; fontSize -= 1) {
+            text.setFontSize(fontSize);
+            text.setLineSpacing(Math.max(2, Math.round(fontSize * 0.35)));
+            if (text.height <= SUMMARY_MAX_HEIGHT) return;
+        }
+        // Defensive: an unusually long authored summary is clipped rather than spilling over the Close control.
+        text.setCrop(0, 0, text.width, SUMMARY_MAX_HEIGHT);
     }
 
     private drawPage(page: LectureBookPagePresentation, pageIndex: number): void {
@@ -191,8 +235,25 @@ export class LectureBookRenderer {
 
     private activateControl(localX: number, localY: number): void {
         const presentation = this.currentPresentation;
-        if (!presentation || Math.abs(localY - CONTROL_Y) > CONTROL_HEIGHT / 2) return;
+        if (!presentation) return;
         const isWithin = (x: number): boolean => Math.abs(localX - x) <= CONTROL_WIDTH / 2;
+        const onRow = (y: number): boolean => Math.abs(localY - y) <= CONTROL_HEIGHT / 2;
+
+        if (this.summaryOpen) {
+            if (onRow(CONTROL_Y) && isWithin(512)) {
+                this.summaryOpen = false;
+                this.drawSpread(presentation);
+            }
+            return;
+        }
+
+        if (presentation.summary?.length && onRow(SUMMARY_TOGGLE_Y) && isWithin(SUMMARY_TOGGLE_X)) {
+            this.summaryOpen = true;
+            this.drawSummary(presentation);
+            return;
+        }
+
+        if (!onRow(CONTROL_Y)) return;
         if (isWithin(188) && presentation.canGoPrevious) presentation.onPrevious();
         else if (isWithin(512)) presentation.onClose();
         else if (isWithin(836) && presentation.canGoNext) presentation.onNext();
@@ -246,6 +307,7 @@ export class LectureBookRenderer {
         this.title = undefined;
         this.source = undefined;
         this.isClosing = false;
+        this.summaryOpen = false;
         this.onOverlayVisibilityChange(false);
     }
 

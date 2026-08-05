@@ -46,6 +46,7 @@ export const mountCaseContextAndPrediction = (
     let requestedFocusKey: string | undefined;
     let openLectureRecord: OpenLectureRecord | undefined;
     let returnFocusToSourceCard: (() => void) | undefined;
+    let lastRenderedPhase: string | undefined;
 
     const activeFocusKey = (): string | undefined => {
         const activeElement = document.activeElement;
@@ -68,7 +69,6 @@ export const mountCaseContextAndPrediction = (
         const spread = getLectureSpread(openLectureRecord.pagination, openLectureRecord.spreadIndex + direction);
         if (spread.index === openLectureRecord.spreadIndex) return;
         openLectureRecord = { ...openLectureRecord, spreadIndex: spread.index };
-        requestedFocusKey = direction === 1 ? 'next-lecture-page' : 'previous-lecture-page';
         render();
     };
 
@@ -84,6 +84,7 @@ export const mountCaseContextAndPrediction = (
             index: spread.index,
             total: spread.total,
             pages: spread.pages,
+            summary: openLectureRecord.source.textualRendition!.summary,
             canGoPrevious: spread.canGoPrevious,
             canGoNext: spread.canGoNext,
             onPrevious: () => moveSpread(-1),
@@ -92,80 +93,29 @@ export const mountCaseContextAndPrediction = (
         });
     };
 
-    const renderLectureReader = (panel: HTMLElement): void => {
+    // The Phaser book is the reader; HTML keeps only a compact, accessible attribution block
+    // (reuse statement, citation, and the external archive-facsimile link).
+    const renderSourceAttribution = (panel: HTMLElement): void => {
         if (!openLectureRecord) return;
-        const { source } = openLectureRecord;
-        const spread = getLectureSpread(openLectureRecord.pagination, openLectureRecord.spreadIndex);
-        const reader = document.createElement('article');
-        reader.className = 'contextual-text-reader';
-        reader.dataset.contextPredictionFocus = 'lecture-reader';
-        reader.tabIndex = -1;
-        reader.setAttribute('aria-label', source.textualRendition!.readerLabel);
-        reader.setAttribute('aria-describedby', 'lecture-spread-status');
-        const readerHeading = document.createElement('h3');
-        readerHeading.textContent = source.textualRendition!.readerLabel;
-        const sourceIdentity = document.createElement('p');
-        sourceIdentity.textContent = `${source.creatorOrOrigin}. ${source.caseRelationship}`;
-        const readingNote = document.createElement('p');
-        readingNote.className = 'contextual-reader-note';
-        readingNote.textContent = 'Reading this local rendition does not record the source as inspected evidence.';
-        const status = document.createElement('p');
-        status.id = 'lecture-spread-status';
-        status.className = 'lecture-spread-status';
-        status.setAttribute('role', 'status');
-        status.setAttribute('aria-live', 'polite');
-        status.textContent = `Book spread ${spread.index + 1} of ${spread.total}.`;
+        const rendition = openLectureRecord.source.textualRendition!;
+        const attribution = document.createElement('div');
+        attribution.className = 'contextual-source-attribution';
+        attribution.setAttribute('role', 'group');
+        attribution.setAttribute('aria-label', `${rendition.readerLabel} — source attribution`);
         const reuse = document.createElement('p');
-        reuse.textContent = source.textualRendition!.citation.reuseStatement;
+        reuse.className = 'contextual-reuse-statement';
+        reuse.textContent = rendition.citation.reuseStatement;
         const citation = document.createElement('p');
-        citation.textContent = `${source.textualRendition!.citation.citationText} `;
+        citation.className = 'contextual-citation';
+        citation.textContent = `${rendition.citation.citationText} `;
         const archive = document.createElement('a');
-        archive.href = source.textualRendition!.citation.archiveUrl;
+        archive.href = rendition.citation.archiveUrl;
         archive.target = '_blank';
         archive.rel = 'noopener noreferrer';
         archive.textContent = 'View the cited archive facsimile (opens in a new tab).';
         citation.append(archive);
-        const controls = document.createElement('div');
-        controls.className = 'lecture-reader-controls';
-        const previous = document.createElement('button');
-        previous.type = 'button';
-        previous.dataset.contextPredictionFocus = 'previous-lecture-page';
-        previous.textContent = 'Previous page';
-        previous.disabled = !spread.canGoPrevious;
-        previous.addEventListener('click', () => moveSpread(-1));
-        const next = document.createElement('button');
-        next.type = 'button';
-        next.dataset.contextPredictionFocus = 'next-lecture-page';
-        next.textContent = 'Next page';
-        next.disabled = !spread.canGoNext;
-        next.addEventListener('click', () => moveSpread(1));
-        const close = document.createElement('button');
-        close.type = 'button';
-        close.dataset.contextPredictionFocus = 'close-lecture-reader';
-        close.textContent = 'Close book';
-        close.addEventListener('click', closeLectureRecord);
-        controls.append(previous, next, close);
-        reader.append(readerHeading, sourceIdentity, readingNote, status, reuse, citation, controls);
-        spread.pages.forEach((page) => {
-            if (!page) return;
-            const sourceSection = document.createElement('section');
-            sourceSection.className = 'contextual-text-section';
-            sourceSection.id = page.id;
-            sourceSection.dataset.sourceSectionId = page.sourceSectionId;
-            const sectionHeading = document.createElement('h4');
-            sectionHeading.textContent = page.heading;
-            const pageReference = document.createElement('p');
-            pageReference.className = 'contextual-source-pages';
-            pageReference.textContent = `Source page${page.sourcePages.length === 1 ? '' : 's'} ${page.sourcePages.join(', ')}.`;
-            sourceSection.append(sectionHeading, pageReference);
-            page.paragraphs.forEach((text) => {
-                const paragraph = document.createElement('p');
-                paragraph.textContent = text;
-                sourceSection.append(paragraph);
-            });
-            reader.append(sourceSection);
-        });
-        panel.append(reader);
+        attribution.append(reuse, citation);
+        panel.append(attribution);
     };
 
     const render = (): void => {
@@ -173,6 +123,13 @@ export const mountCaseContextAndPrediction = (
         requestedFocusKey = undefined;
         const state = store.getState();
         const phase = selectCasePhase(state);
+        if (openLectureRecord && phase === 'experiment' && lastRenderedPhase !== 'experiment') {
+            // Dismiss the book only as experimentation begins, so a lingering reader never covers the
+            // laboratory. Re-opening a reference later (e.g. re-inspecting a source) stays allowed.
+            openLectureRecord = undefined;
+            returnFocusToSourceCard = undefined;
+        }
+        lastRenderedPhase = phase;
         const readiness = selectContextualReadiness(state);
         const missingLabels = selectMissingContextArtifactLabels(state);
         const savedPrediction = selectSavedPrediction(state);
@@ -205,7 +162,7 @@ export const mountCaseContextAndPrediction = (
         status.setAttribute('aria-label', 'Context and prediction status');
         status.textContent = statusMessage;
         panel.append(heading, dispute, guidance, sourceSummary, status);
-        renderLectureReader(panel);
+        renderSourceAttribution(panel);
 
         const predictionLabel = document.createElement('label');
         predictionLabel.htmlFor = 'case-prediction';
@@ -266,7 +223,6 @@ export const mountCaseContextAndPrediction = (
             if (!rendition) return;
             openLectureRecord = { source, rendition, pagination: paginateLectureRendition(rendition), spreadIndex: 0 };
             returnFocusToSourceCard = returnFocus;
-            requestedFocusKey = 'lecture-reader';
             render();
         }
     };

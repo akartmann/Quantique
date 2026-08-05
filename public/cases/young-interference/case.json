@@ -21,6 +21,12 @@
           "citationText": "The Bakerian lecture: on the theory of light and colours / by Thomas Young, 1802. Public Domain Mark. Source: Wellcome Collection.",
           "archiveUrl": "https://wellcomecollection.org/works/u5dr8rgg"
         },
+        "summary": [
+          "Thomas Young's Bakerian Lecture (read November 1801, published 1802) sets out the undulatory, or wave, theory of light before the Royal Society.",
+          "Its central claim is that light travels as waves in a luminiferous ether, and that a principle of interference — where overlapping waves reinforce or cancel one another — accounts for the colours of thin plates and the fringes cast by narrow apertures.",
+          "Young frames his account as consistent with, not opposed to, Newton's careful optical observations, reinterpreting them under the wave model while drawing on Hooke and Huygens.",
+          "For this investigation it is the primary source behind the wave prediction: light sent through two closely spaced slits should form a stable, regularly spaced interference pattern."
+        ],
         "renditions": [
           {
             "locale": "en",
@@ -423,6 +429,12 @@
           "citationText": "Newton, Isaac. Opticks: Or, a Treatise of the Reflexions, Refractions, Inflexions and Colours of Light. 4th ed., 1730, printed pages 371–376 (Queries 29–31). Public domain. Source: Project Gutenberg, eBook 33504.",
           "archiveUrl": "https://archive.org/details/opticksortreatis1730newt"
         },
+        "summary": [
+          "This reference gathers Queries 29–31 from the fourth edition of Newton's Opticks (1730), the speculative questions that close the treatise.",
+          "In them light is treated as small bodies, or corpuscles, acted upon by forces at a distance that refract, reflect, and inflect the rays, with recurring \"fits of easy reflexion and easy transmission\" governing their behaviour.",
+          "Newton extends this to a broader theme: matter and light act upon one another through forces at a distance, which he offers as a unifying cause behind many phenomena of nature.",
+          "For this investigation it is the reference for the corpuscular, particle framing of light that the two-slit observation is meant to test against Young's wave account."
+        ],
         "renditions": [
           {
             "locale": "en",

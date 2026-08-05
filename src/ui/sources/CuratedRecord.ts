@@ -90,12 +90,30 @@ export const mountCuratedRecord = (root: HTMLElement, store: AppStore, options: 
             const rights = document.createElement('p');
             rights.className = 'source-rights-status';
             rights.textContent = `Rights status: ${titleCase(source.rightsStatus)}`;
+            const isReadable = Boolean(source.textualRendition) && source.rightsStatus === 'reviewed';
             const inspect = document.createElement('button');
             inspect.type = 'button';
             inspect.dataset.curatedRecordFocus = `inspect-${source.id}`;
             inspect.textContent = `Inspect ${source.displayName}`;
             inspect.addEventListener('click', () => {
                 requestedFocusKey = inspect.dataset.curatedRecordFocus;
+                if (isReadable) {
+                    // One control: record the source as evidence (once) and open the book.
+                    if (selectIsSourceInspected(store.getState(), source.id)) {
+                        statusMessage = `${source.displayName} is already recorded as inspected evidence.`;
+                        render(true);
+                    } else {
+                        statusMessage = `${source.displayName} is recorded as inspected evidence.`;
+                        const transition = store.dispatch({ type: 'source.inspected', sourceId: source.id });
+                        if (!transition.ok) {
+                            statusMessage = 'This source is unavailable. Your existing inspected evidence is unchanged.';
+                            render(true);
+                            return;
+                        }
+                    }
+                    options.onReadLectureRecord(source);
+                    return;
+                }
                 statusMessage = `${source.displayName} is recorded as inspected evidence.`;
                 const transition = store.dispatch({ type: 'source.inspected', sourceId: source.id });
                 if (!transition.ok) {
@@ -108,14 +126,6 @@ export const mountCuratedRecord = (root: HTMLElement, store: AppStore, options: 
                 }
             });
             card.append(title, details, provenance, marker, rights, inspect);
-            if (source.textualRendition && source.rightsStatus === 'reviewed') {
-                const read = document.createElement('button');
-                read.type = 'button';
-                read.dataset.curatedRecordFocus = `read-${source.id}`;
-                read.textContent = source.textualRendition.readerLabel;
-                read.addEventListener('click', () => options.onReadLectureRecord(source));
-                card.append(read);
-            }
             if (selectIsSourceInspected(state, source.id)) {
                 const inspected = document.createElement('p');
                 inspected.className = 'source-inspected-state';
@@ -142,7 +152,7 @@ export const mountCuratedRecord = (root: HTMLElement, store: AppStore, options: 
             root.replaceChildren();
         },
         focusReaderTrigger: (sourceId: string) => {
-            requestedFocusKey = `read-${sourceId}`;
+            requestedFocusKey = `inspect-${sourceId}`;
             render(true);
         }
     };

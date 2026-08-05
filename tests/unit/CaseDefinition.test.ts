@@ -160,6 +160,16 @@ describe('CaseDefinitionSchema', () => {
         expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
     });
 
+    it('accepts an authored one-page summary on a reviewed rendition', () => {
+        const definition = cloneValidCase();
+        definition.contextualArtifacts[0] = {
+            ...definition.contextualArtifacts[0],
+            textualRendition: { ...localLectureRendition(), summary: ['A concise overview.', 'A second paragraph.'] }
+        };
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
+    });
+
     it.each([
         ['unreviewed reader source', (definition: Record<string, unknown>) => {
             const source = (definition.contextualArtifacts as Array<Record<string, unknown>>)[0];
@@ -185,6 +195,12 @@ describe('CaseDefinitionSchema', () => {
             const rendition = localLectureRendition() as Record<string, unknown>;
             rendition.unreviewed = true;
             (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
+        }],
+        ['empty reader summary', (definition: Record<string, unknown>) => {
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = { ...localLectureRendition(), summary: [] };
+        }],
+        ['blank reader summary paragraph', (definition: Record<string, unknown>) => {
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = { ...localLectureRendition(), summary: ['  '] };
         }]
     ])('rejects %s', (_description, mutate) => {
         const definition = cloneValidCase() as unknown as Record<string, unknown>;
@@ -216,6 +232,7 @@ describe('loadCaseDefinition', () => {
             expect(rendition?.renditions[0].sections.find(({ id }) => id === 'young-bakerian-page-39')?.paragraphs[1]).toContain(
                 'Extreme red — .0000266 — 37640 — 463'
             );
+            expect(rendition?.summary?.length).toBeGreaterThan(0);
             const opticksRendition = result.value.contextualArtifacts[1].textualRendition;
             expect(opticksRendition).toMatchObject({
                 readerLabel: 'Read the Opticks reference',
@@ -229,6 +246,7 @@ describe('loadCaseDefinition', () => {
             );
             expect(opticksRendition?.renditions[0].sections[0].paragraphs[0].startsWith('Light at a distance in refracting')).toBe(true);
             expect(opticksRendition?.renditions[0].sections[5].paragraphs[0].endsWith('or Vitriol,')).toBe(true);
+            expect(opticksRendition?.summary?.length).toBeGreaterThan(0);
         }
         expect(JSON.parse(manifestContent)).toEqual(validYoungCase.assets);
         expect(fetchCase).toHaveBeenNthCalledWith(1, '/cases/young-interference/case.json');

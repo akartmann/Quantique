@@ -52,6 +52,7 @@ const TextualRenditionSchema = z.object({
         citationText: z.string().trim().min(1),
         archiveUrl: z.string().url().refine((url) => new URL(url).protocol === 'https:', 'Archive URLs must use HTTPS.')
     }).strict(),
+    summary: z.array(z.string().trim().min(1)).min(1).optional(),
     renditions: z.tuple([LocalizedTextualRenditionSchema])
 }).strict();
 

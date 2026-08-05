@@ -31,6 +31,8 @@ export type TextualRendition = Readonly<{
         citationText: string;
         archiveUrl: string;
     }>;
+    /** Optional authored one-page overview, shown on the book view via "Show summary". */
+    summary?: readonly string[];
     renditions: readonly [LocalizedTextualRendition];
 }>;
 

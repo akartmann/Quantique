@@ -137,15 +137,10 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .case-context-prediction textarea { border: 2px solid #34515a; border-radius: 0.3rem; color: #10252c; font: inherit; min-height: 6rem; padding: 0.4rem 0.6rem; resize: vertical; }
 .case-context-prediction textarea:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
 .case-context-prediction button { min-height: 44px; }
-.contextual-text-reader { border: 2px solid #34515a; border-radius: 0.3rem; display: grid; gap: 1rem; padding: 1rem; }
-.contextual-text-reader h3, .contextual-text-reader h4 { margin: 0; }
-.contextual-text-reader a { color: #10252c; font-weight: 700; }
-.contextual-reader-note { border-left: 4px solid #34515a; font-weight: 700; padding-left: 0.75rem; }
-.contextual-text-section { border-top: 1px solid #34515a; display: grid; gap: 0.75rem; padding-top: 1rem; }
-.contextual-source-pages { font-weight: 700; }
-.lecture-spread-status { font-weight: 700; min-height: 1.5rem; }
-.lecture-reader-controls { display: flex; flex-wrap: wrap; gap: 0.75rem; }
-.lecture-reader-controls button:disabled { cursor: not-allowed; opacity: 0.6; }
+.contextual-source-attribution { border-left: 4px solid #34515a; display: grid; gap: 0.5rem; padding: 0.75rem 1rem; }
+.contextual-source-attribution p { margin: 0; }
+.contextual-reuse-statement { font-weight: 700; }
+.contextual-source-attribution a { color: #10252c; font-weight: 700; }
 
 .curated-record, .case-context-prediction, .measurement-notebook, .run-comparison, .theory-board, .review-panel, .historical-debrief-panel, .inquiry-recognition-panel, .case-progress-panel, .case-record-print-view {
     background: #f7f4ef;
