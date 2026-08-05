@@ -11,6 +11,12 @@ export type SceneRouterTarget = Readonly<{
     start: (sceneKey: SceneKey) => unknown;
     stop: (sceneKey: SceneKey) => unknown;
     isActive: (sceneKey: SceneKey) => boolean | null;
+    /**
+     * Registers a one-shot listener for the scene having actually run `create`. The router reports an
+     * activation only from this, never from its own intent: `start` is a request Phaser can decline
+     * (an unregistered key only warns), so an intent-based signal can claim a scene that never ran.
+     */
+    onceCreated: (sceneKey: SceneKey, listener: () => void) => void;
 }>;
 
 export type SceneRouter = Readonly<{
@@ -46,16 +52,45 @@ export const createSceneRouter = (
 ): SceneRouter => {
     let activeSceneKey: SceneKey | undefined;
 
-    const activate = (): void => {
+    const route = (): void => {
         const nextSceneKey = resolveSceneKey(scenarioScript, selectCasePhase(store.getState()));
         // The store notifies on every transition, and one scene can host several phases.
         if (nextSceneKey === activeSceneKey) return;
 
         if (activeSceneKey) scenes.stop(activeSceneKey);
         activeSceneKey = nextSceneKey;
-        // Starting an already-running scene would restart it and discard its display objects.
-        if (!scenes.isActive(nextSceneKey)) scenes.start(nextSceneKey);
-        onSceneActivated?.(nextSceneKey);
+
+        // Starting an already-running scene would restart it and discard its display objects. That
+        // scene has already run `create`, so report it directly rather than waiting for an event
+        // that will not fire again.
+        if (scenes.isActive(nextSceneKey)) {
+            onSceneActivated?.(nextSceneKey);
+            return;
+        }
+
+        // Registered before `start` so a synchronous boot still reaches the listener. The guard drops
+        // a late callback from a scene the router has since routed away from.
+        scenes.onceCreated(nextSceneKey, () => {
+            if (activeSceneKey === nextSceneKey) onSceneActivated?.(nextSceneKey);
+        });
+        scenes.start(nextSceneKey);
+    };
+
+    /**
+     * The router runs as a store subscriber, so `route` executes inside `notify` inside `dispatch` —
+     * and Phaser starts a scene synchronously, meaning `Scene.create` runs there too. An escaping
+     * throw would advance the phase, skip every later subscriber, and break `dispatch`'s Result
+     * contract for its caller. Routing failures stay routing failures.
+     */
+    const activate = (): void => {
+        try {
+            route();
+        } catch (error) {
+            // The previous scene may already be stopped, so no key can be trusted as active. Clearing
+            // it lets the next transition route from scratch instead of skipping a stale match.
+            activeSceneKey = undefined;
+            console.error('The scene router could not activate the scene for the current phase.', error);
+        }
     };
 
     activate();

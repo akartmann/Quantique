@@ -113,8 +113,11 @@ const ScenarioSceneSchema = z.object({
     dialogueBeats: z.array(ScenarioDialogueBeatSchema).min(1).optional()
 }).strict();
 
+// No `.min` on `scenes`: Zod skips a superRefine once the base parse has failed, so a length rule
+// would intercept the most common authoring mistake — a missing phase — and report a generic
+// too_small instead of the authored message. The refinement below is the single coverage rule.
 const ScenarioScriptSchema = z.object({
-    scenes: z.array(ScenarioSceneSchema).min(CASE_PHASES.length)
+    scenes: z.array(ScenarioSceneSchema)
 }).strict().superRefine((script, context) => {
     const phases = script.scenes.map(({ phase }) => phase);
     if (new Set(phases).size !== phases.length || CASE_PHASES.some((phase) => !phases.includes(phase))) {

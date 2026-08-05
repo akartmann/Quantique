@@ -38,7 +38,7 @@ const initializeLaboratory = async (): Promise<void> => {
     const debriefRoot = document.querySelector<HTMLElement>('#historical-debrief');
     const gameContainer = document.querySelector<HTMLElement>('#game-container');
 
-    if (!bootShell || !validationDisclosureRoot || !curatedRecordRoot || !contextPredictionRoot || !controlsRoot || !notebookRoot || !theoryBoardRoot || !consultationRoot || !conclusionReviewRoot || !decisionHistoryRoot || !progressRoot || !printRoot || !recognitionRoot || !debriefRoot) {
+    if (!bootShell || !validationDisclosureRoot || !curatedRecordRoot || !contextPredictionRoot || !controlsRoot || !notebookRoot || !theoryBoardRoot || !consultationRoot || !conclusionReviewRoot || !decisionHistoryRoot || !progressRoot || !printRoot || !recognitionRoot || !debriefRoot || !gameContainer) {
         return;
     }
 
@@ -101,17 +101,29 @@ const initializeLaboratory = async (): Promise<void> => {
         if (pendingLectureBookPresentation) controller.show(pendingLectureBookPresentation);
     });
     // The routed Phaser game is the surface whose active scene mirrors the authoritative phase.
-    createSceneRouter(
-        {
-            start: (sceneKey) => game.scene.start(sceneKey, {}),
-            stop: (sceneKey) => game.scene.stop(sceneKey),
-            isActive: (sceneKey) => game.scene.isActive(sceneKey)
-        },
-        store,
-        caseResult.value.scenarioScript,
-        // A stable hook so the active scene is observable without reaching into Phaser internals.
-        (sceneKey) => gameContainer?.setAttribute('data-active-scene', sceneKey)
-    );
+    //
+    // Constructed on Phaser's ready event, not inline: before the scene manager boots, `start` only
+    // flags a key for auto-start and `stop` is a silent no-op, so a phase change in that window would
+    // leave two scenes flagged and boot both. Waiting also guarantees the scene instances exist, so
+    // an activation listener can be attached to them.
+    game.events.once('ready', () => {
+        const sceneRouter = createSceneRouter(
+            {
+                start: (sceneKey) => game.scene.start(sceneKey, {}),
+                stop: (sceneKey) => game.scene.stop(sceneKey),
+                isActive: (sceneKey) => game.scene.isActive(sceneKey),
+                onceCreated: (sceneKey, listener) => game.scene.getScene(sceneKey)?.events.once('create', listener)
+            },
+            store,
+            caseResult.value.scenarioScript,
+            // A stable hook so the active scene is observable without reaching into Phaser internals.
+            (sceneKey) => gameContainer.setAttribute('data-active-scene', sceneKey)
+        );
+
+        // Without this the subscription outlives the game it drives, and a post-destroy phase change
+        // would call start/stop on a torn-down scene manager from inside the store's notify loop.
+        game.events.once('destroy', () => sceneRouter.dispose());
+    });
 };
 
 document.addEventListener('DOMContentLoaded', () => {

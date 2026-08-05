@@ -1,5 +1,5 @@
 # generated: 2026-08-04T18:18:39+0200
-# last_updated: 2026-08-05
+# last_updated: 2026-08-06
 # project: Quantique
 # project_key: NOKEY
 # tracking_system: file-system
@@ -54,7 +54,7 @@
 # ============================================================================
 
 generated: 2026-08-04T18:18:39+0200
-last_updated: 2026-08-05
+last_updated: 2026-08-06
 project: Quantique
 project_key: NOKEY
 tracking_system: file-system
@@ -72,7 +72,7 @@ development_status:
   1-7-consultations-peer-review-and-revision-history: done  # rework:pivot -> colleague hints + rival-lab critique
   1-8-offline-progress-export-import-and-print: done  # kept (print/export retained)
   1-9-inclusive-feedback-and-inquiry-recognition: done  # rework:pivot -> in-scene feedback, a11y descoped
-  1-10-scene-router-and-adventure-flow: review  # new (pivot)
+  1-10-scene-router-and-adventure-flow: done  # new (pivot)
   1-11-colleague-cast-and-proposal-system: backlog  # new (pivot)
   1-12-phaser-dialogue-and-choice-ui: backlog  # new (pivot)
   epic-1-retrospective: skipped

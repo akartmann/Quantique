@@ -168,8 +168,25 @@ describe('CaseDefinitionSchema', () => {
 
         const parsed = CaseDefinitionSchema.safeParse(definition);
 
-        expect(parsed).toMatchObject({ success: true });
-        expect(definition.scenarioScript.scenes.map(({ phase }) => phase)).toEqual([...CASE_PHASES]);
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        // Asserted on the parse output, not the input fixture: reading `definition` back would pass
+        // even if the schema stripped or defaulted `scenarioScript` entirely.
+        expect(parsed.data.scenarioScript.scenes.map(({ phase }) => phase).sort())
+            .toEqual([...CASE_PHASES].sort());
+    });
+
+    it('names the coverage rule when a phase is missing rather than reporting a length failure', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        const script = definition.scenarioScript as { scenes: Array<{ phase: string }> };
+        script.scenes = script.scenes.filter(({ phase }) => phase !== 'synthesis');
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues.map(({ message }) => message))
+            .toContain('The scenario script must map every case phase exactly once.');
     });
 
     it('accepts an optional dialogue beat placeholder on a scenario scene', () => {

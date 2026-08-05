@@ -1,11 +1,22 @@
-const CACHE_NAME = 'quantique-bootstrap-v1';
+// Bump whenever a cached response can no longer satisfy the current bundle. v2: `scenarioScript`
+// became a required field of the strictly-parsed case definition (Story 1.10), so a pre-1.10
+// case.json left in the cache fails validation and boots into "content unavailable" instead of a
+// degraded session. This worker caches per response as it fetches, with no atomic swap, so a
+// mixed-version cache is reachable in either direction — a new name is what retires the old pairing.
+const CACHE_NAME = 'quantique-bootstrap-v2';
 
 self.addEventListener('install', (event) => {
     event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', (event) => {
-    event.waitUntil(self.clients.claim());
+    event.waitUntil((async () => {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames
+            .filter((cacheName) => cacheName.startsWith('quantique-') && cacheName !== CACHE_NAME)
+            .map((cacheName) => caches.delete(cacheName)));
+        await self.clients.claim();
+    })());
 });
 
 self.addEventListener('fetch', (event) => {

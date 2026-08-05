@@ -70,6 +70,15 @@ export class LectureBookRenderer {
         hide: () => this.hide()
     };
 
+    /**
+     * Whether the book is on screen, closing fade included. `hide` disables the book's own input
+     * immediately but keeps the overlay painted for the fade, so anything underneath must stay
+     * suppressed until `destroyOverlay` — this stays true for that whole window.
+     */
+    public get isOverlayVisible(): boolean {
+        return Boolean(this.overlay);
+    }
+
     public show(presentation: LectureBookPresentation): void {
         const wasOpen = Boolean(this.overlay);
         const wasClosing = this.isClosing;

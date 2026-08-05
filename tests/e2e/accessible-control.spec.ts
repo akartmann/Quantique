@@ -25,7 +25,11 @@ test('offers the authored slit-spacing control outside the canvas and announces 
     await expect(page.locator('#apparatus-status')).toHaveText('Slit spacing set to 0.25 mm.');
 });
 
-test('keeps the Phaser laboratory surface proportionate beside the populated Curated Record', async ({ page }) => {
+// Named for the routed surface rather than the laboratory: every assertion here is about the
+// game-level canvas (aspect ratio, sticky position), which is phase-independent. Since Story 1.10 the
+// laboratory scene only runs in the experiment phase, so a laboratory-specific claim would be false —
+// at `/` the router has activated the Library scene on this same canvas.
+test('keeps the routed Phaser surface proportionate beside the populated Curated Record', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto('/');
 

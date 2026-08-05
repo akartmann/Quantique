@@ -4,6 +4,7 @@ import type { Result } from '../core/errors/Result';
 import { normalizeControlValue } from '../domain/apparatus/ApparatusControl';
 import { calculateYoungFringeSpacing } from '../domain/apparatus/calculateYoungFringeSpacing';
 import { isSourceEligibleForInspection, type CaseDefinition } from '../domain/cases/CaseDefinition';
+import { CASE_PHASES } from '../domain/cases/CaseProgress';
 import { createRunRecord } from '../domain/evidence/RunRecord';
 import { evaluateConclusionReadiness } from '../domain/theory/conclusionReadiness';
 import { evaluatePeerReview } from '../domain/review/peerReviewRules';
@@ -93,7 +94,7 @@ export const CaseRecordSchema = z.object({
     schemaVersion: z.literal(3),
     caseId: z.literal('young-interference'),
     caseDefinitionVersion: text,
-    phase: z.enum(['context', 'prediction', 'experiment', 'synthesis', 'review', 'debrief']),
+    phase: z.enum(CASE_PHASES),
     activeControlValues: z.object({ slitSpacingMm: z.number().finite(), screenDistanceM: z.number().finite() }).strict(),
     selectedWavelengthNm: z.union([z.literal(450), z.literal(550), z.literal(650)]).optional(),
     selectedWavelengthMode: z.enum(['minimum', 'advanced']).optional(),

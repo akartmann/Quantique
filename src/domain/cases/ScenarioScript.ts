@@ -22,7 +22,14 @@ export type ScenarioScene = Readonly<{
     dialogueBeats?: readonly ScenarioDialogueBeat[];
 }>;
 
-/** Ordered scenes of a case. Validation guarantees it covers every case phase exactly once. */
+/**
+ * The scenes of a case, keyed by phase. Validation guarantees the list covers every case phase
+ * exactly once, so resolution is total.
+ *
+ * Array order carries no meaning: `resolveSceneKey` looks a scene up by phase, and the authored
+ * sequence of the adventure is owned by `CASE_PHASES` / the phase machine. Reordering this list
+ * changes nothing.
+ */
 export type ScenarioScript = Readonly<{
     scenes: readonly ScenarioScene[];
 }>;
