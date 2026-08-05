@@ -13,7 +13,7 @@ import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 import { createRunRecord } from '../../src/domain/evidence/RunRecord';
 
 const definition = {
-    id: 'young-interference', requirements: { minimumRuns: 2, minimumSources: 2 },
+    id: 'young-interference', prediction: { required: true }, requirements: { minimumRuns: 2, minimumSources: 2 },
     apparatus: { primaryControls: [
         { id: 'slitSpacingMm', label: 'Slit spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
         { id: 'screenDistanceM', label: 'Screen distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
@@ -61,7 +61,9 @@ describe('theory board public projection', () => {
         expect(selectSelectedComparisonPair(store.getState())).toEqual([first, second]);
         expect(store.getState().runs).toEqual([first, second]);
         expect(selectConclusionReadiness(store.getState())).toMatchObject({ status: 'ready' });
-        ['prediction', 'experiment', 'synthesis'].forEach((nextPhase) => {
+        expect(store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' })).toEqual({ ok: true, value: undefined });
+        expect(store.dispatch({ type: 'prediction.recorded', prediction: 'A tentative pattern may appear.' })).toEqual({ ok: true, value: undefined });
+        ['experiment', 'synthesis'].forEach((nextPhase) => {
             expect(store.dispatch({ type: 'case.phaseAdvance', nextPhase })).toEqual({ ok: true, value: undefined });
         });
         expect(store.dispatch({ type: 'theory.reviewRequested' })).toEqual({ ok: true, value: undefined });

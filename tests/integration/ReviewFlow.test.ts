@@ -7,7 +7,7 @@ import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 import { createRunRecord } from '../../src/domain/evidence/RunRecord';
 
 const definition = {
-    id: 'young-interference', requirements: { minimumRuns: 2, minimumSources: 2 },
+    id: 'young-interference', prediction: { required: true }, requirements: { minimumRuns: 2, minimumSources: 2 },
     apparatus: { primaryControls: [{ id: 'slitSpacingMm', label: 'Spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 }, { id: 'screenDistanceM', label: 'Distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }] },
     contextualArtifacts: [{ id: 'source-1', displayName: 'Source one', creatorOrOrigin: 'Archive', sourceType: 'lecture-record', provenance: { category: 'primary-material', reference: 'one' }, rightsStatus: 'reviewed', caseRelationship: 'Evidence.' }, { id: 'source-2', displayName: 'Source two', creatorOrOrigin: 'Archive', sourceType: 'published-book', provenance: { category: 'primary-material', reference: 'two' }, rightsStatus: 'reviewed', caseRelationship: 'Evidence.' }],
     consultationRules: [{ id: 'run', predicate: { kind: 'missing-run' }, layers: { observation: 'Observe.', plainLanguage: 'Run.', technicalDetail: 'Control.' }, nextStep: 'Record.' }, { id: 'source', predicate: { kind: 'missing-source', sourceId: 'source-1' }, layers: { observation: 'Source.', plainLanguage: 'Inspect.', technicalDetail: 'Provenance.' }, nextStep: 'Inspect.' }, { id: 'test', predicate: { kind: 'alternative-test', controlId: 'screenDistanceM' }, layers: { observation: 'Same.', plainLanguage: 'Change.', technicalDetail: 'Bounded.' }, nextStep: 'Change.' }, { id: 'limit', predicate: { kind: 'missing-limitation' }, layers: { observation: 'Limit.', plainLanguage: 'State.', technicalDetail: 'Bounded.' }, nextStep: 'Limit.' }],
@@ -36,7 +36,9 @@ describe('consultation, peer review, and revision public flow', () => {
         ['source-1', 'source-2'].forEach((sourceId) => store.dispatch({ type: 'theory.supportSourceSelected', sourceId }));
         store.dispatch({ type: 'theory.conclusionSet', conclusion: 'This proves a conclusion.' });
         store.dispatch({ type: 'theory.limitationSet', limitation: 'Alternatives remain possible.' });
-        ['prediction', 'experiment', 'synthesis'].forEach((nextPhase) => store.dispatch({ type: 'case.phaseAdvance', nextPhase }));
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
+        store.dispatch({ type: 'prediction.recorded', prediction: 'A tentative pattern may appear.' });
+        ['experiment', 'synthesis'].forEach((nextPhase) => store.dispatch({ type: 'case.phaseAdvance', nextPhase }));
         expect(store.dispatch({ type: 'theory.reviewRequested' })).toEqual({ ok: true, value: undefined });
         expect(store.dispatch({ type: 'peerReview.requested' })).toEqual({ ok: true, value: undefined });
         const peerReview = selectPeerReview(store.getState());

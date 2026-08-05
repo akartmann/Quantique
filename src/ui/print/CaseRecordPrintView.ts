@@ -1,5 +1,5 @@
 import type { AppStore } from '../../core/store/createStore';
-import { selectContextualArtifacts, selectDecisionHistory, selectNotebookObservations, selectTheoryBoardDraft } from '../../core/store/selectors';
+import { selectContextualArtifacts, selectDecisionHistory, selectNotebookObservations, selectSavedPrediction, selectTheoryBoardDraft } from '../../core/store/selectors';
 
 const term = (label: string, value: string): HTMLDivElement => {
     const item = document.createElement('div');
@@ -44,6 +44,11 @@ export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): ((
         });
         if (!sourceList.children.length) sourceList.append(Object.assign(document.createElement('li'), { textContent: 'No sources inspected.' }));
         sources.append(sourceHeading, sourceList);
+        const prediction = document.createElement('section');
+        const predictionHeading = document.createElement('h3'); predictionHeading.textContent = 'Tentative prediction';
+        const predictionList = document.createElement('dl');
+        predictionList.append(term('Recorded prediction', selectSavedPrediction(state) || 'No prediction recorded.'));
+        prediction.append(predictionHeading, predictionList);
         const comparison = document.createElement('section');
         const comparisonHeading = document.createElement('h3'); comparisonHeading.textContent = 'Comparison notes';
         const comparisonList = document.createElement('ul');
@@ -86,7 +91,7 @@ export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): ((
         });
         if (!historyList.children.length) historyList.append(Object.assign(document.createElement('li'), { textContent: 'No reviewed revisions saved.' }));
         history.append(historyHeading, historyList);
-        record.append(heading, settings, observations, sources, comparison, conclusion, history);
+        record.append(heading, settings, observations, sources, prediction, comparison, conclusion, history);
         root.replaceChildren(record);
     };
     const unsubscribe = store.subscribe(render);

@@ -20,6 +20,11 @@ test('supports a keyboard-accessible evidence-to-conclusion draft with recoverab
 
     await page.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' }).click();
     await page.getByRole('button', { name: 'Inspect Opticks reference' }).click();
+    const context = page.getByRole('region', { name: 'Young context and prediction' });
+    await context.getByRole('button', { name: 'Continue to prediction' }).click();
+    await context.getByLabel('Tentative prediction').fill('A pattern may appear.');
+    await context.getByRole('button', { name: 'Record a prediction' }).click();
+    await context.getByRole('button', { name: 'Continue to experimentation' }).click();
     const recordObservation = page.getByRole('button', { name: 'Record prepared observation' });
     await recordObservation.click();
     await recordObservation.click();
@@ -44,8 +49,6 @@ test('supports a keyboard-accessible evidence-to-conclusion draft with recoverab
     await board.getByLabel('Limitation or alternative explanation').fill('The prepared evidence does not resolve every alternative explanation.');
     await expect(board.getByRole('status', { name: 'Theory board status' })).toHaveText('Your selected evidence and limitation are ready for review.');
 
-    await board.getByRole('button', { name: 'Continue investigation to prediction' }).click();
-    await board.getByRole('button', { name: 'Continue investigation to experiment' }).click();
     await board.getByRole('button', { name: 'Continue investigation to synthesis' }).click();
     const requestReview = board.getByRole('button', { name: 'Request review' });
     await requestReview.click();

@@ -8,6 +8,7 @@ import { createRunRecord } from '../../src/domain/evidence/RunRecord';
 
 const definition = {
     id: 'young-interference',
+    prediction: { required: true },
     requirements: { minimumRuns: 2, minimumSources: 2 },
     apparatus: { primaryControls: [
         { id: 'slitSpacingMm', label: 'Slit spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
@@ -71,6 +72,7 @@ describe('theory board store transitions', () => {
 
         expect(store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' })).toMatchObject({ ok: false, error: { code: 'invalid-case-transition' } });
         expect(store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' })).toEqual({ ok: true, value: undefined });
+        expect(store.dispatch({ type: 'prediction.recorded', prediction: 'A tentative pattern may appear.' })).toEqual({ ok: true, value: undefined });
         expect(store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' })).toEqual({ ok: true, value: undefined });
         expect(store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' })).toEqual({ ok: true, value: undefined });
         expect(store.dispatch({ type: 'theory.reviewRequested' })).toEqual({ ok: true, value: undefined });

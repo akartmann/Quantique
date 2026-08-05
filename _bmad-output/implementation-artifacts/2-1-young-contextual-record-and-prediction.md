@@ -1,6 +1,10 @@
+---
+baseline_commit: c66607605eeccb29cf2e799a9576ec7e10542573
+---
+
 # Story 2.1: Young contextual record and prediction
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -15,32 +19,32 @@ so that my later conclusion begins with a testable expectation.
 
 ## Tasks / Subtasks
 
-- [ ] Make contextual evidence and prediction authoritative state (AC: 1, 2)
-  - [ ] Add a narrow typed `noun.verb` prediction action in `src/core/store/AppAction.ts`; do not introduce untyped UI state or a second store.
-  - [ ] Extend the deeply frozen `AppState` with an initially empty, revisable prediction. Add a pure reducer that accepts a non-blank trimmed prediction, preserves all unrelated progress, and clears stale consultation/review projections as other successful evidence edits do.
-  - [ ] Add pure domain context/prediction-readiness helpers if needed. The store must use them to gate `context → prediction` on both required, reviewed contextual artifacts and `prediction → experiment` on a recorded prediction. Keep `caseReducer.ts` adjacency-only or refactor it deliberately; a UI/Phaser guard is insufficient.
-  - [ ] Return distinct typed, neutral recoverable failures for missing contextual sources and missing prediction. A rejected action must leave state unchanged and must not notify subscribers.
-  - [ ] Expose public selectors for the saved prediction, contextual readiness, and human-readable missing artifact labels. Components must not inspect or mutate raw state directly.
+- [x] Make contextual evidence and prediction authoritative state (AC: 1, 2)
+  - [x] Add a narrow typed `noun.verb` prediction action in `src/core/store/AppAction.ts`; do not introduce untyped UI state or a second store.
+  - [x] Extend the deeply frozen `AppState` with an initially empty, revisable prediction. Add a pure reducer that accepts a non-blank trimmed prediction, preserves all unrelated progress, and clears stale consultation/review projections as other successful evidence edits do.
+  - [x] Add pure domain context/prediction-readiness helpers if needed. The store must use them to gate `context → prediction` on both required, reviewed contextual artifacts and `prediction → experiment` on a recorded prediction. Keep `caseReducer.ts` adjacency-only or refactor it deliberately; a UI/Phaser guard is insufficient.
+  - [x] Return distinct typed, neutral recoverable failures for missing contextual sources and missing prediction. A rejected action must leave state unchanged and must not notify subscribers.
+  - [x] Expose public selectors for the saved prediction, contextual readiness, and human-readable missing artifact labels. Components must not inspect or mutate raw state directly.
 
-- [ ] Build the semantic context-and-prediction interaction (AC: 1, 2)
-  - [ ] Add a focused semantic component under `src/ui/context/` (for example `CaseContextAndPrediction.ts`) and mount it from `src/main.ts` after the Curated Record/store are available.
-  - [ ] Reuse `src/ui/sources/CuratedRecord.ts` for source cards and the existing `source.inspected` action. Do not duplicate source validation, provenance rendering, or inspection state in the new panel.
-  - [ ] Present the opening dispute/context, a visible two-source readiness summary, a labelled prediction field, an explicit **Record a prediction** action, and a semantic continue action. Prediction is tentative and revisable; never label it correct/wrong.
-  - [ ] Put status and gate feedback in an existing or new initially empty polite live region. Copy must identify the next missing action (for example, inspect a named artifact or record a prediction), retain valid text/inspections, and never imply punishment or failure.
-  - [ ] Preserve keyboard focus across state-driven rerenders; use native labelled controls and `textContent`, never `innerHTML`, for authored or learner-entered strings. Retain the established Curated Record focus-restoration/teardown pattern.
-  - [ ] Keep this entire flow semantic HTML first-class. Phaser may mirror phase/state but must not own prediction entry or progression; no Phaser renderer/scene change is required unless it only mirrors the resulting state.
+- [x] Build the semantic context-and-prediction interaction (AC: 1, 2)
+  - [x] Add a focused semantic component under `src/ui/context/` (for example `CaseContextAndPrediction.ts`) and mount it from `src/main.ts` after the Curated Record/store are available.
+  - [x] Reuse `src/ui/sources/CuratedRecord.ts` for source cards and the existing `source.inspected` action. Do not duplicate source validation, provenance rendering, or inspection state in the new panel.
+  - [x] Present the opening dispute/context, a visible two-source readiness summary, a labelled prediction field, an explicit **Record a prediction** action, and a semantic continue action. Prediction is tentative and revisable; never label it correct/wrong.
+  - [x] Put status and gate feedback in an existing or new initially empty polite live region. Copy must identify the next missing action (for example, inspect a named artifact or record a prediction), retain valid text/inspections, and never imply punishment or failure.
+  - [x] Preserve keyboard focus across state-driven rerenders; use native labelled controls and `textContent`, never `innerHTML`, for authored or learner-entered strings. Retain the established Curated Record focus-restoration/teardown pattern.
+  - [x] Keep this entire flow semantic HTML first-class. Phaser may mirror phase/state but must not own prediction entry or progression; no Phaser renderer/scene change is required unless it only mirrors the resulting state.
 
-- [ ] Preserve prediction in local progress and portability (AC: 1)
-  - [ ] Add prediction to `CaseRecordProjection.ts`, `CaseRecordSchema.ts`, and `createAppStateFromCaseRecord` so save, restore, export, and import retain it.
-  - [ ] Explicitly migrate existing schema-v1 records to the new record version with an empty prediction. Reject unsupported future/invalid records as a typed `Result`; failed import/restore must leave the last valid state intact and show neutral semantic recovery.
-  - [ ] Do not mutate `public/cases/young-interference/case.json`, add a separate persistence mechanism, or add historical source assertions. The existing case contract already defines exactly two reviewed Young artifacts and `prediction.required: true`.
+- [x] Preserve prediction in local progress and portability (AC: 1)
+  - [x] Add prediction to `CaseRecordProjection.ts`, `CaseRecordSchema.ts`, and `createAppStateFromCaseRecord` so save, restore, export, and import retain it.
+  - [x] Explicitly migrate existing schema-v1 records to the new record version with an empty prediction. Reject unsupported future/invalid records as a typed `Result`; failed import/restore must leave the last valid state intact and show neutral semantic recovery.
+  - [x] Do not mutate `public/cases/young-interference/case.json`, add a separate persistence mechanism, or add historical source assertions. The existing case contract already defines exactly two reviewed Young artifacts and `prediction.required: true`.
 
-- [ ] Keep phase presentation coherent and test the complete public flow (AC: 1, 2)
-  - [ ] Update `src/ui/theory/TheoryBoard.ts` or its callers so it cannot provide an unguarded context/prediction shortcut. The context/prediction panel owns the forward actions; all rendered phase labels still derive from selectors.
-  - [ ] Update existing tests that directly advance `context → prediction → experiment` so they establish the required inspected sources and prediction through public actions first.
-  - [ ] Add unit coverage for prediction validation, each gate failure, successful progression, deep immutability, and record schema/migration/hydration.
-  - [ ] Add integration coverage for source inspection → prediction → phase transition, failed attempts preserving source/prediction work, and public selector/action behavior.
-  - [ ] Add Playwright coverage for the semantic context/prediction flow, named missing-context feedback, keyboard focus/live status, and prediction persistence across reload/export/import. Include the new semantic panel in the relevant axe check; manual release acceptance still covers keyboard-only and screen-reader behavior.
+- [x] Keep phase presentation coherent and test the complete public flow (AC: 1, 2)
+  - [x] Update `src/ui/theory/TheoryBoard.ts` or its callers so it cannot provide an unguarded context/prediction shortcut. The context/prediction panel owns the forward actions; all rendered phase labels still derive from selectors.
+  - [x] Update existing tests that directly advance `context → prediction → experiment` so they establish the required inspected sources and prediction through public actions first.
+  - [x] Add unit coverage for prediction validation, each gate failure, successful progression, deep immutability, and record schema/migration/hydration.
+  - [x] Add integration coverage for source inspection → prediction → phase transition, failed attempts preserving source/prediction work, and public selector/action behavior.
+  - [x] Add Playwright coverage for the semantic context/prediction flow, named missing-context feedback, keyboard focus/live status, and prediction persistence across reload/export/import. Include the new semantic panel in the relevant axe check; manual release acceptance still covers keyboard-only and screen-reader behavior.
 
 ## Dev Notes
 
@@ -126,13 +130,50 @@ GPT-5.6 Codex
 
 - Ultimate context engine analysis completed: planning artifacts, GDD, architecture, project context, existing Young case contract, relevant source/store/UI code, Git history, and current official technical guidance were analyzed.
 - Recent commits completed Epic 1 and reinforce narrow, test-backed changes built around public semantic controls/selectors; no new dependency pattern is required for this story.
+- Added authoritative context/prediction readiness gates, portable-record schema v2 migration, semantic panel, and public acceptance coverage without changing the immutable Young content contract.
+
+### Implementation Plan
+
+- Keep source inspection and prediction in the single frozen store; use pure readiness helpers at the reducer boundary so neither semantic UI nor Phaser can bypass the gates.
+- Preserve the established semantic-first/focus-restoration pattern, retain the Curated Record as the sole source-card renderer, and version progress records explicitly for prediction portability.
 
 ### Completion Notes List
 
 - Ultimate context engine analysis completed - comprehensive developer guide created.
 - Status set to `ready-for-dev`.
+- Implemented typed prediction storage, pure context/prediction gates, public selectors, schema-v1-to-v2 migration, semantic context/prediction UI, and print-record visibility.
+- Verified with `npm run typecheck`, `npm test` (118 tests), `npm run build`, Playwright Chromium, automated axe, and the Chromium/Firefox/WebKit suite.
 
 ### File List
 
-- `_bmad-output/implementation-artifacts/2-1-young-contextual-record-and-prediction.md` (new story context)
-- `_bmad-output/implementation-artifacts/sprint-status.yaml` (Story 2.1 marked ready-for-dev; Epic 2 marked in-progress)
+- `_bmad-output/implementation-artifacts/2-1-young-contextual-record-and-prediction.md` (story tracking)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (Story 2.1 status)
+- `index.html`
+- `public/style.css`
+- `src/core/store/AppAction.ts`
+- `src/core/store/AppState.ts`
+- `src/core/store/CaseRecordProjection.ts`
+- `src/core/store/selectors.ts`
+- `src/domain/cases/contextPredictionReadiness.ts` (new)
+- `src/main.ts`
+- `src/schemas/CaseRecordSchema.ts`
+- `src/schemas/migrations/migrateCaseRecord.ts`
+- `src/ui/context/CaseContextAndPrediction.ts` (new)
+- `src/ui/print/CaseRecordPrintView.ts`
+- `src/ui/theory/TheoryBoard.ts`
+- `tests/e2e/accessibility.spec.ts`
+- `tests/e2e/context-prediction.spec.ts` (new)
+- `tests/e2e/offline-reload.spec.ts`
+- `tests/e2e/progress-portability.spec.ts`
+- `tests/e2e/theory-board.spec.ts`
+- `tests/integration/ReviewFlow.test.ts`
+- `tests/integration/TheoryBoard.test.ts`
+- `tests/unit/CaseRecordRepository.test.ts`
+- `tests/unit/CaseRecordSchema.test.ts`
+- `tests/unit/ContextPrediction.test.ts` (new)
+- `tests/unit/ReviewRules.test.ts`
+- `tests/unit/TheoryStore.test.ts`
+
+## Change Log
+
+- 2026-08-05: Implemented authoritative Young context/prediction gating, semantic interaction, schema-v2 progress portability, and cross-browser accessibility coverage; moved story to review.

@@ -10,6 +10,7 @@ import { createCaseRecordProjection } from './CaseRecordProjection';
 import type { Result } from '../errors/Result';
 import type { CaseRecord } from '../../schemas/CaseRecordSchema';
 import type { RecognitionState } from '../../domain/recognition/recognitionRules';
+import { evaluateContextReadiness, evaluatePredictionReadiness, type ContextReadiness, type PredictionReadiness } from '../../domain/cases/contextPredictionReadiness';
 
 const decimalPlaces = (value: number): number => value.toString().split('.')[1]?.length ?? 0;
 
@@ -37,6 +38,17 @@ export const selectSourceById = (state: AppState, sourceId: string): ContextualA
     selectContextualArtifacts(state).find(({ id }) => id === sourceId);
 
 export const selectInspectedSourceIds = (state: AppState): readonly string[] => state.inspectedSourceIds;
+
+export const selectSavedPrediction = (state: AppState): string => state.prediction;
+
+export const selectContextualReadiness = (state: AppState): ContextReadiness =>
+    evaluateContextReadiness(state.caseDefinition, state.inspectedSourceIds);
+
+export const selectMissingContextArtifactLabels = (state: AppState): readonly string[] =>
+    selectContextualReadiness(state).missingArtifactLabels;
+
+export const selectPredictionReadiness = (state: AppState): PredictionReadiness =>
+    evaluatePredictionReadiness(state.caseDefinition, state.prediction);
 
 export const selectIsSourceInspected = (state: AppState, sourceId: string): boolean =>
     selectInspectedSourceIds(state).includes(sourceId);

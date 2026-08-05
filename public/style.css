@@ -48,7 +48,7 @@ button {
 
 button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
-.curated-record button:focus-visible, .measurement-notebook button:focus-visible, .run-comparison button:focus-visible, .theory-board button:focus-visible {
+.curated-record button:focus-visible, .case-context-prediction button:focus-visible, .measurement-notebook button:focus-visible, .run-comparison button:focus-visible, .theory-board button:focus-visible {
     outline-color: #10252c;
 }
 
@@ -101,7 +101,13 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .source-category-marker, .source-inspected-state { font-weight: 700; }
 .curated-record button { min-height: 44px; }
 
-.curated-record, .measurement-notebook, .run-comparison, .theory-board, .review-panel, .inquiry-recognition-panel, .case-progress-panel, .case-record-print-view {
+.case-context-prediction h2 { margin: 0; }
+.context-readiness-summary, .context-prediction-status { min-height: 1.5rem; }
+.case-context-prediction textarea { border: 2px solid #34515a; border-radius: 0.3rem; color: #10252c; font: inherit; min-height: 6rem; padding: 0.4rem 0.6rem; resize: vertical; }
+.case-context-prediction textarea:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
+.case-context-prediction button { min-height: 44px; }
+
+.curated-record, .case-context-prediction, .measurement-notebook, .run-comparison, .theory-board, .review-panel, .inquiry-recognition-panel, .case-progress-panel, .case-record-print-view {
     background: #f7f4ef;
     border: 2px solid #f4d35e;
     border-radius: 0.5rem;

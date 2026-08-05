@@ -10,7 +10,7 @@ import { createTheoryBoardDraft } from '../../src/domain/theory/conclusionReadin
 import { createRunRecord } from '../../src/domain/evidence/RunRecord';
 
 const definition = {
-    id: 'young-interference', requirements: { minimumRuns: 2, minimumSources: 2 },
+    id: 'young-interference', prediction: { required: true }, requirements: { minimumRuns: 2, minimumSources: 2 },
     apparatus: { primaryControls: [
         { id: 'slitSpacingMm', label: 'Slit spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
         { id: 'screenDistanceM', label: 'Screen distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
@@ -90,7 +90,9 @@ describe('authored consultation and peer-review rules', () => {
         ['source-1', 'source-2'].forEach((sourceId) => store.dispatch({ type: 'theory.supportSourceSelected', sourceId }));
         store.dispatch({ type: 'theory.conclusionSet', conclusion: 'The evidence proves a bounded result.' });
         store.dispatch({ type: 'theory.limitationSet', limitation: 'Other explanations remain possible.' });
-        ['prediction', 'experiment', 'synthesis'].forEach((nextPhase) => store.dispatch({ type: 'case.phaseAdvance', nextPhase }));
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
+        store.dispatch({ type: 'prediction.recorded', prediction: 'A tentative pattern may appear.' });
+        ['experiment', 'synthesis'].forEach((nextPhase) => store.dispatch({ type: 'case.phaseAdvance', nextPhase }));
         store.dispatch({ type: 'theory.reviewRequested' });
         expect(store.dispatch({ type: 'peerReview.requested' })).toEqual({ ok: true, value: undefined });
         const peerReview = selectPeerReview(store.getState());

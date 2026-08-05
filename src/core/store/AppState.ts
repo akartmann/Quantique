@@ -2,6 +2,7 @@ import type { Result } from '../errors/Result';
 import { normalizeControlValue } from '../../domain/apparatus/ApparatusControl';
 import { isSourceEligibleForInspection, type CaseDefinition, type PrimaryControl } from '../../domain/cases/CaseDefinition';
 import { advanceCasePhase } from '../../domain/cases/caseReducer';
+import { evaluateContextReadiness, evaluatePredictionReadiness } from '../../domain/cases/contextPredictionReadiness';
 import type { CasePhase } from '../../domain/cases/CaseProgress';
 import { createRunRecord, type RunRecord } from '../../domain/evidence/RunRecord';
 import { createTheoryBoardDraft, evaluateConclusionReadiness, type TheoryBoardDraft } from '../../domain/theory/conclusionReadiness';
@@ -37,6 +38,7 @@ export type AppState = Readonly<{
     phase: CasePhase;
     activeControlValues: Readonly<Record<PrimaryControl['id'], number>>;
     inspectedSourceIds: readonly string[];
+    prediction: string;
     runs: readonly RunRecord[];
     comparison: ComparisonState;
     theory: TheoryBoardDraft;
@@ -95,6 +97,7 @@ export const createInitialAppState = (caseDefinition: CaseDefinition): AppState 
         caseDefinition.apparatus.primaryControls.map((control) => [control.id, control.defaultValue])
     ) as Record<PrimaryControl['id'], number>,
     inspectedSourceIds: [],
+    prediction: '',
     runs: [],
     comparison: { selectedRunIds: [], notes: [] },
     theory: createTheoryBoardDraft(),
@@ -120,6 +123,7 @@ export const createAppStateFromCaseRecord = (record: CaseRecord, caseDefinition:
             phase: record.phase,
             activeControlValues: record.activeControlValues,
             inspectedSourceIds: record.inspectedSourceIds,
+            prediction: record.prediction,
             runs,
             comparison: record.comparison,
             theory: record.theory,
@@ -222,6 +226,15 @@ const reduceSourceInspection = (state: AppState, sourceId: string): Result<AppSt
     return { ok: true, value: freezeState({ ...state, inspectedSourceIds: [...state.inspectedSourceIds, sourceId], consultation: undefined, peerReview: undefined }) };
 };
 
+const reducePredictionRecord = (state: AppState, prediction: string): Result<AppState> => {
+    const normalized = prediction.trim();
+    if (!normalized) return failure('invalid-prediction', 'Enter a tentative prediction before recording it.');
+    return {
+        ok: true,
+        value: freezeState({ ...state, prediction: normalized, consultation: undefined, peerReview: undefined })
+    };
+};
+
 const withTheory = (state: AppState, theory: TheoryBoardDraft): Result<AppState> => ({
     ok: true,
     value: freezeState({ ...state, theory, consultation: undefined, peerReview: undefined })
@@ -256,6 +269,16 @@ const reduceTheorySupportSource = (state: AppState, sourceId: string, selected: 
 const reduceCasePhaseAdvance = (state: AppState, nextPhase: CasePhase): Result<AppState> => {
     const transition = advanceCasePhase({ definition: state.caseDefinition, phase: state.phase }, nextPhase);
     if (!transition.ok) return transition;
+    if (state.phase === 'context' && nextPhase === 'prediction') {
+        const readiness = evaluateContextReadiness(state.caseDefinition, state.inspectedSourceIds);
+        if (readiness.status === 'incomplete') {
+            return failure('missing-contextual-sources', `Inspect ${readiness.missingArtifactLabels[0]} before continuing to prediction.`);
+        }
+    }
+    if (state.phase === 'prediction' && nextPhase === 'experiment'
+        && evaluatePredictionReadiness(state.caseDefinition, state.prediction).status === 'incomplete') {
+        return failure('missing-prediction', 'Record a tentative prediction before continuing to experimentation.');
+    }
     return { ok: true, value: freezeState({ ...state, phase: transition.value.phase }) };
 };
 
@@ -329,6 +352,8 @@ export const reduceAppState = (state: AppState, action: AppAction): Result<AppSt
             return reduceSaveComparisonNote(state, action.note);
         case 'source.inspected':
             return reduceSourceInspection(state, action.sourceId);
+        case 'prediction.recorded':
+            return reducePredictionRecord(state, action.prediction);
         case 'theory.supportRunSelected':
             return reduceTheorySupportRun(state, action.runId, true);
         case 'theory.supportRunUnselected':

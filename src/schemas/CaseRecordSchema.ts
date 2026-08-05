@@ -8,6 +8,7 @@ import { evaluateConclusionReadiness } from '../domain/theory/conclusionReadines
 import { evaluatePeerReview } from '../domain/review/peerReviewRules';
 import { deriveRecognition, RECOGNITION_IDS, recognitionDefinitions } from '../domain/recognition/recognitionRules';
 import { migrateCaseRecord } from './migrations/migrateCaseRecord';
+import { evaluateContextReadiness, evaluatePredictionReadiness } from '../domain/cases/contextPredictionReadiness';
 
 const text = z.string().trim().min(1);
 const timestamp = z.string().refine((value) => {
@@ -71,12 +72,13 @@ const RecognitionSchema = z.discriminatedUnion('version', [
 ]);
 
 export const CaseRecordSchema = z.object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     caseId: z.literal('young-interference'),
     caseDefinitionVersion: text,
     phase: z.enum(['context', 'prediction', 'experiment', 'synthesis', 'review', 'debrief']),
     activeControlValues: z.object({ slitSpacingMm: z.number().finite(), screenDistanceM: z.number().finite() }).strict(),
     inspectedSourceIds: z.array(text),
+    prediction: z.string().refine((value) => value === value.trim(), 'Prediction must be trimmed.'),
     runs: z.array(RunRecordSchema),
     comparison: z.object({
         selectedRunIds: z.array(text).max(2),
@@ -122,6 +124,14 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
     const sources = new Map(definition.contextualArtifacts.map((source) => [source.id, source]));
     if (!validIds(record.inspectedSourceIds, new Set(sources.keys()))
         || record.inspectedSourceIds.some((sourceId) => !isSourceEligibleForInspection(sources.get(sourceId)!))) {
+        return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+    }
+
+    if (record.phase !== 'context' && evaluateContextReadiness(definition, record.inspectedSourceIds).status !== 'ready') {
+        return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+    }
+    if (['experiment', 'synthesis', 'review', 'debrief'].includes(record.phase)
+        && evaluatePredictionReadiness(definition, record.prediction).status !== 'ready') {
         return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
     }
 

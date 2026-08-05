@@ -7,7 +7,7 @@ import { createCaseRecordProjection } from '../../src/core/store/CaseRecordProje
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 
 const definition = {
-    id: 'young-interference', version: '1.0.0', requirements: { minimumRuns: 2, minimumSources: 2 },
+    id: 'young-interference', version: '1.0.0', prediction: { required: true }, requirements: { minimumRuns: 2, minimumSources: 2 },
     apparatus: { primaryControls: [
         { id: 'slitSpacingMm', label: 'Slit spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
         { id: 'screenDistanceM', label: 'Screen distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
@@ -20,12 +20,13 @@ const definition = {
 } as CaseDefinition;
 
 const validRecord = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     caseId: 'young-interference',
     caseDefinitionVersion: '1.0.0',
     phase: 'context',
     activeControlValues: { slitSpacingMm: 0.25, screenDistanceM: 2 },
     inspectedSourceIds: ['source-1'],
+    prediction: '',
     runs: [{
         id: 'run-001', caseId: 'young-interference', controls: { slitSpacingMm: 0.25, screenDistanceM: 2 },
         result: { label: 'Observation', value: 1, unit: 'relative units' }, timestamp: '2026-08-05T10:00:00.000Z',
@@ -95,9 +96,11 @@ describe('portable case records', () => {
     });
 
     it('migrates only supported prior versions and rejects malformed, future, and unsupported versions', () => {
-        expect(parseAndMigrateCaseRecord(JSON.stringify({ ...validRecord, schemaVersion: 0 }))).toMatchObject({ ok: true, value: { schemaVersion: 1 } });
+        const { prediction: _prediction, ...legacyRecord } = validRecord;
+        expect(parseAndMigrateCaseRecord(JSON.stringify({ ...legacyRecord, schemaVersion: 0 }))).toMatchObject({ ok: true, value: { schemaVersion: 2, prediction: '' } });
         expect(parseAndMigrateCaseRecord('{')).toMatchObject({ ok: false, error: { code: 'invalid-import' } });
-        expect(parseAndMigrateCaseRecord(JSON.stringify({ ...validRecord, schemaVersion: 2 }))).toMatchObject({ ok: false, error: { code: 'incompatible-record-version' } });
+        expect(parseAndMigrateCaseRecord(JSON.stringify({ ...legacyRecord, schemaVersion: 1 }))).toMatchObject({ ok: true, value: { schemaVersion: 2, prediction: '' } });
+        expect(parseAndMigrateCaseRecord(JSON.stringify({ ...validRecord, schemaVersion: 3 }))).toMatchObject({ ok: false, error: { code: 'incompatible-record-version' } });
         expect(parseAndMigrateCaseRecord(JSON.stringify({ ...validRecord, schemaVersion: -1 }))).toMatchObject({ ok: false, error: { code: 'invalid-import' } });
         const migratedRecognition = parseAndMigrateCaseRecord(JSON.stringify({ ...validRecord, recognition: {} }));
         expect(migratedRecognition).toMatchObject({ ok: true, value: { recognition: { version: 0, items: [] } } });
@@ -115,7 +118,7 @@ describe('portable case records', () => {
 
     it('projects and hydrates strict recognition with the portable record', () => {
         const projected = createCaseRecordProjection(createInitialAppState(definition));
-        expect(projected).toMatchObject({ ok: true, value: { recognition: { version: 1 } } });
+        expect(projected).toMatchObject({ ok: true, value: { schemaVersion: 2, prediction: '', recognition: { version: 1 } } });
         if (!projected.ok) return;
         expect(projected.value.recognition.items[0]).toMatchObject({ id: 'source-discipline', achieved: false });
         const restored = createAppStateFromCaseRecord(projected.value, definition);
@@ -133,6 +136,6 @@ describe('portable case records', () => {
         if (!lock.ok) return;
         expect(store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' })).toMatchObject({ ok: false, error: { code: 'progress-operation-active' } });
         lock.value();
-        expect(store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' })).toEqual({ ok: true, value: undefined });
+        expect(store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' })).toMatchObject({ ok: false, error: { code: 'missing-contextual-sources' } });
     });
 });

@@ -34,6 +34,11 @@ export type SourceInspectedAction = Readonly<{
     sourceId: string;
 }>;
 
+export type PredictionRecordedAction = Readonly<{
+    type: 'prediction.recorded';
+    prediction: string;
+}>;
+
 export type TheorySupportRunSelectAction = Readonly<{
     type: 'theory.supportRunSelected';
     runId: string;
@@ -92,6 +97,7 @@ export type AppAction = ApparatusControlSetAction
     | ComparisonRunUnselectAction
     | ComparisonNoteSaveAction
     | SourceInspectedAction
+    | PredictionRecordedAction
     | TheorySupportRunSelectAction
     | TheorySupportRunUnselectAction
     | TheorySupportSourceSelectAction

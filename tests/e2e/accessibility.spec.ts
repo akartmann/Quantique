@@ -15,6 +15,10 @@ test('has no automated accessibility violations in the boot shell, Curated Recor
 
     expect(curatedRecordResults.violations).toEqual([]);
 
+    const contextPredictionResults = await new AxeBuilder({ page }).include('.case-context-prediction').analyze();
+
+    expect(contextPredictionResults.violations).toEqual([]);
+
     const recordObservation = page.getByRole('button', { name: 'Record prepared observation' });
     await recordObservation.click();
     await recordObservation.click();

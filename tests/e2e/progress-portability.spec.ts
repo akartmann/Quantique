@@ -4,6 +4,11 @@ import { expect, test } from '@playwright/test';
 test('exports only portable progress and recovers from invalid or incompatible imports', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' }).click();
+    await page.getByRole('button', { name: 'Inspect Opticks reference' }).click();
+    const context = page.getByRole('region', { name: 'Young context and prediction' });
+    await context.getByRole('button', { name: 'Continue to prediction' }).click();
+    await context.getByLabel('Tentative prediction').fill('A stable pattern may appear.');
+    await context.getByRole('button', { name: 'Record a prediction' }).click();
     await page.getByRole('button', { name: 'Record prepared observation' }).click();
 
     const printable = page.getByRole('article', { name: 'Printable investigation record' });
@@ -20,7 +25,7 @@ test('exports only portable progress and recovers from invalid or incompatible i
     const downloadPath = await download.path();
     if (!downloadPath) throw new Error('The exported record should be available to the test runner.');
     const exported = JSON.parse(await readFile(downloadPath, 'utf8')) as Record<string, unknown>;
-    expect(exported).toMatchObject({ schemaVersion: 1, caseId: 'young-interference', runs: [{ id: expect.any(String) }] });
+    expect(exported).toMatchObject({ schemaVersion: 2, caseId: 'young-interference', prediction: 'A stable pattern may appear.', runs: [{ id: expect.any(String) }] });
     expect(exported).not.toHaveProperty('caseDefinition');
     expect(exported).toMatchObject({ recognition: { version: 1 } });
     expect((exported.recognition as { items: readonly { id: string; achieved: boolean }[] }).items)
@@ -40,6 +45,7 @@ test('exports only portable progress and recovers from invalid or incompatible i
     const recognitionUpdates = inquiryRecognition.getByRole('status', { name: 'Inquiry recognition updates' });
     await input.setInputFiles({ name: 'valid-progress.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(importedRecognition)) });
     await expect(progress.getByRole('status', { name: 'Progress status' })).toHaveText('Progress imported and saved on this device.');
+    await expect(context.getByLabel('Tentative prediction')).toHaveValue('A stable pattern may appear.');
     await expect(page.getByText('Inspection recorded').first()).toBeVisible();
     await expect(inquiryRecognition).toContainText('Source discipline recorded');
     await expect(recognitionUpdates).toHaveText('');

@@ -9,6 +9,7 @@ import { mountApparatusControls } from './ui/apparatus/ApparatusControls';
 import { createBootShell, setBootShellStatus } from './ui/BootShell';
 import { mountNotebookPanel } from './ui/notebook/NotebookPanel';
 import { mountCuratedRecord } from './ui/sources/CuratedRecord';
+import { mountCaseContextAndPrediction } from './ui/context/CaseContextAndPrediction';
 import { mountTheoryBoard } from './ui/theory/TheoryBoard';
 import { mountConsultationPanel } from './ui/review/ConsultationPanel';
 import { mountConclusionReviewPanel } from './ui/review/ConclusionReviewPanel';
@@ -25,6 +26,7 @@ const calculatePreparedObservation: CalculateExperimentResult = () => ({
 const initializeLaboratory = async (): Promise<void> => {
     const bootShell = document.querySelector<HTMLElement>('#boot-shell');
     const curatedRecordRoot = document.querySelector<HTMLElement>('#curated-record');
+    const contextPredictionRoot = document.querySelector<HTMLElement>('#case-context-prediction');
     const controlsRoot = document.querySelector<HTMLElement>('#apparatus-controls');
     const notebookRoot = document.querySelector<HTMLElement>('#measurement-notebook');
     const theoryBoardRoot = document.querySelector<HTMLElement>('#theory-board');
@@ -35,7 +37,7 @@ const initializeLaboratory = async (): Promise<void> => {
     const printRoot = document.querySelector<HTMLElement>('#print-record');
     const recognitionRoot = document.querySelector<HTMLElement>('#inquiry-recognition');
 
-    if (!bootShell || !curatedRecordRoot || !controlsRoot || !notebookRoot || !theoryBoardRoot || !consultationRoot || !conclusionReviewRoot || !decisionHistoryRoot || !progressRoot || !printRoot || !recognitionRoot) {
+    if (!bootShell || !curatedRecordRoot || !contextPredictionRoot || !controlsRoot || !notebookRoot || !theoryBoardRoot || !consultationRoot || !conclusionReviewRoot || !decisionHistoryRoot || !progressRoot || !printRoot || !recognitionRoot) {
         return;
     }
 
@@ -60,6 +62,7 @@ const initializeLaboratory = async (): Promise<void> => {
         setBootShellStatus(bootShell, 'Saved progress is unavailable right now. The investigation is ready to continue.');
     }
     mountCuratedRecord(curatedRecordRoot, store);
+    mountCaseContextAndPrediction(contextPredictionRoot, store);
     mountApparatusControls(controlsRoot, store);
     mountNotebookPanel(notebookRoot, store, () => createCalculatedRunRecord({
         id: crypto.randomUUID(),
