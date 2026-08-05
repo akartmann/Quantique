@@ -52,3 +52,15 @@ test('has no automated accessibility violations in the boot shell, Curated Recor
 
     expect(portabilityResults.violations).toEqual([]);
 });
+
+test('exposes the validation disclosure through semantic text without automated accessibility violations', async ({ page }) => {
+    await page.goto('/?mode=validation');
+
+    const disclosure = page.getByRole('region', { name: 'Young validation session' });
+    await expect(disclosure.getByRole('heading', { name: 'Young validation session' })).toBeVisible();
+    await expect(disclosure).toContainText('Observations are held by the facilitator and de-identified outside this application.');
+    await expect(disclosure).toContainText('The application does not collect session responses.');
+
+    const results = await new AxeBuilder({ page }).include('.validation-session-disclosure').analyze();
+    expect(results.violations).toEqual([]);
+});

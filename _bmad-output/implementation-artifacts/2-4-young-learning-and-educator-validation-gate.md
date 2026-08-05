@@ -4,7 +4,7 @@ baseline_commit: 83ea7e3
 
 # Story 2.4: Young learning and educator validation gate
 
-Status: ready-for-dev
+Status: in-progress
 
 ## Story
 
@@ -22,29 +22,29 @@ so that later cases build on demonstrated learning, accessibility, and educator 
 
 ## Tasks / Subtasks
 
-- [ ] Create facilitator-owned validation evidence materials outside the product and outside `public/` (AC: 1–3, 5)
-  - [ ] Add `docs/validation/young-validation-plan.md`: scope, 15–30-session sampling target, session owner, consent/de-identification protocol, no-product-telemetry rule, facilitator workflow, and evidence-retention boundary. Do not put participant names, identifiers, raw conclusions, exports, or progress records in the app or repository fixtures.
-  - [ ] Add `docs/validation/young-observation-rubric.md` with explicit, human-observed binary fields and definitions for: (a) participant cites a recorded observation or apparatus setting in their own words, and (b) participant voluntarily tests at least one beyond-minimum variable. Define the numerator, denominator, exclusions, and the >=60% calculation; do not infer either metric from application state, events, IndexedDB, or Playwright.
-  - [ ] Add de-identified aggregate and educator-response templates. The aggregate must record only totals/percentages, denominator, calculation date, owner, and links/locations for consented facilitator evidence; educator responses must record whether each reviewer would share/use the case without adding product accounts or a survey integration.
-  - [ ] Add templates/checklists for scholarly source-and-rights review, manual accessibility findings, low-end-laptop performance, cached offline reload, and a final release decision. Each unmet gate must have a named remediation owner, evidence reference, and follow-up date; the decision is `blocked` unless every required gate passes—there is no waiver field or override path.
+- [x] Create facilitator-owned validation evidence materials outside the product and outside `public/` (AC: 1–3, 5)
+  - [x] Add `docs/validation/young-validation-plan.md`: scope, 15–30-session sampling target, session owner, consent/de-identification protocol, no-product-telemetry rule, facilitator workflow, and evidence-retention boundary. Do not put participant names, identifiers, raw conclusions, exports, or progress records in the app or repository fixtures.
+  - [x] Add `docs/validation/young-observation-rubric.md` with explicit, human-observed binary fields and definitions for: (a) participant cites a recorded observation or apparatus setting in their own words, and (b) participant voluntarily tests at least one beyond-minimum variable. Define the numerator, denominator, exclusions, and the >=60% calculation; do not infer either metric from application state, events, IndexedDB, or Playwright.
+  - [x] Add de-identified aggregate and educator-response templates. The aggregate must record only totals/percentages, denominator, calculation date, owner, and links/locations for consented facilitator evidence; educator responses must record whether each reviewer would share/use the case without adding product accounts or a survey integration.
+  - [x] Add templates/checklists for scholarly source-and-rights review, manual accessibility findings, low-end-laptop performance, cached offline reload, and a final release decision. Each unmet gate must have a named remediation owner, evidence reference, and follow-up date; the decision is `blocked` unless every required gate passes—there is no waiver field or override path.
 
-- [ ] Add a narrow validation-only Young entry mode without creating campaign functionality (AC: 1, 4)
-  - [ ] In `src/main.ts`, parse one explicit validation entry convention (for example `?mode=validation`) before creating state. The current product contains only Young and has no campaign-lock system; do not invent campaign state, later-case routes, generic routing, or a future-case framework in this story.
-  - [ ] Validation mode must load the same immutable, Zod-validated `young-interference` definition and the same semantic/typed-action investigation loop, but must create a fresh in-memory `AppState`. It must not call `CaseRecordRepository.load`, save a record, restore progress, import/export/print progress, or write any session evidence to IndexedDB, `CaseRecord`, local storage, network, console, analytics, or error telemetry.
-  - [ ] In validation mode, do not mount `mountCaseProgressPanel`; its subscription automatically projects and persists each state transition. Preserve that panel and its normal-route autosave/import/export/print behavior unchanged outside validation mode.
-  - [ ] Add a small semantic validation-session disclosure near the existing boot shell: it must identify the Young validation session, state that observations are facilitator-held and de-identified, state that the application does not collect session responses, and avoid score/right-wrong/speed language. Keep the existing `Enter laboratory` button, `data-testid="enter-laboratory"`, and `#boot-status` contract intact.
-  - [ ] Validation mode must never expose navigation, links, IDs, or content for Morley, Hafele–Keating, Delft, or another later case. It must not alter the current normal route’s persisted completion archive, counterfactual replay, recognition, case definition, or historical debrief.
+- [x] Add a narrow validation-only Young entry mode without creating campaign functionality (AC: 1, 4)
+  - [x] In `src/main.ts`, parse one explicit validation entry convention (for example `?mode=validation`) before creating state. The current product contains only Young and has no campaign-lock system; do not invent campaign state, later-case routes, generic routing, or a future-case framework in this story.
+  - [x] Validation mode must load the same immutable, Zod-validated `young-interference` definition and the same semantic/typed-action investigation loop, but must create a fresh in-memory `AppState`. It must not call `CaseRecordRepository.load`, save a record, restore progress, import/export/print progress, or write any session evidence to IndexedDB, `CaseRecord`, local storage, network, console, analytics, or error telemetry.
+  - [x] In validation mode, do not mount `mountCaseProgressPanel`; its subscription automatically projects and persists each state transition. Preserve that panel and its normal-route autosave/import/export/print behavior unchanged outside validation mode.
+  - [x] Add a small semantic validation-session disclosure near the existing boot shell: it must identify the Young validation session, state that observations are facilitator-held and de-identified, state that the application does not collect session responses, and avoid score/right-wrong/speed language. Keep the existing `Enter laboratory` button, `data-testid="enter-laboratory"`, and `#boot-status` contract intact.
+  - [x] Validation mode must never expose navigation, links, IDs, or content for Morley, Hafele–Keating, Delft, or another later case. It must not alter the current normal route’s persisted completion archive, counterfactual replay, recognition, case definition, or historical debrief.
 
-- [ ] Preserve architecture and accessibility boundaries for the validation route (AC: 1, 4)
-  - [ ] Keep semantic HTML authoritative: validation disclosure and all essential Young interactions remain keyboard, pointer, and touch operable with labels, logical reading order, visible focus, polite non-urgent status, non-colour meaning, 44px touch targets, zoom/text scaling, and reduced-motion support. Phaser remains a visual mirror and cannot own validation state, consent, session observation, progression, or accessibility UI.
-  - [ ] Do not add dependencies, backend calls, accounts, remote survey/form integrations, analytics, telemetry, a session database, generic services/managers/helpers, or browser APIs in `src/domain/`. Keep the pinned Phaser 4.2.1, TypeScript 5.7.2, Vite 8.1.5, idb 8.0.3, Zod 4.4.3, Vitest 4.1.10, Playwright 1.61.1, and axe 4.12.1 stack.
-  - [ ] Keep case definitions and assets immutable. Reuse the existing typed store/actions and `CaseRecordRepository` validation boundary; do not add validation-session fields to `CaseDefinition`, `AppState`, `CaseRecordProjection`, `CaseRecordSchema`, exports, imports, persistence migrations, or the print view.
+- [x] Preserve architecture and accessibility boundaries for the validation route (AC: 1, 4)
+  - [x] Keep semantic HTML authoritative: validation disclosure and all essential Young interactions remain keyboard, pointer, and touch operable with labels, logical reading order, visible focus, polite non-urgent status, non-colour meaning, 44px touch targets, zoom/text scaling, and reduced-motion support. Phaser remains a visual mirror and cannot own validation state, consent, session observation, progression, or accessibility UI.
+  - [x] Do not add dependencies, backend calls, accounts, remote survey/form integrations, analytics, telemetry, a session database, generic services/managers/helpers, or browser APIs in `src/domain/`. Keep the pinned Phaser 4.2.1, TypeScript 5.7.2, Vite 8.1.5, idb 8.0.3, Zod 4.4.3, Vitest 4.1.10, Playwright 1.61.1, and axe 4.12.1 stack.
+  - [x] Keep case definitions and assets immutable. Reuse the existing typed store/actions and `CaseRecordRepository` validation boundary; do not add validation-session fields to `CaseDefinition`, `AppState`, `CaseRecordProjection`, `CaseRecordSchema`, exports, imports, persistence migrations, or the print view.
 
 - [ ] Prove product isolation and release readiness with automated and human evidence (AC: 4, 5)
-  - [ ] Add a focused validation-route Playwright suite. Assert it opens the accessible Young route, retains the existing semantic boot contract, has no progress controls, does not touch a pre-seeded normal-route IndexedDB record, and has no later-case controls/content. Test the normal route separately to prove its restore, save, export/import, debrief, and replay behavior remain unchanged.
+  - [x] Add a focused validation-route Playwright suite. Assert it opens the accessible Young route, retains the existing semantic boot contract, has no progress controls, does not touch a pre-seeded normal-route IndexedDB record, and has no later-case controls/content. Test the normal route separately to prove its restore, save, export/import, debrief, and replay behavior remain unchanged.
   - [ ] Extend `tests/e2e/accessibility.spec.ts` or add a focused validation accessibility test using semantic roles/labels and axe for the disclosure. Manually verify keyboard-only flow, focus recovery, screen-reader announcements, non-colour scientific encoding, zoom/text scaling, reduced motion, and tablet touch; do not claim axe alone proves acceptance.
-  - [ ] Extend boot/offline coverage so a cached validation route loads after a successful online cache warm-up and the normal offline-reload path still restores saved player progress. Preserve the no-network-critical-play requirement.
-  - [ ] Run `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`, `npm run test:e2e:a11y`, `npm run test:e2e:offline`, and `npm run test:e2e:cross-browser` where the browsers are available. Record browser availability/results in the release evidence rather than fabricating a pass.
+  - [x] Extend boot/offline coverage so a cached validation route loads after a successful online cache warm-up and the normal offline-reload path still restores saved player progress. Preserve the no-network-critical-play requirement.
+  - [x] Run `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`, `npm run test:e2e:a11y`, `npm run test:e2e:offline`, and `npm run test:e2e:cross-browser` where the browsers are available. Record browser availability/results in the release evidence rather than fabricating a pass.
   - [ ] Perform and record, without application instrumentation, the 10-minute laboratory loop at 1280×720 on a representative low-end school laptop and verify a 60-FPS target; record manual source/rights review, accessibility acceptance, and offline result. Do not treat an automated test or a rendered FPS estimate as this human release gate.
 
 ## Dev Notes
@@ -128,11 +128,44 @@ GPT-5.6 Codex
 
 - Ultimate context engine analysis completed: sprint status, Epic 2, GDD, architecture, UX, project context, Stories 2.1–2.3, current persistence/entry/test seams, Git history, and current official testing/validation documentation were analyzed.
 - The story prevents the two principal failure modes: treating application state as research telemetry and allowing validation sessions to modify normal learner progress.
+- Implemented `?mode=validation` before persistence setup. The route loads the same validated Young case into a fresh store, mounts a semantic facilitator-held disclosure, and bypasses `CaseRecordRepository` plus persistence/print surfaces.
+- Automated evidence: `npm run typecheck`, `npm test` (22 files, 135 tests), `npm run build`, Chromium E2E/a11y/offline, and Chromium/Firefox/WebKit E2E all passed on 2026-08-05.
+
+### Implementation Plan
+
+- Keep validation state ephemeral by selecting the entry mode before any repository instance is created.
+- Reuse existing Young semantic controls and typed actions; expose only a focused semantic disclosure in validation mode.
+- Test route isolation through public roles and normal-route restoration; keep human release gates blocked until evidence is supplied.
 
 ### Completion Notes List
 
 - Ultimate context engine analysis completed - comprehensive developer guide created.
+- Added facilitator-owned, non-public validation templates and a blocked-by-default release decision path with no waiver.
+- Added an isolated `?mode=validation` Young route that retains the existing semantic boot contract and does not load, save, export, import, print, or expose normal player progress.
+- Added focused validation route, accessibility, and offline cache coverage; automated browser coverage is recorded in `docs/validation/young-technical-evidence.md`.
+- Human acceptance remains outstanding: moderated learner sessions, educator review, source/rights review, manual accessibility review, and representative low-end-laptop performance verification. Release remains blocked until the named owners supply evidence.
 
 ### File List
 
 - `_bmad-output/implementation-artifacts/2-4-young-learning-and-educator-validation-gate.md` (created)
+- `docs/validation/young-validation-plan.md` (new)
+- `docs/validation/young-observation-rubric.md` (new)
+- `docs/validation/young-validation-aggregate-template.md` (new)
+- `docs/validation/young-educator-responses-template.md` (new)
+- `docs/validation/young-source-rights-review-template.md` (new)
+- `docs/validation/young-accessibility-findings-template.md` (new)
+- `docs/validation/young-performance-template.md` (new)
+- `docs/validation/young-offline-reload-template.md` (new)
+- `docs/validation/young-release-decision-template.md` (new)
+- `docs/validation/young-technical-evidence.md` (new)
+- `index.html` (modified)
+- `public/style.css` (modified)
+- `src/main.ts` (modified)
+- `src/ui/ValidationSessionDisclosure.ts` (new)
+- `tests/e2e/accessibility.spec.ts` (modified)
+- `tests/e2e/offline-reload.spec.ts` (modified)
+- `tests/e2e/validation-route.spec.ts` (new)
+
+## Change Log
+
+- 2026-08-05: Added the isolated Young validation entry route, facilitator-owned validation evidence materials, automated release evidence, and focused validation accessibility/offline/isolation tests. Human release gates remain blocked pending external evidence.

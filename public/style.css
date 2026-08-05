@@ -148,6 +148,15 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
     padding: 1rem;
 }
 
+.validation-session-disclosure {
+    border-left: 4px solid #95d8d0;
+    display: grid;
+    gap: 0.5rem;
+    padding-left: 0.75rem;
+}
+
+.validation-session-disclosure h2 { font-size: 1.1rem; margin: 0; }
+
 .notebook-status { min-height: 1.5rem; }
 .notebook-observations { display: grid; gap: 1rem; margin: 0; padding-left: 1.5rem; }
 .notebook-observation { border: 1px solid #34515a; border-radius: 0.3rem; display: grid; gap: 0.75rem; padding: 1rem; }

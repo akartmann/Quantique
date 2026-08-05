@@ -50,3 +50,17 @@ test('restores saved progress and decision history after an offline reload', asy
     await expect(recognition).toContainText('Replication recorded');
     await expect(recognition).toContainText('Calibrated conclusion recorded');
 });
+
+test('loads the cached validation route after an online warm-up without progress controls', async ({ page, context }) => {
+    await page.goto('/?mode=validation');
+    await expect(page.getByRole('button', { name: 'Enter laboratory' })).toBeVisible();
+    await page.waitForFunction(() => navigator.serviceWorker.ready);
+    await page.reload();
+
+    await context.setOffline(true);
+    await page.reload();
+
+    await expect(page.getByRole('region', { name: 'Young validation session' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Enter laboratory' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Save, export, import, and print' })).toHaveCount(0);
+});
