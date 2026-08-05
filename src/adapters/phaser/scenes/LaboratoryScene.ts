@@ -9,6 +9,7 @@ export class LaboratoryScene extends Scene {
     private unsubscribe?: () => void;
     private apparatusRenderer?: ApparatusRenderer;
     private lectureBookRenderer?: LectureBookRenderer;
+    private readonly refreshCanvasInputBounds = (): void => this.scale.updateBounds();
 
     public constructor(private readonly store: AppStore, private readonly onLectureBookReady?: (controller: LectureBookController) => void) {
         super('Laboratory');
@@ -20,6 +21,9 @@ export class LaboratoryScene extends Scene {
         this.apparatusRenderer.create();
         this.lectureBookRenderer = new LectureBookRenderer(this, (visible) => this.apparatusRenderer?.setInputEnabled(!visible));
         this.onLectureBookReady?.(this.lectureBookRenderer.controller);
+        // The canvas is sticky. Phaser caches bounds in document coordinates, so refresh them
+        // whenever document scrolling changes the canvas viewport position.
+        window.addEventListener('scroll', this.refreshCanvasInputBounds, { passive: true });
 
         this.unsubscribe = this.store.subscribe(() => {
             const state = this.store.getState();
@@ -31,6 +35,7 @@ export class LaboratoryScene extends Scene {
     }
 
     private shutdown(): void {
+        window.removeEventListener('scroll', this.refreshCanvasInputBounds);
         this.unsubscribe?.();
         this.unsubscribe = undefined;
         this.apparatusRenderer?.destroy();

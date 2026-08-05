@@ -62,9 +62,25 @@ test('opens a synchronized local Young lecture book without treating reading as 
     await page.mouse.click(plusX, plusY);
     await expect(page.getByLabel('Slit spacing (mm)')).toHaveValue('0.25');
 
+    await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight / 2 }));
+    await page.waitForFunction(() => window.scrollY > 0);
+    const scrolledCanvasBounds = await canvas.boundingBox();
+    if (!scrolledCanvasBounds) throw new Error('The sticky laboratory surface did not remain visible after scrolling.');
     await page.mouse.click(
-        canvasBounds.x + (836 / 1024) * canvasBounds.width,
-        canvasBounds.y + (678 / 768) * canvasBounds.height
+        scrolledCanvasBounds.x + (836 / 1024) * scrolledCanvasBounds.width,
+        scrolledCanvasBounds.y + (678 / 768) * scrolledCanvasBounds.height
+    );
+    await expect(reader.getByRole('status')).toHaveText('Book spread 2 of 19.');
+    await page.waitForTimeout(200);
+    await page.mouse.click(
+        scrolledCanvasBounds.x + (188 / 1024) * scrolledCanvasBounds.width,
+        scrolledCanvasBounds.y + (678 / 768) * scrolledCanvasBounds.height
+    );
+    await expect(reader.getByRole('status')).toHaveText('Book spread 1 of 19.');
+    await page.waitForTimeout(200);
+    await page.mouse.click(
+        scrolledCanvasBounds.x + (836 / 1024) * scrolledCanvasBounds.width,
+        scrolledCanvasBounds.y + (678 / 768) * scrolledCanvasBounds.height
     );
     await expect(reader.getByRole('status')).toHaveText('Book spread 2 of 19.');
     await expect(reader.getByRole('button', { name: 'Previous page' })).toBeEnabled();
