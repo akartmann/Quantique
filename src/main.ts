@@ -3,7 +3,7 @@ import { loadCaseDefinition } from './adapters/content/loadCaseDefinition';
 import { CaseRecordRepository } from './adapters/persistence/caseRecordRepository';
 import { createAppStateFromCaseRecord, createInitialAppState } from './core/store/AppState';
 import { createStore } from './core/store/createStore';
-import StartGame from './game/main';
+import StartGame, { type LectureBookController, type LectureBookPresentation } from './game/main';
 import { mountApparatusControls } from './ui/apparatus/ApparatusControls';
 import { createBootShell, setBootShellStatus } from './ui/BootShell';
 import { mountNotebookPanel } from './ui/notebook/NotebookPanel';
@@ -66,7 +66,16 @@ const initializeLaboratory = async (): Promise<void> => {
     }
     const store = createStore(initialState);
     if (validationMode) mountValidationSessionDisclosure(validationDisclosureRoot);
-    const contextAndPrediction = mountCaseContextAndPrediction(contextPredictionRoot, store);
+    let lectureBookController: LectureBookController | undefined;
+    let pendingLectureBookPresentation: LectureBookPresentation | undefined;
+    const projectLectureBook = (presentation: LectureBookPresentation | undefined): void => {
+        pendingLectureBookPresentation = presentation;
+        if (presentation) lectureBookController?.show(presentation);
+        else lectureBookController?.hide();
+    };
+    const contextAndPrediction = mountCaseContextAndPrediction(contextPredictionRoot, store, {
+        onLectureBookPresentationChange: projectLectureBook
+    });
     let curatedRecord: ReturnType<typeof mountCuratedRecord> | undefined;
     curatedRecord = mountCuratedRecord(curatedRecordRoot, store, {
         onReadLectureRecord: (source) => {
@@ -85,7 +94,10 @@ const initializeLaboratory = async (): Promise<void> => {
         mountCaseProgressPanel(progressRoot, store, repository);
         mountCaseRecordPrintView(printRoot, store);
     }
-    StartGame('game-container', store);
+    StartGame('game-container', store, (controller) => {
+        lectureBookController = controller;
+        if (pendingLectureBookPresentation) controller.show(pendingLectureBookPresentation);
+    });
 };
 
 document.addEventListener('DOMContentLoaded', () => {

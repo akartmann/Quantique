@@ -22,6 +22,7 @@ export class ApparatusRenderer {
     private screenLabel?: Phaser.GameObjects.Text;
     private readonly textResolution = Math.min(window.devicePixelRatio || 1, 2);
     private lastRunId?: string;
+    private inputEnabled = true;
 
     public constructor(private readonly scene: Scene, private readonly storeAdapter: PhaserStoreAdapter) {}
 
@@ -64,6 +65,12 @@ export class ApparatusRenderer {
         this.objects.length = 0; this.controls.length = 0; this.fringeDots.length = 0; this.readouts.clear();
         this.resultReadout = undefined; this.visualGuidance = undefined; this.slitTop = undefined; this.slitBottom = undefined; this.screen = undefined; this.screenLabel = undefined;
         this.source = undefined; this.waveA = undefined; this.waveB = undefined; this.waveC = undefined; this.lastRunId = undefined;
+    }
+
+    /** The book overlay temporarily owns pointer interaction without changing laboratory state. */
+    public setInputEnabled(enabled: boolean): void {
+        this.inputEnabled = enabled;
+        this.updatePhoneReadOnlyMode();
     }
 
     private createRichPattern(): void {
@@ -160,7 +167,7 @@ export class ApparatusRenderer {
     }
 
     private readonly updatePhoneReadOnlyMode = (): void => {
-        const enabled = !window.matchMedia('(max-width: 767px)').matches;
+        const enabled = this.inputEnabled && !window.matchMedia('(max-width: 767px)').matches;
         this.controls.forEach((control) => enabled ? control.setInteractive({ useHandCursor: true }) : control.disableInteractive());
     };
 }

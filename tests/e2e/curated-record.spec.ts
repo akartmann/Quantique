@@ -31,7 +31,7 @@ test('inspects both Young contextual sources through the semantic Curated Record
     await expect(record.getByText('Inspection recorded')).toHaveCount(2);
 });
 
-test('opens the complete local Young lecture reader without treating reading as evidence inspection', async ({ page }) => {
+test('opens a synchronized local Young lecture book without treating reading as evidence inspection', async ({ page }) => {
     await page.goto('/');
 
     const record = page.getByRole('region', { name: 'Curated Record' });
@@ -48,21 +48,56 @@ test('opens the complete local Young lecture reader without treating reading as 
         'href',
         'https://wellcomecollection.org/works/u5dr8rgg'
     );
-    await expect(reader.locator('.contextual-text-section')).toHaveCount(37);
-    await expect(reader.locator('.contextual-text-section').first()).toHaveAttribute('id', 'young-bakerian-page-12');
-    await expect(reader.locator('.contextual-text-section').last()).toHaveAttribute('id', 'young-bakerian-page-48');
-    await expect(reader.locator('.contextual-source-pages')).toHaveText(
-        Array.from({ length: 37 }, (_, index) => `Source page ${index + 12}.`)
-    );
+    await expect(reader.getByRole('status')).toHaveText('Book spread 1 of 50.');
+    await expect(reader.locator('.contextual-text-section')).toHaveCount(2);
+    await expect(reader.locator('.contextual-text-section').first()).toHaveAttribute('data-source-section-id', 'young-bakerian-page-12');
+    await expect(reader.locator('.contextual-source-pages')).toHaveText(['Source page 12.', 'Source page 12.']);
     await expect(record.getByText('Inspection recorded')).toHaveCount(0);
 
-    const close = reader.getByRole('button', { name: 'Return to Curated Record' });
-    await close.click();
+    const canvas = page.locator('#game-container canvas');
+    const canvasBounds = await canvas.boundingBox();
+    if (!canvasBounds) throw new Error('The laboratory surface did not render.');
+    const plusX = canvasBounds.x + (540 / 1024) * canvasBounds.width;
+    const plusY = canvasBounds.y + (603 / 768) * canvasBounds.height;
+    await page.mouse.click(plusX, plusY);
+    await expect(page.getByLabel('Slit spacing (mm)')).toHaveValue('0.25');
+
+    await page.mouse.click(
+        canvasBounds.x + (724 / 1024) * canvasBounds.width,
+        canvasBounds.y + (682 / 768) * canvasBounds.height
+    );
+    await expect(reader.getByRole('status')).toHaveText('Book spread 2 of 50.');
+    await expect(reader.getByRole('button', { name: 'Previous page' })).toBeEnabled();
+    await reader.getByRole('button', { name: 'Next page' }).click();
+    await expect(reader.getByRole('status')).toHaveText('Book spread 3 of 50.');
+
+    await reader.getByRole('button', { name: 'Close book' }).click();
     await expect(readerTrigger).toBeFocused();
 
     await readerTrigger.click();
-    await context.getByRole('article', { name: 'Read the lecture record' }).getByRole('button', { name: 'Return to Curated Record' }).click();
+    await page.waitForTimeout(250);
+    await expect(context.getByRole('article', { name: 'Read the lecture record' })).toBeVisible();
+    const reopenedCanvasBounds = await canvas.boundingBox();
+    if (!reopenedCanvasBounds) throw new Error('The laboratory surface did not render.');
+    await page.mouse.click(
+        reopenedCanvasBounds.x + (512 / 1024) * reopenedCanvasBounds.width,
+        reopenedCanvasBounds.y + (682 / 768) * reopenedCanvasBounds.height
+    );
+    await expect(context.getByRole('article', { name: 'Read the lecture record' })).toHaveCount(0);
     await expect(readerTrigger).toBeFocused();
+});
+
+test('opens, pages, and closes the local book without decorative motion when reduced motion is preferred', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+
+    await page.getByRole('button', { name: 'Read the lecture record' }).click();
+    const reader = page.getByRole('article', { name: 'Read the lecture record' });
+    await expect(reader.getByRole('status')).toHaveText('Book spread 1 of 50.');
+    await reader.getByRole('button', { name: 'Next page' }).click();
+    await expect(reader.getByRole('status')).toHaveText('Book spread 2 of 50.');
+    await reader.getByRole('button', { name: 'Close book' }).click();
+    await expect(reader).toHaveCount(0);
 });
 
 test('uses the authored reader label from the case definition', async ({ page }) => {
