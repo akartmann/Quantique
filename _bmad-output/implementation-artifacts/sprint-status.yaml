@@ -1,5 +1,5 @@
 # generated: 2026-08-04T18:18:39+0200
-# last_updated: 2026-08-04T18:18:39+0200
+# last_updated: 2026-08-05
 # project: Quantique
 # project_key: NOKEY
 # tracking_system: file-system
@@ -33,6 +33,25 @@
 # - Stories can be worked in parallel if team capacity allows.
 # - Developer typically creates the next story after the previous one is 'done'.
 # - Dev moves a story to 'review', then runs code review.
+#
+# ============================================================================
+# SPRINT CHANGE (approved 2026-08-05): Pivot to a Phaser guided adventure.
+# See planning-artifacts/sprint-change-proposal-2026-08-05.md
+# - Epic 1 retitled "Phaser guided-adventure foundation".
+# - Domain/store/evaluator/persistence KEPT; DOM presentation layer retired.
+# - Prediction & conclusion become 1-of-4 colleague choices; rival-lab critique
+#   (no hard fail); "2 significant measures" gate unlocks the conclusion.
+# - Bilingual EN+FR from launch (Story 1.1b — build early).
+# - Accessibility de-scoped from MVP (Story 7-2 descoped, revisit post-MVP).
+#
+# NON-STANDARD STATUS VALUES (intentional):
+#   - descoped: out of MVP scope per the pivot; not available work (won't be picked up).
+#   - skipped: retrospective intentionally not conducted.
+# KEY-IDENTITY NOTE: story identity is the epic.story NUMBER. Reworked stories
+#   keep their original keys (which match existing story files + git history)
+#   even though their epic titles changed; "# rework:pivot" marks the drift.
+#   These need re-baselining via gds-create-story before dev.
+# ============================================================================
 
 generated: 2026-08-04T18:18:39+0200
 last_updated: 2026-08-05
@@ -42,27 +61,34 @@ tracking_system: file-system
 story_location: "{project-root}/_bmad-output/implementation-artifacts"
 
 development_status:
-  epic-1: done
+  epic-1: in-progress  # reopened by pivot (was: done)
   1-1-project-bootstrap-and-verification-harness: done
+  1-1b-internationalization-foundation-english-french: backlog  # new (pivot); BUILD EARLY — right after 1-1, before any scene text
   1-2-minimal-young-case-contract-and-authored-loop: done
-  1-3-accessible-dual-surface-laboratory-controls: done
-  1-4-measurement-notebook-and-run-comparison: done
-  1-5-curated-record-and-source-labels: done
-  1-6-evidence-to-conclusion-theory-board: done
-  1-7-consultations-peer-review-and-revision-history: done
-  1-8-offline-progress-export-import-and-print: done
-  1-9-inclusive-feedback-and-inquiry-recognition: done
+  1-3-accessible-dual-surface-laboratory-controls: done  # rework:pivot -> "Phaser laboratory controls"
+  1-4-measurement-notebook-and-run-comparison: done  # rework:pivot -> in-scene notebook
+  1-5-curated-record-and-source-labels: done  # rework:pivot -> LibraryScene (reuse LectureBookRenderer)
+  1-6-evidence-to-conclusion-theory-board: done  # rework:pivot -> choose 1-of-4 colleague conclusion
+  1-7-consultations-peer-review-and-revision-history: done  # rework:pivot -> colleague hints + rival-lab critique
+  1-8-offline-progress-export-import-and-print: done  # kept (print/export retained)
+  1-9-inclusive-feedback-and-inquiry-recognition: done  # rework:pivot -> in-scene feedback, a11y descoped
+  1-10-scene-router-and-adventure-flow: backlog  # new (pivot)
+  1-11-colleague-cast-and-proposal-system: backlog  # new (pivot)
+  1-12-phaser-dialogue-and-choice-ui: backlog  # new (pivot)
   epic-1-retrospective: skipped
   epic-2: in-progress
-  2-1-young-contextual-record-and-prediction: done
-  2-2-young-double-slit-experiment: done
-  2-3-young-synthesis-debrief-and-replay: done
-  2-4-young-learning-and-educator-validation-gate: in-progress
+  2-1-young-contextual-record-and-prediction: done  # rework:pivot -> library reading + choice-of-4 prediction
+  2-2-young-double-slit-experiment: done  # kept (deterministic model reused)
+  2-3-young-synthesis-debrief-and-replay: done  # rework:pivot -> significant-measure gate + colleague conclusion
+  2-4-young-learning-and-educator-validation-gate: in-progress  # rework:pivot -> metrics revised, EN+FR + no a11y gate
+  2-5-rival-lab-critique-and-revision: backlog  # new (pivot)
+  2-6-significant-measure-gate-and-colleague-hints: backlog  # new (pivot)
   epic-2-retrospective: optional
   epic-3: backlog
-  3-1-incremental-reusable-case-contract-hardening: backlog
+  3-1-incremental-reusable-case-contract-hardening: backlog  # extend:pivot -> proposals, significance rule, colleague hints
   3-2-reviewable-morley-miller-prototype: backlog
   3-3-source-and-rights-ledger: backlog
+  3-4-scenario-and-proposal-authoring-contract: backlog  # new (pivot) - scenario/dialogue scripting
   epic-3-retrospective: optional
   epic-4: backlog
   4-1-morley-miller-historical-case-record: backlog
@@ -81,6 +107,6 @@ development_status:
   epic-6-retrospective: optional
   epic-7: backlog
   7-1-educator-case-materials: backlog
-  7-2-accessibility-and-cross-browser-release-verification: backlog
+  7-2-cross-browser-release-verification: descoped  # pivot: a11y dropped from MVP (retitled from accessibility-and-cross-browser); revisit post-MVP
   7-3-static-release-and-source-rights-sign-off: backlog
   epic-7-retrospective: optional

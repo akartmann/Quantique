@@ -91,7 +91,9 @@ The linked Measurement Notebook and Theory Board mockups illustrate these patter
 - Browser zoom/text scaling and responsive tablet layout must not make essential controls unavailable.
 - Meet WCAG 2.2 AA for text contrast and keyboard operation. Touch targets are at least 44 × 44 CSS px when touch is available.
 - Respect `prefers-reduced-motion`: transitions become immediate and the experiment remains interpretable without motion.
-- Screen-reader names, roles, values, and state announcements use the same scientific terms visible in the UI. English is the v1 interface language; localization is out of scope for the first release.
+- Screen-reader names, roles, values, and state announcements use the same scientific terms visible in the UI. English **and French** are the v1 interface languages (bilingual at launch); localization beyond EN/FR is out of scope for the first release.
+
+> **Note (pivot 2026-08-05):** this EXPERIENCE spine still describes the pre-pivot accessibility-first, semantic-HTML model and is pending its full rework for the Phaser guided adventure (see `sprint-change-proposal-2026-08-05.md` §4.3). The bilingual EN/FR requirement above is current.
 
 ## HUD & Diegetic UI
 

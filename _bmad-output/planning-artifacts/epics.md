@@ -12,6 +12,8 @@ inputDocuments:
 
 This document decomposes the requirements for *Fracture of Certainty: Cases from the Quantum Age* into implementable game-development stories. It uses the GDD, game architecture, and project context. No standalone UX design document is currently available.
 
+> **Sprint Change — Pivot to a Phaser guided adventure (approved 2026-08-05).** See `sprint-change-proposal-2026-08-05.md`. The case now plays as a scripted Phaser scene flow (Library → Colleagues → Lab → Theory Board → Debrief). Predictions and conclusions are 1-of-4 colleague proposals; a rival lab critiques an unsupported conclusion (never a hard fail); the conclusion unlocks after ≥2 *significant* measurements. The store/domain/evaluator/persistence layers are **kept**; the semantic-HTML presentation layer is **retired** (print/export only); **accessibility is de-scoped from the MVP**. Stories marked **[reworked — pivot]** changed materially and must be re-baselined; stories marked **[new — pivot]** are additions.
+
 ## Requirements Inventory
 
 ### Functional Requirements
@@ -27,9 +29,9 @@ FR8: Run the apparatus and present visual output; Young resolves within three se
 FR9: Save settings, timestamp/order, observed fringe spacing, comparison notes, and linked evidence in a measurement notebook.
 FR10: Retain at least two observations and compare any two saved runs.
 FR11: Provide export or print of a case/observation record.
-FR12: Provide a theory board connecting observation, source, prediction, and conclusion.
-FR13: Complete only after a conclusion cites two recorded observations, two contextual sources, and one limitation or alternative explanation.
-FR14: Provide unlimited builder, experimentalist, analyst, or communicator consultations that point only to an observable, source, or test.
+FR12: **[reworked — pivot]** Provide a theory-board scene where the player chooses one of four colleague-proposed conclusions; the evaluator determines which proposals the recorded evidence defends.
+FR13: **[reworked — pivot]** Unlock the conclusion choice only after ≥2 *significant* measurements and the required sources; each conclusion proposal bundles a claim and its limitation. Choosing an unsupported proposal triggers the rival-lab critique and routes back to a revisable choice.
+FR14: **[reworked — pivot]** Provide unlimited in-fiction colleague hints (delivered when the significant-measure gate is unmet) that point only to an observable, source, or test — never the final conclusion.
 FR15: Provide revisable peer review and preserve decision history.
 FR16: Give weak conclusions revision feedback instead of hard failure, penalty, or irreversible wrong choice.
 FR17: Give non-competitive recognition for rigorous inquiry without gating completion.
@@ -37,7 +39,7 @@ FR18: Give every case one discoverable confound or misleading result, a reset-so
 FR19: Implement Morley–Miller rotation, fringe and temperature logging, stable-window replication, and upper-bounded conclusion.
 FR20: Implement Hafele–Keating calibration, route/altitude/time inspection, prediction before results, and outcome/error-bar comparison.
 FR21: Implement Delft’s two labs 1.3 km apart, detector efficiency, fast random basis selection, spacelike timing, finite CHSH data, and bounded conclusion.
-FR22: Provide in-play observation, plain-language, and optional technical/source-detail progressive prompts.
+FR22: **[reworked — pivot]** Deliver in-play observation prompts, plain-language explanation, and an optional technical/source-detail layer through colleague dialogue in-scene.
 FR23: Provide unlimited reset, comparison, decision-history review, neutral auto-summaries, and non-auto-solving hints.
 FR24: Support alternate configurations, counterfactual replay explicitly distinct from history, optional-variable testing, and varied evidence order.
 FR25: Structure every case with opening dispute, Curated Record, lab setup, two-to-four cycles, theory-board review, debrief, optional replay, campaign unlocks, and history-preserving replay.
@@ -50,22 +52,23 @@ FR29: Keep progression as knowledge/confidence without currency, energy, invento
 
 NFR1: Sustain 60 FPS at 1280×720 on a representative low-end school laptop during a 10-minute lab loop.
 NFR2: Reach first meaningful interaction within five seconds after a cached launch.
-NFR3: Support current desktop Chrome, Firefox, Safari, and Edge; tablet interactions retain input parity.
+NFR3: Support current desktop Chrome, Firefox, Safari, and Edge (mouse/keyboard primary); tablet touch support is a secondary goal.
 NFR4: Phones are reading-only until laboratory usability is proven.
 NFR5: No account, telemetry, advertising, cloud save, remote configuration, or network dependency may block core play.
-NFR6: Essential interactions must never be canvas-only; semantic controls expose labels, values, units, keyboard adjustment, and announcements.
-NFR7: Colour and sound are never the sole carriers of scientific information.
+NFR6: ~~Essential interactions must never be canvas-only; semantic controls expose labels, values, units, keyboard adjustment, and announcements.~~ **[de-scoped — pivot]** Interactive play is Phaser-canvas; on-screen controls show current value and units.
+NFR7: ~~Colour and sound are never the sole carriers of scientific information.~~ **[de-scoped — pivot]** (non-colour-only encoding revisited post-MVP; basic no-flashing safety retained).
 NFR8: The game has no hard fail, irreversible wrong choice, speed reward, or reward for overclaiming.
 NFR9: Scientific results are deterministic, inspectable, reproducible, and preserve their model version.
 NFR10: Shipped case definitions and assets are immutable; player progress is separate local data.
 NFR11: Historical claims and assets require provenance and rights review before release.
 NFR12: Local progress survives failed imports and save failures without silent loss.
-NFR13: Automated coverage includes unit, browser E2E, cross-browser, offline-reload, and accessibility checks; manual accessibility acceptance remains required.
+NFR13: Automated coverage includes unit, browser E2E, cross-browser, and offline-reload checks. **[reworked — pivot]** Accessibility (axe) checks and manual accessibility acceptance are de-scoped from MVP; the E2E flow now exercises the Phaser scene sequence and rival-lab revision.
 NFR14: A case first-play session takes 20–45 minutes; the Young slice targets 20–30 minutes.
 NFR15: The product is a static hosted web application with cache-versioned production assets.
 NFR16: No freeform physics sandbox, multiplayer, UGC, LLM dialogue, or external critical-play integration is introduced.
 NFR17: The framework must allow a second case to be authored without duplicating core behavior.
 NFR18: Learner-entered conclusions are not exposed through raw errors or default logging.
+NFR19: **[new — pivot]** The game ships bilingual (English and French) from the first release; all player-facing text (UI, Phaser scene text, case content, print view) is localized, and the Young slice includes complete EN and FR content. Localization beyond EN/FR remains out of scope.
 
 ### Additional Requirements
 
@@ -87,14 +90,14 @@ NFR18: Learner-entered conclusions are not exposed through raw errors or default
 
 ### UX Design Requirements
 
-No standalone UX design specification was found. The following UX requirements are sourced from the GDD and architecture and must be preserved in story design:
+**[reworked — pivot]** The UX spine (`ux-designs/.../EXPERIENCE.md`) is being revised for the Phaser guided adventure. The accessibility-first UX requirements below are **de-scoped from the MVP**; the agency-preserving requirement is retained and reworked:
 
-UX-DR1: Provide semantic, labelled controls with values, units, keyboard adjustment, focus behavior, and announcements for every essential lab action.
-UX-DR2: Ensure pointer, touch, keyboard, and DOM paths invoke identical authoritative actions and results.
-UX-DR3: Provide accessible notebook, theory board, source inspection, conclusion, and feedback interfaces; Phaser is a visual companion, not their sole surface.
-UX-DR4: Provide non-colour scientific encodings, captioned/non-audio feedback, and explicit loading or recovery explanations.
-UX-DR5: Use structured progressive prompts and consultations that preserve player agency and never auto-solve the case.
-UX-DR6: Provide a semantic print view and responsive desktop-first layout with tablet-equivalent outcomes.
+UX-DR1: ~~Semantic, labelled controls with keyboard adjustment/announcements for every essential lab action.~~ **[de-scoped — pivot]** Controls live in the Phaser scene and show value + units on-screen.
+UX-DR2: ~~Pointer, touch, keyboard, and DOM paths invoke identical actions.~~ **[de-scoped — pivot]** Mouse/keyboard primary, touch secondary; all through the Phaser scenes.
+UX-DR3: ~~Accessible notebook, theory board, source, conclusion, feedback interfaces; Phaser is a companion.~~ **[de-scoped — pivot]** Phaser scenes are the sole interactive surface.
+UX-DR4: ~~Non-colour encodings, captioned feedback~~ **[de-scoped — pivot]** (revisit post-MVP; explicit loading/recovery explanations still expected in-scene).
+UX-DR5: **[kept — reworked]** Colleague dialogue, hints, and proposal choices preserve player agency and never auto-solve the case.
+UX-DR6: ~~Semantic print view + responsive tablet-equivalent layout.~~ **[reworked — pivot]** Keep the CSS print/export view (record portability); desktop-first Phaser canvas, tablet secondary.
 
 ### FR Coverage Map
 
@@ -130,11 +133,11 @@ FR29: Epic 1 Story 1.9.
 
 ## Epic List
 
-### Epic 1: Accessible investigation foundation
+### Epic 1: Phaser guided-adventure foundation
 
-Players can operate an accessible investigation workspace, record and compare evidence, inspect sources, revise evidence-bounded conclusions, and retain their progress locally.
+Players can move through a scripted Phaser scene flow — reading the reference in the library, choosing a prediction with colleagues, running and recording experiments in the lab, choosing a colleague conclusion at the theory board, and receiving a rival-lab critique — with progress retained locally. The store/domain/evaluator/persistence layers are reused; the presentation is Phaser-first.
 
-**FRs covered:** FR2, FR3, FR5, FR6, FR9–FR18, FR22–FR25, FR27–FR29.
+**FRs covered:** FR2, FR3, FR5, FR9–FR18, FR22–FR25, FR27–FR29 (FR6 accessibility clause de-scoped; FR12–FR14/FR22 reworked per pivot).
 
 ### Epic 2: Young validation slice
 
@@ -172,9 +175,9 @@ Educators can use a reviewed, accessible, classroom-ready case with clear activi
 
 **FRs covered:** FR26, FR29.
 
-## Epic 1: Accessible investigation foundation
+## Epic 1: Phaser guided-adventure foundation
 
-Players can operate an accessible investigation workspace, record and compare evidence, inspect sources, revise evidence-bounded conclusions, and retain their progress locally.
+Players can move through a scripted Phaser scene flow — library, colleagues, lab, theory board, rival-lab critique — with progress retained locally. The store/domain/evaluator/persistence layers are reused; the presentation is Phaser-first and the semantic-HTML surface is retired (print/export only).
 
 ### Story 1.1: Project bootstrap and verification harness
 
@@ -193,6 +196,52 @@ So that the Young validation slice can be built and tested without bundling setu
 **When** it loads from cached production assets,
 **Then** the first meaningful interaction is reachable within five seconds,
 **And** the app remains a static hosted web application with no account, telemetry, advertising, cloud save, remote configuration, or network-critical play dependency.
+
+### Story 1.1b: Internationalization foundation — English + French [new — pivot]
+
+> **BUILD ORDER:** an *early* foundation story — build immediately after Story 1.1 and before any scene renders player-facing text. Suffixed `1.1b` (rather than renumbering) to preserve the IDs of already-built stories 1.2–1.9.
+
+As a player,
+I want to play in English or French from the first release,
+So that both English- and French-speaking learners can use the game.
+
+**Acceptance Criteria:**
+
+**Given** the application boots,
+**When** it initializes,
+**Then** every player-facing string resolves through an i18n layer backed by `en` and `fr` locale resources (no hard-coded display strings in scenes, widgets, or the print view),
+**And** the active locale is read from the authoritative store.
+
+**Given** a language selector is available early (boot/menu and in-game settings),
+**When** I switch language,
+**Then** the active locale updates through a typed action, every open scene re-renders its text from the new locale, and the choice persists in IndexedDB settings and survives offline reload.
+
+**Given** a case definition's authored text (dialogue beats, colleague names/roles, the four prediction and four conclusion proposals with their limitations, colleague hints, rival-lab critiques, source labels, and debrief),
+**When** it is loaded,
+**Then** each localizable string provides both `en` and `fr`,
+**And** Zod rejects a case missing a required locale before domain logic.
+
+**Given** French text is rendered in a Phaser scene,
+**When** it displays,
+**Then** the chosen font(s) include the full French glyph set and diacritics (é è ê ë à â ç î ï ô û ù œ « »),
+**And** accented text renders without missing glyphs or clipping at 1280×720.
+
+**Given** a translation key is missing at runtime,
+**When** text is resolved,
+**Then** it falls back to English and logs a dev-only `i18n.missingKey` warning,
+**And** the player never sees a raw key or an empty string.
+
+**Given** player-facing numbers and units,
+**When** displayed,
+**Then** they use locale-aware formatting where appropriate,
+**And** the recorded scientific run values remain canonical and unchanged.
+
+**Given** the i18n foundation,
+**When** tests run,
+**Then** a unit test asserts locale-resource completeness (every key present in both `en` and `fr`) and English fallback,
+**And** an integration test verifies that the selector switches language, persists it, and re-renders scene text.
+
+_Young-slice note: EN and FR content for the Young case ships complete, and the Story 2.4 validation gate covers both locales._
 
 ### Story 1.2: Minimal Young case contract and authored loop
 
@@ -217,35 +266,30 @@ So that Young content and its case loop exist before dependent foundation featur
 **Then** it has one authored confound or initially misleading result discoverable by replication, a control change, or source comparison,
 **And** its reset-solvable path and physical-model assumptions are inspectable.
 
-### Story 1.3: Accessible dual-surface laboratory controls
+### Story 1.3: Phaser laboratory controls [reworked — pivot]
 
 As a player,
-I want to adjust an authored laboratory control through semantic HTML, keyboard, pointer, or touch,
-So that I can perform experiments regardless of my input method.
+I want to adjust an authored laboratory control in the lab scene with my mouse or keyboard,
+So that I can set up and run experiments inside the guided adventure.
 
 **Acceptance Criteria:**
 
-**Given** the minimal Young case contract,
-**When** its authored slit-spacing control is selected,
-**Then** the semantic application shell and Phaser laboratory surface render that control from the same authoritative state,
-**And** this story does not establish a laboratory performance release gate.
-
 **Given** an authored numeric apparatus control with a label, unit, allowed range, and step,
-**When** the laboratory loads,
-**Then** semantic HTML exposes its name, current value, unit, instructions, and a keyboard-operable value input or stepper,
-**And** no essential action depends solely on the Phaser canvas.
+**When** the LaboratoryScene loads,
+**Then** the Phaser scene renders the control with its current value and unit visible on-screen,
+**And** the control reads its value from the authoritative store.
 
-**Given** a player changes the control through its semantic HTML input, Phaser pointer/touch gesture, or keyboard interaction,
+**Given** a player changes the control through a Phaser pointer gesture or keyboard interaction,
 **When** the change is accepted,
-**Then** every path dispatches the same typed `apparatus.controlSet` intent to the authoritative store,
-**And** the resulting stored value and visible readouts are identical regardless of input origin.
+**Then** the scene dispatches the typed `apparatus.controlSet` intent to the store (it never mutates state directly),
+**And** the stored value and the on-screen readout update from the resulting state.
 
 **Given** a requested value is below the minimum, above the maximum, or off the configured step,
-**When** the player submits it,
-**Then** the domain layer applies the documented validation or normalization rule deterministically,
-**And** the semantic UI announces the resulting value without relying on colour or sound.
+**When** it is submitted,
+**Then** the domain layer applies the documented validation/normalization rule deterministically,
+**And** the scene reflects the resulting value.
 
-**Given** the Phaser laboratory surface is rendered from state,
+**Given** the LaboratoryScene is rendered from state,
 **When** the authoritative control value changes,
 **Then** the renderer mirrors the new value without owning or directly mutating application state,
 **And** scene shutdown removes its subscriptions and display objects.
@@ -253,9 +297,9 @@ So that I can perform experiments regardless of my input method.
 **Given** the control implementation,
 **When** automated tests run,
 **Then** unit tests cover validation and the pure state transition,
-**And** an integration test proves DOM and Phaser intent paths result in the same authoritative state.
+**And** an integration test proves the scene intent path produces the expected authoritative state.
 
-### Story 1.4: Measurement notebook and run comparison
+### Story 1.4: Measurement notebook and run comparison [reworked — pivot]
 
 As a player,
 I want to save observations from my experiment and compare two recorded runs,
@@ -269,13 +313,13 @@ So that I can use my own evidence to reason about a scientific claim.
 **And** the record does not depend on Phaser, DOM, or browser APIs.
 
 **Given** a recorded run,
-**When** I open the semantic notebook,
-**Then** I can read its settings, values and units, timestamp/order, observed result, and linked evidence,
-**And** all information is available without interpreting colour or canvas pixels.
+**When** I open the notebook in the LaboratoryScene,
+**Then** I can read its settings, values and units, timestamp/order, observed result, and linked evidence in-scene,
+**And** each value is shown with its unit as readable text (not colour alone).
 
 **Given** at least two saved runs,
 **When** I select any two runs for comparison,
-**Then** the notebook displays their settings and results side-by-side,
+**Then** the notebook shows their settings and results side-by-side in-scene,
 **And** I can save an associated comparison note.
 
 **Given** I reset or alter the current apparatus after recording a run,
@@ -286,18 +330,20 @@ So that I can use my own evidence to reason about a scientific claim.
 **Given** a save request fails or the record is invalid,
 **When** the error is handled,
 **Then** valid in-memory evidence remains available,
-**And** the player receives a neutral semantic recovery message rather than raw error text.
+**And** the player receives a neutral in-scene recovery message rather than raw error text.
 
 **Given** the notebook and comparison capability,
 **When** tests run,
 **Then** unit tests cover deterministic run creation and comparison selection,
-**And** integration tests assert the notebook through public semantic controls and selectors.
+**And** integration tests assert the notebook behavior through public store actions and selectors.
 
-### Story 1.5: Curated Record and source labels
+### Story 1.5: Library scene — Curated Record and source labels [reworked — pivot]
 
 As a player,
-I want to inspect contextual sources with clear provenance labels,
-So that I can distinguish evidence from reconstruction, interpretation, and fiction before using it in a conclusion.
+I want to read contextual sources with clear provenance labels in the library scene,
+So that I can distinguish evidence from reconstruction, interpretation, and fiction before choosing a conclusion.
+
+_Implementation note: the LibraryScene reuses the existing `LectureBookRenderer` / Opticks archive book._
 
 **Acceptance Criteria:**
 
@@ -307,14 +353,14 @@ So that I can distinguish evidence from reconstruction, interpretation, and fict
 **And** invalid content is returned as a typed, recoverable failure.
 
 **Given** a source in the Curated Record,
-**When** I inspect it through the semantic interface,
+**When** I inspect it in the LibraryScene,
 **Then** I can identify its title, creator or originating context, source type, provenance, rights status, and relevant case relationship,
-**And** the same information is not available only as a Phaser visual.
+**And** the category is shown as readable text (not colour alone).
 
 **Given** source content that is primary material, reconstruction, later interpretation, or deliberate fiction,
 **When** it is presented,
-**Then** its category is explicit in text and through a non-colour-only visual treatment,
-**And** category labels remain understandable without sound.
+**Then** its category is explicit in text in-scene,
+**And** labels remain understandable without sound.
 
 **Given** I inspect a source,
 **When** the inspection is recorded,
@@ -323,104 +369,99 @@ So that I can distinguish evidence from reconstruction, interpretation, and fict
 
 **Given** a source has incomplete rights information or cannot be loaded,
 **When** I attempt to inspect it,
-**Then** the interface gives a neutral semantic explanation and a safe fallback state,
+**Then** the scene gives a neutral in-scene explanation and a safe fallback state,
 **And** it never presents unreviewed historical material as verified evidence.
 
 **Given** the Curated Record,
 **When** tests run,
 **Then** unit tests cover source validation and provenance rules,
-**And** integration tests verify semantic labels and the inspected-source state through public controls.
+**And** integration tests verify the inspected-source state through public store actions and selectors.
 
-### Story 1.6: Evidence-to-conclusion theory board
+### Story 1.6: Theory-board scene — choose a colleague conclusion [reworked — pivot]
 
 As a player,
-I want to connect my observations, sources, prediction, and a stated limitation into a conclusion,
-So that I can make only the scientific claim that my evidence supports.
+I want to review my evidence and choose one of four colleague-proposed conclusions,
+So that I commit to the scientific claim my measurements actually support.
 
 **Acceptance Criteria:**
 
 **Given** recorded runs and inspected sources,
-**When** I open the semantic theory board,
-**Then** I can select and review the observations and sources that support my prediction and conclusion,
-**And** I can enter a conclusion and at least one limitation or alternative explanation.
+**When** I open the TheoryBoardScene,
+**Then** I can review the observations and sources I have gathered in-scene,
+**And** I am presented with four colleague-proposed conclusions, each bundling a claim and its stated limitation.
 
-**Given** a case definition with minimum evidence requirements,
+**Given** a case definition with a significance rule and minimum evidence requirements,
 **When** conclusion readiness is evaluated,
-**Then** a pure domain evaluator checks required runs, required sources, and a non-empty limitation,
+**Then** the pure domain evaluator checks the ≥2-significant-measure count and required sources, and returns the set of conclusion proposals whose `supportPredicate` the evidence satisfies,
 **And** it returns explicit missing requirements without inspecting scene state or UI visibility.
 
-**Given** my conclusion is incomplete,
-**When** I attempt to enter review,
-**Then** the semantic interface explains which evidence is missing and provides a next-action path,
+**Given** the significant-measure gate is unmet,
+**When** I try to reach the conclusion choice,
+**Then** a colleague explains in-fiction what still needs measuring and provides a next-action path,
 **And** it does not permanently block, punish, or discard my work.
 
-**Given** my conclusion meets the defined readiness requirements,
-**When** I submit it for review,
-**Then** the store transitions through the defined case phase using a typed domain action,
-**And** Phaser only mirrors the resulting phase.
+**Given** the gate is met and I choose a conclusion proposal,
+**When** the choice is submitted,
+**Then** the store records the chosen proposal ID and transitions the case phase using a typed domain action,
+**And** the scene only mirrors the resulting phase.
 
-**Given** I change supporting evidence, the conclusion text, or its limitation,
-**When** readiness is evaluated again,
-**Then** the result reflects the authoritative current evidence state,
-**And** the evaluator remains deterministic and independently unit-testable.
+**Given** the chosen proposal's ID is not in the evaluator's defensible set,
+**When** the choice is evaluated,
+**Then** it routes to the rival-lab critique (Story 2.5) rather than completing,
+**And** the choice remains fully revisable with no hard fail.
 
-**Given** the theory board implementation,
+**Given** the theory-board implementation,
 **When** tests run,
-**Then** unit tests cover every missing-evidence combination and valid readiness,
-**And** integration tests use semantic roles, labels, public actions, and selectors rather than Phaser internals.
+**Then** unit tests cover the significance count, every defensible/indefensible proposal combination, and valid readiness,
+**And** integration tests use public store actions and selectors rather than Phaser internals.
 
-### Story 1.7: Consultations, peer review, and revision history
+### Story 1.7: Colleague consultation, critique, and revision history [reworked — pivot]
 
 As a player,
-I want evidence-responsive guidance and revisable peer feedback,
+I want evidence-responsive colleague guidance and revisable critique,
 So that I can improve my reasoning without being given the answer or losing my decision history.
 
 **Acceptance Criteria:**
 
-**Given** a case definition with consultation and peer-review rules,
+**Given** a case definition with consultation and critique rules,
 **When** it is loaded,
-**Then** the rules are validated case data with explicit predicates and feedback content,
+**Then** the rules are validated case data with explicit predicates and dialogue content,
 **And** they do not encode a scene-specific completion path.
 
 **Given** my current evidence state,
-**When** I request a consultation,
+**When** a colleague consultation is triggered,
 **Then** the selected prompt points to a missing observation, source, alternative test, or limit,
 **And** it never supplies the final conclusion verbatim.
 
-**Given** I submit a conclusion for peer review,
-**When** the review rules evaluate it,
-**Then** feedback identifies unsupported claims, missing evidence, or overreach in neutral language,
+**Given** I choose an unsupported conclusion,
+**When** the critique rules evaluate it,
+**Then** the rival lab identifies unsupported claims, missing evidence, or overreach in a pointed-but-fair voice,
 **And** it offers a revision path rather than a hard-fail state.
 
-**Given** I revise a reviewed conclusion,
+**Given** I revise a critiqued conclusion choice,
 **When** I save the revision,
-**Then** the authoritative progress retains the prior conclusion, review feedback, revision timestamp, and current version as decision history,
+**Then** the authoritative progress retains the prior chosen conclusion, the critique, the revision timestamp, and the current choice as decision history,
 **And** a revision never overwrites or silently discards earlier reasoning.
 
-**Given** a consultation or review rule cannot be evaluated,
+**Given** a consultation or critique rule cannot be evaluated,
 **When** the system handles that failure,
-**Then** the player receives a recoverable semantic message and keeps their valid work,
-**And** raw errors and learner-entered conclusion text are not logged by default.
+**Then** the player receives a recoverable in-scene message and keeps their valid work,
+**And** raw errors and player-entered text are not logged by default.
 
 **Given** a player needs help,
-**When** a prompt is requested,
+**When** a colleague prompt is requested,
 **Then** the case provides an in-play observation prompt, a plain-language explanation, and an optional technical/source-detail layer,
-**And** the structured hint path preserves the player’s final conclusion with no mandatory skip in the first case.
-
-**Given** an accessibility accommodation is enabled,
-**When** a next step is revealed,
-**Then** it identifies only the next actionable step,
-**And** it does not auto-solve the case or write the player’s conclusion.
+**And** the structured hint path preserves the player’s final conclusion choice with no mandatory skip in the first case.
 
 **Given** a player resumes investigation,
 **When** they inspect assistance surfaces,
-**Then** they can use unlimited consultations, reset, run comparison, decision-history review, and neutral auto-summaries,
+**Then** they can use unlimited colleague consultations, reset, run comparison, decision-history review, and neutral auto-summaries,
 **And** those surfaces never punish or lock valid work.
 
-**Given** consultation and review behavior,
+**Given** consultation and critique behavior,
 **When** tests run,
-**Then** unit tests cover predicate selection, unsupported-claim feedback, and revision-history preservation,
-**And** integration tests verify the semantic consultation and revision flow through public actions.
+**Then** unit tests cover predicate selection, unsupported-claim critique, and revision-history preservation,
+**And** integration tests verify the colleague-consultation and revision flow through public store actions.
 
 ### Story 1.8: Offline progress, export, import, and print
 
@@ -460,59 +501,133 @@ So that I can safely continue, share, or retain my evidence without an account.
 **Then** unit tests cover record validation and migrations,
 **And** Playwright covers export/import recovery and offline reload in Chromium, Firefox, and WebKit.
 
-### Story 1.9: Inclusive feedback and inquiry recognition
+### Story 1.9: In-scene feedback and inquiry recognition [reworked — pivot]
 
 As a player,
-I want accessible feedback and recognition for careful investigation,
-So that I am encouraged to test, replicate, and make appropriately limited claims rather than rush to a “correct” answer.
+I want clear in-scene feedback and recognition for careful investigation,
+So that I am encouraged to test, replicate, and choose appropriately limited claims rather than rush to a “correct” answer.
 
 **Acceptance Criteria:**
 
-**Given** a player action, completed run, source inspection, or review result,
+**Given** a player action, completed run, source inspection, or critique result,
 **When** feedback is presented,
-**Then** essential meaning is available through semantic text and accessible state announcements,
-**And** colour, animation, and sound are never the sole carrier of that meaning.
+**Then** essential meaning is conveyed as readable in-scene text,
+**And** colour, animation, or sound is never the sole carrier of that meaning (basic no-flashing safety retained).
 
-**Given** I replicate a run, inspect sources, test an optional variable, or make a well-calibrated claim,
+**Given** I replicate a run, read sources, test an optional variable, or choose a well-calibrated claim,
 **When** recognition is evaluated,
 **Then** I receive non-competitive recognition based on those inquiry actions,
 **And** it neither gates completion nor rewards speed, perfect answers, or overclaiming.
 
 **Given** optional adjustment, measurement, or archival audio is available,
-**When** I use the application,
-**Then** captions or text equivalents are available and I can independently control that audio,
-**And** no essential scientific information is lost when sound is unavailable.
-
-**Given** focus moves after an action, error, or feedback update,
-**When** the semantic UI changes,
-**Then** focus recovery and announcements preserve keyboard-only navigation,
-**And** release acceptance includes manual screen-reader and non-colour-encoding checks.
+**When** I play,
+**Then** I can independently control that audio and no essential scientific information is lost when sound is unavailable.
 
 **Given** progression and recognition rules,
 **When** they are reviewed for release,
 **Then** they model only knowledge and confidence with non-gating inquiry recognition,
 **And** they contain no currency, energy, inventory, stat system, premium gate, advertising, or randomized reward.
 
+_Accessibility acceptance (keyboard-only, screen-reader, focus recovery, non-colour encoding) is de-scoped from MVP per the pivot._
+
+### Story 1.10: Scene router and adventure flow [new — pivot]
+
+As a player,
+I want the case to move me through its scenes in a scripted order,
+So that the investigation plays as a guided adventure rather than a free-form workspace.
+
+**Acceptance Criteria:**
+
+**Given** a case definition with a `scenarioScript` (ordered scenes and dialogue beats),
+**When** the case loads,
+**Then** a SceneRouter maps the authoritative case phase (`context → prediction → experiment → synthesis → review → debrief`) to the corresponding Phaser scene,
+**And** a scene transition mirrors the phase; it never defines or advances the phase itself.
+
+**Given** the store transitions the case phase through a typed domain action,
+**When** the router observes the new phase,
+**Then** it activates the matching scene and cleans up the previous scene's subscriptions and display objects,
+**And** an interrupted or reloaded session restores to the scene matching the persisted phase.
+
+**Given** the scene flow,
+**When** tests run,
+**Then** unit tests cover the phase→scene mapping,
+**And** an E2E test walks the full Young scene sequence end to end.
+
+### Story 1.11: Colleague cast and proposal system [new — pivot]
+
+As a player,
+I want a cast of colleagues who offer predictions, hints, and conclusions,
+So that the reasoning is delivered as an authored, character-driven experience.
+
+**Acceptance Criteria:**
+
+**Given** a case definition with `colleagues[]`, `predictionProposals[]`, and `conclusionProposals[]`,
+**When** the content is loaded,
+**Then** Zod validates each colleague (id, role, portrait/silhouette asset), each prediction proposal, and each conclusion proposal (claim, limitation, `supportPredicate`),
+**And** invalid content returns a typed recoverable `Result` before domain logic.
+
+**Given** the prediction phase,
+**When** the ColleaguesScene presents the four predictions,
+**Then** each is attributed to a colleague and the player's choice is recorded through a typed action,
+**And** the choice is revisable and never blocks progress.
+
+**Given** the evaluator's defensible-conclusion set,
+**When** the theory board presents the four conclusions,
+**Then** each conclusion is attributed to a colleague and selecting one records the chosen proposal ID,
+**And** the proposal system exposes which proposals are defensible only to the evaluator/critique, never as an up-front "correct" marker.
+
+**Given** the proposal system,
+**When** tests run,
+**Then** unit tests cover proposal validation and support-predicate evaluation,
+**And** integration tests verify prediction/conclusion selection through public store actions.
+
+### Story 1.12: Phaser dialogue and choice UI [new — pivot]
+
+As a player,
+I want readable dialogue and clear choice controls inside the scenes,
+So that I can follow the story and make decisions without leaving the Phaser surface.
+
+**Acceptance Criteria:**
+
+**Given** a scene presenting colleague dialogue,
+**When** it renders,
+**Then** a reusable Phaser dialogue widget shows speaker, text, and an advance control,
+**And** the text is legible at 1280×720 and reflows without truncation.
+
+**Given** a scene presenting a 1-of-N choice (prediction or conclusion),
+**When** it renders,
+**Then** a reusable Phaser choice widget shows each option's text and records the selection as a typed intent,
+**And** the selected option is visibly indicated by more than colour alone (label/state), with the choice remaining revisable.
+
+**Given** the dialogue and choice widgets,
+**When** tests run,
+**Then** integration tests verify that selecting an option dispatches the expected intent and updates authoritative state.
+
 ## Epic 2: Young validation slice
 
 Players can complete a 20–30 minute double-slit investigation: inspect context, make a prediction, run experiments, compare measurements, issue a bounded conclusion, and receive a historical debrief.
 
-### Story 2.1: Young contextual record and prediction
+### Story 2.1: Young library reading and prediction choice [reworked — pivot]
 
 As a player,
-I want to inspect the Young case context and record a prediction before experimentation,
-So that my later conclusion begins with a testable expectation.
+I want to read the Young reference in the library and choose a prediction with my colleagues,
+So that my later conclusion choice begins with a testable expectation.
 
 **Acceptance Criteria:**
 
 **Given** the Young case is selected,
-**When** its context phase loads,
-**Then** I can inspect at least two required contextual artifacts before recording a prediction,
-**And** the phase, source inspections, and prediction are stored through typed actions.
+**When** its context phase loads the LibraryScene,
+**Then** I can read at least two required contextual artifacts before the prediction is offered,
+**And** the phase and source inspections are stored through typed actions.
 
-**Given** I have not met the context requirement,
-**When** I attempt to enter experimentation,
-**Then** the semantic UI identifies the missing context action,
+**Given** I have read the required references,
+**When** the ColleaguesScene presents four colleague predictions,
+**Then** I choose one and the choice is recorded through a typed action,
+**And** the choice is revisable and does not block progress.
+
+**Given** I have not met the reading requirement,
+**When** I attempt to move to the lab,
+**Then** a colleague identifies the missing reading in-scene,
 **And** it preserves all valid work and offers no hard fail.
 
 ### Story 2.2: Young double-slit experiment
@@ -526,7 +641,7 @@ So that I can test how each variable affects the interference pattern.
 **Given** the Young case definition,
 **When** the laboratory loads,
 **Then** slit spacing permits 0.10–0.50 mm in 0.05 mm steps and screen distance permits 1.0–4.0 m in 0.25 m steps,
-**And** each control is available through the dual-surface interaction path.
+**And** each control is operable in the LaboratoryScene.
 
 **Given** a valid configuration,
 **When** I run the apparatus,
@@ -538,23 +653,23 @@ So that I can test how each variable affects the interference pattern.
 **Then** the value, result, and versioned deterministic model inputs are recorded with the run,
 **And** wavelength remains optional and cannot alter the fixed 550 nm minimum-path history.
 
-**Given** DOM and Phaser interactions,
+**Given** pointer and keyboard interactions in the scene,
 **When** they set the same Young configuration,
 **Then** the resulting run record is identical,
-**And** unit and integration tests cover the calculation and input parity.
+**And** unit and integration tests cover the calculation and the scene intent path.
 
-### Story 2.3: Young synthesis, debrief, and replay
+### Story 2.3: Young synthesis, conclusion choice, debrief, and replay [reworked — pivot]
 
 As a player,
-I want to compare Young runs, submit a limited conclusion, and read a sourced debrief,
+I want to compare Young runs, choose a colleague conclusion, and read a sourced debrief,
 So that I understand both what interference evidence supports and its limits.
 
 **Acceptance Criteria:**
 
-**Given** I have two recorded Young configurations, required sources, and a stated limitation,
-**When** I submit my conclusion,
-**Then** the evidence evaluator permits review and the debrief phase,
-**And** feedback distinguishes supported inference from overclaiming.
+**Given** I have two *significant* Young measurements (per the case's significance rule) and the required sources,
+**When** the theory board evaluates readiness,
+**Then** the conclusion choice unlocks and the evaluator returns which of the four colleague conclusions the evidence defends,
+**And** choosing a defensible conclusion permits the debrief phase while an indefensible choice routes to the rival-lab critique (Story 2.5).
 
 **Given** the debrief is displayed,
 **When** I read it,
@@ -571,7 +686,7 @@ So that I understand both what interference evidence supports and its limits.
 **Then** it is explicitly labelled counterfactual and distinct from the recorded historical result,
 **And** it preserves the completed historical record and campaign unlock state.
 
-### Story 2.4: Young learning and educator validation gate
+### Story 2.4: Young learning and educator validation gate [reworked — pivot]
 
 As a release owner,
 I want a moderated Young validation gate before later-case production,
@@ -586,7 +701,7 @@ So that later cases build on demonstrated learning, accessibility, and educator 
 
 **Given** the completed moderated sessions,
 **When** the gate is evaluated,
-**Then** at least 60% of participants cite a recorded observation or setting when explaining their conclusion in their own words,
+**Then** at least 60% of participants can explain *why* they chose their conclusion by referencing a measurement they saw in the lab,
 **And** at least 60% voluntarily test at least one variable beyond the minimum path.
 
 **Given** educator review of the Young candidate,
@@ -599,16 +714,67 @@ So that later cases build on demonstrated learning, accessibility, and educator 
 **Then** a non-campaign validation route grants Young access without changing campaign locks or player progression,
 **And** it does not unlock, relock, or expose later cases.
 
-**Given** any target, scholarly source/rights review, accessibility acceptance, low-end-laptop 60-FPS 10-minute lab-loop check, or offline-reload check is unmet,
+**Given** any target, scholarly source/rights review, low-end-laptop 60-FPS 10-minute lab-loop check, or offline-reload check is unmet,
 **When** the Young gate is reviewed,
 **Then** later-case production and Young public validation are blocked with no waiver,
-**And** the recorded release decision identifies the owner and required remediation.
+**And** the recorded release decision identifies the owner and required remediation. _(Accessibility acceptance is removed from this gate per the pivot.)_
+
+### Story 2.5: Rival-lab critique and revision [new — pivot]
+
+As a player,
+I want a rival lab to challenge an unsupported conclusion,
+So that the stakes feel real while I still get to revise my choice.
+
+**Acceptance Criteria:**
+
+**Given** I choose a conclusion whose proposal ID is not in the evaluator's defensible set,
+**When** the choice is submitted,
+**Then** the RivalLabScene presents an authored critique line that names the unsupported claim, missing evidence, or overreach in a pointed-but-fair voice,
+**And** it routes me back to a revisable conclusion choice.
+
+**Given** the rival-lab critique,
+**When** it is shown,
+**Then** it never applies a score, timer, setback, progress loss, or lockout,
+**And** the decision history retains the rejected choice and the critique.
+
+**Given** I revise to a defensible conclusion,
+**When** the choice is re-evaluated,
+**Then** the case proceeds to the debrief phase,
+**And** recognition reflects the revision as inquiry, not failure.
+
+**Given** the rival-lab behavior,
+**When** tests run,
+**Then** unit tests cover critique selection for each indefensible proposal,
+**And** an integration test verifies the choose→critique→revise→proceed flow through public store actions.
+
+### Story 2.6: Significant-measure gate and colleague hints [new — pivot]
+
+As a player,
+I want the conclusion to unlock only after two meaningful measurements, with a colleague nudging me otherwise,
+So that I reach the conclusion having actually generated distinguishing evidence.
+
+**Acceptance Criteria:**
+
+**Given** the Young case's authored significance rule (e.g. two runs that differ meaningfully on the critical path),
+**When** the evaluator counts significant measurements,
+**Then** it returns the count deterministically from the recorded runs without inspecting scene state,
+**And** the conclusion choice unlocks only at ≥2 significant measurements.
+
+**Given** fewer than two significant measurements,
+**When** I try to reach the conclusion,
+**Then** a colleague hint points at what to measure or vary next in-fiction,
+**And** it never supplies the conclusion and never hard-fails.
+
+**Given** the significance rule and hint behavior,
+**When** tests run,
+**Then** unit tests cover significant vs. non-significant run combinations and hint selection,
+**And** an integration test verifies the gate through public store actions.
 
 ## Epic 3: Reusable case authoring and provenance
 
 Content authors and reviewers can create fact-bound, auditable cases with authored scientific rules, sources, rights records, assets, feedback, and debrief material without rebuilding the core loop.
 
-### Story 3.1: Incremental reusable case-contract hardening
+### Story 3.1: Incremental reusable case-contract hardening [reworked — pivot]
 
 As a content author,
 I want to define a complete case in versioned JSON,
@@ -618,7 +784,7 @@ So that later cases can add only the fields they consume without changing core b
 
 **Given** the already-shipped minimal Young contract,
 **When** case-framework hardening is applied,
-**Then** it incrementally adds only reusable fields needed by later cases: confound, inspectable assumptions, progressive prompts, neutral auto-summary, counterfactual/replay labels, cycle rules, and case-specific bounded conclusion rules,
+**Then** it incrementally adds only reusable fields needed by later cases: confound, inspectable assumptions, colleague hints, neutral auto-summary, counterfactual/replay labels, cycle rules, the significance rule, and case-specific bounded conclusion rules (including the four conclusion proposals with their support predicates),
 **And** it does not make Young depend on a future all-purpose schema.
 
 **Given** a hardened case definition,
@@ -637,7 +803,7 @@ So that scholarly and accessibility reviewers can verify second-case authoring w
 **Given** the hardened case contract and shared domains,
 **When** the Morley–Miller prototype is authored,
 **Then** it supplies distinct rotation, temperature/fringe observation, evidence, feedback, sources, and assets as reviewed data,
-**And** it reuses the same store, evaluator, notebook, review, persistence, and dual-surface behavior.
+**And** it reuses the same store, evaluator, notebook, critique, persistence, and Phaser-scene behavior.
 
 **Given** the prototype is reviewed by a content author, scholarly reviewer, and accessibility reviewer,
 **When** it is compared with Young,
@@ -661,6 +827,29 @@ So that only reviewed material reaches a public case.
 **When** it appears in case content,
 **Then** its source reference remains traceable,
 **And** unreviewed claims and assets cannot be represented as verified.
+
+### Story 3.4: Scenario and proposal authoring contract [new — pivot]
+
+As a content author,
+I want to author a case's scenario script, colleague cast, and proposal sets as validated data,
+So that new cases become guided adventures without touching engine code.
+
+**Acceptance Criteria:**
+
+**Given** the hardened case contract,
+**When** an author defines a case,
+**Then** they can specify a `scenarioScript` (ordered scenes and dialogue beats), a `colleagues[]` cast, four `predictionProposals[]`, four `conclusionProposals[]` with support predicates, a `significanceRule`, and `rivalLabCritiques[]` — all as versioned JSON,
+**And** Zod validates each field and rejects an incomplete scenario before domain logic.
+
+**Given** an authored scenario,
+**When** it is loaded,
+**Then** the SceneRouter can drive the full flow from the script without case-specific code,
+**And** a second case can be authored reusing the same scenes, evaluator, and widgets.
+
+**Given** the authoring contract,
+**When** documentation is produced,
+**Then** `docs/content-authoring/` describes how to author scenarios, proposals, significance rules, and rival-lab lines,
+**And** an example fixture demonstrates a minimal valid scenario.
 
 ## Epic 4: Morley–Miller tutorial case
 
@@ -700,7 +889,7 @@ So that I can distinguish a time-dependent confound from the predicted orientati
 **Given** valid authored Morley–Miller controls,
 **When** I rotate, log observations, and test a stable window,
 **Then** the deterministic model makes thermal drift and orientation evidence separately inspectable,
-**And** reset, notebook, and dual-surface controls work through the shared framework.
+**And** reset, notebook, and scene controls work through the shared framework.
 
 **Given** I reach synthesis,
 **When** I compare observations,
@@ -758,7 +947,7 @@ So that I can compare eastbound and westbound clock results fairly.
 **Given** the independent critique,
 **When** I inspect it,
 **Then** its error-budget claim is represented as evidence to weigh rather than an answer,
-**And** it is available through semantic UI.
+**And** it is available in-scene.
 
 **Given** I have inspected both predicted and observed clock evidence,
 **When** I compare eastbound and westbound outcomes,
@@ -848,18 +1037,20 @@ So that I can plan and facilitate a self-contained classroom activity.
 **Then** I can find its learning objective, expected duration, prerequisites, context, activity flow, and debrief,
 **And** materials state the distinction between history, interpretation, and fiction.
 
-### Story 7.2: Accessibility and cross-browser release verification
+### Story 7.2: Cross-browser release verification [reworked — pivot; accessibility de-scoped]
 
-As an accessibility reviewer,
-I want repeatable evidence that the case works through equivalent input and non-visual paths,
-So that classroom users are not excluded by the laboratory presentation.
+As a QA/release lead,
+I want repeatable evidence that the case runs across the target browsers,
+So that a release candidate is not broken on a supported browser.
 
 **Acceptance Criteria:**
 
 **Given** a release-candidate case,
 **When** verification runs,
-**Then** Playwright and axe cover semantic flows across Chromium, Firefox, and WebKit,
-**And** manual acceptance verifies keyboard-only completion, screen-reader announcements, focus recovery, touch/pointer parity, and non-colour scientific encoding.
+**Then** Playwright covers the full Phaser scene flow (library → colleagues → lab → theory board → rival lab → debrief) across Chromium, Firefox, and WebKit,
+**And** a basic no-flashing/photosensitivity check passes on the scenes.
+
+_Accessibility acceptance (axe, keyboard-only completion, screen-reader announcements, focus recovery, touch/pointer parity, non-colour encoding) is **de-scoped from the MVP** per the pivot (ADR-008) and tracked for post-MVP reintroduction._
 
 ### Story 7.3: Static release and source-rights sign-off
 
@@ -886,6 +1077,6 @@ So that educators can deploy it by URL without accounts or tracking.
 | Moderated learner validation | Learning-validation lead | Consent-aware facilitator rubric, de-identified aggregate, and the Young gate decision. |
 | Educator validation | Educator-review lead | Five educator responses and a recorded share/use decision. |
 | Scholarly and source/rights review | Scholarly and rights reviewer | Reviewed source/rights ledger, claim/asset status, and remediation for any incomplete item. |
-| Accessibility acceptance | Accessibility reviewer | Keyboard-only, screen-reader, focus-recovery, touch/pointer-parity, and non-colour-encoding sign-off. |
+| Accessibility acceptance | ~~Accessibility reviewer~~ | **De-scoped from MVP (pivot)** — reintroduce post-MVP; basic no-flashing safety retained. |
 | Cross-browser, performance, and offline verification | QA/release lead | Chromium, Firefox, and WebKit results; low-end-laptop 60-FPS 10-minute-loop result; and offline-reload result. |
 | Public-release decision | Release owner | Gate checklist, owner evidence links, decision, and remediation for every unmet gate. |

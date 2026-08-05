@@ -1,11 +1,11 @@
 ---
 title: "Fracture of Certainty: Cases from the Quantum Age"
-game_type: "puzzle"
+game_type: "narrative-adventure / puzzle"
 platforms:
   - "Desktop web browsers"
 created: "2026-08-04"
-updated: "2026-08-04"
-status: "ready"
+updated: "2026-08-05"
+status: "revised-pivot"
 ---
 
 # Fracture of Certainty: Cases from the Quantum Age — Game Design Document
@@ -19,9 +19,9 @@ status: "ready"
 
 ### Core Concept
 
-*Fracture of Certainty* is a browser-based anthology of four historical laboratory mysteries. The player leads a fictional scientific team through apparatus assembly, measurement, anomalous results, critique, and revision. Historical outcomes remain fact-bound; player agency lies in determining what the available evidence supports, including a defensible limited conclusion.
+*Fracture of Certainty* is a browser-based **guided narrative adventure** through four historical laboratory mysteries. The player is led, scene by scene, through a fully scenarized investigation with a cast of fictional colleagues: reading the reference in the library, debating predictions with the team, running authored experiments in the lab, and defending a conclusion against a rival lab. Historical outcomes remain fact-bound; player agency lies in **judging which of the colleagues' proposed conclusions the generated evidence best supports**. There is no freeform exploration — every beat is authored.
 
-Each case follows the **Apparatus → Anomaly → Revision** loop. The first playable delivery is a 20–30 minute case inspired by Thomas Young's double-slit interference work; it validates the reusable case framework before the remaining cases are built. In the eventual campaign, the thermal-drift tutorial precedes Young; production and campaign order are intentionally different.
+Each case runs a scripted **Library → Colleagues → Lab → Theory Board → Debrief** flow layered over a preserved gated progression engine. The interface is delivered primarily through Phaser scenes rather than semantic HTML. The first playable delivery is a 20–30 minute case inspired by Thomas Young's double-slit interference work; it validates the reusable case framework before the remaining cases are built. In the eventual campaign, the thermal-drift tutorial precedes Young; production and campaign order are intentionally different.
 
 ### Target Audience
 
@@ -31,10 +31,10 @@ Each case follows the **Apparatus → Anomaly → Revision** loop. The first pla
 
 ### Unique Selling Points
 
-- Evidence is player-generated: conclusions cite the player's own measurements and inspected sources.
+- Players run authored experiments, then judge which of four colleague-proposed conclusions their own measurements support.
+- A fully scenarized, cinematic Phaser laboratory with a cast of colleagues and a rival lab that keeps the pressure on without ever punishing the player.
 - Failure, replication, and critique create knowledge rather than a hard fail state.
 - Historical sources, interpretation, and deliberate fiction are labelled separately.
-- A tactile visual laboratory teaches the observation before optional formal theory.
 
 ## Goals and Context
 
@@ -53,25 +53,28 @@ The game bridges approachable physical experimentation, evidence-led investigati
 
 ### Game Pillars
 
-1. **Evidence earns the conclusion.** The player records measurements and sources, then states only what they can defend.
-2. **Productive uncertainty.** A failed run, replication, or teammate challenge is new evidence, not punishment.
+1. **Evidence earns the choice of conclusion.** The player records measurements and sources, then chooses only the colleague conclusion they can defend.
+2. **Productive uncertainty.** A failed run, replication, or a rival-lab challenge is new evidence, not punishment; the rival lab never triggers a hard fail.
 3. **History with receipts.** Every historical claim and asset exposes provenance; reconstruction, interpretation, and fiction remain distinct.
-4. **Legible collaborative experimentation.** Controllable variables visibly affect results, and teammates help the player inspect—not bypass—the reasoning.
+4. **Legible collaborative experimentation.** Controllable variables visibly affect results, and colleagues help the player interpret—not bypass—the reasoning.
+5. **Guided, cinematic scenario.** Every case is a fully authored, scene-by-scene story with no freeform exploration; the Phaser scenes and the colleague cast carry the experience.
 
 ### Core Gameplay Loop
 
-1. Receive a disputed observation or historical claim.
-2. Inspect two or more contextual artifacts and state a prediction.
-3. Assemble and calibrate a bounded apparatus.
-4. Run an experiment, record measurements, and compare predicted and observed patterns.
-5. Consult teammates, test an alternative, or replicate a result.
-6. Revise the theory board and issue a conclusion with evidence and stated limits.
-7. Receive a neutral historical comparison, layered explanation, and recognition for rigorous inquiry.
+The case plays as a scripted sequence of Phaser scenes over the preserved gated engine:
+
+1. **Library.** Go to the library and read the reference to establish the disputed observation or historical claim (gate: inspect the required contextual sources).
+2. **Colleagues — prediction.** Talk with the team about what will happen and **choose one of four colleague predictions** (gate: prediction recorded).
+3. **Lab — setup & measurement.** Go to the lab, set up the authored apparatus, and take **two measurements** (gate: two runs recorded).
+4. **Synthesis.** The conclusion unlocks once **two significant measurements** exist; otherwise a colleague offers an in-fiction hint pointing at what to measure next.
+5. **Theory Board — conclusion.** A colleague **proposes each conclusion; the player chooses one of four**, each bundling a claim and its stated limitation.
+6. **Rival lab / revision.** If the chosen conclusion is not supported by the evidence, a competitive rival lab critiques it (dramatic, never a hard fail) and the player revises the choice.
+7. **Debrief.** Receive a neutral historical comparison, layered explanation, and recognition for rigorous inquiry.
 
 ### Win/Loss Conditions
 
-- A case completes when the player submits a conclusion supported by required observations and sources.
-- There is no hard failure, game-over, score penalty, or irreversible wrong choice. A weak conclusion receives peer-review feedback and can be revised indefinitely.
+- A case completes when the player selects a colleague conclusion supported by the required observations and sources.
+- There is no hard failure, game-over, score penalty, or irreversible wrong choice. Choosing an unsupported conclusion triggers a rival-lab critique that routes back to revision indefinitely; the rival lab is a dramatic device, never a penalty or lockout.
 - Recognition rewards replication, source checking, testing an optional variable, and appropriately bounded claims. It is non-competitive and never gates completion.
 
 ## Game Mechanics
@@ -80,19 +83,23 @@ The game bridges approachable physical experimentation, evidence-led investigati
 
 | Mechanic | Player action | Rules and measurable targets |
 |---|---|---|
-| Apparatus calibration | Adjust a case's authored controls. | Young case: slit spacing 0.10–0.50 mm in 0.05 mm steps; screen distance 1.0–4.0 m in 0.25 m steps. Values and units are always visible. |
+| Prediction choice | Choose one of four colleague predictions in the Colleagues scene. | Each proposal is a distinct, authored expectation voiced by a colleague. The choice is recorded and revisable; it never blocks progress. |
+| Apparatus calibration | Adjust a case's authored controls in the lab scene. | Young case: slit spacing 0.10–0.50 mm in 0.05 mm steps; screen distance 1.0–4.0 m in 0.25 m steps. Values and units are always visible in the scene. |
 | Experimental run | Run the configured apparatus and inspect its visual output. | A Young run resolves in ≤3 seconds; reset is immediate. The initial model uses fixed 550 nm light. Wavelength comparison is optional advanced content. |
 | Measurement notebook | Save settings, two or more observations, and comparison notes. | Records actual settings, timestamp/order, observed fringe spacing, and linked evidence. Player can compare any two saved runs and export/print a case record. |
-| Theory board | Connect observation, source, prediction, and conclusion. | A completion claim requires ≥2 recorded observations and ≥2 contextual sources. It must identify one limitation or alternative explanation. |
-| Team consultation | Ask a builder, experimentalist, analyst, or communicator for a prompt. | Consultations are unlimited and adapt to missing evidence or the current decision history. Each points to an observable, source, or test; none provides the final conclusion verbatim. |
-| Peer review | Submit and revise a conclusion. | Feedback identifies unsupported claims, missing evidence, or overreach. Revision preserves the decision history. |
+| Significant-measure gate | Take two meaningfully distinct measurements to unlock the conclusion. | The conclusion unlocks only after ≥2 *significant* measurements (per the case's authored significance rule). If unmet, a colleague offers an in-fiction hint pointing at what to measure next. |
+| Theory board choice | Choose one of four colleague-proposed conclusions. | Each proposal bundles a claim and its stated limitation. The evaluator determines which proposals the recorded evidence supports; an unsupported choice routes to the rival-lab critique. |
+| Colleague consultation | A colleague offers an unlimited in-fiction prompt when help is needed. | Prompts adapt to missing evidence or the current decision history; each points to an observable, source, or test and never supplies the final conclusion verbatim. |
+| Rival-lab critique | A competitive lab challenges an unsupported conclusion, then the player revises. | Critique identifies unsupported claims, missing evidence, or overreach in a pointed-but-fair voice. It is never a score, game-over, or lockout, and revision preserves the decision history. |
 
 ### Controls and Input
 
-- Desktop mouse and keyboard are first-class inputs. Touch/pointer equivalence is required for tablet readiness.
-- Every drag interaction has a tap/select plus stepper or labelled number-input alternative.
-- Controls expose semantic labels, current value, units, keyboard adjustment, and announced state changes. Colour is never the sole carrier of experimental information.
-- The apparatus field must not be canvas-only: equivalent controls, readouts, instructions, and conclusions remain accessible in semantic UI.
+- Desktop mouse and keyboard are the primary inputs, handled by the Phaser scenes. Touch/pointer support is a secondary goal for tablet readiness.
+- Interactive controls live in the Phaser scene; each exposes its current value and units on-screen so the setting is always legible.
+- The apparatus field, controls, readouts, and the conclusion choice are presented in-scene through Phaser.
+- A semantic CSS print/export record is retained as the only non-Phaser surface, purely for portability of the player's case record.
+
+> **Accessibility note (pivot, 2026-08-05):** keyboard-only completion, screen-reader support, and non-colour-only encoding are **de-scoped from the MVP**. The store/domain boundary is preserved, so an accessible surface can be reintroduced post-MVP without re-architecture. See Out of Scope.
 
 ## Puzzle Game Specific Design
 
@@ -127,9 +134,9 @@ The Delft Curated Record includes the 2015 Hensen et al. result and its methodol
 
 ### Player Assistance
 
-- Progressive prompts: an in-play observation prompt, a plain-language explanation, and an optional technical/source-detail layer.
-- Unlimited consultations, reset, run comparison, decision-history review, and neutral auto-summaries.
-- No mandatory skip in the first case; every puzzle has a structured hint path that preserves the player's final conclusion. Accessibility accommodations may reveal the next actionable step without auto-solving.
+- Colleagues deliver help in-fiction: when the two-significant-measure gate is unmet, a colleague points at what to measure next in plain language, with an optional technical/source-detail layer.
+- Unlimited colleague consultations, reset, run comparison, decision-history review, and neutral auto-summaries.
+- No mandatory skip in the first case; every puzzle has a structured colleague-hint path that preserves the player's final conclusion choice without auto-solving.
 
 ### Replayability
 
@@ -171,7 +178,7 @@ Each case must be completable in 20–45 minutes on a first playthrough. The You
 
 ### Art Style
 
-Theatrical historical laboratories use authentic-looking instruments, clear readable diagrams, and an imperfect luminous interference pattern. The team is present through focused silhouettes, work surfaces, artifacts, and expressive but restrained character moments. Scientific legibility takes priority over visual spectacle.
+Theatrical historical laboratories use authentic-looking instruments, clear readable diagrams, and an imperfect luminous interference pattern. Because the experience is now a guided narrative, the colleague cast and the rival lab are first-class on-screen characters — present through portraits or silhouettes, dialogue, work surfaces, and expressive but restrained moments — carrying the scene-to-scene story. Scientific legibility still takes priority over visual spectacle.
 
 Every asset carries a source/rights status. Visual conventions distinguish primary artifact, reconstruction, interpretation, and fiction. Ambiguous permissions require a link or replacement—not unverified use.
 
@@ -191,33 +198,34 @@ Quiet tactile audio marks adjustment, measurement, and archival discovery. Music
 ### Platform-Specific Details
 
 - Desktop browser first; current Chrome, Firefox, Safari, and Edge receive manual acceptance testing.
-- Responsive tablet-ready layout with pointer, touch, and keyboard parity. Phones support reading notes only until laboratory usability is proven.
+- Mouse/keyboard is the primary input against the Phaser scenes; touch/pointer support is a secondary tablet-readiness goal. Phones are out of scope for the laboratory experience.
+- **Bilingual at launch:** the game ships in English and French; all player-facing text (UI, scene text, case content, print view) is localized, and the Young slice is complete in both languages. Broader localization is deferred.
 - Local progress only; provide explicit export/import or printable observation record.
 
 ### Asset Requirements
 
-- One reusable case framework; the GDD specifies player-facing behavior, not a data/schema implementation.
-- Each case requires a sourced artifact ledger with named primary and secondary sources, scholarly reviewer, educator context sheet, accessible lab controls, and a rights/replacement plan.
-- Phaser feasibility is a Young-slice gate: semantic HTML controls and a non-canvas-only accessibility model must meet the stated input-equivalence requirements before the engine constraint is considered validated.
+- One reusable case framework; the GDD specifies player-facing behavior, not a data/schema implementation. Each case now also authors a **colleague cast**, a **scenario script** (scene order and dialogue beats), **four prediction proposals**, **four conclusion proposals** (each with a support rule), a **significance rule**, and **rival-lab critique lines**.
+- Each case requires a sourced artifact ledger with named primary and secondary sources, scholarly reviewer, educator context sheet, and a rights/replacement plan.
+- Phaser feasibility is a Young-slice gate: the scenarized scene flow (library → colleagues → lab → theory board → debrief) must run at target performance and deliver the guided experience before the engine constraint is considered validated.
 - Avoid 3D navigation, WebGPU/ray-tracing requirements, multiplayer, cloud saves, UGC, LLM dialogue, and external critical-play dependencies.
 
 ## Development Epics
 
 ### Epic Structure
 
-The build sequence and detailed high-level stories are in [epics.md](epics.md). The campaign is delivered in this order: foundation and accessibility → Young validation slice → case framework hardening → thermal-drift case → relativity case → entanglement case → educator/release readiness. No later case begins full production until its historical, accessibility, and learning gates are met.
+The build sequence and detailed high-level stories are in [epics.md](epics.md). The campaign is delivered in this order: Phaser guided-adventure foundation → Young validation slice → case framework hardening → thermal-drift case → relativity case → entanglement case → educator/release readiness. No later case begins full production until its historical and learning gates are met (accessibility gates are de-scoped from MVP; see Out of Scope).
 
 ## Success Metrics
 
 ### Technical Metrics
 
-- Keyboard-only, pointer-first, and touch-first paths can all reach a defensible case conclusion.
-- Manual accessibility acceptance verifies semantic controls, non-colour-only patterns, labelled values, no flashing hazards, and usable state announcements.
-- Low-end laptop and offline-reload tests pass before classroom-facing release.
+- The mouse/keyboard path through the scenarized Phaser flow reaches a defensible case conclusion.
+- Low-end laptop and offline-reload tests pass before release.
+- No flashing hazards in the Phaser scenes (basic photosensitivity safety is retained even though full accessibility acceptance is de-scoped from MVP).
 
 ### Gameplay Metrics
 
-- In 15–30 moderated, no-telemetry learner sessions, ≥60% of players cite a recorded observation or setting when explaining their conclusion in their own words.
+- In 15–30 moderated, no-telemetry learner sessions, ≥60% of players can explain *why* they chose their conclusion by referencing a measurement they saw in the lab.
 - In the same moderated sessions, ≥60% of players voluntarily test at least one variable beyond the minimum path.
 - At least five educator reviewers would share or use the first case.
 - A scholarly reviewer validates every source-backed claim and asset before a case ships; a reviewed source/rights ledger and educator handout are required before public validation of Young.
@@ -227,12 +235,13 @@ The build sequence and detailed high-level stories are in [epics.md](epics.md). 
 
 - Freeform physics sandbox, broad historical archive, full optics course, or unrestricted 3D exploration.
 - Multiplayer, chat, accounts, cloud saves, UGC, adaptive assessment, LLM dialogue, telemetry, advertisements, in-game purchases, and premium learning gates.
-- Native mobile laboratory controls, localization, relativity/entanglement implementation in the first validation release, and high-fidelity full animation.
+- Native mobile laboratory controls, localization **beyond English and French**, relativity/entanglement implementation in the first validation release, and high-fidelity full animation.
+- **Deferred post-MVP (pivot 2026-08-05):** accessibility as a release gate — keyboard-only completion, screen-reader support, non-colour-only scientific encoding, and a semantic-HTML-authoritative interface. The store/domain boundary is preserved so this can be reintroduced later without re-architecture.
 
 ## Assumptions and Dependencies
 
 - [ASSUMPTION: A permissive code license and a separate historical-material policy will be selected before public release.]
 - [ASSUMPTION: A physics/historical reviewer and an archivist or rights-review process will be available for each case.]
-- [ASSUMPTION: Phaser can meet the stated browser, accessibility, and local-save requirements; this is validated during the Young slice.]
-- [NOTE FOR DESIGNER: Define the fictional teams, complete source corpus, and fictionalization boundaries for all four cases during narrative design and historical review.]
+- [ASSUMPTION: Phaser can deliver the scenarized scene flow at target browser performance with local save; this is validated during the Young slice. Accessibility is no longer part of this gate (see Out of Scope).]
+- [NOTE FOR DESIGNER: For every case, author the colleague cast, the four prediction proposals, the four conclusion proposals with their support rules, the significance rule, and the rival-lab critique lines, alongside the source corpus and fictionalization boundaries, during narrative design and historical review.]
 - [NOTE FOR DESIGNER: Distribution—hosted web, downloadable build, or both—remains to be decided before release planning.]

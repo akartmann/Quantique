@@ -1,9 +1,9 @@
 ---
 title: 'Game Architecture'
 project: 'Quantique'
-date: '2026-08-04'
+date: '2026-08-05'
 author: 'Alexis'
-version: '1.0'
+version: '1.1'
 stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8, 9]
 status: 'complete'
 engine: 'Phaser 4.2.1'
@@ -19,17 +19,19 @@ brief: '/Users/akartmann/Documents/Projects/Quantique/_bmad-output/planning-arti
 
 ## Executive Summary
 
-**Fracture of Certainty: Cases from the Quantum Age** is a desktop-web historical-science investigation game built with Phaser 4.2.1, TypeScript, and Vite. Phaser delivers the tactile laboratory renderer; semantic HTML and a lightweight TypeScript store remain authoritative for accessible controls, evidence, conclusions, and local progress.
+**Fracture of Certainty: Cases from the Quantum Age** is a desktop-web historical-science **guided narrative adventure** built with Phaser 4.2.1, TypeScript, and Vite. Phaser scenes are the sole presentation surface (library, colleagues, lab, theory board, debrief); a lightweight TypeScript store and pure domain layer remain authoritative for evidence, conclusions, and local progress.
+
+> **Pivot note (v1.1, 2026-08-05):** This document was revised for the pivot to a Phaser guided adventure. The store/domain boundary is unchanged; the previously dual-surface (semantic-HTML-authoritative) presentation layer is now a **single Phaser surface**, and accessibility is de-scoped from the MVP. See ADR-001 and the User Interface & Rendering Boundary section.
 
 **Key Architectural Decisions:**
 
-- Use a store-mediated boundary between Phaser and semantic HTML, with equivalent typed interaction intents.
-- Keep case content as versioned JSON validated by Zod; use deterministic, versioned experiment records and an evidence-to-conclusion evaluator.
-- Persist offline in IndexedDB, support JSON export/import and CSS printing, and release as a static hosted web application without accounts, telemetry, or a network-critical play path.
+- Use a store-mediated boundary between the Phaser presentation surface and the authoritative store, with typed interaction intents dispatched from Phaser.
+- Keep case content as versioned JSON validated by Zod; use deterministic, versioned experiment records and an evidence-to-conclusion evaluator that also judges which colleague conclusions the evidence supports.
+- Persist offline in IndexedDB, support JSON export/import and CSS printing (the only non-Phaser surface, for record portability), and release as a static hosted web application without accounts, telemetry, or a network-critical play path.
 
 **Project Structure:** Domain-driven hybrid organization with dedicated domains for cases, apparatus, evidence, sources, theory, review, and recognition.
 
-**Implementation Patterns:** Dual-surface interaction, evidence-to-conclusion gating, deterministic experiment records, typed actions/events, renderer factories, finite case phases, and validated repositories ensure consistent AI-agent implementation.
+**Implementation Patterns:** Phaser-surface interaction, evidence-to-conclusion gating (extended for defensible-conclusion selection and significant-measure counting), deterministic experiment records, typed actions/events, renderer factories, finite case phases, and validated repositories ensure consistent AI-agent implementation.
 
 **Ready for:** Young validation-slice implementation and aligned epic/story planning.
 
@@ -76,14 +78,14 @@ _Architecture is complete and ready to guide implementation._
 - Sustain 60 FPS at 1280×720 on a representative low-end school laptop.
 - Cached launch reaches first interaction within five seconds; local saves restore after offline reload.
 - No account, analytics dependency, or network dependency can block play.
-- All essential lab controls and scientific results require semantic HTML alternatives; canvas cannot be the sole interface.
-- Pointer, keyboard, and touch paths must lead to equivalent outcomes.
-- Data must support reusable authored cases without duplicating the core evidence loop.
+- The Phaser scenes are the interface for all interactive play; a semantic CSS print/export view is the only non-Phaser surface (record portability only). Accessibility parity is de-scoped from MVP.
+- Mouse/keyboard is the primary input against the Phaser scenes; touch/pointer is a secondary tablet-readiness goal.
+- Data must support reusable authored cases (including colleague casts, scenario scripts, and proposal sets) without duplicating the core evidence loop.
 - Local export/import or printable case records are required.
 
 ### Complexity Drivers
 
-- The game needs two coordinated UI layers: Phaser for tactile visual laboratory presentation, and semantic HTML for accessible controls, readouts, notes, and conclusions.
+- The game is presented through a single Phaser surface organized as a scripted sequence of scenes (library, colleagues, lab, theory board, debrief) driven by the authoritative store.
 - Experiment outputs must be authored and inspectable while remaining scientifically legible—not an unconstrained physics sandbox.
 - Evidence, sources, observations, claims, limitations, feedback, and recognition must persist as a coherent decision history.
 - Dialogue and consultation need to react to evidence state but converge on fixed, historically bounded outcomes.
@@ -92,7 +94,7 @@ _Architecture is complete and ready to guide implementation._
 
 ### Technical Risks
 
-- Phaser accessibility validation is a hard Young-slice gate; a canvas-led implementation could fail input equivalence or screen-reader requirements.
+- Delivering a cohesive scenarized Phaser flow (scene routing, colleague dialogue/choice UI, rival-lab critique) is the main Young-slice risk now that accessibility is de-scoped; the scene router and choice UI are new surfaces to prove.
 - The solo-developer scope makes a polished reusable vertical slice more valuable than early multi-case production.
 - Scientific accuracy, rights tracking, and educator review require an external review process that the product must accommodate.
 - Cross-browser rendering, offline persistence, and print/export behavior need early manual acceptance coverage.
@@ -120,7 +122,7 @@ npm create @phaserjs/game@latest
 |---|---|---|
 | Rendering | WebGL with Canvas fallback | Phaser renderer for the laboratory tableau and visual experiment output |
 | Scene management | Phaser scenes | Use scene lifecycle for boot, asset loading, lab, and debrief presentation |
-| Input | Phaser pointer, touch, keyboard APIs | Used for optional/direct lab manipulation; semantic HTML provides equivalent essential controls |
+| Input | Phaser pointer, touch, keyboard APIs | Handle all interactive play across the scene flow; mouse/keyboard primary, touch/pointer secondary |
 | Audio | Phaser audio system | Non-essential tactile feedback and music; captions/text alternatives remain available |
 | Asset loading | Phaser Loader | Loads visual and audio assets with a defined preload lifecycle |
 | Animation and feedback | Phaser tweens and animation systems | Supports apparatus motion, result reveals, and restrained cinematic tableaus |
@@ -144,7 +146,7 @@ npm create @phaserjs/game@latest
 - Choose browser persistence, migration, export/import, and print-record strategies.
 - Define deterministic experiment-result calculations and validation rules.
 - Set scene composition, lifecycle ownership, asset loading, and cleanup conventions.
-- Specify accessibility behavior, keyboard support, focus management, announcements, and non-colour visual encoding.
+- Specify the scene-router flow, colleague dialogue/choice UI, and rival-lab critique presentation. (Accessibility behavior — keyboard/focus/announcements/non-colour encoding — is de-scoped from the MVP per ADR-008.)
 - Define automated and manual test layers, including cross-browser, offline, performance, and accessibility gates.
 - Define production/deployment, cache, and no-network-critical-play behavior.
 
@@ -155,10 +157,10 @@ npm create @phaserjs/game@latest
 | Category | Decision | Version | Rationale |
 |---|---|---:|---|
 | Application state | Lightweight TypeScript store with immutable updates and subscriptions | Project-owned | One testable source of truth across UI, Phaser, and persistence |
-| UI/render boundary | Store-mediated typed adapters | Project-owned | Prevents Phaser and semantic HTML from directly mutating each other |
+| UI/render boundary | Store-mediated typed adapters | Project-owned | Phaser scenes render store projections and dispatch typed intents; they never mutate state directly |
 | Persistence | IndexedDB through `idb` | 8.0.3 | Offline-first structured local records with explicit migrations |
 | Content validation | JSON case definitions validated by Zod | 4.4.3 | Reusable, inspectable cases with safe loading and authoring errors |
-| UI | Vanilla TypeScript DOM components | Platform APIs | Semantic accessible controls, notes, and conclusions without framework overhead |
+| UI | Phaser scenes + renderer factories | Phaser 4.2.1 | Library, colleagues, lab, theory-board, and debrief scenes are the sole interactive surface; a CSS print view is the only DOM surface (record export) |
 | Asset loading | Boot shell then case-scoped bundles | Phaser Loader | Fast first interaction and clean campaign-scale boundaries |
 | Experiment model | Deterministic authored calculations | Project-owned | Scientific behavior is inspectable and reproducible; no runtime physics required |
 | Dialogue and peer review | Data-driven rules and predicates | Project-owned | Evidence-responsive but historically convergent content |
@@ -183,13 +185,24 @@ Persist versioned records for settings, case progress, runs, observations, inspe
 
 **Approach:** Versioned JSON case definitions, validated at load time with Zod 4.4.3.
 
-A case definition owns its apparatus controls, allowed values, deterministic experiment rules, sources and provenance, evidence prerequisites, dialogue/consultation rules, peer-review conditions, debrief material, and asset manifest. Runtime state stores only player decisions and generated observations; it never mutates the shipped case definition.
+A case definition owns its apparatus controls, allowed values, deterministic experiment rules, sources and provenance, evidence prerequisites, dialogue/consultation rules, debrief material, and asset manifest. The pivot adds the following authored fields:
+
+- `colleagues[]` — the named case cast (id, role, portrait/silhouette asset).
+- `predictionProposals[]` — four colleague-voiced predictions the player chooses between.
+- `conclusionProposals[]` — four colleague-voiced conclusions, each bundling a claim, a stated limitation, and a `supportPredicate` the evaluator uses to decide whether the recorded evidence defends it.
+- `significanceRule` — defines when a measurement counts as "significant" (e.g. a run that meaningfully differs on the critical path); the ≥2-significant-measure gate uses it.
+- `rivalLabCritiques[]` — dramatic, non-punitive critique lines shown when the player selects an unsupported conclusion.
+- `scenarioScript` — the ordered scene flow (library → colleagues → lab → theory board → debrief) and its dialogue beats.
+
+Runtime state stores only player decisions and generated observations; it never mutates the shipped case definition.
+
+**Internationalization (EN + FR, v1.1).** The game ships bilingual. All player-facing strings — UI/scene chrome and every authored case string (dialogue beats, colleague names/roles, the prediction and conclusion proposals with their limitations, colleague hints, rival-lab critiques, source labels, and debrief) — resolve through an i18n layer with `en` and `fr` locale resources; no display string is hard-coded in scenes, widgets, or the print view. Localizable case strings carry both locales, and Zod validates locale completeness at load. The active locale lives in the store (persisted in player settings); a missing key falls back to English with a dev-only `i18n.missingKey` warning. Phaser fonts must include the full French glyph set/diacritics. Recorded scientific run values stay canonical regardless of locale.
 
 ### User Interface and Rendering Boundary
 
-Semantic HTML is authoritative for essential controls, measured values, instructions, notebook, theory board, source records, conclusion entry, and announcements. Phaser renders the laboratory tableau, apparatus animation, spatial visual output, non-essential direct manipulation, and theatrical transitions.
+Phaser scenes are the sole interactive surface. Each phase of the case is a scene — library (reference reading), colleagues (prediction choice), laboratory (apparatus + measurement), theory board (conclusion choice + rival-lab critique), and debrief — presented in the scripted `scenarioScript` order. Scenes render controls, measured values, instructions, source records, and the conclusion choice in-canvas; they read store projections and dispatch typed intents.
 
-Adapters map store state into each layer and normalize pointer, keyboard, touch, and DOM controls into the same typed intents. All essential Phaser interactions must have an equivalent semantic control path.
+The TypeScript store and pure domain layer remain authoritative: scenes never mutate state directly, and the domain never imports Phaser. A single **SceneRouter** maps the authoritative case phase to the active scene (a scene transition mirrors the phase; it never defines it). The only non-Phaser surface is the semantic CSS print/export view, retained purely so a player's case record stays portable. Accessibility parity (keyboard-only completion, screen-reader support, non-colour-only encoding) is de-scoped from the MVP; the preserved store/domain boundary keeps a future accessible surface feasible without re-architecture.
 
 ### Asset Management
 
@@ -197,9 +210,9 @@ Adapters map store state into each layer and normalize pointer, keyboard, touch,
 
 The boot shell includes only the application frame, accessibility UI, loading feedback, and minimum launch assets. Each case manifest declares the images, audio, fonts, and source media needed before its lab begins. Phaser’s loader owns visual/audio loading; the application reports progress semantically and never leaves a critical control unavailable without explanation.
 
-### Dialogue and Peer Review
+### Dialogue, Colleague Proposals, and Rival-Lab Critique
 
-Consultations and review feedback are case data: predicates inspect the authoritative evidence state and select prompts, missing-evidence guidance, alternative-test suggestions, or bounded feedback. Rules can vary lines and guidance but cannot change a case’s historical outcome or bypass required observations, sources, and limitations.
+Colleague dialogue, prediction/conclusion proposals, consultations, and rival-lab critique are all case data. Predicates inspect the authoritative evidence state to: select an in-fiction colleague hint when the significant-measure gate is unmet; decide (via each conclusion proposal’s `supportPredicate`) which of the four conclusions the recorded evidence defends; and select the dramatic rival-lab critique shown when the player picks an unsupported conclusion. Rules can vary lines and guidance but cannot change a case’s historical outcome or bypass required observations and sources. The rival-lab critique always routes back to a revisable choice — never a score, game-over, or lockout.
 
 ### Export and Print
 
@@ -207,13 +220,16 @@ Export a validated, versioned JSON case record. Import validates against the cur
 
 ### Architecture Decision Records
 
-- **ADR-001 — Store-mediated HTML/Phaser integration:** Maintain one authoritative state and typed adapters; prohibit direct cross-layer mutation.
+- **ADR-001 — Store-mediated Phaser-surface integration (revised v1.1):** Maintain one authoritative store; Phaser scenes are the sole presentation surface and dispatch typed intents; prohibit direct state mutation from scenes. *Supersedes the original dual-surface (semantic-HTML-authoritative) decision.*
 - **ADR-002 — Offline local persistence:** IndexedDB is the local primary store; no cloud-save or network dependency is introduced.
 - **ADR-003 — Validated data-driven cases:** Case content is versioned JSON validated at runtime; core logic is reusable across cases.
 - **ADR-004 — Deterministic experiment model:** Produce reproducible, inspectable results through authored calculation rules rather than physics simulation.
 - **ADR-005 — Case-scoped loading:** Start with a minimal shell and load complete case bundles before laboratory play.
-- **ADR-006 — Evidence-driven narrative rules:** Use data predicates for consultations and review while preserving fact-bound outcomes.
-- **ADR-007 — Portable learner records:** Support validated JSON export/import and semantic CSS printing.
+- **ADR-006 — Evidence-driven narrative rules:** Use data predicates for colleague proposals, consultations, and rival-lab critique while preserving fact-bound outcomes; the evaluator judges which conclusion proposals the evidence defends.
+- **ADR-007 — Portable learner records:** Support validated JSON export/import and semantic CSS printing (the only non-Phaser surface).
+- **ADR-008 — Accessibility de-scoped from MVP (new v1.1):** Keyboard-only completion, screen-reader support, and non-colour-only encoding are not MVP release gates. The preserved store/domain boundary keeps a future accessible surface feasible without re-architecture.
+- **ADR-009 — Scene-router adventure flow (new v1.1):** A single SceneRouter maps the authoritative case phase to the active Phaser scene per the case's `scenarioScript`; scenes mirror phase, never define it.
+- **ADR-010 — Bilingual (EN + FR) i18n foundation (new v1.1):** All player-facing text resolves through an i18n layer with `en`/`fr` resources; case strings carry both locales (Zod-validated), locale lives in the store and persists in settings, and Phaser fonts include the French glyph set. This is an early foundation concern built before scene text work; localization beyond EN/FR is out of scope.
 
 ## Cross-cutting Concerns
 
@@ -283,7 +299,7 @@ IndexedDB/settings    player preferences only
 
 - Typed defaults hold feature flags, build metadata, and platform-safe limits.
 - Case JSON owns authored scientific and narrative content.
-- Player settings store accessibility, audio, display, and input preferences.
+- Player settings store language (EN/FR), audio, display, and input preferences.
 - Remote configuration is prohibited for core play.
 
 ### Event System
@@ -370,19 +386,19 @@ Quantique/
 │   │   ├── export/{exportCaseRecord.ts,importCaseRecord.ts}
 │   │   ├── audio/PhaserAudioAdapter.ts
 │   │   ├── phaser/
-│   │   │   ├── {createPhaserGame.ts,PhaserStoreAdapter.ts}
-│   │   │   ├── scenes/{BootScene.ts,CaseLoadScene.ts,LaboratoryScene.ts,DebriefScene.ts}
-│   │   │   └── renderers/{ApparatusRenderer.ts,ExperimentOutputRenderer.ts}
-│   │   └── dom/{DomStoreAdapter.ts,announcements.ts,focusManagement.ts}
-│   ├── ui/
-│   │   ├── shell/{ApplicationShell.ts,CaseLayout.ts}
-│   │   ├── apparatus/ApparatusControls.ts
-│   │   ├── notebook/{NotebookPanel.ts,RunComparison.ts}
-│   │   ├── theory/TheoryBoardPanel.ts
-│   │   ├── sources/CuratedRecordPanel.ts
-│   │   ├── review/ConclusionReviewPanel.ts
-│   │   ├── settings/AccessibilitySettings.ts
-│   │   └── print/CaseRecordPrintView.ts
+│   │   │   ├── {createPhaserGame.ts,PhaserStoreAdapter.ts,SceneRouter.ts}
+│   │   │   ├── scenes/{BootScene.ts,CaseLoadScene.ts,LibraryScene.ts,ColleaguesScene.ts,LaboratoryScene.ts,TheoryBoardScene.ts,RivalLabScene.ts,DebriefScene.ts}
+│   │   │   ├── ui/{DialogueBox.ts,ProposalChoice.ts,SceneNav.ts}   # Phaser-native dialogue & choice widgets
+│   │   │   └── renderers/{ApparatusRenderer.ts,ExperimentOutputRenderer.ts,LectureBookRenderer.ts,ColleagueRenderer.ts}
+│   │   └── dom/CaseRecordPrintView bridge   # RETIRED (pivot): DomStoreAdapter/announcements/focusManagement no longer used
+│   ├── ui/                        # RETIRED as authoritative surface (pivot) — panels below superseded by Phaser scenes
+│   │   ├── shell/BootShell.ts      # kept: minimal boot frame that mounts the Phaser game
+│   │   ├── apparatus/ApparatusControls.ts        # retired -> LaboratoryScene
+│   │   ├── notebook/{NotebookPanel.ts,RunComparison.ts}  # retired -> LaboratoryScene/notebook widget
+│   │   ├── theory/TheoryBoardPanel.ts            # retired -> TheoryBoardScene
+│   │   ├── sources/CuratedRecordPanel.ts         # retired -> LibraryScene
+│   │   ├── review/ConclusionReviewPanel.ts       # retired -> TheoryBoardScene + RivalLabScene
+│   │   └── print/CaseRecordPrintView.ts          # KEPT: only non-Phaser surface (record export/print)
 │   ├── styles/{tokens.css,application.css,print.css}
 │   ├── test-support/{fixtures/,createTestStore.ts}
 │   └── main.ts
@@ -406,14 +422,14 @@ Quantique/
 | Events and logging | `src/core/events/`, `src/core/logging/` | Post-transition effects and local diagnostics |
 | Case framework | `src/domain/cases/`, `public/cases/` | Case behavior and authored definitions |
 | Experiment model | `src/domain/apparatus/` | Deterministic scientific calculation |
-| Notebook and evidence | `src/domain/evidence/`, `src/ui/notebook/` | Runs, observations, comparisons, semantic display |
-| Sources and provenance | `src/domain/sources/`, `src/ui/sources/` | Source state and rights/provenance presentation |
-| Theory board and conclusion | `src/domain/theory/`, `src/ui/theory/` | Claim validation and player reasoning |
-| Consultations and review | `src/domain/review/`, `src/ui/review/` | Predicate-driven guidance and feedback |
+| Notebook and evidence | `src/domain/evidence/`, `LaboratoryScene` | Runs, observations, comparisons, in-scene display |
+| Sources and provenance | `src/domain/sources/`, `LibraryScene` | Source state and rights/provenance presentation |
+| Theory board and conclusion | `src/domain/theory/`, `TheoryBoardScene` | Conclusion-proposal choice and defensibility evaluation |
+| Colleague proposals, hints & rival lab | `src/domain/review/`, `ColleaguesScene`/`RivalLabScene` | Predicate-driven proposals, hints, and critique |
 | Browser persistence | `src/adapters/persistence/` | IndexedDB operations and migrations |
-| Export, import, print | `src/adapters/export/`, `src/ui/print/` | Portable records and classroom print view |
-| Phaser rendering | `src/adapters/phaser/` | Scenes, renderers, asset loading, direct manipulation |
-| Semantic UI/accessibility | `src/ui/`, `src/adapters/dom/` | HTML controls, focus, announcements, accessible status |
+| Export, import, print | `src/adapters/export/`, `src/ui/print/` | Portable records and print view (only DOM surface) |
+| Phaser presentation | `src/adapters/phaser/` | SceneRouter, scenes, dialogue/choice UI, renderers, asset loading |
+| Scene routing | `src/adapters/phaser/SceneRouter.ts` | Maps authoritative case phase to the active scene |
 | Case and shared assets | `public/assets/` | Immutable browser-served media and documents |
 | Test tooling | `src/test-support/`, `tests/` | Fixtures and automated acceptance coverage |
 | Content/reviewer guidance | `docs/content-authoring/`, `docs/source-rights/` | Case authoring and provenance processes |
@@ -434,7 +450,7 @@ Quantique/
 ### Architectural Boundaries
 
 - `domain/` may depend only on TypeScript types and other domain/core modules; it must not import Phaser, DOM, IndexedDB, or browser APIs.
-- `ui/` and `adapters/phaser/` read state through selectors and dispatch typed actions; neither mutates state or the other layer directly.
+- `adapters/phaser/` scenes read state through selectors and dispatch typed actions; they never mutate state directly. `ui/` retains only the CSS print/export view (the sole DOM surface).
 - `adapters/` implement side effects and may depend inward on `domain/` and `core/`; domain code never imports adapters.
 - `public/cases/` is authored immutable content, not a place for player progress.
 - Zod validation happens at all content/import boundaries before data reaches domain logic.
@@ -446,12 +462,12 @@ These patterns are mandatory for all AI-agent implementations.
 
 ### Novel Patterns
 
-#### Dual-Surface Interaction
+#### Phaser-Surface Interaction
 
-**Purpose:** Ensure a semantic HTML control and an equivalent Phaser gesture produce exactly the same state change.
+**Purpose:** Ensure every in-scene gesture flows through the authoritative store rather than mutating scene state, so play stays reproducible and testable.
 
 ```text
-HTML control or Phaser gesture → typed intent → store reducer → state + domain events → both layers re-render
+Phaser gesture → typed intent → store reducer → state + domain events → scenes re-render from state
 ```
 
 ```ts
@@ -467,14 +483,14 @@ function setSlitSpacing(value: number, origin: ApparatusIntent['origin']): void 
 }
 ```
 
-**Rule:** Neither DOM code nor Phaser code may update apparatus state directly. `origin` supports diagnostics only and cannot change results or progression.
+**Rule:** Phaser scene code may never update apparatus state directly. `origin` supports diagnostics only and cannot change results or progression. (The `'dom'` origin is retained in the type for the print/export bridge and future accessible surfaces, but no interactive DOM control dispatches it in the MVP.)
 
 #### Evidence-to-Conclusion Gate
 
-**Purpose:** Make completion and peer-review feedback a pure, auditable result of evidence state rather than screen-specific logic.
+**Purpose:** Make the significant-measure gate, which conclusion proposals are defensible, and the rival-lab trigger a pure, auditable result of evidence state rather than scene-specific logic.
 
 ```text
-case definition + persisted evidence state → evaluator → readiness/missing requirements/feedback → theory board and review UI
+case definition + persisted evidence state → evaluator → { readiness + significant-measure count, defensible conclusion IDs } → theory-board & rival-lab scenes
 ```
 
 ```ts
@@ -482,15 +498,27 @@ function evaluateConclusionReadiness(
   definition: CaseDefinition,
   progress: CaseProgress,
 ): ConclusionReadiness {
+  const significantRuns = progress.runIds.filter((id) =>
+    isSignificantMeasure(definition.significanceRule, progress.runs[id], progress),
+  );
   const missing: string[] = [];
-  if (progress.runIds.length < definition.requirements.minimumRuns) missing.push('Record the required observations.');
-  if (progress.inspectedSourceIds.length < definition.requirements.minimumSources) missing.push('Inspect the required contextual sources.');
-  if (!progress.conclusion.limitation.trim()) missing.push('State one limitation or alternative explanation.');
-  return missing.length === 0 ? { status: 'ready', missing: [] } : { status: 'incomplete', missing };
+  if (significantRuns.length < definition.requirements.minimumSignificantRuns) {
+    missing.push('Take another significant measurement.'); // surfaced in-fiction as a colleague hint
+  }
+  if (progress.inspectedSourceIds.length < definition.requirements.minimumSources) {
+    missing.push('Read the required references in the library.');
+  }
+  // Which of the four colleague conclusions does the evidence actually defend?
+  const defensibleConclusionIds = definition.conclusionProposals
+    .filter((c) => c.supportPredicate(progress))
+    .map((c) => c.id);
+  return missing.length === 0
+    ? { status: 'ready', missing: [], significantRuns: significantRuns.length, defensibleConclusionIds }
+    : { status: 'incomplete', missing, significantRuns: significantRuns.length, defensibleConclusionIds };
 }
 ```
 
-**Rule:** A case cannot infer completion from scene history or UI visibility. Only the evaluator determines readiness.
+**Rule:** A case cannot infer completion or a "correct" conclusion from scene history or UI visibility. Only the evaluator decides readiness and defensibility; a chosen conclusion whose ID is not in `defensibleConclusionIds` triggers the rival-lab critique and routes back to a revisable choice (never a hard fail).
 
 #### Deterministic Experiment Record
 
@@ -588,7 +616,7 @@ class CaseContentRepository {
 
 | Pattern | Convention | Enforcement |
 |---|---|---|
-| Player interaction | Normalize to a typed store action | Test DOM and Phaser paths against identical state |
+| Player interaction | Normalize every scene gesture to a typed store action | Test that scene intents produce the expected authoritative state |
 | Scientific results | Pure deterministic function + versioned run record | Unit fixtures and schema validation |
 | Completion/review | Pure evaluator from definition and progress | Test every missing-evidence combination |
 | Phaser lifecycle | Renderer factory owns create/update/destroy | Integration-test scene cleanup |
@@ -600,7 +628,7 @@ class CaseContentRepository {
 
 ### Architecture Summary
 
-Quantique is a static, desktop-first web game built with Phaser 4.2.1, TypeScript, and Vite 8.1.x. Phaser provides the tactile laboratory renderer; semantic HTML and a lightweight TypeScript store remain authoritative for accessible controls, evidence, conclusions, and persistence.
+Quantique is a static, desktop-first web game built with Phaser 4.2.1, TypeScript, and Vite 8.1.x. Phaser scenes are the sole interactive presentation surface (a scripted library → colleagues → lab → theory board → debrief flow); a lightweight TypeScript store and pure domain layer remain authoritative for evidence, conclusions, and persistence.
 
 The architecture is offline-first: validated case JSON and case-scoped static assets load through repositories and Phaser; IndexedDB stores player progress; JSON export/import and CSS printing preserve learner records without accounts, telemetry, or a critical-play network dependency.
 
@@ -624,8 +652,10 @@ The architecture is offline-first: validated case JSON and case-scoped static as
 
 | Requirement | Architecture Support | Status |
 |---|---|---|
-| Equivalent pointer, keyboard, and touch outcomes | Dual-surface typed intents and semantic DOM controls | PASS |
-| Non-canvas-only accessibility | Semantic UI authority, focus/announcement adapters, axe checks | PASS |
+| Guided scenarized flow through Phaser scenes | SceneRouter maps phase → scene per `scenarioScript` | PASS |
+| Colleague prediction/conclusion choice + rival-lab critique | Case-data proposals with `supportPredicate`; evaluator returns defensible IDs | PASS |
+| Equivalent pointer, keyboard, and touch outcomes | ~~Dual-surface typed intents~~ | **De-scoped (post-MVP)** — accessibility dropped from MVP (ADR-008) |
+| Non-canvas-only accessibility | ~~Semantic UI authority, axe checks~~ | **De-scoped (post-MVP)** — accessibility dropped from MVP (ADR-008) |
 | 60 FPS at 1280×720 | Phaser renderer boundary, case-scoped bundles, profiling/debug counters | PASS |
 | Cached launch and offline reload | Static hosted assets, boot shell, IndexedDB persistence, offline-reload E2E coverage | PASS |
 | Measurement notebook and comparison | Evidence domain, immutable run records, notebook UI | PASS |
@@ -639,8 +669,8 @@ The architecture is offline-first: validated case JSON and case-scoped static as
 
 - **Static hosted web application** is the chosen MVP release target. Downloadable/offline packaging is explicitly deferred.
 - **Vitest 4.1.10** covers pure domain, reducer, schema, migration, and scientific-calculation tests.
-- **Playwright 1.61.1** covers Chromium, Firefox, and WebKit end-to-end flows: Young completion, keyboard/pointer/touch parity, import/export, and offline reload.
-- **axe-core/Playwright 4.12.1** runs automated semantic accessibility checks; manual acceptance remains required for screen-reader behavior, non-colour scientific encoding, and classroom-device usability.
+- **Playwright 1.61.1** covers Chromium, Firefox, and WebKit end-to-end flows: the full Young scene flow (library → colleagues → lab → theory board → debrief), conclusion choice + rival-lab revision, import/export, and offline reload.
+- **axe-core/Playwright 4.12.1** and manual accessibility acceptance are **de-scoped from the MVP** (ADR-008). Retain a basic no-flashing/photosensitivity check on the Phaser scenes. Domain-level Vitest coverage of the evaluator (significant-measure gate, defensible-conclusion selection) remains required.
 - Vite is tracked on its current supported 8.1 line; the project lockfile will pin the exact patch installed by the official starter generator.
 
 ### Issues Resolved
@@ -688,4 +718,4 @@ npx playwright install
 1. Generate the official Phaser Vite + TypeScript project and commit the generated lockfile to pin the exact Vite patch.
 2. Create the approved directory structure, then implement `src/core/store/`, `src/schemas/`, and `src/domain/apparatus/` before presentation layers.
 3. Configure Context7 for current API lookups and add the Vitest/Playwright/axe test commands.
-4. Build the Young case as the validation slice, beginning with dual-surface slit-spacing and screen-distance controls, deterministic run records, and the evidence-to-conclusion gate.
+4. Build the Young case as the validation slice: stand up the SceneRouter and the scene flow (reuse `LectureBookRenderer` as the LibraryScene and the existing LaboratoryScene), then wire the colleague prediction/conclusion proposals, the significant-measure gate, and the rival-lab critique through the extended evidence-to-conclusion evaluator.
