@@ -51,6 +51,9 @@ _bmad/
 .agents/skills/wds*
 .agents/skills/memory*
 .agents/skills/sync*
+.claude/skills/gds*
+.claude/skills/bmad*
+.claude/skills/wds*
 
 # Package managers
 yarn.lock
