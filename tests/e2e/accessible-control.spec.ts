@@ -23,6 +23,24 @@ test('offers the authored slit-spacing control outside the canvas and announces 
     await expect(page.locator('#apparatus-status')).toHaveText('Slit spacing set to 0.25 mm.');
 });
 
+test('keeps the Phaser laboratory surface proportionate beside the populated Curated Record', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto('/');
+
+    const curatedRecord = page.getByRole('region', { name: 'Curated Record' });
+    await expect(curatedRecord.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' })).toBeVisible();
+
+    const canvas = page.locator('#game-container canvas');
+    await expect(canvas).toBeVisible();
+    const [recordBounds, canvasBounds] = await Promise.all([curatedRecord.boundingBox(), canvas.boundingBox()]);
+    if (!recordBounds || !canvasBounds) {
+        throw new Error('The laboratory surface did not render.');
+    }
+
+    expect(recordBounds.height).toBeGreaterThan(canvasBounds.height);
+    expect(canvasBounds.width / canvasBounds.height).toBeCloseTo(1024 / 768, 2);
+});
+
 test('projects Phaser pointer and touch changes through the same semantic readout', async ({ page, browser }) => {
     await page.goto('/');
 
