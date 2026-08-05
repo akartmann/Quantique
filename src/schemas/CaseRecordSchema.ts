@@ -5,6 +5,7 @@ import { normalizeControlValue } from '../domain/apparatus/ApparatusControl';
 import { isSourceEligibleForInspection, type CaseDefinition } from '../domain/cases/CaseDefinition';
 import { createRunRecord } from '../domain/evidence/RunRecord';
 import { evaluateConclusionReadiness } from '../domain/theory/conclusionReadiness';
+import { evaluatePeerReview } from '../domain/review/peerReviewRules';
 import { migrateCaseRecord } from './migrations/migrateCaseRecord';
 
 const text = z.string().trim().min(1);
@@ -97,7 +98,11 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         const validatedRun = createRunRecord(run, runIds);
         if (!validatedRun.ok || validatedRun.value.caseId !== definition.id
             || validatedRun.value.experimentModelVersion !== definition.experiment.modelVersion
-            || !validatedRun.value.linkedEvidenceIds.every((sourceId) => record.inspectedSourceIds.includes(sourceId))) {
+            || !validatedRun.value.linkedEvidenceIds.every((sourceId) => record.inspectedSourceIds.includes(sourceId))
+            || definition.apparatus.primaryControls.some((control) => {
+                const normalized = normalizeControlValue(control, validatedRun.value.controls[control.id]);
+                return !normalized.ok || normalized.value !== validatedRun.value.controls[control.id];
+            })) {
             return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
         }
         runIds.push(validatedRun.value.id);
@@ -114,17 +119,34 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
     }
 
     let previousTimestamp = '';
+    let previousConclusion = '';
     for (let index = 0; index < record.decisionHistory.length; index += 1) {
         const entry = record.decisionHistory[index];
         if (entry.version !== index + 1 || !validIds(entry.selectedRunIds, knownRunIds)
             || !validIds(entry.selectedSourceIds, new Set(record.inspectedSourceIds))
+            || !entry.conclusion.trim() || !entry.limitation.trim()
+            || entry.priorConclusion !== previousConclusion
             || (previousTimestamp && entry.timestamp <= previousTimestamp)) {
             return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
         }
+        const feedback = evaluatePeerReview(definition, {
+            runs: record.runs,
+            inspectedSourceIds: record.inspectedSourceIds
+        }, {
+            selectedRunIds: entry.selectedRunIds,
+            selectedSourceIds: entry.selectedSourceIds,
+            conclusion: entry.conclusion,
+            limitation: entry.limitation
+        });
+        if (feedback.status !== 'reviewed' || entry.feedback.status !== 'reviewed'
+            || JSON.stringify(feedback.issues) !== JSON.stringify(entry.feedback.issues)) {
+            return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+        }
         previousTimestamp = entry.timestamp;
+        previousConclusion = entry.conclusion;
     }
 
-    if (record.phase === 'review' && evaluateConclusionReadiness(definition, {
+    if ((record.phase === 'review' || record.phase === 'debrief') && evaluateConclusionReadiness(definition, {
         runs: record.runs,
         inspectedSourceIds: record.inspectedSourceIds
     }, record.theory).status !== 'ready') {

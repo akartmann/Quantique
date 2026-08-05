@@ -2,7 +2,6 @@ import { exportCaseRecord } from '../../adapters/export/exportCaseRecord';
 import { importCaseRecord } from '../../adapters/export/importCaseRecord';
 import { openPrintDialog } from '../../adapters/print/openPrintDialog';
 import { CaseRecordRepository } from '../../adapters/persistence/caseRecordRepository';
-import { createAppStateFromCaseRecord } from '../../core/store/AppState';
 import type { AppStore } from '../../core/store/createStore';
 import { selectPortableCaseRecord } from '../../core/store/selectors';
 
@@ -60,20 +59,26 @@ export const mountCaseProgressPanel = (root: HTMLElement, store: AppStore, repos
             requestedFocusKey = 'import';
             const file = importInput.files?.item(0);
             if (!file) return;
-            const imported = await importCaseRecord(file);
-            if (!imported.ok) {
+            const exclusive = store.acquireExclusiveOperation();
+            if (!exclusive.ok) {
                 statusMessage = neutralImportMessage;
                 render();
                 return;
             }
-            const restored = createAppStateFromCaseRecord(imported.value, store.getState().caseDefinition);
-            if (!restored.ok || !store.replaceWithValidatedState(restored.value).ok) {
-                statusMessage = neutralImportMessage;
+            try {
+                const imported = await importCaseRecord(file);
+                if (!imported.ok || !(await repository.save(imported.value)).ok) {
+                    statusMessage = neutralImportMessage;
+                    render();
+                    return;
+                }
+                statusMessage = store.replaceWithValidatedRecord(imported.value).ok
+                    ? 'Progress imported and saved on this device.'
+                    : neutralImportMessage;
                 render();
-                return;
+            } finally {
+                exclusive.value();
             }
-            statusMessage = await persist() ? 'Progress imported and saved on this device.' : 'Progress imported. It could not be saved right now.';
-            render();
         });
         const print = document.createElement('button');
         print.type = 'button'; print.dataset.progressFocus = 'print'; print.textContent = 'Print investigation record';
@@ -87,7 +92,15 @@ export const mountCaseProgressPanel = (root: HTMLElement, store: AppStore, repos
         if (focusKey) root.querySelector<HTMLElement>(`[data-progress-focus="${focusKey}"]`)?.focus();
     };
 
-    const unsubscribe = store.subscribe(() => { void persist(); render(); });
+    const unsubscribe = store.subscribe(() => {
+        void persist().then((saved) => {
+            if (!saved) {
+                statusMessage = 'Progress could not be saved right now. Your current work is unchanged.';
+                render();
+            }
+        });
+        render();
+    });
     render();
     return () => { unsubscribe(); root.replaceChildren(); };
 };

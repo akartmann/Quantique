@@ -68,7 +68,20 @@ export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): ((
         const historyList = document.createElement('ol');
         selectDecisionHistory(state).forEach((entry) => {
             const item = document.createElement('li');
-            item.textContent = `Version ${entry.version}, saved ${entry.timestamp}: ${entry.conclusion}`;
+            const selectedRuns = entry.selectedRunIds.map((id) => {
+                const index = state.runs.findIndex((run) => run.id === id);
+                return index === -1 ? 'Unavailable observation' : `Observation ${index + 1}`;
+            }).join(', ') || 'No observations';
+            const selectedSources = entry.selectedSourceIds.map((id) => {
+                const source = selectContextualArtifacts(state).find((artifact) => artifact.id === id);
+                return source?.displayName ?? 'Unavailable source';
+            }).join(', ') || 'No sources';
+            const feedback = entry.feedback.status === 'reviewed'
+                ? entry.feedback.issues.length
+                    ? entry.feedback.issues.map((issue) => issue.feedback).join(' ')
+                    : 'Peer review found no issues.'
+                : entry.feedback.message;
+            item.textContent = `Version ${entry.version}, saved ${entry.timestamp}. Conclusion: ${entry.conclusion}. Limitation: ${entry.limitation}. Supporting observations: ${selectedRuns}. Supporting sources: ${selectedSources}. Peer feedback: ${feedback}`;
             historyList.append(item);
         });
         if (!historyList.children.length) historyList.append(Object.assign(document.createElement('li'), { textContent: 'No reviewed revisions saved.' }));

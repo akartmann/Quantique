@@ -4,7 +4,7 @@ baseline_commit: 25a6e78
 
 # Story 1.8: Offline progress, export, import, and print
 
-Status: review
+Status: done
 
 ## Story
 
@@ -73,6 +73,17 @@ so that I can safely continue, share, or retain my evidence without an account.
   - [x] Add Playwright export tests using the download event, filename, and parsed JSON payload; import a valid record; then import malformed and incompatible records and confirm the last valid progress/history remains visible with neutral status and recovered focus.
   - [x] Extend `tests/e2e/offline-reload.spec.ts` to prove a saved investigation state and decision history restore after the service worker has cached case assets, without a network request. Exercise Chromium, Firefox, and WebKit as required by this story; do not silently retain the existing Chromium-only skip. If a runner capability blocks an engine, capture a concrete, reproducible limitation for the product decision rather than claiming cross-browser acceptance.
   - [x] Run and retain `npm test`, `npm run typecheck`, `npm run build`, accessibility E2E, and the Chromium/Firefox/WebKit Playwright suites. Tests assert semantic roles/labels and public behavior; never assert canvas pixels or Phaser private fields. Manually verify keyboard-only flow, announcements, focus recovery, print readability, non-colour meaning, and offline restore; Axe alone is insufficient.
+
+### Review Findings
+
+- [x] [Review][Patch] Make valid import replacement atomic with persistence [src/ui/persistence/CaseProgressPanel.ts:69]
+- [x] [Review][Patch] Reject restored phases that bypass evidence and readiness gates [src/schemas/CaseRecordSchema.ts:125]
+- [x] [Review][Patch] Validate each imported historical run control against the loaded definition [src/schemas/CaseRecordSchema.ts:96]
+- [x] [Review][Patch] Validate decision-history snapshots against the reviewed-revision contract [src/schemas/CaseRecordSchema.ts:116]
+- [x] [Review][Patch] Recover from blocked IndexedDB upgrades without stalling laboratory boot [src/adapters/persistence/IndexedDbRepository.ts:20]
+- [x] [Review][Patch] Restrict the store replacement seam to genuinely validated restored state [src/core/store/createStore.ts:32]
+- [x] [Review][Patch] Announce automatic persistence failures through the semantic status region [src/ui/persistence/CaseProgressPanel.ts:90]
+- [x] [Review][Patch] Include complete decision-history evidence in the printed record [src/ui/print/CaseRecordPrintView.ts:69]
 
 ## Dev Notes
 

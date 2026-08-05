@@ -1,21 +1,27 @@
 import type { Result } from '../errors/Result';
+import type { CaseRecord } from '../../schemas/CaseRecordSchema';
 import type { AppAction } from './AppAction';
-import { reduceAppState, type AppState } from './AppState';
+import { createAppStateFromCaseRecord, reduceAppState, type AppState } from './AppState';
 
 export type AppStore = Readonly<{
     getState: () => AppState;
     dispatch: (action: AppAction) => Result<void>;
     subscribe: (listener: () => void) => () => void;
-    replaceWithValidatedState: (nextState: AppState) => Result<void>;
+    replaceWithValidatedRecord: (record: CaseRecord) => Result<void>;
+    acquireExclusiveOperation: () => Result<() => void>;
 }>;
 
 export const createStore = (initialState: AppState): AppStore => {
     let state = initialState;
     const listeners = new Set<() => void>();
+    let exclusiveOperation = false;
 
     return {
         getState: () => state,
         dispatch: (action) => {
+            if (exclusiveOperation) {
+                return { ok: false, error: { code: 'progress-operation-active', message: 'Please wait for the progress operation to finish.' } };
+            }
             const transition = reduceAppState(state, action);
             if (!transition.ok) {
                 return transition;
@@ -29,13 +35,28 @@ export const createStore = (initialState: AppState): AppStore => {
             listeners.add(listener);
             return () => listeners.delete(listener);
         },
-        replaceWithValidatedState: (nextState) => {
-            if (!Object.isFrozen(nextState)) {
-                return { ok: false, error: { code: 'invalid-restored-state', message: 'This progress record could not be used. Your current work is unchanged.' } };
-            }
-            state = nextState;
+        replaceWithValidatedRecord: (record) => {
+            const restored = createAppStateFromCaseRecord(record, state.caseDefinition);
+            if (!restored.ok) return restored;
+            state = restored.value;
             listeners.forEach((listener) => listener());
             return { ok: true, value: undefined };
+        },
+        acquireExclusiveOperation: () => {
+            if (exclusiveOperation) {
+                return { ok: false, error: { code: 'progress-operation-active', message: 'Please wait for the progress operation to finish.' } };
+            }
+            exclusiveOperation = true;
+            let released = false;
+            return {
+                ok: true,
+                value: () => {
+                    if (!released) {
+                        released = true;
+                        exclusiveOperation = false;
+                    }
+                }
+            };
         }
     };
 };

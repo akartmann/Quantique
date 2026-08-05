@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { CaseRecordSchema, parseAndMigrateCaseRecord, validateCaseRecordForDefinition } from '../../src/schemas/CaseRecordSchema';
 import { createAppStateFromCaseRecord, createInitialAppState } from '../../src/core/store/AppState';
+import { createStore } from '../../src/core/store/createStore';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 
 const definition = {
@@ -52,6 +53,26 @@ describe('portable case records', () => {
         expect(validateCaseRecordForDefinition(mismatch, definition)).toMatchObject({ ok: false, error: { code: 'incompatible-case-record' } });
     });
 
+    it('rejects impossible historical snapshots, bypassed debriefs, and malformed history', () => {
+        const impossibleRun = CaseRecordSchema.parse({
+            ...validRecord,
+            runs: [{ ...validRecord.runs[0], controls: { slitSpacingMm: 0.9, screenDistanceM: 2 } }]
+        });
+        expect(validateCaseRecordForDefinition(impossibleRun, definition)).toMatchObject({ ok: false, error: { code: 'invalid-case-record' } });
+
+        const bypassedDebrief = CaseRecordSchema.parse({ ...validRecord, phase: 'debrief' });
+        expect(validateCaseRecordForDefinition(bypassedDebrief, definition)).toMatchObject({ ok: false, error: { code: 'invalid-case-record' } });
+
+        const malformedHistory = CaseRecordSchema.parse({
+            ...validRecord,
+            decisionHistory: [{
+                version: 1, priorConclusion: '', conclusion: '', limitation: '', selectedRunIds: ['run-001'], selectedSourceIds: ['source-1'],
+                feedback: { status: 'unavailable', message: 'Unavailable.' }, timestamp: '2026-08-05T10:01:00.000Z'
+            }]
+        });
+        expect(validateCaseRecordForDefinition(malformedHistory, definition)).toMatchObject({ ok: false, error: { code: 'invalid-case-record' } });
+    });
+
     it('migrates only supported prior versions and rejects malformed, future, and unsupported versions', () => {
         expect(parseAndMigrateCaseRecord(JSON.stringify({ ...validRecord, schemaVersion: 0 }))).toMatchObject({ ok: true, value: { schemaVersion: 1 } });
         expect(parseAndMigrateCaseRecord('{')).toMatchObject({ ok: false, error: { code: 'invalid-import' } });
@@ -67,5 +88,19 @@ describe('portable case records', () => {
             expect(Object.isFrozen(restored.value.runs[0])).toBe(true);
             expect(Object.isFrozen(restored.value.runs[0].controls)).toBe(true);
         }
+    });
+
+    it('only replaces store state through record validation and serializes progress operations', () => {
+        const store = createStore(createInitialAppState(definition));
+        const mismatch = CaseRecordSchema.parse({ ...validRecord, caseDefinitionVersion: '2.0.0' });
+        expect(store.replaceWithValidatedRecord(mismatch)).toMatchObject({ ok: false, error: { code: 'incompatible-case-record' } });
+        expect(store.getState().phase).toBe('context');
+
+        const lock = store.acquireExclusiveOperation();
+        expect(lock.ok).toBe(true);
+        if (!lock.ok) return;
+        expect(store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' })).toMatchObject({ ok: false, error: { code: 'progress-operation-active' } });
+        lock.value();
+        expect(store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' })).toEqual({ ok: true, value: undefined });
     });
 });

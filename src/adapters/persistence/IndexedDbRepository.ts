@@ -10,25 +10,29 @@ type DatabaseConnection = Readonly<{
 
 export type OpenProgressDatabase = () => Promise<DatabaseConnection>;
 
-const openProgressDatabase: OpenProgressDatabase = async () => {
-    let upgradeWasBlocked = false;
-    const database = await openDB('quantique-progress', 1, {
+const openProgressDatabase: OpenProgressDatabase = () => new Promise((resolve, reject) => {
+    let blocked = false;
+    void openDB('quantique-progress', 1, {
         upgrade(database) {
             if (!database.objectStoreNames.contains('case-records')) {
                 database.createObjectStore('case-records');
             }
         },
-        blocked() { upgradeWasBlocked = true; },
+        blocked() {
+            blocked = true;
+            reject(new Error('IndexedDB upgrade was blocked.'));
+        },
         blocking(_currentVersion, _blockedVersion, event) {
             (event.target as IDBDatabase | null)?.close();
         }
-    });
-    if (upgradeWasBlocked) {
-        database.close();
-        throw new Error('IndexedDB upgrade was blocked.');
-    }
-    return database as unknown as DatabaseConnection;
-};
+    }).then((database) => {
+        if (blocked) {
+            database.close();
+            return;
+        }
+        resolve(database as unknown as DatabaseConnection);
+    }, reject);
+});
 
 const unavailable = <T>(): Result<T> => ({
     ok: false,
