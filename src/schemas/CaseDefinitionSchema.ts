@@ -176,6 +176,44 @@ const PeerReviewRuleSchema = z.object({
     revisionPath: LocalizedTextSchema
 }).strict();
 
+/**
+ * When a run counts as a distinguishing measurement (Story 2.6).
+ *
+ * `criticalControlIds` is `.min(1)` and its entries are checked against the authored controls in the
+ * top-level refinement, where the message can name the offending ID. `minimumResultDelta` is
+ * optional and must be positive — a zero or negative delta would be satisfied by every pair and is
+ * therefore an author asking for a rule that does nothing, which is worth failing on rather than
+ * silently accepting.
+ */
+const SignificanceRuleSchema = z.object({
+    criticalControlIds: z.array(z.enum(['slitSpacingMm', 'screenDistanceM'])).min(1),
+    minimumResultDelta: z.number().positive().optional()
+}).strict();
+
+const ColleagueHintPredicateSchema = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('no-recorded-runs') }).strict(),
+    z.object({ kind: z.literal('repeated-configuration') }).strict(),
+    z.object({ kind: z.literal('unvaried-control'), controlId: z.enum(['slitSpacingMm', 'screenDistanceM']) }).strict(),
+    z.object({ kind: z.literal('below-significant-measures') }).strict()
+]);
+
+/**
+ * The same bound, and the same reason, as {@link RivalLabCritiqueSchema}'s: the hint is drawn into a
+ * fixed lab surface with no scroll, and clamping the prose at runtime would truncate the one thing
+ * the player needs to read. Failing at case load puts the problem where an author can see it.
+ */
+const MAX_HINT_LINE_LENGTH = 320;
+
+const ColleagueHintSchema = z.object({
+    id: stableId,
+    colleagueId: stableId,
+    predicate: ColleagueHintPredicateSchema,
+    line: LocalizedTextSchema.refine(
+        ({ en, fr }) => en.length <= MAX_HINT_LINE_LENGTH && fr.length <= MAX_HINT_LINE_LENGTH,
+        `A colleague hint must be at most ${MAX_HINT_LINE_LENGTH} characters in each locale.`
+    )
+}).strict();
+
 const ColleagueRoleSchema = z.enum(['lead', 'builder', 'analyst', 'communicator']);
 
 const ColleaguePortraitSchema = z.discriminatedUnion('kind', [
@@ -398,7 +436,17 @@ export const CaseDefinitionSchema = z.object({
             description: LocalizedTextSchema
         }).strict()
     }).strict(),
-    requirements: z.object({ minimumRuns: z.literal(2), minimumSources: z.literal(2) }).strict(),
+    requirements: z.object({
+        minimumRuns: z.literal(2),
+        minimumSources: z.literal(2),
+        // The ≥2-significant-measure gate. A literal for the same reason the other two are: the count
+        // is the design, not a tuning knob.
+        minimumSignificantRuns: z.literal(2)
+    }).strict(),
+    significanceRule: SignificanceRuleSchema,
+    // `.min(1)` only. "At least one hint applies with no runs recorded" is a cross-field rule and
+    // lives in the top-level refinement, where the message can say what is missing and why.
+    colleagueHints: z.array(ColleagueHintSchema).min(1),
     colleagues: z.array(ColleagueSchema).min(1),
     // `.length(4)`, not `.min(4)`: the pivot makes both the prediction and the conclusion a 1-of-4
     // attributed choice, and a wrong count is unambiguous enough that a generic length failure reads
@@ -542,6 +590,70 @@ export const CaseDefinitionSchema = z.object({
     // one the evaluator can never defend, and no evidence the player gathers would change that.
     if (definition.conclusionProposals.length > 0 && !definition.conclusionProposals.some(({ supportPredicate }) => isSatisfiablePredicate(supportPredicate))) {
         context.addIssue({ code: 'custom', message: 'At least one conclusion proposal must be defensible on some evidence.', path: ['conclusionProposals'] });
+    }
+
+    // --- Significant-measure gate and colleague hints (Story 2.6) -------------------------------
+    //
+    // Here rather than in the field schemas: every rule below is about the rule and the hints
+    // *against the authored controls and cast*, which neither schema can see.
+
+    definition.significanceRule.criticalControlIds.forEach((controlId, index) => {
+        if (!controlIds.has(controlId)) {
+            context.addIssue({
+                code: 'custom',
+                message: 'The significance rule may only name authored primary controls.',
+                path: ['significanceRule', 'criticalControlIds', index]
+            });
+        }
+    });
+    if (new Set(definition.significanceRule.criticalControlIds).size !== definition.significanceRule.criticalControlIds.length) {
+        context.addIssue({
+            code: 'custom',
+            message: 'The significance rule must not name the same control twice.',
+            path: ['significanceRule', 'criticalControlIds']
+        });
+    }
+
+    const hintIds = definition.colleagueHints.map(({ id }) => id);
+    if (new Set(hintIds).size !== hintIds.length) {
+        context.addIssue({ code: 'custom', message: 'Colleague hint IDs must be stable and unique.', path: ['colleagueHints'] });
+    }
+    definition.colleagueHints.forEach((hint, index) => {
+        if (!colleagueIds.has(hint.colleagueId)) {
+            context.addIssue({
+                code: 'custom',
+                // The rival lab is deliberately not in `colleagues[]`, so this also stops an author
+                // putting the challenger's voice behind a helpful nudge.
+                message: 'Every colleague hint must be attributed to an authored colleague.',
+                path: ['colleagueHints', index, 'colleagueId']
+            });
+        }
+        if (hint.predicate.kind === 'unvaried-control' && !controlIds.has(hint.predicate.controlId)) {
+            context.addIssue({
+                code: 'custom',
+                message: 'Colleague hints may only reference authored controls.',
+                path: ['colleagueHints', index, 'predicate', 'controlId']
+            });
+        }
+        if (encodesPath(hint.line)) {
+            context.addIssue({
+                code: 'custom',
+                message: 'Colleague hint copy must not encode a scene, route, or phase path.',
+                path: ['colleagueHints', index, 'line']
+            });
+        }
+    });
+
+    // The floor that makes the gate honest. `no-recorded-runs` and `below-significant-measures` are
+    // the two predicates that hold with an empty notebook; without at least one of them the gate can
+    // refuse the advance and then have nothing to say, which is a silent dead end rather than a
+    // nudge — precisely the hard fail AC2 forbids.
+    if (!definition.colleagueHints.some(({ predicate }) => predicate.kind === 'no-recorded-runs' || predicate.kind === 'below-significant-measures')) {
+        context.addIssue({
+            code: 'custom',
+            message: 'At least one colleague hint must apply when no runs are recorded, so the gate always has something to say.',
+            path: ['colleagueHints']
+        });
     }
 
     // --- Rival lab ------------------------------------------------------------------------------

@@ -12,6 +12,13 @@ export type PhaserStoreAdapter = Readonly<{
     submitConclusion: () => ReturnType<AppStore['dispatch']>;
     /** Answering a standing rival-lab challenge. Clears the challenge; keeps the choice and the draft. */
     requestRivalLabRevision: () => ReturnType<AppStore['dispatch']>;
+    /**
+     * Leaving the laboratory for the theory board (Story 2.6).
+     *
+     * The significant-measure gate lives on this transition, so this is also the action that draws the
+     * colleague hint. It carries no timestamp: nothing about the advance is recorded.
+     */
+    advanceToSynthesis: () => ReturnType<AppStore['dispatch']>;
     subscribe: AppStore['subscribe'];
 }>;
 
@@ -30,5 +37,6 @@ export const createPhaserStoreAdapter = (store: AppStore): PhaserStoreAdapter =>
     // function of its arguments, and every other timestamped action follows the same rule.
     submitConclusion: () => store.dispatch({ type: 'theory.conclusionSubmitted', timestamp: new Date().toISOString() }),
     requestRivalLabRevision: () => store.dispatch({ type: 'rivalLab.revisionRequested' }),
+    advanceToSynthesis: () => store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' }),
     subscribe: store.subscribe
 });

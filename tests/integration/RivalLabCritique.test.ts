@@ -63,9 +63,16 @@ const storeAtSynthesis = (locale: 'en' | 'fr' = 'en'): AppStore => {
 };
 
 /**
- * The theory board reached on **thin evidence** — one run, no comparison — which leaves every authored
- * conclusion indefensible. It is a reachable state, not a contrived one: the gates from `experiment`
- * onward are phase gates, and the evidence gate is Story 2.6.
+ * The theory board reached on **thin evidence** — no comparison saved, no support selected — which
+ * leaves every authored conclusion indefensible.
+ *
+ * The two runs vary the **screen distance only**, holding the slit spacing fixed. That is deliberate,
+ * and it is the minimum this state can carry since Story 2.6: the significant-measure gate needs two
+ * distinct critical configurations to let anyone out of the laboratory at all, so "one run" is no
+ * longer a reachable way to stand at the theory board. Varying the throw rather than the separation
+ * clears that gate while leaving both evidence-based conclusions unmet —
+ * `conclusion-spacing-varies` wants `varied-control: slitSpacingMm` and `conclusion-both-settings`
+ * wants both — so all four critique paths stay exactly as reachable as they were.
  */
 const storeAtSynthesisWithThinEvidence = (locale: 'en' | 'fr' = 'en'): AppStore => {
     const store = createStore(createInitialAppState(definition, locale));
@@ -74,6 +81,8 @@ const storeAtSynthesisWithThinEvidence = (locale: 'en' | 'fr' = 'en'): AppStore 
     store.dispatch({ type: 'prediction.proposalChosen', proposalId: definition.predictionProposals[0].id });
     store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
     store.dispatch({ type: 'experiment.run', id: 'run-1', timestamp: '2026-08-06T12:00:00.000Z' });
+    store.dispatch({ type: 'apparatus.controlSet', controlId: 'screenDistanceM', value: 3, origin: 'phaser' });
+    store.dispatch({ type: 'experiment.run', id: 'run-2', timestamp: '2026-08-06T12:01:00.000Z' });
     store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' });
     return store;
 };

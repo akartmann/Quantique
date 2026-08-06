@@ -8,6 +8,8 @@ import type { ContextualArtifact, PrimaryControl } from '../../domain/cases/Case
 import type { Colleague, ConclusionProposal, PredictionProposal } from '../../domain/cases/ColleagueCast';
 import { selectDefensibleConclusionIds } from '../../domain/theory/conclusionProposals';
 import type { RunRecord } from '../../domain/evidence/RunRecord';
+import { countSignificantMeasures } from '../../domain/evidence/significantMeasures';
+import { selectColleagueHint } from '../../domain/review/colleagueHints';
 import type { AppState, ComparisonNote, CompletionSnapshot, ReplayState, RivalLabCritiqueEntry } from './AppState';
 import type { RivalLabCritiqueSelection } from '../../domain/review/rivalLabRules';
 import type { ConsultationProjection } from '../../domain/review/ConsultationRule';
@@ -261,6 +263,58 @@ export const selectDialogueBeats = (state: AppState): readonly DialogueBeatProje
         speaker: formatAttribution(t, projectAttribution(state, beat.speakerId, 'colleague.unattributedSpeaker')),
         text: resolveLocalizedText(beat.text, locale)
     }));
+};
+
+// --- Significant-measure gate and colleague hints (Story 2.6) -----------------------------------
+
+/**
+ * How many recorded observations count as distinguishing measurements.
+ *
+ * Derived on call rather than stored: the count is a pure function of `runs`, which only ever grows,
+ * so there is nothing to keep in sync, nothing to clear on a phase move or a replay, and nothing to
+ * persist. Cheap by construction — `flow.maximumExperimentCycles` caps the notebook at four.
+ */
+export const selectSignificantMeasureCount = (state: AppState): number =>
+    countSignificantMeasures(state.caseDefinition.significanceRule, state.runs);
+
+/** The gate as a count against the authored bar, so a surface can explain it rather than just obey it. */
+export type SignificantMeasureGate = Readonly<{ count: number; required: number; isMet: boolean }>;
+
+export const selectSignificantMeasureGate = (state: AppState): SignificantMeasureGate => {
+    const count = selectSignificantMeasureCount(state);
+    const required = state.caseDefinition.requirements.minimumSignificantRuns;
+    return Object.freeze({ count, required, isMet: count >= required });
+};
+
+/** What the laboratory needs to speak the hint, and nothing more. */
+export type LocalizedColleagueHint = Readonly<{
+    hintId: string;
+    speaker: string;
+    line: string;
+}>;
+
+/**
+ * The in-fiction nudge for a player whose evidence has not cleared the gate, resolved for display.
+ *
+ * **It carries no defensibility field, and it never can** — the projection has three string members
+ * and the domain function it wraps never reads the conclusion proposals at all. A hint names a
+ * measurement to take; a surface that could see which conclusion the evidence defends could mark the
+ * "right" answer, which ADR-006 forbids.
+ *
+ * `undefined` means the player needs no hint: either the gate is met, or no authored hint matches.
+ * Validation guarantees shipped content always has a line for an unmet gate, so in practice the
+ * first case is the one a caller sees.
+ */
+export const selectLocalizedColleagueHint = (state: AppState): LocalizedColleagueHint | undefined => {
+    const hint = selectColleagueHint(state.caseDefinition, state.runs);
+    if (!hint) return undefined;
+    const locale = selectLocale(state);
+    const t = createTranslator(locale);
+    return Object.freeze({
+        hintId: hint.hintId,
+        speaker: formatAttribution(t, projectAttribution(state, hint.colleagueId, 'colleague.unattributedSpeaker')),
+        line: resolveLocalizedText(hint.line, locale)
+    });
 };
 
 // --- Rival lab ----------------------------------------------------------------------------------

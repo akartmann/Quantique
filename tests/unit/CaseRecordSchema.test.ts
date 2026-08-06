@@ -7,7 +7,9 @@ import { createCaseRecordProjection } from '../../src/core/store/CaseRecordProje
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 
 const definition = {
-    id: 'young-interference', version: '1.0.0', prediction: { required: true }, requirements: { minimumRuns: 2, minimumSources: 2 },
+    id: 'young-interference', version: '1.0.0', prediction: { required: true }, requirements: { minimumRuns: 2, minimumSources: 2, minimumSignificantRuns: 2 },
+    significanceRule: { criticalControlIds: ['slitSpacingMm', 'screenDistanceM'] },
+    colleagueHints: [],
     apparatus: { primaryControls: [
         { id: 'slitSpacingMm', label: { en: 'Slit spacing', fr: 'Slit spacing [fr]' }, unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
         { id: 'screenDistanceM', label: { en: 'Screen distance', fr: 'Screen distance [fr]' }, unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
@@ -66,6 +68,72 @@ describe('portable case records', () => {
         expect(parsed.success).toBe(true);
         if (!parsed.success) return;
         expect(validateCaseRecordForDefinition(parsed.data, localized)).toMatchObject({ ok: true });
+    });
+
+    // --- Significant-measure gate (Story 2.6) ---------------------------------------------------
+
+    // The rule, the hints, and the requirement count are content, not progress, so a record saved
+    // before 2.6 still validates. Without this the upgrade would discard every saved investigation.
+    it.each(['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0'])(
+        'accepts a %s record against the 1.10.0 gated definition',
+        (recordVersion) => {
+            const gated = { ...definition, version: '1.10.0' } as CaseDefinition;
+            const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: recordVersion });
+
+            expect(parsed.success).toBe(true);
+            if (!parsed.success) return;
+            expect(validateCaseRecordForDefinition(parsed.data, gated)).toMatchObject({ ok: true });
+        }
+    );
+
+    /**
+     * The one question this bump raises that the earlier ones did not.
+     *
+     * A record saved before 2.6 can be sitting at `synthesis` on evidence the new gate would have
+     * refused, because no gate existed when it was saved — here, two runs at an identical
+     * configuration, which counts as **one** significant measurement. It must still load and still be
+     * completable.
+     *
+     * It is, because the gate runs on the `experiment → synthesis` transition only: a record already
+     * past that transition is never re-tested. This is also why the gate must not be duplicated at
+     * the conclusion choice — the phase machine is one-way, so a second gate would strand exactly
+     * this player with no route back to the apparatus.
+     */
+    it('loads a pre-2.6 record already at synthesis whose evidence would not clear the new gate', () => {
+        const gated = { ...definition, version: '1.10.0' } as CaseDefinition;
+        const replicatedOnly = {
+            ...validRecord,
+            caseDefinitionVersion: '1.9.0',
+            phase: 'synthesis',
+            // Reaching any phase past `context` already required every reviewed source and a
+            // prediction, long before this story. Those gates are unchanged.
+            inspectedSourceIds: ['source-1', 'source-2'],
+            prediction: 'A wider screen distance should spread the bands.',
+            runs: [
+                validRecord.runs[0],
+                // The same controls as run-001: a replication, not a variation.
+                { ...validRecord.runs[0], id: 'run-002', timestamp: '2026-08-05T10:05:00.000Z' }
+            ],
+            comparison: { selectedRunIds: ['run-001', 'run-002'], notes: [] },
+            theory: { ...validRecord.theory, selectedRunIds: ['run-001', 'run-002'] },
+            // Recomputed and compared on load, so it has to state what these runs actually earn: two
+            // identical setups are a `replication` and, precisely because they are identical, not
+            // `variable-curiosity` — the same distinction the significance rule draws, and exactly
+            // why this record would not have cleared the new gate.
+            recognition: {
+                ...validRecord.recognition,
+                items: validRecord.recognition.items.map((item) =>
+                    item.id === 'replication' || item.id === 'source-discipline' ? { ...item, achieved: true } : item)
+            }
+        };
+
+        const parsed = CaseRecordSchema.safeParse(replicatedOnly);
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        const validated = validateCaseRecordForDefinition(parsed.data, gated);
+        if (!validated.ok) throw new Error(`Expected the record to load, got ${validated.error.code}: ${validated.error.message}`);
+        // And the restored state really is at the theory board rather than pushed back to the lab.
+        expect(validated.value.phase).toBe('synthesis');
     });
 
     // --- Colleague proposal IDs (Story 1.11) ----------------------------------------------------

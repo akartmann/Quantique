@@ -206,7 +206,22 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // listed versions — `feedback` and `revisionPath` from `peerReviewRules`, and the proposal
         // claims and limitations. Story 2.5 changed none of them: it only added content, and what
         // `critiqueHistory` persists is IDs, which are checked by lookup rather than by comparison.
-        || (definition.version === '1.9.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0'].includes(record.caseDefinitionVersion));
+        || (definition.version === '1.9.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0'].includes(record.caseDefinitionVersion))
+        // 1.10.0 added `significanceRule`, `colleagueHints`, and `requirements.minimumSignificantRuns`.
+        // Additive again, on the same terms: no run, decision, or recognition value moved, and the
+        // canonical English strings this function recomputes and compares — `peerReviewRules`'
+        // `feedback` and `revisionPath`, and the proposal claims and limitations — are byte-identical
+        // to 1.9.0.
+        //
+        // Worth stating plainly, because this bump raises a question the earlier ones did not: a
+        // pre-1.10.0 record can be sitting at `synthesis` on evidence the new gate would have
+        // refused, because no gate existed when it was saved. That is fine and must stay fine. The
+        // gate runs on the `experiment → synthesis` transition only, so a record already past it is
+        // never re-tested, and choose / submit / review / revise / complete are all untouched by
+        // Story 2.6. Rejecting those records instead would discard saved investigations (NFR12), and
+        // gating the conclusion choice to "fix" them would strand the player with no route back to
+        // the apparatus — the phase machine is one-way.
+        || (definition.version === '1.10.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }

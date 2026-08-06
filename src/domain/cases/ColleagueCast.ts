@@ -72,3 +72,42 @@ export type ConclusionProposal = Readonly<{
      */
     supportPredicate: ConclusionSupportPredicate;
 }>;
+
+/**
+ * When an authored colleague hint applies, evaluated against the recorded runs and nothing else
+ * (Story 2.6).
+ *
+ * Authored data rather than a function, for the same reason {@link ConclusionSupportPredicate} is:
+ * case content is versioned JSON, a JSON file cannot carry a function, and `eval` is not an option.
+ * The shape deliberately mirrors `ConsultationPredicate` — this is its sibling, not its replacement.
+ *
+ * `below-significant-measures` is the catch-all floor: it applies whenever the gate is unmet, so an
+ * author can guarantee the gate always has something to say without enumerating every evidence
+ * shape. Authored order is the escalation order, so put the specific predicates first.
+ */
+export type ColleagueHintPredicate =
+    /** Nothing recorded at all. */
+    | Readonly<{ kind: 'no-recorded-runs' }>
+    /** At least two runs share one critical configuration — a replication, not a variation. */
+    | Readonly<{ kind: 'repeated-configuration' }>
+    /** Every recorded run shares a single value for that control. */
+    | Readonly<{ kind: 'unvaried-control'; controlId: PrimaryControl['id'] }>
+    /** True whenever the significant-measure gate is unmet. Always satisfiable. */
+    | Readonly<{ kind: 'below-significant-measures' }>;
+
+/**
+ * One authored in-fiction nudge, spoken by a member of the cast when the significant-measure gate
+ * is unmet.
+ *
+ * `line` is display prose — `LocalizedText`, resolved from the definition at display time — and a
+ * hint is never persisted, so an author may rewrite one without touching a saved investigation.
+ *
+ * A hint names a measurement or a variable to vary. It never states a conclusion, never ranks the
+ * proposals, and never names a scene, phase, or route (`encodesPath` rejects the last).
+ */
+export type ColleagueHint = Readonly<{
+    id: string;
+    colleagueId: string;
+    predicate: ColleagueHintPredicate;
+    line: LocalizedText;
+}>;

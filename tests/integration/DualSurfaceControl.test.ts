@@ -36,7 +36,9 @@ const caseDefinition: CaseDefinition = {
         confound: { id: 'confound', description: 'A confound', discoverableBy: 'replication' },
         resetPath: { recoveryRoute: 'replication', description: 'Recover.' }
     },
-    requirements: { minimumRuns: 2, minimumSources: 2 },
+    requirements: { minimumRuns: 2, minimumSources: 2, minimumSignificantRuns: 2 },
+    significanceRule: { criticalControlIds: ['slitSpacingMm', 'screenDistanceM'] },
+    colleagueHints: [],
     flow: { openingDispute: true, curatedRecord: true, labSetup: true, minimumExperimentCycles: 2, maximumExperimentCycles: 4, theoryBoardReview: true, historicalDebrief: true, optionalReplay: true },
     debrief: { summary: 'Compare evidence.', sourceRefs: ['record'] },
     assets: { manifestVersion: '1.0.0', entries: [] }

@@ -27,6 +27,7 @@ export const fr: Record<TranslationKey, string> = {
     // --- Laboratory surface ---------------------------------------------------------------------
     'lab.title': 'Interférences de Young — surface visuelle du laboratoire',
     'lab.guide': 'Utilisez les commandes sémantiques du laboratoire ou ces commandes visuelles équivalentes.',
+    'lab.advance': 'Au tableau de théorie',
     'lab.source': 'source',
     'lab.screen': 'écran',
     'lab.control.readout': '{label} : {value}',
@@ -219,6 +220,7 @@ export const fr: Record<TranslationKey, string> = {
     'error.critique-timestamp-not-later': 'Cette soumission est horodatée avant la dernière objection. Vérifiez l’horloge de l’appareil, puis soumettez de nouveau.',
     'error.rival-lab-critique-unavailable': 'Aucune objection n’est en attente de réponse.',
     'error.missing-prediction': 'Enregistrez une prédiction provisoire avant de passer à l’expérimentation.',
+    'error.significant-measures-required': 'Deux mesures qui diffèrent sont nécessaires avant que la conclusion s’ouvre.',
     'error.unknown-theory-run': 'Cette observation est indisponible comme appui de la conclusion.',
     'error.duplicate-theory-run': 'Cette observation appuie déjà cette conclusion.',
     'error.theory-run-not-selected': 'Cette observation n’est pas sélectionnée comme appui de la conclusion.',

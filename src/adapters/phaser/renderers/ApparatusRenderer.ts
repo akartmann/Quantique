@@ -5,9 +5,31 @@ import { uiTextStyle } from '../textStyles';
 import type { AppState } from '../../../core/store/AppState';
 import { formatRecordedValue } from '../../../core/i18n/formatNumber';
 import { createTranslator, type Translator } from '../../../core/i18n/translate';
-import { selectControlLabel, selectFormattedControlValue, selectLocale, selectPrimaryControl } from '../../../core/store/selectors';
+import {
+    selectControlLabel,
+    selectFormattedControlValue,
+    selectLocale,
+    selectLocalizedColleagueHint,
+    selectLocalizedError,
+    selectPrimaryControl,
+    selectSignificantMeasureGate
+} from '../../../core/store/selectors';
 import type { PrimaryControl } from '../../../domain/cases/CaseDefinition';
 import { interferenceIntensity, rgbToInt, wavelengthToRgb } from '../../../domain/apparatus/opticalVisualModel';
+import {
+    ADVANCE_CONTROL_FONT_SIZE,
+    ADVANCE_CONTROL_HEIGHT,
+    ADVANCE_CONTROL_LABEL_WRAP,
+    HINT_BOTTOM_MARGIN,
+    HINT_LINE_FONT_SIZE,
+    HINT_PADDING,
+    HINT_SPEAKER_FONT_SIZE,
+    HINT_SPEAKER_GAP,
+    HINT_TEXT_WRAP,
+    SIDE_COLUMN_LEFT,
+    SIDE_COLUMN_WIDTH,
+    advanceToSynthesisControlCentre
+} from './apparatusGeometry';
 
 const SOURCE_X = 92;
 const BARRIER_X = 260;
@@ -24,6 +46,19 @@ const MAX_RESULT_FONT_SIZE = 19;
 const MIN_RESULT_FONT_SIZE = 15;
 /** Headroom above the readout before it would reach the painted screen and its label. */
 const RESULT_READOUT_MAX_HEIGHT = 96;
+
+/**
+ * The right-hand column carrying the control that leaves the laboratory and the colleague hint that
+ * answers a refusal (Story 2.6). Its geometry lives in `apparatusGeometry.ts`, which imports no
+ * Phaser, so a Playwright spec can derive its click target — this file cannot be imported from one.
+ *
+ * The control has to exist at all because `src/ui/theory/TheoryBoard.ts` was the only dispatcher of
+ * `nextPhase: 'synthesis'` in the codebase, and it is a retired-but-mounted DOM panel. Without a
+ * canvas affordance the gate would refuse on a surface the pivot retired and the hint would render
+ * nowhere.
+ */
+const ADVANCE_FILL = 0x1d4451;
+const ADVANCE_FILL_READY = 0x276b55;
 
 export class ApparatusRenderer {
     private readonly objects: Phaser.GameObjects.GameObject[] = [];
@@ -49,6 +84,24 @@ export class ApparatusRenderer {
     private fringeGraphics?: Phaser.GameObjects.Graphics;
     private lastRunId?: string;
     private inputEnabled = true;
+    /** Story 2.6: the way out of the laboratory, and the colleague who answers a refused attempt. */
+    private advanceControl?: Phaser.GameObjects.Rectangle;
+    private advanceLabel?: Phaser.GameObjects.Text;
+    private hintBackground?: Phaser.GameObjects.Rectangle;
+    private hintSpeaker?: Phaser.GameObjects.Text;
+    private hintLine?: Phaser.GameObjects.Text;
+    /**
+     * Whether the player has actually asked to leave yet.
+     *
+     * The hint is drawn only after a refusal, not pre-emptively from the gate state. A colleague who
+     * volunteers "you should vary the screen distance" before the player has tried anything is
+     * supplying the next step rather than answering a question — which is the line the project rule
+     * draws ("hints point at missing evidence… they never supply the answer"). It resets on any state
+     * change that could clear the refusal.
+     */
+    private advanceRefused = false;
+    /** Shown beside the hint when a dispatch is refused for a reason the gate has nothing to do with. */
+    private transientError?: string;
 
     // Live optical geometry, refreshed from store state and consumed by the animation loop.
     private slitTopY = CENTRE_Y - 30;
@@ -101,6 +154,7 @@ export class ApparatusRenderer {
         this.resultReadout = this.scene.add.text(40, this.resultReadoutBottomY, '', uiTextStyle({ color: '#f7f4ef', fontSize: `${MAX_RESULT_FONT_SIZE}px`, wordWrap: { width: 620 } }))
             .setOrigin(0, 1);
         this.objects.push(this.resultReadout);
+        this.createSideColumn();
         this.updatePhoneReadOnlyMode();
         window.addEventListener('resize', this.updatePhoneReadOnlyMode);
 
@@ -141,6 +195,7 @@ export class ApparatusRenderer {
                 : t('lab.result.stale', { value: formatRecordedValue(locale, latest.result.value, latest.result.unit) })
             : t('lab.result.emptyHint'));
         this.fitResultReadout();
+        this.renderSideColumn(state, t);
         this.renderApparatusGeometry(state, t, latestMatchesActiveSetup ? latest?.result.value : undefined);
         if (latest && latest.id !== this.lastRunId) this.animateRecordedRun();
         this.lastRunId = latest?.id;
@@ -164,6 +219,9 @@ export class ApparatusRenderer {
         this.resultReadout = undefined; this.visualGuidance = undefined; this.slitTop = undefined; this.slitBottom = undefined; this.screen = undefined; this.screenLabel = undefined;
         this.sourceGlow = undefined; this.sourceCore = undefined; this.barrier = undefined;
         this.beamGraphics = undefined; this.wavefrontGraphics = undefined; this.fringeGraphics = undefined;
+        this.advanceControl = undefined; this.advanceLabel = undefined;
+        this.hintBackground = undefined; this.hintSpeaker = undefined; this.hintLine = undefined;
+        this.advanceRefused = false; this.transientError = undefined;
         this.lastRunId = undefined; this.fringeSignature = ''; this.measurementBoost = 0;
     }
 
@@ -337,6 +395,106 @@ export class ApparatusRenderer {
         }
     }
 
+    /**
+     * The control that leaves the laboratory, and the hint slot beneath it.
+     *
+     * Both are created empty and populated by {@link renderSideColumn}: `create()` runs once and the
+     * locale can change at any time.
+     */
+    private createSideColumn(): void {
+        const { x, y } = advanceToSynthesisControlCentre();
+        this.advanceControl = this.scene.add.rectangle(x, y, SIDE_COLUMN_WIDTH, ADVANCE_CONTROL_HEIGHT, ADVANCE_FILL).setOrigin(0.5, 0.5);
+        this.advanceLabel = this.scene.add.text(x, y, '', uiTextStyle({
+            color: '#f7f4ef', fontSize: `${ADVANCE_CONTROL_FONT_SIZE}px`, align: 'center', wordWrap: { width: ADVANCE_CONTROL_LABEL_WRAP }
+        })).setOrigin(0.5, 0.5);
+        this.advanceControl.on('pointerup', () => this.advanceToSynthesis());
+
+        // Bottom-anchored, for the same reason `resultReadout` is: an authored hint is prose of
+        // unbounded-by-layout length and French runs 15–25% longer, so it has to grow *upward* into
+        // the empty column rather than downward off a fixed 1024×768 `Scale.FIT` surface that does
+        // not scroll. The backing rectangle is sized from the measured text, never the reverse.
+        this.hintBackground = this.scene.add.rectangle(SIDE_COLUMN_LEFT, 0, SIDE_COLUMN_WIDTH, 0, 0x0b1a20, 0.85).setOrigin(0, 1);
+        this.hintLine = this.scene.add.text(SIDE_COLUMN_LEFT + HINT_PADDING, 0, '', uiTextStyle({
+            color: '#f7f4ef', fontSize: `${HINT_LINE_FONT_SIZE}px`, wordWrap: { width: HINT_TEXT_WRAP }
+        })).setOrigin(0, 1);
+        this.hintSpeaker = this.scene.add.text(SIDE_COLUMN_LEFT + HINT_PADDING, 0, '', uiTextStyle({
+            color: '#f4d35e', fontSize: `${HINT_SPEAKER_FONT_SIZE}px`, wordWrap: { width: HINT_TEXT_WRAP }
+        })).setOrigin(0, 1);
+
+        this.objects.push(this.advanceControl, this.advanceLabel, this.hintBackground, this.hintLine, this.hintSpeaker);
+    }
+
+    /**
+     * Asks to leave for the theory board.
+     *
+     * It decides nothing itself. A refusal may come from the significant-measure gate or from
+     * `createStore` short-circuiting during an exclusive progress operation, and the two need
+     * different answers: the gate's refusal is answered by the authored colleague hint, and anything
+     * else by the localized error — swallowing either would leave the control looking inert with no
+     * way to tell "refused" from "not clickable" (1.11 review).
+     */
+    private advanceToSynthesis(): void {
+        const result = this.storeAdapter.advanceToSynthesis();
+        if (result.ok) return;
+        const current = this.storeAdapter.getState();
+        if (result.error.code === 'significant-measures-required') {
+            this.advanceRefused = true;
+            this.transientError = undefined;
+        } else {
+            this.transientError = selectLocalizedError(current, result.error);
+        }
+        this.render(current);
+    }
+
+    /**
+     * Draws the control and, once an attempt has actually been refused, the colleague answering it.
+     *
+     * The hint is read from the store on every render rather than captured at refusal time, so the
+     * moment the player records a distinguishing measurement it withdraws itself — the selector
+     * returns `undefined` as soon as the gate is met.
+     */
+    private renderSideColumn(state: AppState, t: Translator): void {
+        const gate = selectSignificantMeasureGate(state);
+        this.advanceLabel?.setText(t('lab.advance'));
+        // The one thing the control says about the evidence is whether the way on is open, which is a
+        // fact about the player's own notebook rather than a judgement about a conclusion. It never
+        // marks a proposal, and nothing here can reach the defensible set.
+        this.advanceControl?.setFillStyle(gate.isMet ? ADVANCE_FILL_READY : ADVANCE_FILL);
+
+        const hint = selectLocalizedColleagueHint(state);
+        // A hint that no longer applies takes the refusal with it: the player answered it.
+        if (!hint) this.advanceRefused = false;
+
+        const speakerText = this.transientError ? '' : this.advanceRefused ? (hint?.speaker ?? '') : '';
+        const lineText = this.transientError ?? (this.advanceRefused ? hint?.line ?? '' : '');
+        this.transientError = undefined;
+
+        this.hintLine?.setText(lineText);
+        this.hintSpeaker?.setText(speakerText);
+
+        if (!lineText) {
+            this.hintBackground?.setSize(SIDE_COLUMN_WIDTH, 0).setVisible(false);
+            this.hintLine?.setVisible(false);
+            this.hintSpeaker?.setVisible(false);
+            return;
+        }
+
+        // Measured, floor-anchored stacking: the line sits above the margin, the speaker above the
+        // line's *measured* top. Nothing is placed against a constant that a longer French sentence
+        // could invalidate.
+        const floor = this.scene.scale.height - HINT_BOTTOM_MARGIN;
+        const lineBottom = floor;
+        const speakerBottom = lineBottom - (this.hintLine?.height ?? 0) - HINT_SPEAKER_GAP;
+        this.hintLine?.setY(lineBottom).setVisible(true);
+        this.hintSpeaker?.setY(speakerBottom).setVisible(speakerText.length > 0);
+
+        const panelTop = (speakerText ? speakerBottom - (this.hintSpeaker?.height ?? 0) : lineBottom - (this.hintLine?.height ?? 0)) - HINT_PADDING;
+        this.hintBackground
+            ?.setSize(SIDE_COLUMN_WIDTH, Math.max(0, floor + HINT_PADDING - panelTop))
+            .setY(floor + HINT_PADDING)
+            .setVisible(true);
+    }
+
     private createControl(controlId: PrimaryControl['id'], y: number): void {
         // A French control label runs 15–25% longer than its English counterpart; the readout wraps
         // rather than running under the step buttons at x = 390.
@@ -363,5 +521,10 @@ export class ApparatusRenderer {
     private readonly updatePhoneReadOnlyMode = (): void => {
         const enabled = this.inputEnabled && !window.matchMedia('(max-width: 767px)').matches;
         this.controls.forEach((control) => enabled ? control.setInteractive({ useHandCursor: true }) : control.disableInteractive());
+        // The advance control follows the same suppression. Without it, a click meant for the
+        // reference book's page controls falls through to it and moves the player out of the
+        // laboratory — the same defect the book overlay caused on the proposal cards (1.12 review).
+        if (enabled) this.advanceControl?.setInteractive({ useHandCursor: true });
+        else this.advanceControl?.disableInteractive();
     };
 }

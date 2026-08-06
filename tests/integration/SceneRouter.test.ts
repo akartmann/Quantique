@@ -22,7 +22,9 @@ const scenarioScript: ScenarioScript = {
 };
 
 const definition = {
-    id: 'young-interference', version: '1.0.0', prediction: { required: true }, requirements: { minimumRuns: 2, minimumSources: 2 },
+    id: 'young-interference', version: '1.0.0', prediction: { required: true }, requirements: { minimumRuns: 2, minimumSources: 2, minimumSignificantRuns: 2 },
+    significanceRule: { criticalControlIds: ['slitSpacingMm', 'screenDistanceM'] },
+    colleagueHints: [],
     apparatus: { primaryControls: [
         { id: 'slitSpacingMm', label: 'Slit spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
         { id: 'screenDistanceM', label: 'Screen distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }

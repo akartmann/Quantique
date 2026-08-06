@@ -31,6 +31,13 @@ export const en = {
     // --- Laboratory surface ---------------------------------------------------------------------
     'lab.title': 'Young interference — visual laboratory surface',
     'lab.guide': 'Use the semantic laboratory controls or these matching visual step controls.',
+    // The way out of the laboratory (Story 2.6). Names the destination in the fiction, not a scene:
+    // `encodesPath` rejects "scene", "phase", and "route" in authored case copy, and interface copy
+    // holds to the same line so the two never contradict each other on screen.
+    // Kept short deliberately. It labels a fixed-height rectangle, and a label that wraps to two
+    // lines inside one is the defect class `deferred-work.md` already tracks for `theoryBoard.submit`
+    // and `rivalLab.revise`. `french-typography.spec.ts` pins that neither locale can reach the wrap.
+    'lab.advance': 'To the theory board',
     'lab.source': 'source',
     'lab.screen': 'screen',
     'lab.control.readout': '{label}: {value}',
@@ -247,6 +254,10 @@ export const en = {
     'error.critique-timestamp-not-later': 'This submission is stamped earlier than the last challenge. Check the device clock, then submit again.',
     'error.rival-lab-critique-unavailable': 'There is no standing challenge to answer.',
     'error.missing-prediction': 'Record a tentative prediction before continuing to experimentation.',
+    // The significant-measure gate (Story 2.6). Deliberately plain and non-punitive: the colleague
+    // hint rendered beside it is what says *what* to vary, in-fiction. This only says the bench is
+    // not finished with you yet, and it never implies a mistake was made.
+    'error.significant-measures-required': 'Two measurements that differ are needed before the conclusion opens.',
     'error.unknown-theory-run': 'That observation is unavailable as conclusion support.',
     'error.duplicate-theory-run': 'That observation is already supporting this conclusion.',
     'error.theory-run-not-selected': 'That observation is not selected as conclusion support.',

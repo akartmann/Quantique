@@ -7,6 +7,7 @@ import { advanceCasePhase } from '../../domain/cases/caseReducer';
 import { evaluateContextReadiness, evaluatePredictionReadiness } from '../../domain/cases/contextPredictionReadiness';
 import type { CasePhase } from '../../domain/cases/CaseProgress';
 import { createRunRecord, type RunRecord } from '../../domain/evidence/RunRecord';
+import { isSignificantMeasureGateMet } from '../../domain/evidence/significantMeasures';
 import { createTheoryBoardDraft, evaluateConclusionReadiness, type TheoryBoardDraft } from '../../domain/theory/conclusionReadiness';
 import { selectConsultation, type ConsultationProjection } from '../../domain/review/ConsultationRule';
 import { evaluatePeerReview, type PeerReviewProjection } from '../../domain/review/peerReviewRules';
@@ -545,7 +546,9 @@ const withHandWrittenTheory = (state: AppState, theory: TheoryBoardDraft): Resul
 
 /**
  * Records the choice, and only the choice. It deliberately does not advance the phase, evaluate
- * defensibility, or block on it: the evidence gate is Story 2.3/2.6 and the critique is Story 2.5.
+ * defensibility, or block on it: the critique is Story 2.5, and the evidence gate is Story 2.6 —
+ * which landed on the `experiment → synthesis` transition, not here. See `reduceCasePhaseAdvance`
+ * for why a second gate at this point would be a dead end rather than a safeguard.
  */
 const reduceTheoryConclusionProposalChosen = (state: AppState, proposalId: string): Result<AppState> => {
     const proposal = state.caseDefinition.conclusionProposals.find(({ id }) => id === proposalId);
@@ -610,6 +613,30 @@ const reduceCasePhaseAdvance = (state: AppState, nextPhase: CasePhase): Result<A
     if (state.phase === 'prediction' && nextPhase === 'experiment'
         && evaluatePredictionReadiness(state.caseDefinition, state.prediction).status === 'incomplete') {
         return failure('missing-prediction', 'Record a tentative prediction before continuing to experimentation.');
+    }
+    /**
+     * The significant-measure gate (Story 2.6). It sits **here and nowhere else**.
+     *
+     * `NEXT_CASE_PHASE` is one-way: nothing maps `synthesis` back to `experiment`. So this is the only
+     * placement where the refusal is answerable — the player is standing at the apparatus, and the
+     * hint that accompanies it ("vary the screen distance and record again") is something they can act
+     * on immediately. A second gate at `theory.conclusionProposalChosen` would read like defence in
+     * depth and behave like a dead end: refused at the board, unable to choose, unable to go back.
+     *
+     * AC1's "the conclusion choice unlocks only at ≥2 significant measurements" holds by construction
+     * instead — the conclusion choice lives at `synthesis`, and `synthesis` is unreachable below the
+     * bar. It also keeps ADR-006 intact: no surface has to lock a card, so no surface has to hold an
+     * opinion about the evidence.
+     *
+     * Nothing is lost by the refusal. The state is returned untouched, every other action still
+     * succeeds, and there is no counter, cap, or penalty on how often a player may try.
+     */
+    if (state.phase === 'experiment' && nextPhase === 'synthesis'
+        && !isSignificantMeasureGateMet(state.caseDefinition, state.runs)) {
+        return failure(
+            'significant-measures-required',
+            'Record a second observation that differs from the first before continuing to synthesis.'
+        );
     }
     // A standing challenge is cleared by the phase moving, because `SceneRouter` treats it as an
     // unconditional override: left set, it would pin the rival lab over a phase whose own scene never

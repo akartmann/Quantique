@@ -51,7 +51,12 @@ const validYoungCase: CaseDefinition = {
         confound: { id: 'misaligned-screen', description: bilingual('The screen begins slightly misaligned.'), discoverableBy: 'replication' },
         resetPath: { recoveryRoute: 'replication', description: bilingual('Repeat the observation after aligning the screen.') }
     },
-    requirements: { minimumRuns: 2, minimumSources: 2 },
+    requirements: { minimumRuns: 2, minimumSources: 2, minimumSignificantRuns: 2 },
+    significanceRule: { criticalControlIds: ['slitSpacingMm', 'screenDistanceM'], minimumResultDelta: 0.05 },
+    colleagueHints: [
+        { id: 'h-1', colleagueId: 'elias-wren', predicate: { kind: 'no-recorded-runs' }, line: bilingual('Take a reading and write it down.') },
+        { id: 'h-2', colleagueId: 'marianne-cole', predicate: { kind: 'below-significant-measures' }, line: bilingual('Change a setting and record it beside the first.') }
+    ],
     colleagues: [
         { id: 'thea-young', name: 'Dr. Thea Young', role: 'lead', portrait: { kind: 'silhouette', accentColor: '#c9a227' } },
         { id: 'elias-wren', name: 'Elias Wren', role: 'builder', portrait: { kind: 'silhouette', accentColor: '#4f8a8b' } },
@@ -499,6 +504,63 @@ describe('CaseDefinitionSchema', () => {
             'duplicate colleague IDs',
             'Colleague IDs must be stable and unique.',
             (definition: Record<string, unknown>) => { (definition.colleagues as Array<{ id: string }>)[1].id = 'thea-young'; }
+        ],
+        // --- Significant-measure gate and colleague hints (Story 2.6) ---------------------------
+        [
+            'a significance rule naming an unauthored control',
+            'The significance rule may only name authored primary controls.',
+            (definition: Record<string, unknown>) => {
+                // Both authored controls become `slitSpacingMm`, so `screenDistanceM` is no longer
+                // part of this case's apparatus even though the enum still admits the literal — the
+                // same shape the `varied-control` case below uses, and the only way to reach the
+                // cross-field rule rather than the field-level enum.
+                (definition.apparatus as { primaryControls: Array<{ id: string }> }).primaryControls[1].id = 'slitSpacingMm';
+                (definition.significanceRule as { criticalControlIds: string[] }).criticalControlIds = ['screenDistanceM'];
+            }
+        ],
+        [
+            'a significance rule naming the same control twice',
+            'The significance rule must not name the same control twice.',
+            (definition: Record<string, unknown>) => {
+                (definition.significanceRule as { criticalControlIds: string[] }).criticalControlIds = ['slitSpacingMm', 'slitSpacingMm'];
+            }
+        ],
+        [
+            'duplicate colleague hint IDs',
+            'Colleague hint IDs must be stable and unique.',
+            (definition: Record<string, unknown>) => { (definition.colleagueHints as Array<{ id: string }>)[1].id = 'h-1'; }
+        ],
+        [
+            'a hint attributed to nobody in the cast',
+            'Every colleague hint must be attributed to an authored colleague.',
+            // The rival lab specifically: he is deliberately not a member of `colleagues[]`, and a
+            // helpful nudge in the challenger's voice would misread the whole design.
+            (definition: Record<string, unknown>) => { (definition.colleagueHints as Array<{ colleagueId: string }>)[0].colleagueId = 'arthur-bell'; }
+        ],
+        [
+            'a hint naming an unauthored control',
+            'Colleague hints may only reference authored controls.',
+            (definition: Record<string, unknown>) => {
+                (definition.apparatus as { primaryControls: Array<{ id: string }> }).primaryControls[1].id = 'slitSpacingMm';
+                (definition.colleagueHints as Array<{ predicate: unknown }>)[1].predicate = { kind: 'unvaried-control', controlId: 'screenDistanceM' };
+            }
+        ],
+        [
+            'a scene path encoded in a hint line',
+            'Colleague hint copy must not encode a scene, route, or phase path.',
+            (definition: Record<string, unknown>) => {
+                (definition.colleagueHints as Array<{ line: LocalizedText }>)[0].line = { en: 'Go back to the laboratory scene.', fr: 'Reprenez une mesure.' };
+            }
+        ],
+        [
+            'a hint set that says nothing when no runs are recorded',
+            'At least one colleague hint must apply when no runs are recorded, so the gate always has something to say.',
+            // The floor that keeps the gate from refusing in silence. With only `unvaried-control`
+            // hints authored, a player at zero runs is refused and told nothing — a dead end.
+            (definition: Record<string, unknown>) => {
+                (definition.colleagueHints as Array<{ predicate: unknown }>)
+                    .forEach((hint) => { hint.predicate = { kind: 'unvaried-control', controlId: 'slitSpacingMm' }; });
+            }
         ],
         [
             'duplicate prediction proposal IDs',

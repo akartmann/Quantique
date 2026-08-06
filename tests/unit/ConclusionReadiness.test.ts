@@ -7,7 +7,9 @@ import {
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 import { createRunRecord } from '../../src/domain/evidence/RunRecord';
 
-const definition = { requirements: { minimumRuns: 2, minimumSources: 2 } } as CaseDefinition;
+const definition = { requirements: { minimumRuns: 2, minimumSources: 2, minimumSignificantRuns: 2 },
+    significanceRule: { criticalControlIds: ['slitSpacingMm', 'screenDistanceM'] },
+    colleagueHints: [] } as CaseDefinition;
 
 const createRun = (id: string) => {
     const result = createRunRecord({

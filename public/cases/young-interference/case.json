@@ -1,6 +1,6 @@
 {
   "id": "young-interference",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "openingDispute": {
     "en": "Does light travel as particles, waves, or something more subtle?",
     "fr": "La lumière se propage-t-elle comme des particules, comme des ondes, ou d’une manière plus subtile ?"
@@ -1066,8 +1066,60 @@
   },
   "requirements": {
     "minimumRuns": 2,
-    "minimumSources": 2
+    "minimumSources": 2,
+    "minimumSignificantRuns": 2
   },
+  "significanceRule": {
+    "criticalControlIds": ["slitSpacingMm", "screenDistanceM"],
+    "minimumResultDelta": 0.05
+  },
+  "colleagueHints": [
+    {
+      "id": "hint-record-a-first-observation",
+      "colleagueId": "elias-wren",
+      "predicate": { "kind": "no-recorded-runs" },
+      "line": {
+        "en": "The bench is set and nothing is written down yet. Take a reading at the settings we have, and put the number in the notebook — we cannot argue from a pattern nobody recorded.",
+        "fr": "La paillasse est prête et rien n’est encore consigné. Prenez un relevé aux réglages actuels et inscrivez le nombre dans le carnet : on ne peut rien tirer d’une figure que personne n’a enregistrée."
+      }
+    },
+    {
+      "id": "hint-vary-a-setting",
+      "colleagueId": "marianne-cole",
+      "predicate": { "kind": "repeated-configuration" },
+      "line": {
+        "en": "We have the same arrangement written down twice. Repeating a reading tells us the instrument is steady, which is worth knowing — but it cannot tell us what the banding depends on. Move one setting and record that.",
+        "fr": "Nous avons deux fois le même montage consigné. Répéter un relevé montre que l’appareil est stable, ce qui n’est pas rien — mais cela ne dit pas de quoi dépend l’espacement des bandes. Déplacez un réglage et enregistrez le résultat."
+      }
+    },
+    {
+      "id": "hint-vary-slit-spacing",
+      "colleagueId": "thea-young",
+      "predicate": { "kind": "unvaried-control", "controlId": "slitSpacingMm" },
+      "line": {
+        "en": "Every reading we hold was taken at one separation of the openings. Widen or narrow them, take the measurement again, and we will have two numbers that can be set against each other.",
+        "fr": "Tous les relevés dont nous disposons ont été pris à un seul écartement des ouvertures. Élargissez-le ou resserrez-le, reprenez la mesure, et nous aurons deux nombres que l’on pourra confronter."
+      }
+    },
+    {
+      "id": "hint-vary-screen-distance",
+      "colleagueId": "elias-wren",
+      "predicate": { "kind": "unvaried-control", "controlId": "screenDistanceM" },
+      "line": {
+        "en": "The screen has stood at one distance for every reading we hold. Slide it and measure again — if the banding answers to the throw, that is something we will have shown rather than assumed.",
+        "fr": "L’écran est resté à une seule distance pour tous les relevés que nous avons. Déplacez-le et mesurez de nouveau : si l’espacement des bandes répond à la distance, ce sera montré plutôt que supposé."
+      }
+    },
+    {
+      "id": "hint-take-a-second-distinguishing-reading",
+      "colleagueId": "marianne-cole",
+      "predicate": { "kind": "below-significant-measures" },
+      "line": {
+        "en": "One recorded arrangement is one recorded arrangement. Change something we can name — the separation of the openings, or the throw to the screen — and write the second reading beside the first.",
+        "fr": "Un seul montage enregistré reste un seul montage enregistré. Changez quelque chose que nous puissions nommer — l’écartement des ouvertures ou la distance à l’écran — et consignez le second relevé à côté du premier."
+      }
+    }
+  ],
   "colleagues": [
     {
       "id": "thea-young",

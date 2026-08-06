@@ -4,6 +4,9 @@ import { expect, test } from '@playwright/test';
 
 import { lastProposalCardProbe, submitConclusionControlCentre } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { rivalLabReviseControlCentre } from '../../src/adapters/phaser/renderers/RivalLabRenderer';
+// From `apparatusGeometry`, not `ApparatusRenderer`: that renderer imports Phaser as a *value*
+// (`BlendModes`), Phaser touches `window` at import time, and these specs run in Node.
+import { advanceToSynthesisControlCentre } from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import { en } from '../../src/core/i18n/locales/en';
 import { fr } from '../../src/core/i18n/locales/fr';
 
@@ -29,6 +32,7 @@ const BOOK_CLOSE = { x: 512, y: 678 };
 const CARD = lastProposalCardProbe(768);
 const SUBMIT = submitConclusionControlCentre();
 const REVISE = rivalLabReviseControlCentre(768);
+const ADVANCE = advanceToSynthesisControlCentre();
 
 /** The curated record is the one localized DOM panel, so its button names are derived per locale. */
 const SOURCE_NAMES = (JSON.parse(
@@ -47,10 +51,19 @@ const expectActiveScene = async (page: import('@playwright/test').Page, sceneKey
 };
 
 /**
- * Walks to the theory board on **thin evidence** — one run, no comparison — which is the state that
- * leaves every authored conclusion indefensible, so whichever card is clicked draws a challenge. The
- * phase gates from `experiment` onward are deliberately not evidence gates (that is Story 2.6), so
- * this is a reachable state rather than a contrived one.
+ * Walks to the theory board on **thin evidence** — no comparison saved, no support selected — which
+ * is the state that leaves every authored conclusion indefensible, so whichever card is clicked
+ * draws a challenge.
+ *
+ * Two runs varying the **screen distance only**, since Story 2.6: the significant-measure gate needs
+ * two distinct critical configurations to let anyone out of the laboratory, so a single run no longer
+ * reaches the board at all. Varying the throw rather than the slit separation clears that gate while
+ * leaving `conclusion-spacing-varies` (wants a varied `slitSpacingMm`) and `conclusion-both-settings`
+ * (wants both) unmet, so every critique path stays exactly as reachable as it was.
+ *
+ * The advance itself now goes through the **canvas** control rather than the retired DOM panel's
+ * "Continue investigation to synthesis" button. That is the affordance a player actually has, and it
+ * is the one the gate and the colleague hint are wired to.
  *
  * `locale` selects the bundle for the one localized DOM panel; the rest of the retired panel set is
  * English-only by design (`docs/i18n-authoring.md`).
@@ -80,8 +93,18 @@ const walkToTheoryBoardWithThinEvidence = async (
     await expectActiveScene(page, 'Laboratory');
 
     await page.getByRole('button', { name: 'Run experiment' }).click();
-    await page.getByRole('region', { name: 'Theory board' })
-        .getByRole('button', { name: 'Continue investigation to synthesis' }).click();
+    // The significant-measure gate refuses here, and the canvas answers with a colleague hint rather
+    // than moving the player. Asserting the refusal keeps the walk honest: without it, a gate that
+    // silently stopped working would still leave this helper passing.
+    await clickDesign(page, ADVANCE);
+    await expectActiveScene(page, 'Laboratory');
+
+    const screenDistance = page.getByLabel('Screen distance (m)');
+    await screenDistance.focus();
+    await screenDistance.press('ArrowUp');
+    await page.getByRole('button', { name: 'Run experiment' }).click();
+
+    await clickDesign(page, ADVANCE);
     await expectActiveScene(page, 'TheoryBoard');
 };
 

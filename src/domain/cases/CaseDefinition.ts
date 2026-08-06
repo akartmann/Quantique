@@ -1,5 +1,5 @@
 import type { Locale } from '../../core/i18n/Locale';
-import type { Colleague, ConclusionProposal, PredictionProposal } from './ColleagueCast';
+import type { Colleague, ColleagueHint, ConclusionProposal, PredictionProposal } from './ColleagueCast';
 import type { ScenarioScript } from './ScenarioScript';
 
 /**
@@ -161,6 +161,25 @@ export type RivalLab = Readonly<{
     critiques: readonly RivalLabCritique[];
 }>;
 
+/**
+ * When a recorded run counts as a *significant* measurement — one that distinguishes something,
+ * rather than repeating it (Story 2.6).
+ *
+ * Authored per case, because "the critical path" is a claim about this apparatus: for Young it is
+ * the slit separation and the throw to the screen, and a later case will name its own.
+ *
+ * `minimumResultDelta` is optional and, for Young, provably never binding — the smallest single-step
+ * change anywhere inside the authored control bounds moves the fringe spacing by ≈0.122 mm, well
+ * clear of the authored 0.05 mm. It is carried because the rule is the reusable half of the contract
+ * Story 3.1 hardens, and `tests/unit/SignificantMeasures.test.ts` pins that it does not bite here.
+ */
+export type SignificanceRule = Readonly<{
+    /** Non-empty; every entry is an authored primary control. Their values form a run's configuration. */
+    criticalControlIds: readonly PrimaryControl['id'][];
+    /** A run whose result is within this of an already-counted run's is a replication, not a variation. */
+    minimumResultDelta?: number;
+}>;
+
 export type CaseDefinition = Readonly<{
     id: 'young-interference';
     version: string;
@@ -177,7 +196,15 @@ export type CaseDefinition = Readonly<{
         confound: Readonly<{ id: string; description: LocalizedText; discoverableBy: RecoveryRoute }>;
         resetPath: Readonly<{ recoveryRoute: RecoveryRoute; description: LocalizedText }>;
     }>;
-    requirements: Readonly<{ minimumRuns: 2; minimumSources: 2 }>;
+    requirements: Readonly<{ minimumRuns: 2; minimumSources: 2; minimumSignificantRuns: 2 }>;
+    /** When a run counts as a distinguishing measurement. Read only by `significantMeasures.ts`. */
+    significanceRule: SignificanceRule;
+    /**
+     * The in-fiction nudges shown when the significant-measure gate refuses the advance to synthesis.
+     * Validation requires at least one that is satisfiable with no runs recorded, so the gate can
+     * never refuse with nothing to say.
+     */
+    colleagueHints: readonly ColleagueHint[];
     /** The authored cast that voices every proposal. See `ColleagueCast.ts`. */
     colleagues: readonly Colleague[];
     /** Exactly four: the pivot makes the prediction a 1-of-4 attributed choice. */

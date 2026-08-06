@@ -10,6 +10,12 @@ import {
     SUBMIT_CONTROL_FONT_SIZE,
     SUBMIT_CONTROL_LABEL_WRAP
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+// From `apparatusGeometry`, not `ApparatusRenderer`: that renderer imports Phaser as a *value*
+// (`BlendModes`), Phaser touches `window` at import time, and these specs run in Node.
+import {
+    ADVANCE_CONTROL_FONT_SIZE,
+    ADVANCE_CONTROL_LABEL_WRAP
+} from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import {
     RIVAL_LAB_BODY_FONT_SIZE,
     RIVAL_LAB_CONTROL_FONT_SIZE,
@@ -70,6 +76,7 @@ const RIVAL_LAB_TEXT_WRAP_WIDTH = rivalLabTextWrapWidth();
  */
 const WRAPPED_SURFACES = [
     { key: 'lab.title', font: UI_FONT_STACK, fontSize: 24, wrapWidth: 900 },
+    { key: 'lab.advance', font: UI_FONT_STACK, fontSize: ADVANCE_CONTROL_FONT_SIZE, wrapWidth: ADVANCE_CONTROL_LABEL_WRAP },
     { key: 'lab.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 900 },
     { key: 'lab.result.emptyHint', font: UI_FONT_STACK, fontSize: 19, wrapWidth: 620 },
     { key: 'lab.result.recorded', font: UI_FONT_STACK, fontSize: 19, wrapWidth: 620 },

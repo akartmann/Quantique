@@ -17,7 +17,9 @@ const definition = {
         { id: 'screenDistanceM', label: 'Screen distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
     ] },
     experiment: { modelVersion: 'young-double-slit-v1', wavelengthNm: 550, wavelengthComparison: { fixedMinimumPathNm: 550, advancedChoicesNm: [450, 650] }, assumptions: ['Monochromatic light.'], confound: { id: 'confound', description: 'A confound.', discoverableBy: 'replication' }, resetPath: { recoveryRoute: 'replication', description: 'Reset.' } },
-    requirements: { minimumRuns: 2, minimumSources: 2 }, consultationRules: [], peerReviewRules: [],
+    requirements: { minimumRuns: 2, minimumSources: 2, minimumSignificantRuns: 2 },
+    significanceRule: { criticalControlIds: ['slitSpacingMm', 'screenDistanceM'] },
+    colleagueHints: [], consultationRules: [], peerReviewRules: [],
     flow: { openingDispute: true, curatedRecord: true, labSetup: true, minimumExperimentCycles: 2, maximumExperimentCycles: 4, theoryBoardReview: true, historicalDebrief: true, optionalReplay: true },
     debrief: { summary: 'Compare.', sourceRefs: ['young'] }, assets: { manifestVersion: '1', entries: [] }
 } as CaseDefinition;

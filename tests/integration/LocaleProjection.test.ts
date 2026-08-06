@@ -17,7 +17,9 @@ const NARROW_NO_BREAK_SPACE = '\u202F';
 const definition = {
     id: 'young-interference',
     version: '1.5.0',
-    requirements: { minimumRuns: 2, minimumSources: 2 },
+    requirements: { minimumRuns: 2, minimumSources: 2, minimumSignificantRuns: 2 },
+    significanceRule: { criticalControlIds: ['slitSpacingMm', 'screenDistanceM'] },
+    colleagueHints: [],
     apparatus: {
         primaryControls: [
             { id: 'slitSpacingMm', label: { en: 'Slit spacing', fr: 'Écartement des fentes' }, unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
