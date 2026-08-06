@@ -30,6 +30,11 @@ left in a French session, no mixed-language panel, and no clipped or overflowing
 | 11 | Error and recovery copy — every reachable `Result` error code and boot-status recovery message | _Name_ | _Reference_ | _Result_ | _Name_ | _YYYY-MM-DD_ |
 | 12 | Validation session disclosure (`?mode=validation`) | _Name_ | _Reference_ | _Result_ | _Name_ | _YYYY-MM-DD_ |
 | 13 | Print / export view — the printable investigation record | _Name_ | _Reference_ | _Result_ | _Name_ | _YYYY-MM-DD_ |
+| 14 | Laboratory surface — apparatus control labels, units, bounds, run and status copy (`lab.*`) | _Name_ | _Reference_ | _Result_ | _Name_ | _YYYY-MM-DD_ |
+| 15 | Experiment result readout — fringe-spacing labels, units, and model annotations (`experiment.result.*`) | _Name_ | _Reference_ | _Result_ | _Name_ | _YYYY-MM-DD_ |
+| 16 | Inquiry recognition — recognition labels and in-scene feedback (`recognition.*`) | _Name_ | _Reference_ | _Result_ | _Name_ | _YYYY-MM-DD_ |
+| 17 | Peer-review projection — reviewer-facing feedback and revision-path copy | _Name_ | _Reference_ | _Result_ | _Name_ | _YYYY-MM-DD_ |
+| 18 | Conclusion readiness guidance — the per-requirement unlock copy, localized by requirement code (distinct from row 7's colleague hints) | _Name_ | _Reference_ | _Result_ | _Name_ | _YYYY-MM-DD_ |
 
 Also confirm the measurement rendering, which is locale-dependent and easy to miss:
 
@@ -40,6 +45,14 @@ Also confirm the measurement rendering, which is locale-dependent and easy to mi
 
 Rows 7 and 8 cannot be reviewed until Stories 2.6 and 2.5 ship. They stay **Blocked**, not "N/A" — the
 gate is not satisfiable before those stories land, which is the same prerequisite AC6 records.
+
+Rows 1–13 are the surfaces AC5 names. Rows 14–18 are the remaining localized player-facing groups in
+`src/core/i18n/locales/en.ts` that AC5's list does not spell out — AC5's binding clause is "**every**
+player-facing Young surface", and its enumeration is illustrative. Row 14 in particular is the
+laboratory itself, where the learner spends most of the session. **When a new localized group is added
+to the locale files, add a row here in the same change** — the sheet is only as good as its coverage,
+and a signed row set that omits a surface is exactly the false assurance this template exists to
+prevent.
 
 Any blocked row blocks Young public validation and all later-case production. There is no waiver or
 override.

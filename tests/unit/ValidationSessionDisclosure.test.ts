@@ -30,8 +30,12 @@ describe('getValidationSessionDisclosureText', () => {
     it('ships a distinct French translation for every string rather than falling back to English', () => {
         const english = getValidationSessionDisclosureText('en');
         const french = getValidationSessionDisclosureText('fr');
-        for (const key of ['facilitatorHeld', 'noCollection'] as const) {
-            expect(french[key]).not.toBe(english[key]);
+        // `title` is included deliberately: it is also the section's `aria-label`, so an English leak
+        // there is the least visible of the three. `translate` treats `''` as absent and falls back to
+        // English, so an empty FR value would satisfy `tsc` and the key-parity test yet still render
+        // English to a French session — this is the assertion that catches it.
+        for (const key of ['title', 'facilitatorHeld', 'noCollection'] as const) {
+            expect(french[key], `fr ${key} must not fall back to the English string`).not.toBe(english[key]);
         }
     });
 
@@ -40,24 +44,35 @@ describe('getValidationSessionDisclosureText', () => {
      * locales, because the FR copy is the one that was missing and is the one nobody re-reads.
      */
     it('keeps both locales free of score, correctness, and speed language', () => {
+        // `\b` is defined over `[A-Za-z0-9_]`, so it never holds before an accented initial:
+        // `/\bévalu/i` cannot match `évaluation` at a string start or after a space, and `/\béchou/i`
+        // cannot match `échoué`. Accent-initial patterns therefore use `(^|[^\p{L}])` with the `u`
+        // flag; ASCII-initial ones keep `\b`. `évalu` is the highest-value pattern of the set —
+        // "évaluation" / "vous évalue" is the likeliest French way to imply the product is assessing
+        // the learner, which AC4 forbids — and it was the one silently matching nothing.
         const forbidden = [
             /\bscore/i,
             /\bcorrect/i,
             /\bincorrect/i,
             /\bwrong\b/i,
             /\bgrade/i,
-            /\bnote\b/i,
-            /\bréussi/i,
-            /\béchou/i,
+            // Covers the graded sense in both languages: note, notes, noté, notés, notée, notées.
+            // `\bnote\b` alone missed every accented form, which is the form that means "graded".
+            /(^|[^\p{L}])not[eé]e?s?\b/iu,
             /\bfaux\b/i,
             /\bjuste\b/i,
-            /\bexact/i,
             /\bquickly\b/i,
-            /\brapide/i,
             /\bvite\b/i,
+            /\bexact/i,
+            /\brapide/i,
             /\btest(ing)? you/i,
-            /\bévalu/i,
-            /\bassess/i
+            /\bassess/i,
+            /(^|[^\p{L}])réussi/iu,
+            /(^|[^\p{L}])échou/iu,
+            /(^|[^\p{L}])évalu/iu,
+            // French counterparts of the two behavioural patterns above, which were English-only.
+            /(^|[^\p{L}])(vous|on vous)\s+(évalue|teste|note|juge)/iu,
+            /(^|[^\p{L}])chronom/iu
         ];
         for (const locale of ['en', 'fr'] as const) {
             const copy = Object.values(getValidationSessionDisclosureText(locale)).join(' ');

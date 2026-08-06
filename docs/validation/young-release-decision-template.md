@@ -1,8 +1,8 @@
 # Young validation release decision — template
 
-**Release owner:** _Name_
-**Decision date:** _YYYY-MM-DD_
-**Baseline commit under review:** _Commit_
+**Release owner:** _Name_\
+**Decision date:** _YYYY-MM-DD_\
+**Baseline commit under review:** _Commit_\
 **Decision:** **Blocked**
 
 The decision may change to **Pass** only when **every** blocking gate below has a Pass result. All
@@ -24,7 +24,8 @@ decision defaults to **Blocked**.
 | **Reduced-motion / no-flashing check on the Phaser scenes** (`young-motion-safety-template.md`) | _Reviewer named in the motion-safety sheet_ | _Reference_ | _Result_ | _Name_ | _YYYY-MM-DD_ |
 | 10-minute, 1280×720, low-end-laptop 60-FPS check | _QA/release lead_ | _Reference_ | _Result_ | _Name_ | _YYYY-MM-DD_ |
 | Cached offline reload | _QA/release lead_ | _Reference_ | _Result_ | _Name_ | _YYYY-MM-DD_ |
-| Automated technical evidence | _QA/release lead_ | _Reference_ | _Result_ | _Name_ | _YYYY-MM-DD_ |
+| Automated technical evidence — **no candidate regression** against the recorded baseline, every failure named and classified (`young-technical-evidence.md`) | _QA/release lead_ | _Reference_ | _Result_ | _Name_ | _YYYY-MM-DD_ |
+| **Enumerated baseline-failing specs are owned** — each has a named owner and a dated remediation plan, and the enumerated list has not grown without the release owner's signature | _QA/release lead_ | _Reference_ | _Result_ | _Name_ | _YYYY-MM-DD_ |
 
 If any result is Blocked, both Young public validation and later-case production remain blocked until
 the named owner closes the remediation and the release owner records a new decision.

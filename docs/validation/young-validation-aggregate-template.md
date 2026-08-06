@@ -46,9 +46,25 @@ that was not needed to unlock the conclusion. Not a run count.
 
 ## Calculation and result
 
-`percentage = (numerator / denominator) × 100`, computed independently for each row above. The
-per-locale denominators sum to the overall denominator; a session excluded from one measure may still
-count toward the other.
+`percentage = (numerator / denominator) × 100`, computed independently for each row above. A session
+excluded from one measure may still count toward the other.
+
+**Locale denominators.** `en` + `fr` + `locale unrecorded` sums to the overall denominator. The third
+bucket exists because the rubric anticipates it — a session whose per-session locale field was left blank
+cannot be counted toward the per-locale minimum, but it still happened and still counts toward the overall
+measures, so it is neither excludable nor assignable to a language. Record it here rather than dropping it
+or guessing.
+
+| Locale bucket | Sessions | Measure A numerator | Measure B numerator |
+| --- | --- | --- | --- |
+| `en` | _Total_ | _Total_ | _Total_ |
+| `fr` | _Total_ | _Total_ | _Total_ |
+| Locale unrecorded | _Total_ | _Total_ | _Total_ |
+| **Overall** | _Sum_ | _Sum_ | _Sum_ |
+
+A non-zero "locale unrecorded" count is a protocol defect worth naming in the notes: it means a
+facilitator skipped a required field, and it shrinks the evidence available for the `>= 1 en` / `>= 1 fr`
+condition below.
 
 | Gate condition | Result |
 | --- | --- |
@@ -63,5 +79,8 @@ sample fails the third condition and therefore fails the gate, so an EN-only sam
 either target.
 
 Do not enter names, identifiers, raw conclusions, progress records, exports, screenshots containing
-learner data, or product-derived event data. Do not record which locale an individual participant
-used — only the totals above.
+learner data, or product-derived event data. **In this sheet**, record only the locale totals above and
+never a per-participant locale — this is the de-identified aggregate, and a per-participant language
+alongside the other columns narrows the pool a session could belong to. The rubric's per-session locale
+field is still **required**; it lives in the facilitator-held session records, which is where per-session
+detail belongs, and it is what these totals are counted from.

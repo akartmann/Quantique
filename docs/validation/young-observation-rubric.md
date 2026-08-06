@@ -27,8 +27,16 @@ so "cites a recorded observation" is trivially satisfiable by reading the card a
 whether the learner can say **why that proposal beat the other three, using something they measured
 themselves**.
 
-**Yes** — only when the participant, **unprompted and in their own words**, names a **specific
+**Yes** — only when the participant, **in their own words and without being led**, names a **specific
 measurement or apparatus setting from their own run** as the reason that proposal beat the others.
+
+> **Deliberate deviation from AC2's wording, decided 2026-08-06.** AC2 and the GDD metric both say
+> "referencing **a measurement** they saw in the lab". This rubric also credits an **apparatus setting**
+> the participant chose themselves, because setting a control and seeing what it did to the fringes *is*
+> the measurement act in this case — the learner who says "I set the slits to 0.10 mm and that's the only
+> card that matches" has reasoned from their own run, not from the card. Scoring that as a **No** would
+> fail the participants the gate is meant to credit. AC2's narrower phrasing is superseded here; do not
+> "correct" the rubric back to measurement-only without revisiting this decision.
 
 Examples that earn a **Yes**:
 
@@ -46,9 +54,13 @@ chosen proposal is the well-supported one:
 | **Cites the source reading alone** | "Young's lecture says it, and the Opticks pages back it up." |
 | **Gives a general impression** | "It just looked right." / "It felt like the most careful answer." |
 
-A facilitator may ask one neutral, non-leading opener ("Can you tell me why you picked that one?").
-Anything that names a control, a value, or a comparison for the learner makes the response
-**prompted**, and a prompted response is a **No**.
+**What "without being led" means, precisely.** The facilitator asks exactly one neutral, non-leading
+opener — "Can you tell me why you picked that one?" — and the validation plan's step 6 prescribes it, so
+answering it is **normal** and does not cost the credit. What forfeits the credit is a **second, narrower
+prompt**: anything that names a control, a value, a comparison, or a direction for the learner ("What
+happened when you moved the screen?", "Did the spacing change?") makes the response **prompted**, and a
+prompted response is a **No**. Score the answer to the single opener; score nothing that had to be
+fished for.
 
 ## Field B — Beyond-minimum variable test
 
@@ -87,8 +99,15 @@ calculation **split by locale** alongside it, so a shortfall concentrated in one
 rather than averaged away. Record the calculation date and validation lead in
 `young-validation-aggregate-template.md`.
 
-A denominator of zero fails the gate. A sample containing sessions in only one locale fails the gate
-regardless of the percentage — an EN-only sample cannot satisfy either 60% target (AC5).
+A denominator of zero fails the gate. A sample containing sessions in only one locale **fails the gate**
+regardless of the percentage (AC5).
+
+**Record it as three separate conditions, not two.** The aggregate sheet is the authority on how the rows
+are written down: Measure A and Measure B each record the **overall percentage** result on their own row,
+and locale coverage records **Blocked** on a third row. Do not mark A and B Blocked because the sample was
+single-locale — the gate outcome is identical either way, and the A/B figures are quoted forward as the
+learning result, so they must state what the sample actually showed. An EN-only sample cannot *satisfy the
+gate*; it can still have reached 60% on a measure, and the sheet should say so.
 
 These observations are facilitator evidence, not product facts. No automated test, event log, or
 export may supply either field.

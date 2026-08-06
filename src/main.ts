@@ -44,11 +44,20 @@ const initializeLaboratory = async (): Promise<void> => {
         return;
     }
 
-    // Resolved from the browser's own language preferences, synchronously and before anything
-    // renders, so the first paint is already in the right language — there is no English-to-French
-    // flash and nothing about the language ever needs to be stored or restored.
+    // Resolved from the browser's own language preferences, synchronously and before any `await`, so
+    // the language is settled before anything this function renders and nothing about it ever needs to
+    // be stored or restored. Note what this does *not* claim: `index.html` ships English placeholder
+    // markup by design, so the genuine first paint can be English on a slow machine — hydration below
+    // is what puts the frame in the resolved language. The facilitator locale check in
+    // `docs/validation/young-validation-plan.md` is written against the settled screen for that reason.
     const locale = resolveBrowserLocale();
     createBootShell(bootShell, locale);
+    // Mounted here rather than after the content load: AC4 requires the facilitator disclosure on
+    // every render of the validation route, and a `loadCaseDefinition` failure returns below — which
+    // previously left a moderated session looking live with no privacy statement at all. The mode
+    // flag is read at the top of this function, before any repository exists, so moving the mount
+    // earlier does not touch the isolation ordering.
+    if (validationMode) mountValidationSessionDisclosure(validationDisclosureRoot, locale);
     void registerOfflineCache();
 
     const caseResult = await loadCaseDefinition('young-interference');
@@ -77,7 +86,6 @@ const initializeLaboratory = async (): Promise<void> => {
         }
     }
     const store = createStore(initialState);
-    if (validationMode) mountValidationSessionDisclosure(validationDisclosureRoot, locale);
     let lectureBookController: LectureBookController | undefined;
     let pendingLectureBookPresentation: LectureBookPresentation | undefined;
     const projectLectureBook = (presentation: LectureBookPresentation | undefined): void => {

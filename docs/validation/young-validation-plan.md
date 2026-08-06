@@ -43,14 +43,18 @@ To run a session in a given locale:
    French; anything unmatched falls back to English).
 2. Open a fresh browser profile or window so a previously cached page is not reused, then navigate to
    the validation route.
-3. Confirm the resolved language on the first screen the learner sees, before the session starts. The
-   first paint is already in the resolved language — there is no English-to-French flash to wait
-   through, so if the boot frame is in the wrong language the browser is misconfigured and the session
-   must not proceed.
-4. Record the locale (`en` or `fr`) in the rubric's per-session header.
+3. Confirm the resolved language on the boot screen **once the page has finished loading**, before the
+   session starts. `index.html` ships English placeholder text by design — the markup cannot know which
+   language the browser will resolve to, so the app rewrites every boot string, and the page title, from
+   the i18n layer as it boots. **A brief flash of English on a slow machine is expected and is not a
+   misconfiguration.** Judge it on the settled screen: if the boot frame is still English after loading
+   completes, the browser's language list is wrong — fix it and reload rather than proceeding.
+4. Record the locale (`en` or `fr`) in the rubric's per-session header. This field is required; a session
+   without it cannot count toward the per-locale minimum and has to be reported in the aggregate's
+   "locale unrecorded" bucket.
 
-**The moderated sample must include at least one session in each locale.** An EN-only sample cannot
-satisfy either 60% target, regardless of the percentage reached.
+**The moderated sample must include at least one session in each locale.** A single-locale sample fails
+the gate regardless of the percentage reached.
 
 ## Consent and de-identification boundary
 

@@ -128,6 +128,16 @@ test('runs an isolated Young validation session that leaves the saved learner re
     await page.goto('/');
     await expectActiveScene(page, 'Library');
     expect(await readStoredYoungRecord(page)).toBe(seeded);
+
+    // Byte-equality proves the record on disk is intact; it does not prove the app read it back.
+    // `data-active-scene` cannot close that gap here — the seed sits at the `context` phase, which is
+    // also where a completely fresh state routes, so `Library` is satisfied either way. A failed
+    // restore is otherwise silent: `main.ts` falls back to `initialState` behind a polite status
+    // message. So assert restored *content*, on the retained print view (ADR-007) rather than a
+    // retiring panel: it lists inspected sources, and a fresh state renders the empty placeholder.
+    const printRecord = page.getByRole('article', { name: en['print.ariaLabel'] });
+    await expect(printRecord).toContainText('Thomas Young’s 1801 lecture record');
+    await expect(printRecord).not.toContainText(en['print.sources.empty']);
 });
 
 /**
@@ -141,7 +151,7 @@ test.describe('French browser', () => {
     // sits in a `max-width: 34rem` boot frame.
     test.use({ locale: 'fr-FR', viewport: { width: 1280, height: 720 } });
 
-    test('renders the validation disclosure in French without clipping', async ({ page }) => {
+    test('renders the validation disclosure in French, fully readable without scrolling', async ({ page }) => {
         await page.goto('/?mode=validation');
 
         const disclosure = page.getByRole('region', { name: fr['validation.session.title'] });
@@ -150,13 +160,28 @@ test.describe('French browser', () => {
         await expect(disclosure).toContainText(fr['validation.session.noCollection']);
         await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
 
-        // Not a snapshot: longer French copy must wrap inside the boot frame, not overflow it.
-        const overflow = await disclosure.evaluate((element) => ({
-            horizontal: element.scrollWidth - element.clientWidth,
-            vertical: element.scrollHeight - element.clientHeight
-        }));
-        expect(overflow.horizontal).toBeLessThanOrEqual(1);
-        expect(overflow.vertical).toBeLessThanOrEqual(1);
+        // Longer French copy cannot *clip* this disclosure, and asserting that it doesn't would be
+        // asserting nothing: the section is an auto-height `display: grid` box with no `overflow` or
+        // `max-height`, inside an auto-height `.boot-shell`, on a page that simply grows and scrolls.
+        // Measured directly — `scrollHeight - clientHeight` stays 0 on both the section and the frame
+        // even with 60× the real copy, so every containment assertion here passes for any text.
+        //
+        // What longer copy genuinely breaks is whether the statement is readable *without scrolling*:
+        // the disclosure sits below the entry button, so extra lines push its tail past the fold and a
+        // facilitator can brief a learner on a consent notice whose end neither of them has seen. So
+        // assert the thing that matters and can actually fail — it fits in NFR1's viewport. Real FR copy
+        // clears the fold by ~283px; 60× the copy misses it by ~1031px.
+        const fit = await disclosure.evaluate((element) => {
+            const box = element.getBoundingClientRect();
+            return {
+                pixelsBelowFold: box.bottom - window.innerHeight,
+                pixelsPastRightEdge: box.right - window.innerWidth,
+                height: box.height
+            };
+        });
+        expect(fit.height, 'the disclosure must actually render').toBeGreaterThan(0);
+        expect(fit.pixelsBelowFold, 'the FR disclosure must be fully readable without scrolling at 1280×720').toBeLessThanOrEqual(0);
+        expect(fit.pixelsPastRightEdge, 'the FR disclosure must not run past the viewport edge').toBeLessThanOrEqual(0);
 
         // The English strings must not survive anywhere in a French session.
         await expect(page.locator('body')).not.toContainText(en['validation.session.facilitatorHeld']);
