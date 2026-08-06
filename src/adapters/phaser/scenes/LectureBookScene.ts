@@ -1,6 +1,8 @@
 import { Scene } from 'phaser';
 
 import { LectureBookRenderer, type LectureBookController } from '../renderers/LectureBookRenderer';
+import type { AppStore } from '../../../core/store/createStore';
+import { selectLocale } from '../../../core/store/selectors';
 
 /** The overlay scene key is deliberately outside SceneKey: no phase may route to it. */
 export const LECTURE_BOOK_SCENE_KEY = 'LectureBook';
@@ -22,6 +24,7 @@ export class LectureBookScene extends Scene {
     private readonly refreshCanvasInputBounds = (): void => this.scale.updateBounds();
 
     public constructor(
+        private readonly store: AppStore,
         private readonly onOverlayVisibilityChange: (visible: boolean) => void,
         private readonly onLectureBookReady?: (controller: LectureBookController) => void
     ) {
@@ -34,7 +37,9 @@ export class LectureBookScene extends Scene {
     }
 
     public create(): void {
-        this.lectureBookRenderer = new LectureBookRenderer(this, this.onOverlayVisibilityChange);
+        // The locale is read from the store on every redraw rather than captured once: this scene is
+        // auto-started and never re-created, so a captured value would outlive any future change.
+        this.lectureBookRenderer = new LectureBookRenderer(this, this.onOverlayVisibilityChange, () => selectLocale(this.store.getState()));
         this.onLectureBookReady?.(this.lectureBookRenderer.controller);
         // The canvas is sticky. Phaser caches bounds in document coordinates, so refresh them
         // whenever document scrolling changes the canvas viewport position. This scene always runs,

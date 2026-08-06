@@ -1,4 +1,5 @@
 import type { Result } from '../errors/Result';
+import { DEFAULT_LOCALE, type Locale } from '../i18n/Locale';
 import { normalizeControlValue } from '../../domain/apparatus/ApparatusControl';
 import { calculateYoungFringeSpacing } from '../../domain/apparatus/calculateYoungFringeSpacing';
 import { isSourceEligibleForInspection, type CaseDefinition, type PrimaryControl, type WavelengthMode } from '../../domain/cases/CaseDefinition';
@@ -48,6 +49,11 @@ export type ReplayState = Readonly<{ isCounterfactual: boolean }>;
 
 export type AppState = Readonly<{
     caseDefinition: CaseDefinition;
+    /**
+     * The active interface language, resolved once from the browser at boot. Deliberately absent
+     * from `CaseRecord`: it describes the device, not the investigation.
+     */
+    locale: Locale;
     phase: CasePhase;
     activeControlValues: Readonly<Record<PrimaryControl['id'], number>>;
     selectedWavelengthNm: 450 | 550 | 650;
@@ -113,6 +119,7 @@ const freezeCompletion = (completion: CompletionSnapshot | undefined): Completio
 
 const freezeState = (state: Omit<AppState, 'recognition'>): AppState => Object.freeze({
     ...state,
+    locale: state.locale,
     activeControlValues: Object.freeze({ ...state.activeControlValues }),
     selectedWavelengthNm: state.selectedWavelengthNm,
     selectedWavelengthMode: state.selectedWavelengthMode,
@@ -137,8 +144,9 @@ const freezeState = (state: Omit<AppState, 'recognition'>): AppState => Object.f
     recognition: deriveRecognition(state.caseDefinition, state)
 });
 
-export const createInitialAppState = (caseDefinition: CaseDefinition): AppState => freezeState({
+export const createInitialAppState = (caseDefinition: CaseDefinition, locale: Locale = DEFAULT_LOCALE): AppState => freezeState({
     caseDefinition,
+    locale,
     phase: 'context',
     activeControlValues: Object.fromEntries(
         caseDefinition.apparatus.primaryControls.map((control) => [control.id, control.defaultValue])
@@ -154,8 +162,13 @@ export const createInitialAppState = (caseDefinition: CaseDefinition): AppState 
     replay: { isCounterfactual: false }
 });
 
-/** Creates the sole authoritative state from a validated, definition-compatible portable record. */
-export const createAppStateFromCaseRecord = (record: CaseRecord, caseDefinition: CaseDefinition): Result<AppState> => {
+/**
+ * Creates the sole authoritative state from a validated, definition-compatible portable record.
+ *
+ * `locale` comes from the live session, never from the record: importing an investigation exported
+ * by a French player must not switch an English player's interface language.
+ */
+export const createAppStateFromCaseRecord = (record: CaseRecord, caseDefinition: CaseDefinition, locale: Locale = DEFAULT_LOCALE): Result<AppState> => {
     const compatible = validateCaseRecordForDefinition(record, caseDefinition);
     if (!compatible.ok) return compatible;
 
@@ -170,6 +183,7 @@ export const createAppStateFromCaseRecord = (record: CaseRecord, caseDefinition:
         ok: true,
         value: freezeState({
             caseDefinition,
+            locale,
             phase: record.phase,
             activeControlValues: record.activeControlValues,
             selectedWavelengthNm: record.selectedWavelengthNm ?? 550,
@@ -528,6 +542,8 @@ const reduceReplayStart = (state: AppState): Result<AppState> => {
     return {
         ok: true,
         value: freezeState({
+            // `locale` is intentionally not reset by the spread below: a replay clears case
+            // progress, and the interface language describes the device rather than progress.
             ...state,
             phase: 'context',
             activeControlValues: Object.fromEntries(state.caseDefinition.apparatus.primaryControls.map((control) => [control.id, control.defaultValue])) as Record<PrimaryControl['id'], number>,

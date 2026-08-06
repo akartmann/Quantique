@@ -1,16 +1,45 @@
 import { z } from 'zod';
 
+import { LOCALES } from '../core/i18n/Locale';
 import { CASE_PHASES } from '../domain/cases/CaseProgress';
 import { SCENE_KEYS } from '../domain/cases/ScenarioScript';
 
 const stableId = z.string().trim().min(1);
 const sourceRef = z.string().trim().min(1);
+
+/**
+ * Every localizable authored string must carry both shipped locales (AC3). The requirement lives in
+ * the object schema itself rather than in a `superRefine`, because Zod skips refinements once the
+ * base parse has failed — a missing `fr` has to be the base-parse failure, not a later one.
+ */
+export const LocalizedTextSchema = z.object({
+    en: z.string().trim().min(1),
+    fr: z.string().trim().min(1)
+}).strict();
+
+/**
+ * The list variant. Equal lengths across locales is a genuine cross-field rule, so it belongs in a
+ * refinement: an `assumptions` list with four English entries and three French ones is a content
+ * defect, not a translation choice.
+ */
+export const LocalizedTextListSchema = z.object({
+    en: z.array(z.string().trim().min(1)).min(1),
+    fr: z.array(z.string().trim().min(1)).min(1)
+}).strict().superRefine((list, context) => {
+    if (list.en.length !== list.fr.length) {
+        context.addIssue({
+            code: 'custom',
+            message: 'A localized list must provide the same number of entries in every locale.',
+            path: ['fr']
+        });
+    }
+});
 const isOnStep = (value: number, min: number, step: number): boolean =>
     Math.abs((value - min) / step - Math.round((value - min) / step)) < 0.0000001;
 
 const PrimaryControlSchema = z.object({
     id: z.enum(['slitSpacingMm', 'screenDistanceM']),
-    label: z.string().trim().min(1),
+    label: LocalizedTextSchema,
     unit: z.string().trim().min(1),
     min: z.number().finite(),
     max: z.number().finite(),
@@ -39,7 +68,8 @@ const TextualRenditionSectionSchema = z.object({
 }).strict();
 
 const LocalizedTextualRenditionSchema = z.object({
-    locale: z.literal('en'),
+    locale: z.enum(LOCALES),
+    kind: z.enum(['transcription', 'translation']),
     sections: z.array(TextualRenditionSectionSchema).min(1)
 }).strict().superRefine((rendition, context) => {
     const ids = rendition.sections.map(({ id }) => id);
@@ -49,19 +79,42 @@ const LocalizedTextualRenditionSchema = z.object({
 });
 
 const TextualRenditionSchema = z.object({
-    readerLabel: z.string().trim().min(1),
+    readerLabel: LocalizedTextSchema,
     citation: z.object({
-        reuseStatement: z.string().trim().min(1),
+        reuseStatement: LocalizedTextSchema,
+        // Canonical: the citation of record and its archive link are bibliographic, not display copy.
         citationText: z.string().trim().min(1),
         archiveUrl: z.string().url().refine((url) => new URL(url).protocol === 'https:', 'Archive URLs must use HTTPS.')
     }).strict(),
-    summary: z.array(z.string().trim().min(1)).min(1).optional(),
-    renditions: z.tuple([LocalizedTextualRenditionSchema])
-}).strict();
+    summary: LocalizedTextListSchema.optional(),
+    renditions: z.tuple([LocalizedTextualRenditionSchema, LocalizedTextualRenditionSchema])
+}).strict().superRefine((rendition, context) => {
+    const [first, second] = rendition.renditions;
+    if (new Set([first.locale, second.locale]).size !== LOCALES.length) {
+        context.addIssue({ code: 'custom', message: 'A readable source must provide exactly one rendition per shipped locale.', path: ['renditions'] });
+    }
+    // Exactly one rendition may claim to reproduce the printed source; the rest are translations of
+    // it. Two transcriptions of the same pages in different languages is a provenance claim nobody
+    // has reviewed, which is precisely what this rule exists to stop.
+    if (rendition.renditions.filter(({ kind }) => kind === 'transcription').length !== 1) {
+        context.addIssue({ code: 'custom', message: 'Exactly one rendition may be the transcription of record; any others are translations.', path: ['renditions'] });
+    }
+    // Page-for-page alignment keeps the spread count and the printed page numbers identical in
+    // either language, so "spread 3 of 19" means the same thing to every reader.
+    const shape = (candidate: typeof first): string =>
+        JSON.stringify(candidate.sections.map(({ id, sourcePages, paragraphs }) => [id, sourcePages, paragraphs.length]));
+    if (shape(first) !== shape(second)) {
+        context.addIssue({
+            code: 'custom',
+            message: 'Every rendition must cover the same source pages, in the same order, with the same number of paragraphs.',
+            path: ['renditions']
+        });
+    }
+});
 
 const ContextualArtifactSchema = z.object({
     id: stableId,
-    displayName: z.string().trim().min(1),
+    displayName: LocalizedTextSchema,
     creatorOrOrigin: z.string().trim().min(1),
     sourceType: SourceTypeSchema,
     provenance: z.object({
@@ -69,7 +122,7 @@ const ContextualArtifactSchema = z.object({
         reference: sourceRef
     }).strict(),
     rightsStatus: SourceRightsStatusSchema,
-    caseRelationship: z.string().trim().min(1),
+    caseRelationship: LocalizedTextSchema,
     textualRendition: TextualRenditionSchema.optional()
 }).strict();
 
@@ -84,21 +137,22 @@ const ConsultationRuleSchema = z.object({
     id: stableId,
     predicate: ConsultationPredicateSchema,
     layers: z.object({
-        observation: z.string().trim().min(1),
-        plainLanguage: z.string().trim().min(1),
-        technicalDetail: z.string().trim().min(1)
+        observation: LocalizedTextSchema,
+        plainLanguage: LocalizedTextSchema,
+        technicalDetail: LocalizedTextSchema
     }).strict(),
-    nextStep: z.string().trim().min(1)
+    nextStep: LocalizedTextSchema
 }).strict();
 
 const PeerReviewRuleSchema = z.object({
     id: stableId,
     predicate: z.object({
         kind: z.enum(['missing-evidence', 'unsupported-support', 'overreach']),
-        overreachPhrases: z.array(z.string().trim().min(1)).min(1).optional()
+        // Detection phrases, not display text: both locales are always matched as a union.
+        overreachPhrases: LocalizedTextListSchema.optional()
     }).strict(),
-    feedback: z.string().trim().min(1),
-    revisionPath: z.string().trim().min(1)
+    feedback: LocalizedTextSchema,
+    revisionPath: LocalizedTextSchema
 }).strict();
 
 const ScenarioDialogueBeatSchema = z.object({
@@ -129,7 +183,21 @@ const ScenarioScriptSchema = z.object({
     }
 });
 
-const forbiddenPath = /(?:\b(?:scene|phase|route)\b|→|->)/i;
+/**
+ * Authored help content must describe *what to do next*, never the route the app takes to get there.
+ *
+ * The word list is locale-specific by necessity: `route` and `phase` are ordinary French words (and
+ * `scène` reads naturally in "mise en scène"), so applying the English list to French copy produces
+ * only false positives and pressure to mangle the translation. The arrow forms are the reliable
+ * cross-language signal and stay in both.
+ */
+const forbiddenPath: Readonly<Record<'en' | 'fr', RegExp>> = {
+    en: /(?:\b(?:scene|phase|route)\b|→|->)/i,
+    fr: /(?:→|->)/
+};
+
+const encodesPath = (text: Readonly<{ en: string; fr: string }>): boolean =>
+    forbiddenPath.en.test(text.en) || forbiddenPath.fr.test(text.fr);
 
 export const AssetManifestSchema = z.object({
     manifestVersion: z.string().trim().min(1),
@@ -147,7 +215,7 @@ export const AssetManifestSchema = z.object({
 export const CaseDefinitionSchema = z.object({
     id: z.literal('young-interference'),
     version: z.string().trim().min(1),
-    openingDispute: z.string().trim().min(1),
+    openingDispute: LocalizedTextSchema,
     contextualArtifacts: z.tuple([ContextualArtifactSchema, ContextualArtifactSchema]),
     prediction: z.object({ required: z.literal(true) }).strict(),
     apparatus: z.object({ primaryControls: z.tuple([PrimaryControlSchema, PrimaryControlSchema]) }).strict(),
@@ -158,15 +226,15 @@ export const CaseDefinitionSchema = z.object({
             fixedMinimumPathNm: z.literal(550),
             advancedChoicesNm: z.tuple([z.literal(450), z.literal(650)])
         }).strict().optional(),
-        assumptions: z.array(z.string().trim().min(1)).min(1),
+        assumptions: LocalizedTextListSchema,
         confound: z.object({
             id: stableId,
-            description: z.string().trim().min(1),
+            description: LocalizedTextSchema,
             discoverableBy: RecoveryRouteSchema
         }).strict(),
         resetPath: z.object({
             recoveryRoute: RecoveryRouteSchema,
-            description: z.string().trim().min(1)
+            description: LocalizedTextSchema
         }).strict()
     }).strict(),
     requirements: z.object({ minimumRuns: z.literal(2), minimumSources: z.literal(2) }).strict(),
@@ -184,15 +252,15 @@ export const CaseDefinitionSchema = z.object({
     }).strict(),
     scenarioScript: ScenarioScriptSchema,
     debrief: z.object({
-        summary: z.string().trim().min(1),
+        summary: LocalizedTextSchema,
         sourceRefs: z.array(sourceRef).min(1),
         historicalComparison: z.object({
-            title: z.string().trim().min(1),
-            text: z.string().trim().min(1),
+            title: LocalizedTextSchema,
+            text: LocalizedTextSchema,
             sourceIds: z.tuple([stableId, stableId])
         }).strict(),
-        deeperTheory: z.object({ title: z.string().trim().min(1), text: z.string().trim().min(1) }).strict(),
-        replayLabel: z.string().trim().min(1)
+        deeperTheory: z.object({ title: LocalizedTextSchema, text: LocalizedTextSchema }).strict(),
+        replayLabel: LocalizedTextSchema
     }).strict(),
     assets: AssetManifestSchema
 }).strict().superRefine((definition, context) => {
@@ -235,12 +303,12 @@ export const CaseDefinitionSchema = z.object({
         if (rule.predicate.kind === 'alternative-test' && !controlIds.has(rule.predicate.controlId)) {
             context.addIssue({ code: 'custom', message: 'Consultation rules may only reference authored controls.', path: ['consultationRules', index, 'predicate', 'controlId'] });
         }
-        if (Object.values(rule.layers).some((text) => forbiddenPath.test(text)) || forbiddenPath.test(rule.nextStep)) {
+        if (Object.values(rule.layers).some(encodesPath) || encodesPath(rule.nextStep)) {
             context.addIssue({ code: 'custom', message: 'Authored help content must not encode a scene, route, or phase path.', path: ['consultationRules', index] });
         }
     });
     definition.peerReviewRules.forEach((rule, index) => {
-        if (forbiddenPath.test(rule.feedback) || forbiddenPath.test(rule.revisionPath)) {
+        if (encodesPath(rule.feedback) || encodesPath(rule.revisionPath)) {
             context.addIssue({ code: 'custom', message: 'Peer-review content must not encode a scene, route, or phase path.', path: ['peerReviewRules', index] });
         }
         if (rule.predicate.kind === 'overreach' && !rule.predicate.overreachPhrases) {

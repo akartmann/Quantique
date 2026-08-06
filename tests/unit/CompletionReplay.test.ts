@@ -10,14 +10,13 @@ import { calculateYoungFringeSpacing } from '../../src/domain/apparatus/calculat
 
 const definition = {
     id: 'young-interference', version: '1.2.0', prediction: { required: true }, requirements: { minimumRuns: 2, minimumSources: 2 },
-    apparatus: { primaryControls: [{ id: 'slitSpacingMm', label: 'Spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 }, { id: 'screenDistanceM', label: 'Distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }] },
-    contextualArtifacts: [{ id: 'source-1', displayName: 'Source one', creatorOrOrigin: 'Archive', sourceType: 'lecture-record', provenance: { category: 'primary-material', reference: 'one' }, rightsStatus: 'reviewed', caseRelationship: 'Evidence.' }, { id: 'source-2', displayName: 'Source two', creatorOrOrigin: 'Archive', sourceType: 'published-book', provenance: { category: 'primary-material', reference: 'two' }, rightsStatus: 'reviewed', caseRelationship: 'Evidence.' }],
-    consultationRules: [], peerReviewRules: [{ id: 'overreach', predicate: { kind: 'overreach', overreachPhrases: ['proves'] }, feedback: 'Bound the claim.', revisionPath: 'Revise.' }],
+    apparatus: { primaryControls: [{ id: 'slitSpacingMm', label: { en: 'Spacing', fr: 'Spacing [fr]' }, unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 }, { id: 'screenDistanceM', label: { en: 'Distance', fr: 'Distance [fr]' }, unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }] },
+    contextualArtifacts: [{ id: 'source-1', displayName: { en: 'Source one', fr: 'Source one [fr]' }, creatorOrOrigin: 'Archive', sourceType: 'lecture-record', provenance: { category: 'primary-material', reference: 'one' }, rightsStatus: 'reviewed', caseRelationship: { en: 'Evidence.', fr: 'Evidence. [fr]' } }, { id: 'source-2', displayName: { en: 'Source two', fr: 'Source two [fr]' }, creatorOrOrigin: 'Archive', sourceType: 'published-book', provenance: { category: 'primary-material', reference: 'two' }, rightsStatus: 'reviewed', caseRelationship: { en: 'Evidence.', fr: 'Evidence. [fr]' } }],
+    consultationRules: [], peerReviewRules: [{ id: 'overreach', predicate: { kind: 'overreach', overreachPhrases: { en: ['proves'], fr: ['prouve'] } }, feedback: { en: 'Bound the claim.', fr: 'Bound the claim. [fr]' }, revisionPath: { en: 'Revise.', fr: 'Revise. [fr]' } }],
     experiment: { modelVersion: 'young-double-slit-v1', wavelengthComparison: { fixedMinimumPathNm: 550, advancedChoicesNm: [450, 650] } }
 } as CaseDefinition;
 
-const completeToReview = (withComparison = true) => {
-    const store = createStore(createInitialAppState(definition));
+const completeToReview = (withComparison = true, store = createStore(createInitialAppState(definition))) => {
     ['source-1', 'source-2'].forEach((sourceId) => store.dispatch({ type: 'source.inspected', sourceId }));
     store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
     store.dispatch({ type: 'prediction.recorded', prediction: 'A patterned result may appear.' });
@@ -69,6 +68,29 @@ describe('authoritative Young completion and replay', () => {
         expect(store.dispatch({ type: 'case.replayStarted' })).toEqual({ ok: true, value: undefined });
         expect(store.getState()).toMatchObject({ phase: 'context', replay: { isCounterfactual: true }, runs: [], decisionHistory: [] });
         expect(selectCompletionSnapshot(store.getState())).toEqual(completed);
+    });
+
+    // A replay clears case progress. The interface language describes the device, not progress.
+    it('preserves the active locale across a counterfactual replay', () => {
+        const store = createStore(createInitialAppState(definition, 'fr'));
+        completeToReview(true, store);
+        store.dispatch({ type: 'case.debriefCompleted', timestamp: '2026-08-05T12:03:00.000Z' });
+        expect(store.dispatch({ type: 'case.replayStarted' })).toEqual({ ok: true, value: undefined });
+
+        expect(store.getState().locale).toBe('fr');
+    });
+
+    // A record exported by a French player must not switch an English player's interface language.
+    it('keeps the live session locale when a portable record is restored', () => {
+        const store = completeToReview();
+        store.dispatch({ type: 'case.debriefCompleted', timestamp: '2026-08-05T12:03:00.000Z' });
+        const projected = createCaseRecordProjection(store.getState());
+        expect(projected.ok).toBe(true);
+        if (!projected.ok) return;
+
+        const english = createStore(createInitialAppState(definition, 'en'));
+        expect(english.replaceWithValidatedRecord(projected.value)).toEqual({ ok: true, value: undefined });
+        expect(english.getState().locale).toBe('en');
     });
 
     it('does not treat a legacy prepared observation as completion evidence', () => {

@@ -1,3 +1,7 @@
+// Retiring pre-pivot DOM panel (Stories 1.11, 1.12, 2.1, 2.3, 2.5 replace it with a Phaser scene).
+// Authored case text is read as canonical `.en` rather than routed through the i18n layer on purpose:
+// translating a surface scheduled for deletion is throwaway work and doubles the FR copy to review.
+// Each replacement scene localizes its own text as it is built. See docs/i18n-authoring.md.
 import type { AppStore } from '../../core/store/createStore';
 import { selectCompletionSnapshot, selectReplayState, selectSourceById } from '../../core/store/selectors';
 
@@ -37,16 +41,16 @@ export const mountHistoricalDebriefPanel = (root: HTMLElement, store: AppStore):
             decision.append(decisionHeading, decisionText);
             const debrief = state.caseDefinition.debrief;
             const historical = document.createElement('section');
-            const historicalHeading = document.createElement('h3'); historicalHeading.textContent = debrief.historicalComparison.title;
-            const historicalText = document.createElement('p'); historicalText.textContent = debrief.historicalComparison.text;
+            const historicalHeading = document.createElement('h3'); historicalHeading.textContent = debrief.historicalComparison.title.en;
+            const historicalText = document.createElement('p'); historicalText.textContent = debrief.historicalComparison.text.en;
             const sources = document.createElement('ul');
             debrief.historicalComparison.sourceIds.forEach((sourceId) => {
-                const item = document.createElement('li'); item.textContent = selectSourceById(state, sourceId)?.displayName ?? 'Authored source unavailable.'; sources.append(item);
+                const item = document.createElement('li'); item.textContent = selectSourceById(state, sourceId)?.displayName.en ?? 'Authored source unavailable.'; sources.append(item);
             });
             historical.append(historicalHeading, historicalText, sources);
             const theory = document.createElement('details');
-            const summary = document.createElement('summary'); summary.textContent = debrief.deeperTheory.title;
-            const theoryText = document.createElement('p'); theoryText.textContent = debrief.deeperTheory.text;
+            const summary = document.createElement('summary'); summary.textContent = debrief.deeperTheory.title.en;
+            const theoryText = document.createElement('p'); theoryText.textContent = debrief.deeperTheory.text.en;
             theory.append(summary, theoryText);
             const recognition = document.createElement('section');
             const recognitionHeading = document.createElement('h3'); recognitionHeading.textContent = 'Inquiry recognition at completion';
@@ -56,7 +60,7 @@ export const mountHistoricalDebriefPanel = (root: HTMLElement, store: AppStore):
             recognition.append(recognitionHeading, recognitionList);
             panel.append(decision, historical, theory, recognition);
             if (state.phase === 'debrief') {
-                const replay = document.createElement('button'); replay.type = 'button'; replay.dataset.debriefFocus = 'replay'; replay.textContent = debrief.replayLabel;
+                const replay = document.createElement('button'); replay.type = 'button'; replay.dataset.debriefFocus = 'replay'; replay.textContent = debrief.replayLabel.en;
                 replay.addEventListener('click', () => {
                     focusKey = 'replay';
                     const result = store.dispatch({ type: 'case.replayStarted' });

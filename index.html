@@ -11,10 +11,16 @@
 <body>
     <div id="app">
         <main id="boot-shell" aria-labelledby="boot-title">
+            <!--
+                Every string below is a pre-hydration placeholder in the default language: the
+                markup cannot know the language the browser will resolve to, so `createBootShell`
+                repopulates each element from the i18n layer on boot (ADR-010). `<html lang>` is
+                rewritten to match at the same moment.
+            -->
             <section class="boot-shell">
-                <p class="eyebrow">Quantique</p>
+                <p class="eyebrow" data-boot-text="eyebrow">Quantique</p>
                 <h1 id="boot-title">Historical science laboratory</h1>
-                <p>Open the starter laboratory shell to begin the Young validation slice.</p>
+                <p data-boot-text="intro">Open the starter laboratory shell to begin the Young validation slice.</p>
                 <button type="button" data-testid="enter-laboratory" aria-describedby="boot-status">
                     Enter laboratory
                 </button>

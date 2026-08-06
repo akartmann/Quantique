@@ -2,7 +2,10 @@ import { isSourceEligibleForInspection, type CaseDefinition } from './CaseDefini
 
 export type ContextReadiness = Readonly<{
     status: 'ready' | 'incomplete';
+    /** Canonical English names, kept so no persisted or compared value depends on the active language. */
     missingArtifactLabels: readonly string[];
+    /** The same artifacts by stable id, so the presentation can resolve localized names. */
+    missingArtifactIds: readonly string[];
 }>;
 
 export type PredictionReadiness = Readonly<{
@@ -12,12 +15,13 @@ export type PredictionReadiness = Readonly<{
 /** Evaluates the authored context requirements without depending on UI or store state. */
 export const evaluateContextReadiness = (definition: CaseDefinition, inspectedSourceIds: readonly string[]): ContextReadiness => {
     const inspected = new Set(inspectedSourceIds);
-    const missingArtifactLabels = definition.contextualArtifacts
-        .filter((artifact) => !isSourceEligibleForInspection(artifact) || !inspected.has(artifact.id))
-        .map(({ displayName }) => displayName);
+    const missing = definition.contextualArtifacts
+        .filter((artifact) => !isSourceEligibleForInspection(artifact) || !inspected.has(artifact.id));
+    // `.en` on purpose: the domain reads the canonical locale, never the active one.
     return Object.freeze({
-        status: missingArtifactLabels.length ? 'incomplete' : 'ready',
-        missingArtifactLabels: Object.freeze(missingArtifactLabels)
+        status: missing.length ? 'incomplete' : 'ready',
+        missingArtifactLabels: Object.freeze(missing.map(({ displayName }) => displayName.en)),
+        missingArtifactIds: Object.freeze(missing.map(({ id }) => id))
     });
 };
 

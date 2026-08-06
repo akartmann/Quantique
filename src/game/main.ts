@@ -50,6 +50,7 @@ const StartGame = (parent: string, store: AppStore, onLectureBookReady?: (contro
     // Added last so it draws above the routed scene, and auto-started so the book is available
     // in every phase — including the phases whose scene has no book of its own yet.
     lectureBookScene = new LectureBookScene(
+        store,
         (visible) => laboratoryScene.setApparatusInputEnabled(!visible),
         onLectureBookReady
     );

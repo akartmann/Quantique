@@ -1,5 +1,6 @@
 import { Scene } from 'phaser';
 
+import { monoTextStyle } from '../textStyles';
 import type { AppStore } from '../../../core/store/createStore';
 import { selectCasePhase } from '../../../core/store/selectors';
 import type { SceneKey } from '../../../domain/cases/ScenarioScript';
@@ -21,12 +22,13 @@ export abstract class PhasePlaceholderScene extends Scene {
 
     public create(): void {
         this.cameras.main.setBackgroundColor(0x10252c);
-        this.marker = this.add.text(512, 384, '', {
-            fontFamily: 'monospace',
+        // Un-localized on purpose: this is a development marker, not player copy. Each replacement
+        // scene authors its own EN+FR text through the i18n layer (Story 1.1b / ADR-010).
+        this.marker = this.add.text(512, 384, '', monoTextStyle({
             fontSize: '20px',
             color: '#8fb3bd',
             align: 'center'
-        }).setOrigin(0.5);
+        })).setOrigin(0.5);
         this.renderMarker();
 
         this.unsubscribe = this.store.subscribe(() => this.renderMarker());

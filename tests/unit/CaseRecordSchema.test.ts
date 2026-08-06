@@ -9,12 +9,12 @@ import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 const definition = {
     id: 'young-interference', version: '1.0.0', prediction: { required: true }, requirements: { minimumRuns: 2, minimumSources: 2 },
     apparatus: { primaryControls: [
-        { id: 'slitSpacingMm', label: 'Slit spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
-        { id: 'screenDistanceM', label: 'Screen distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
+        { id: 'slitSpacingMm', label: { en: 'Slit spacing', fr: 'Slit spacing [fr]' }, unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
+        { id: 'screenDistanceM', label: { en: 'Screen distance', fr: 'Screen distance [fr]' }, unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
     ] },
     contextualArtifacts: [
-        { id: 'source-1', displayName: 'Source one', creatorOrOrigin: 'Archive', sourceType: 'lecture-record', provenance: { category: 'primary-material', reference: 'one' }, rightsStatus: 'reviewed', caseRelationship: 'Evidence.' },
-        { id: 'source-2', displayName: 'Source two', creatorOrOrigin: 'Archive', sourceType: 'published-book', provenance: { category: 'primary-material', reference: 'two' }, rightsStatus: 'reviewed', caseRelationship: 'Evidence.' }
+        { id: 'source-1', displayName: { en: 'Source one', fr: 'Source one [fr]' }, creatorOrOrigin: 'Archive', sourceType: 'lecture-record', provenance: { category: 'primary-material', reference: 'one' }, rightsStatus: 'reviewed', caseRelationship: { en: 'Evidence.', fr: 'Evidence. [fr]' } },
+        { id: 'source-2', displayName: { en: 'Source two', fr: 'Source two [fr]' }, creatorOrOrigin: 'Archive', sourceType: 'published-book', provenance: { category: 'primary-material', reference: 'two' }, rightsStatus: 'reviewed', caseRelationship: { en: 'Evidence.', fr: 'Evidence. [fr]' } }
     ],
     experiment: { modelVersion: 'young-v1' }
 } as CaseDefinition;
@@ -54,6 +54,27 @@ describe('portable case records', () => {
         if (!parsed.success) return;
         expect(validateCaseRecordForDefinition(parsed.data, definition)).toEqual({ ok: true, value: parsed.data });
         expect(createInitialAppState(definition).caseDefinition).toBe(definition);
+    });
+
+    // Adding `fr` to authored display text moved no progress-bearing value, so an investigation
+    // saved against 1.4.0 must still load against 1.5.0 rather than being discarded (NFR12).
+    it.each(['1.2.0', '1.3.0', '1.4.0', '1.5.0'])('accepts a %s record against the 1.6.0 localized definition', (recordVersion) => {
+        const localized = { ...definition, version: '1.6.0' } as CaseDefinition;
+        const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: recordVersion });
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        expect(validateCaseRecordForDefinition(parsed.data, localized)).toMatchObject({ ok: true });
+    });
+
+    it('still rejects a record from an unrelated definition version', () => {
+        const localized = { ...definition, version: '1.6.0' } as CaseDefinition;
+        const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: '0.9.0' });
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        expect(validateCaseRecordForDefinition(parsed.data, localized))
+            .toMatchObject({ ok: false, error: { code: 'incompatible-case-record' } });
     });
 
     it('rejects unknown fields, duplicate references, and incompatible records with neutral failures', () => {

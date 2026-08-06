@@ -12,23 +12,23 @@ import { createRunRecord } from '../../src/domain/evidence/RunRecord';
 const definition = {
     id: 'young-interference', prediction: { required: true }, requirements: { minimumRuns: 2, minimumSources: 2 },
     apparatus: { primaryControls: [
-        { id: 'slitSpacingMm', label: 'Slit spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
-        { id: 'screenDistanceM', label: 'Screen distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
+        { id: 'slitSpacingMm', label: { en: 'Slit spacing', fr: 'Slit spacing [fr]' }, unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
+        { id: 'screenDistanceM', label: { en: 'Screen distance', fr: 'Screen distance [fr]' }, unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
     ] },
     contextualArtifacts: [
-        { id: 'source-1', displayName: 'Source one', creatorOrOrigin: 'Archive', sourceType: 'lecture-record', provenance: { category: 'primary-material', reference: 'one' }, rightsStatus: 'reviewed', caseRelationship: 'Evidence.' },
-        { id: 'source-2', displayName: 'Source two', creatorOrOrigin: 'Archive', sourceType: 'published-book', provenance: { category: 'primary-material', reference: 'two' }, rightsStatus: 'reviewed', caseRelationship: 'Evidence.' }
+        { id: 'source-1', displayName: { en: 'Source one', fr: 'Source one [fr]' }, creatorOrOrigin: 'Archive', sourceType: 'lecture-record', provenance: { category: 'primary-material', reference: 'one' }, rightsStatus: 'reviewed', caseRelationship: { en: 'Evidence.', fr: 'Evidence. [fr]' } },
+        { id: 'source-2', displayName: { en: 'Source two', fr: 'Source two [fr]' }, creatorOrOrigin: 'Archive', sourceType: 'published-book', provenance: { category: 'primary-material', reference: 'two' }, rightsStatus: 'reviewed', caseRelationship: { en: 'Evidence.', fr: 'Evidence. [fr]' } }
     ],
     consultationRules: [
-        { id: 'run', predicate: { kind: 'missing-run' }, layers: { observation: 'Observe.', plainLanguage: 'Run.', technicalDetail: 'Control.' }, nextStep: 'Record a run.' },
-        { id: 'source', predicate: { kind: 'missing-source', sourceId: 'source-1' }, layers: { observation: 'Source.', plainLanguage: 'Inspect.', technicalDetail: 'Provenance.' }, nextStep: 'Inspect source.' },
-        { id: 'test', predicate: { kind: 'alternative-test', controlId: 'screenDistanceM' }, layers: { observation: 'Same setting.', plainLanguage: 'Change setting.', technicalDetail: 'Bounded.' }, nextStep: 'Change control.' },
-        { id: 'limit', predicate: { kind: 'missing-limitation' }, layers: { observation: 'No limit.', plainLanguage: 'Limit.', technicalDetail: 'Bounded.' }, nextStep: 'Add limitation.' }
+        { id: 'run', predicate: { kind: 'missing-run' }, layers: { observation: { en: 'Observe.', fr: 'Observe. [fr]' }, plainLanguage: { en: 'Run.', fr: 'Run. [fr]' }, technicalDetail: { en: 'Control.', fr: 'Control. [fr]' } }, nextStep: { en: 'Record a run.', fr: 'Record a run. [fr]' } },
+        { id: 'source', predicate: { kind: 'missing-source', sourceId: 'source-1' }, layers: { observation: { en: 'Source.', fr: 'Source. [fr]' }, plainLanguage: { en: 'Inspect.', fr: 'Inspect. [fr]' }, technicalDetail: { en: 'Provenance.', fr: 'Provenance. [fr]' } }, nextStep: { en: 'Inspect source.', fr: 'Inspect source. [fr]' } },
+        { id: 'test', predicate: { kind: 'alternative-test', controlId: 'screenDistanceM' }, layers: { observation: { en: 'Same setting.', fr: 'Same setting. [fr]' }, plainLanguage: { en: 'Change setting.', fr: 'Change setting. [fr]' }, technicalDetail: { en: 'Bounded.', fr: 'Bounded. [fr]' } }, nextStep: { en: 'Change control.', fr: 'Change control. [fr]' } },
+        { id: 'limit', predicate: { kind: 'missing-limitation' }, layers: { observation: { en: 'No limit.', fr: 'No limit. [fr]' }, plainLanguage: { en: 'Limit.', fr: 'Limit. [fr]' }, technicalDetail: { en: 'Bounded.', fr: 'Bounded. [fr]' } }, nextStep: { en: 'Add limitation.', fr: 'Add limitation. [fr]' } }
     ],
     peerReviewRules: [
-        { id: 'missing', predicate: { kind: 'missing-evidence' }, feedback: 'Evidence is incomplete.', revisionPath: 'Select evidence.' },
-        { id: 'unsupported', predicate: { kind: 'unsupported-support' }, feedback: 'Support is unavailable.', revisionPath: 'Use current support.' },
-        { id: 'overreach', predicate: { kind: 'overreach', overreachPhrases: ['proves'] }, feedback: 'Bound the claim.', revisionPath: 'Revise wording.' }
+        { id: 'missing', predicate: { kind: 'missing-evidence' }, feedback: { en: 'Evidence is incomplete.', fr: 'Evidence is incomplete. [fr]' }, revisionPath: { en: 'Select evidence.', fr: 'Select evidence. [fr]' } },
+        { id: 'unsupported', predicate: { kind: 'unsupported-support' }, feedback: { en: 'Support is unavailable.', fr: 'Support is unavailable. [fr]' }, revisionPath: { en: 'Use current support.', fr: 'Use current support. [fr]' } },
+        { id: 'overreach', predicate: { kind: 'overreach', overreachPhrases: { en: ['proves'], fr: ['prouve'] } }, feedback: { en: 'Bound the claim.', fr: 'Bound the claim. [fr]' }, revisionPath: { en: 'Revise wording.', fr: 'Revise wording. [fr]' } }
     ],
     experiment: { modelVersion: 'young-v1' }
 } as CaseDefinition;
@@ -42,7 +42,7 @@ const run = (id: string, screenDistanceM = 2) => {
 describe('authored consultation and peer-review rules', () => {
     it('chooses the first eligible authored consultation and freezes its bounded projection', () => {
         const first = chooseConsultation(definition.consultationRules, { runs: [], inspectedSourceIds: [], theory: createTheoryBoardDraft() });
-        expect(first).toMatchObject({ ruleId: 'run', nextStep: 'Record a run.' });
+        expect(first).toMatchObject({ ruleId: 'run', nextStep: { en: 'Record a run.', fr: 'Record a run. [fr]' } });
         expect(Object.isFrozen(first)).toBe(true);
         const next = chooseConsultation(definition.consultationRules, { runs: [run('one'), run('two')], inspectedSourceIds: [], theory: createTheoryBoardDraft() });
         expect(next).toMatchObject({ ruleId: 'source' });
@@ -58,6 +58,22 @@ describe('authored consultation and peer-review rules', () => {
         expect(review.issues.map((issue) => issue.code)).toEqual(['missing-evidence', 'overreach']);
         expect(JSON.stringify(review)).not.toContain(draft.conclusion);
         expect(Object.isFrozen(review.issues)).toBe(true);
+    });
+
+    // Detection matches the union of both locales' phrases regardless of the active language, so the
+    // recomputation that validates a saved record cannot depend on which language it was saved in.
+    it('detects overreach in either language and emits identical, canonical issues', () => {
+        const english = evaluatePeerReview(definition, { runs: [], inspectedSourceIds: [] },
+            { ...createTheoryBoardDraft(), conclusion: 'This proves the wave account.' });
+        const french = evaluatePeerReview(definition, { runs: [], inspectedSourceIds: [] },
+            { ...createTheoryBoardDraft(), conclusion: 'Cela prouve la thèse ondulatoire.' });
+
+        expect(english).toEqual(french);
+        expect(english).toMatchObject({
+            status: 'reviewed',
+            // Canonical English feedback in both cases: this value is persisted and re-compared.
+            issues: [{ code: 'missing-evidence', feedback: 'Evidence is incomplete.' }, { code: 'overreach', feedback: 'Bound the claim.' }]
+        });
     });
 
     it('handles unsupported support, unavailable rules, and boundary-aware overreach checks', () => {

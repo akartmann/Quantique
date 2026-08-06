@@ -23,12 +23,24 @@ const unavailable = (): PeerReviewProjection => Object.freeze({
     message: 'Peer feedback is temporarily unavailable. Your evidence and draft have been kept unchanged.'
 });
 
+/**
+ * `.en` on purpose. These issues are written into `DecisionHistoryEntry.feedback`, persisted, and then
+ * recomputed and string-compared on load (`validateCaseRecordForDefinition`). Emitting the active
+ * locale would reject every record saved in the other language. The review surface localizes by
+ * `ruleId` against the case definition.
+ */
 const freezeIssue = (rule: PeerReviewRule): PeerReviewIssue => Object.freeze({
     code: rule.predicate.kind,
     ruleId: rule.id,
-    feedback: rule.feedback,
-    revisionPath: rule.revisionPath
+    feedback: rule.feedback.en,
+    revisionPath: rule.revisionPath.en
 });
+
+/** Every authored detection phrase, in every locale, as one flat list. */
+const overreachPhrases = (rule: PeerReviewRule): readonly string[] => {
+    const authored = rule.predicate.overreachPhrases;
+    return authored ? [...authored.en, ...authored.fr] : [];
+};
 
 const isApplicable = (
     rule: PeerReviewRule,
@@ -43,7 +55,9 @@ const isApplicable = (
         case 'unsupported-support':
             return readiness.missing.some(({ code }) => code === 'unknown-run-selection' || code === 'unknown-source-selection' || code === 'duplicate-run-selection' || code === 'duplicate-source-selection');
         case 'overreach':
-            return (rule.predicate.overreachPhrases ?? []).some((phrase) => {
+            // The union of both locales' phrases, never the active one: detection must stay
+            // deterministic so the recomputation on record load matches what was persisted.
+            return overreachPhrases(rule).some((phrase) => {
                 const escaped = phrase.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
                 return new RegExp(`(?:^|[^\\p{L}\\p{N}_])${escaped}(?=$|[^\\p{L}\\p{N}_])`, 'u').test(draft.conclusion.toLowerCase());
             });
@@ -52,8 +66,9 @@ const isApplicable = (
 
 const hasEvaluableRules = (definition: CaseDefinition): boolean => definition.peerReviewRules.length > 0
     && definition.peerReviewRules.every((rule) => {
-        if (!rule.id.trim() || !rule.feedback.trim() || !rule.revisionPath.trim()) return false;
-        return rule.predicate.kind !== 'overreach' || Boolean(rule.predicate.overreachPhrases?.length);
+        // `.en` again: the canonical locale is what this evaluator emits and persists.
+        if (!rule.id.trim() || !rule.feedback.en.trim() || !rule.revisionPath.en.trim()) return false;
+        return rule.predicate.kind !== 'overreach' || overreachPhrases(rule).length > 0;
     });
 
 /** Evaluates only authored predicates and returns no learner-entered text. */

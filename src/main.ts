@@ -2,6 +2,8 @@ import { registerOfflineCache } from './adapters/OfflineCache';
 import { createSceneRouter } from './adapters/phaser/SceneRouter';
 import { loadCaseDefinition } from './adapters/content/loadCaseDefinition';
 import { CaseRecordRepository } from './adapters/persistence/caseRecordRepository';
+import { resolveBrowserLocale } from './core/i18n/resolveBrowserLocale';
+import { createTranslator, translateError } from './core/i18n/translate';
 import { createAppStateFromCaseRecord, createInitialAppState } from './core/store/AppState';
 import { createStore } from './core/store/createStore';
 import StartGame, { type LectureBookController, type LectureBookPresentation } from './game/main';
@@ -42,28 +44,36 @@ const initializeLaboratory = async (): Promise<void> => {
         return;
     }
 
-    createBootShell(bootShell);
+    // Resolved from the browser's own language preferences, synchronously and before anything
+    // renders, so the first paint is already in the right language — there is no English-to-French
+    // flash and nothing about the language ever needs to be stored or restored.
+    const locale = resolveBrowserLocale();
+    createBootShell(bootShell, locale);
     void registerOfflineCache();
 
     const caseResult = await loadCaseDefinition('young-interference');
     if (!caseResult.ok) {
-        setBootShellStatus(bootShell, 'Laboratory content is unavailable. Please try again when it is available.');
+        // Localized by the stable error code, not by re-raising the dev-facing message (NFR18).
+        setBootShellStatus(bootShell, translateError(locale, caseResult.error));
         return;
     }
 
     let repository: CaseRecordRepository | undefined;
-    let initialState = createInitialAppState(caseResult.value);
+    let initialState = createInitialAppState(caseResult.value, locale);
     if (!validationMode) {
         repository = new CaseRecordRepository();
         const saved = await repository.load(caseResult.value.id);
         const restored = saved.ok && saved.value
-            ? createAppStateFromCaseRecord(saved.value, caseResult.value)
+            // The live session's language, never the record's: importing an investigation exported
+            // on a French machine must not change this player's interface language.
+            ? createAppStateFromCaseRecord(saved.value, caseResult.value, locale)
             : undefined;
         initialState = restored?.ok ? restored.value : initialState;
+        const t = createTranslator(locale);
         if (saved.ok && saved.value && !restored?.ok) {
-            setBootShellStatus(bootShell, 'Saved progress could not be used. A fresh investigation is ready.');
+            setBootShellStatus(bootShell, t('boot.status.savedProgressUnusable'));
         } else if (!saved.ok) {
-            setBootShellStatus(bootShell, 'Saved progress is unavailable right now. The investigation is ready to continue.');
+            setBootShellStatus(bootShell, t('boot.status.savedProgressUnavailable'));
         }
     }
     const store = createStore(initialState);

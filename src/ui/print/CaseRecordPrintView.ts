@@ -1,5 +1,14 @@
+import { formatRecordedValue } from '../../core/i18n/formatNumber';
+import { resolveLocalizedText } from '../../core/i18n/resolveLocalizedText';
+import { createTranslator, type Translator } from '../../core/i18n/translate';
 import type { AppStore } from '../../core/store/createStore';
-import { selectCompletionSnapshot, selectContextualArtifacts, selectDecisionHistory, selectNotebookObservations, selectSavedPrediction, selectTheoryBoardDraft } from '../../core/store/selectors';
+import {
+    selectCompletionSnapshot, selectContextualArtifacts, selectControlLabel, selectDecisionHistory,
+    selectFormattedControlValue, selectLocale, selectNotebookObservations, selectSavedPrediction,
+    selectSourceLabel, selectTheoryBoardDraft
+} from '../../core/store/selectors';
+import type { AppState } from '../../core/store/AppState';
+import type { PeerReviewProjection } from '../../domain/review/peerReviewRules';
 
 const term = (label: string, value: string): HTMLDivElement => {
     const item = document.createElement('div');
@@ -11,91 +20,141 @@ const term = (label: string, value: string): HTMLDivElement => {
     return item;
 };
 
+const listItem = (text: string): HTMLLIElement => Object.assign(document.createElement('li'), { textContent: text });
+
+/**
+ * Peer-review issues carry canonical English feedback because that text is persisted and compared on
+ * load. The display resolves the active language from the authored rule the issue names, keyed by
+ * `ruleId`, and falls back to the canonical text if a rule ever disappears from the definition.
+ */
+const localizedFeedback = (state: AppState, t: Translator, feedback: PeerReviewProjection): string => {
+    if (feedback.status !== 'reviewed') return t('review.unavailable');
+    if (!feedback.issues.length) return t('print.history.noIssues');
+    const locale = selectLocale(state);
+    return feedback.issues.map((issue) => {
+        const rule = state.caseDefinition.peerReviewRules.find(({ id }) => id === issue.ruleId);
+        return rule ? resolveLocalizedText(rule.feedback, locale) : issue.feedback;
+    }).join(' ');
+};
+
 /** Semantic, selector-driven print record; it does not inspect the Phaser canvas. */
 export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): (() => void) => {
     const render = (): void => {
         const state = store.getState();
+        const locale = selectLocale(state);
+        const t = createTranslator(locale);
+        const runLabel = (runId: string): string => {
+            const index = state.runs.findIndex((run) => run.id === runId);
+            return index === -1 ? t('print.observation.unavailable') : t('print.observation.label', { index: index + 1 });
+        };
+
         const record = document.createElement('article');
         record.className = 'case-record-print-view';
-        record.setAttribute('aria-label', 'Printable investigation record');
-        const heading = document.createElement('h2'); heading.textContent = 'Investigation record';
+        record.setAttribute('aria-label', t('print.ariaLabel'));
+        const heading = document.createElement('h2'); heading.textContent = t('print.title');
+
         const settings = document.createElement('section');
-        const settingsHeading = document.createElement('h3'); settingsHeading.textContent = 'Apparatus settings';
+        const settingsHeading = document.createElement('h3'); settingsHeading.textContent = t('print.settings.heading');
         const settingsList = document.createElement('dl');
-        state.caseDefinition.apparatus.primaryControls.forEach((control) => settingsList.append(term(control.label, `${state.activeControlValues[control.id]} ${control.unit}`)));
+        state.caseDefinition.apparatus.primaryControls.forEach((control) =>
+            settingsList.append(term(selectControlLabel(state, control.id), selectFormattedControlValue(state, control.id))));
         settings.append(settingsHeading, settingsList);
+
         const observations = document.createElement('section');
-        const observationsHeading = document.createElement('h3'); observationsHeading.textContent = 'Recorded observations';
+        const observationsHeading = document.createElement('h3'); observationsHeading.textContent = t('print.observations.heading');
         const observationList = document.createElement('ol');
         selectNotebookObservations(state).forEach((run, index) => {
-            const item = document.createElement('li');
-            item.textContent = `Observation ${index + 1}: ${run.result.label}: ${run.result.value} ${run.result.unit}. ${run.timestamp}. Model ${run.experimentModelVersion}. ${run.modelInputs ? `Inputs: ${run.modelInputs.wavelengthNm} nm (${run.modelInputs.wavelengthMode}), ${run.modelInputs.screenDistanceM} m screen distance, ${run.modelInputs.slitSpacingMm} mm slit spacing.` : 'Pre-model observation; not treated as a physical Young measurement.'}`;
-            observationList.append(item);
+            const inputs = run.modelInputs
+                ? t('print.observations.inputs', {
+                    wavelength: run.modelInputs.wavelengthNm,
+                    mode: t(`lab.wavelengthMode.${run.modelInputs.wavelengthMode}`),
+                    screenDistance: formatRecordedValue(locale, run.modelInputs.screenDistanceM, 'm'),
+                    slitSpacing: formatRecordedValue(locale, run.modelInputs.slitSpacingMm, 'mm')
+                })
+                : t('print.observations.preModel');
+            observationList.append(listItem(t('print.observations.item', {
+                index: index + 1,
+                // The stored `result.label` stays canonical English so saved runs revalidate; the
+                // display resolves the same measurement by key.
+                label: t('experiment.result.fringeSpacing'),
+                value: formatRecordedValue(locale, run.result.value, run.result.unit),
+                timestamp: run.timestamp,
+                model: run.experimentModelVersion,
+                inputs
+            })));
         });
-        if (!observationList.children.length) observationList.append(Object.assign(document.createElement('li'), { textContent: 'No observations recorded.' }));
+        if (!observationList.children.length) observationList.append(listItem(t('print.observations.empty')));
         observations.append(observationsHeading, observationList);
+
         const sources = document.createElement('section');
-        const sourceHeading = document.createElement('h3'); sourceHeading.textContent = 'Inspected sources';
+        const sourceHeading = document.createElement('h3'); sourceHeading.textContent = t('print.sources.heading');
         const sourceList = document.createElement('ul');
         selectContextualArtifacts(state).filter((source) => state.inspectedSourceIds.includes(source.id)).forEach((source) => {
-            const item = document.createElement('li');
-            item.textContent = `${source.displayName} — ${source.provenance.category.replace(/-/g, ' ')}; ${source.provenance.reference}.`;
-            sourceList.append(item);
+            sourceList.append(listItem(t('print.sources.item', {
+                name: resolveLocalizedText(source.displayName, locale),
+                // The provenance category is an enum id, not prose: resolve it rather than
+                // de-kebabing it into English.
+                category: t(`source.provenance.${source.provenance.category}`),
+                reference: source.provenance.reference
+            })));
         });
-        if (!sourceList.children.length) sourceList.append(Object.assign(document.createElement('li'), { textContent: 'No sources inspected.' }));
+        if (!sourceList.children.length) sourceList.append(listItem(t('print.sources.empty')));
         sources.append(sourceHeading, sourceList);
+
         const prediction = document.createElement('section');
-        const predictionHeading = document.createElement('h3'); predictionHeading.textContent = 'Tentative prediction';
+        const predictionHeading = document.createElement('h3'); predictionHeading.textContent = t('print.prediction.heading');
         const predictionList = document.createElement('dl');
-        predictionList.append(term('Recorded prediction', selectSavedPrediction(state) || 'No prediction recorded.'));
+        predictionList.append(term(t('print.prediction.term'), selectSavedPrediction(state) || t('print.prediction.empty')));
         prediction.append(predictionHeading, predictionList);
+
         const comparison = document.createElement('section');
-        const comparisonHeading = document.createElement('h3'); comparisonHeading.textContent = 'Comparison notes';
+        const comparisonHeading = document.createElement('h3'); comparisonHeading.textContent = t('print.comparison.heading');
         const comparisonList = document.createElement('ul');
         state.comparison.notes.forEach((note) => {
-            const item = document.createElement('li');
-            item.textContent = `${note.runIds.map((id) => {
-                const index = state.runs.findIndex((run) => run.id === id);
-                return index === -1 ? 'Unavailable observation' : `Observation ${index + 1}`;
-            }).join(' and ')}: ${note.text}`;
-            comparisonList.append(item);
+            comparisonList.append(listItem(t('print.comparison.item', {
+                runs: note.runIds.map(runLabel).join(t('print.comparison.join')),
+                note: note.text
+            })));
         });
-        if (!comparisonList.children.length) comparisonList.append(Object.assign(document.createElement('li'), { textContent: 'No comparison notes saved.' }));
+        if (!comparisonList.children.length) comparisonList.append(listItem(t('print.comparison.empty')));
         comparison.append(comparisonHeading, comparisonList);
+
         const theory = selectTheoryBoardDraft(state);
         const conclusion = document.createElement('section');
-        const conclusionHeading = document.createElement('h3'); conclusionHeading.textContent = 'Conclusion and limitation';
+        const conclusionHeading = document.createElement('h3'); conclusionHeading.textContent = t('print.conclusion.heading');
         const conclusionList = document.createElement('dl');
-        conclusionList.append(term('Conclusion', theory.conclusion || 'No conclusion recorded.'), term('Stated limitation', theory.limitation || 'No limitation recorded.'));
+        conclusionList.append(
+            term(t('print.conclusion.term'), theory.conclusion || t('print.conclusion.empty')),
+            term(t('print.limitation.term'), theory.limitation || t('print.limitation.empty'))
+        );
         conclusion.append(conclusionHeading, conclusionList);
+
         const history = document.createElement('section');
-        const historyHeading = document.createElement('h3'); historyHeading.textContent = 'Decision history';
+        const historyHeading = document.createElement('h3'); historyHeading.textContent = t('print.history.heading');
         const historyList = document.createElement('ol');
         selectDecisionHistory(state).forEach((entry) => {
-            const item = document.createElement('li');
-            const selectedRuns = entry.selectedRunIds.map((id) => {
-                const index = state.runs.findIndex((run) => run.id === id);
-                return index === -1 ? 'Unavailable observation' : `Observation ${index + 1}`;
-            }).join(', ') || 'No observations';
-            const selectedSources = entry.selectedSourceIds.map((id) => {
-                const source = selectContextualArtifacts(state).find((artifact) => artifact.id === id);
-                return source?.displayName ?? 'Unavailable source';
-            }).join(', ') || 'No sources';
-            const feedback = entry.feedback.status === 'reviewed'
-                ? entry.feedback.issues.length
-                    ? entry.feedback.issues.map((issue) => issue.feedback).join(' ')
-                    : 'Peer review found no issues.'
-                : entry.feedback.message;
-            item.textContent = `Version ${entry.version}, saved ${entry.timestamp}. Conclusion: ${entry.conclusion}. Limitation: ${entry.limitation}. Supporting observations: ${selectedRuns}. Supporting sources: ${selectedSources}. Peer feedback: ${feedback}`;
-            historyList.append(item);
+            historyList.append(listItem(t('print.history.item', {
+                version: entry.version,
+                timestamp: entry.timestamp,
+                conclusion: entry.conclusion,
+                limitation: entry.limitation,
+                runs: entry.selectedRunIds.map(runLabel).join(', ') || t('print.history.noRuns'),
+                sources: entry.selectedSourceIds.map((id) => selectSourceLabel(state, id)).join(', ') || t('print.history.noSources'),
+                feedback: localizedFeedback(state, t, entry.feedback)
+            })));
         });
-        if (!historyList.children.length) historyList.append(Object.assign(document.createElement('li'), { textContent: 'No reviewed revisions saved.' }));
+        if (!historyList.children.length) historyList.append(listItem(t('print.history.empty')));
         history.append(historyHeading, historyList);
+
         const completion = selectCompletionSnapshot(state);
         if (completion) {
             const completed = document.createElement('section');
-            const completedHeading = document.createElement('h3'); completedHeading.textContent = 'Historical completion snapshot';
-            const completedText = document.createElement('p'); completedText.textContent = `Completed ${completion.completedAt}. Final conclusion: ${completion.finalDecision.conclusion}. The historical record remains unchanged during counterfactual replay.`;
+            const completedHeading = document.createElement('h3'); completedHeading.textContent = t('print.completion.heading');
+            const completedText = document.createElement('p');
+            completedText.textContent = t('print.completion.text', {
+                timestamp: completion.completedAt,
+                conclusion: completion.finalDecision.conclusion
+            });
             completed.append(completedHeading, completedText);
             record.append(heading, settings, observations, sources, prediction, comparison, conclusion, history, completed);
         } else {

@@ -1,5 +1,49 @@
 import { expect, test } from '@playwright/test';
 
+import { en } from '../../src/core/i18n/locales/en';
+import { fr } from '../../src/core/i18n/locales/fr';
+
+/**
+ * AC2's release gate: the interface language is right after an offline reload, not just online.
+ *
+ * The language comes from the browser, so Playwright's `locale` context option is the whole input —
+ * it is what `navigator.language` reports. Kept as its own test, with its own French context, so the
+ * locale gate is verified independently of the progress-restore flow below, which depends on the
+ * notebook-recording path tracked in `deferred-work.md`.
+ */
+test.describe('French browser', () => {
+    test.use({ locale: 'fr-FR' });
+
+    test('boots in French and stays French after an offline reload', async ({ page, context }) => {
+        await page.goto('/');
+        await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
+        await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
+        // No in-game control: the browser is the only input, so there is nothing to click or store.
+        await expect(page.getByTestId('language-selector')).toHaveCount(0);
+
+        await page.waitForFunction(() => navigator.serviceWorker.ready);
+        // The worker caches per response as it fetches; let the warm-up finish before cutting the network.
+        await page.reload();
+        await expect(page.getByRole('button', { name: fr['boot.enter'] })).toBeVisible();
+
+        await context.setOffline(true);
+        await page.reload();
+
+        await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
+        await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
+        await expect(page.getByRole('region', { name: fr['curatedRecord.heading'] })).toBeVisible();
+        await page.getByRole('button', { name: fr['boot.enter'] }).click();
+        await expect(page.locator('#boot-status')).toHaveText(fr['boot.status.ready']);
+    });
+});
+
+test('boots an English browser in English', async ({ page }) => {
+    await page.goto('/');
+
+    await expect(page.getByRole('heading', { name: en['boot.title'] })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+});
+
 test('restores saved progress and decision history after an offline reload', async ({ page, context }) => {
 
     await page.goto('/');

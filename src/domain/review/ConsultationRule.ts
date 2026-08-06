@@ -1,11 +1,16 @@
-import type { ConsultationRule } from '../cases/CaseDefinition';
+import type { ConsultationRule, LocalizedText, ProgressiveHelpLayers } from '../cases/CaseDefinition';
 import type { RunRecord } from '../evidence/RunRecord';
 import type { TheoryBoardDraft } from '../theory/conclusionReadiness';
 
+/**
+ * Carries the authored text in every locale rather than a resolved string: the domain selects *which*
+ * consultation applies, and the presentation resolves the active language. This projection is
+ * transient — it is never written into the portable record.
+ */
 export type ConsultationProjection = Readonly<{
     ruleId: string;
-    layers: Readonly<{ observation: string; plainLanguage: string; technicalDetail: string }>;
-    nextStep: string;
+    layers: ProgressiveHelpLayers;
+    nextStep: LocalizedText;
 }>;
 
 export type ConsultationEvidence = Readonly<{

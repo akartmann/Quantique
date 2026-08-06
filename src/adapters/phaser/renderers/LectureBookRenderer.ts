@@ -1,5 +1,10 @@
 import type { Scene } from 'phaser';
 
+import { bookTextStyle, uiTextStyle } from '../textStyles';
+import type { Locale } from '../../../core/i18n/Locale';
+import { createTranslator, type Translator } from '../../../core/i18n/translate';
+import type { LocalizedTextualRendition, RenditionLocale } from '../../../domain/cases/CaseDefinition';
+
 export type LectureBookPagePresentation = Readonly<{
     id: string;
     heading: string;
@@ -11,6 +16,9 @@ export type LectureBookPagePresentation = Readonly<{
 export type LectureBookPresentation = Readonly<{
     title: string;
     sourceLabel: string;
+    /** The language these pages are actually in, and whether they transcribe the source or translate it. */
+    renditionLocale: RenditionLocale;
+    renditionKind: LocalizedTextualRendition['kind'];
     index: number;
     total: number;
     pages: readonly [LectureBookPagePresentation, LectureBookPagePresentation?];
@@ -55,15 +63,21 @@ export class LectureBookRenderer {
     private interactionSurface?: Phaser.GameObjects.Zone;
     private title?: Phaser.GameObjects.Text;
     private source?: Phaser.GameObjects.Text;
+    private originalLanguageNote?: Phaser.GameObjects.Text;
     private currentPresentation?: LectureBookPresentation;
     private isClosing = false;
     private summaryOpen = false;
-    private readonly resolution = Math.min(window.devicePixelRatio || 1, 2);
 
     public constructor(
         private readonly scene: Scene,
-        private readonly onOverlayVisibilityChange: (visible: boolean) => void
+        private readonly onOverlayVisibilityChange: (visible: boolean) => void,
+        /** Read at redraw time rather than captured: this overlay never re-runs `create()`. */
+        private readonly getLocale: () => Locale = () => 'en'
     ) {}
+
+    private translator(): Translator {
+        return createTranslator(this.getLocale());
+    }
 
     public readonly controller: LectureBookController = {
         show: (presentation) => this.show(presentation),
@@ -138,14 +152,19 @@ export class LectureBookRenderer {
         this.blocker = this.scene.add.rectangle(width / 2, height / 2, width, height, 0x07161a, 0.88);
         const paper = this.scene.add.rectangle(width / 2, PAPER_CENTER_Y, PAPER_WIDTH, PAPER_HEIGHT, PAPER).setStrokeStyle(5, 0xc1a973);
         const spine = this.scene.add.rectangle(width / 2, PAPER_CENTER_Y, 8, PAPER_HEIGHT - 34, 0xb79a65);
-        this.title = this.scene.add.text(width / 2, 55, '', {
-            color: INK, fontFamily: 'Georgia, serif', fontSize: '21px', fontStyle: 'bold', resolution: this.resolution
-        }).setOrigin(0.5);
-        this.source = this.scene.add.text(width / 2, 85, '', {
-            color: '#53626a', fontFamily: 'system-ui', fontSize: '13px', resolution: this.resolution
-        }).setOrigin(0.5);
+        // Wrapped, not clipped: a French reader label or spread caption runs longer than its
+        // English counterpart and would otherwise overrun the paper edge.
+        this.title = this.scene.add.text(width / 2, 55, '', bookTextStyle({
+            color: INK, fontSize: '21px', fontStyle: 'bold', align: 'center', wordWrap: { width: PAPER_WIDTH - 120 }
+        })).setOrigin(0.5);
+        this.source = this.scene.add.text(width / 2, 85, '', uiTextStyle({
+            color: '#53626a', fontSize: '13px', align: 'center', wordWrap: { width: PAPER_WIDTH - 120 }
+        })).setOrigin(0.5);
+        this.originalLanguageNote = this.scene.add.text(width / 2, 108, '', uiTextStyle({
+            color: '#7c6a45', fontSize: '12px', fontStyle: 'italic', align: 'center', wordWrap: { width: PAPER_WIDTH - 120 }
+        })).setOrigin(0.5);
         this.pages = this.scene.add.container(0, 0);
-        this.overlay = this.scene.add.container(0, 0, [this.blocker, paper, spine, this.title, this.source, this.pages]);
+        this.overlay = this.scene.add.container(0, 0, [this.blocker, paper, spine, this.title, this.source, this.originalLanguageNote, this.pages]);
         this.overlay.setDepth(10_000);
         this.overlay.setSize(width, height);
         // This direct Scene zone has an unambiguous top-left coordinate system. It routes
@@ -162,36 +181,50 @@ export class LectureBookRenderer {
 
     private drawSpread(presentation: LectureBookPresentation): void {
         if (!this.pages || !this.overlay) return;
+        const t = this.translator();
         this.title?.setText(presentation.title);
-        this.source?.setText(`${presentation.sourceLabel} · spread ${presentation.index + 1} of ${presentation.total}`);
+        this.source?.setText(t('book.caption.spread', {
+            source: presentation.sourceLabel,
+            index: presentation.index + 1,
+            total: presentation.total
+        }));
         this.pages.removeAll(true);
         presentation.pages.forEach((page, pageIndex) => {
-            if (page) this.drawPage(page, pageIndex);
+            if (page) this.drawPage(page, pageIndex, t);
         });
-        this.drawControl(188, CONTROL_Y, '‹ Previous', presentation.canGoPrevious);
-        this.drawControl(512, CONTROL_Y, 'Close book', true);
-        this.drawControl(836, CONTROL_Y, 'Next ›', presentation.canGoNext);
-        if (presentation.summary?.length) this.drawControl(SUMMARY_TOGGLE_X, SUMMARY_TOGGLE_Y, 'Show summary', true);
+        // The reader is never left guessing what these pages are. A translation says so; a source in
+        // a language other than the one being read says that instead. Only on the spread — the
+        // summary beside it is authored copy, so the note would misdescribe it.
+        this.originalLanguageNote?.setText(
+            presentation.renditionKind === 'translation'
+                ? t('book.translatedRendition')
+                : presentation.renditionLocale === this.getLocale() ? '' : t('book.originalLanguage')
+        );
+        this.drawControl(188, CONTROL_Y, t('book.previous'), presentation.canGoPrevious);
+        this.drawControl(512, CONTROL_Y, t('book.close'), true);
+        this.drawControl(836, CONTROL_Y, t('book.next'), presentation.canGoNext);
+        if (presentation.summary?.length) this.drawControl(SUMMARY_TOGGLE_X, SUMMARY_TOGGLE_Y, t('book.summary.show'), true);
     }
 
     private drawSummary(presentation: LectureBookPresentation): void {
         if (!this.pages) return;
+        const t = this.translator();
         this.title?.setText(presentation.title);
-        this.source?.setText(`${presentation.sourceLabel} · summary`);
+        this.source?.setText(t('book.caption.summary', { source: presentation.sourceLabel }));
+        this.originalLanguageNote?.setText('');
         this.pages.removeAll(true);
         // A clean single panel over the paper so the book's centre spine does not cross the summary text.
         const panel = this.scene.add.rectangle(CENTER_X, PAPER_CENTER_Y, PAPER_WIDTH - 40, PAPER_HEIGHT - 30, PAPER);
         this.pages.add(panel);
-        const heading = this.scene.add.text(CENTER_X, 166, 'Summary', {
-            color: INK, fontFamily: 'Georgia, serif', fontSize: '20px', fontStyle: 'bold', resolution: this.resolution
-        }).setOrigin(0.5, 0);
-        const body = this.scene.add.text(CENTER_X, 214, (presentation.summary ?? []).join('\n\n'), {
-            color: INK, fontFamily: 'Georgia, serif', fontSize: '15px', resolution: this.resolution,
-            align: 'left', wordWrap: { width: SUMMARY_TEXT_WIDTH }
-        }).setOrigin(0.5, 0);
+        const heading = this.scene.add.text(CENTER_X, 166, t('book.summary.heading'), bookTextStyle({
+            color: INK, fontSize: '20px', fontStyle: 'bold'
+        })).setOrigin(0.5, 0);
+        const body = this.scene.add.text(CENTER_X, 214, (presentation.summary ?? []).join('\n\n'), bookTextStyle({
+            color: INK, fontSize: '15px', align: 'left', wordWrap: { width: SUMMARY_TEXT_WIDTH }
+        })).setOrigin(0.5, 0);
         this.fitSummaryText(body);
         this.pages.add([heading, body]);
-        this.drawControl(512, CONTROL_Y, 'Close summary', true);
+        this.drawControl(512, CONTROL_Y, t('book.summary.close'), true);
     }
 
     private fitSummaryText(text: Phaser.GameObjects.Text): void {
@@ -204,23 +237,25 @@ export class LectureBookRenderer {
         text.setCrop(0, 0, text.width, SUMMARY_MAX_HEIGHT);
     }
 
-    private drawPage(page: LectureBookPagePresentation, pageIndex: number): void {
+    private drawPage(page: LectureBookPagePresentation, pageIndex: number, t: Translator): void {
         const left = PAGE_LEFT_X[pageIndex];
-        const heading = this.scene.add.text(left, 166, page.heading, {
-            color: INK, fontFamily: 'Georgia, serif', fontSize: '18px', fontStyle: 'bold', resolution: this.resolution,
-            wordWrap: { width: PAGE_TEXT_WIDTH }
-        });
-        const reference = this.scene.add.text(left, 195, `Source page${page.sourcePages.length === 1 ? '' : 's'} ${page.sourcePages.join(', ')}.`, {
-            color: '#53626a', fontFamily: 'system-ui', fontSize: '12px', fontStyle: 'bold', resolution: this.resolution
-        });
-        const text = this.scene.add.text(left, BODY_TOP_Y, page.paragraphs.join('\n\n'), {
-            color: INK, fontFamily: 'Georgia, serif', fontSize: `${MAX_BODY_FONT_SIZE}px`, resolution: this.resolution,
-            wordWrap: { width: PAGE_TEXT_WIDTH }
-        });
+        const pages = page.sourcePages.join(', ');
+        const heading = this.scene.add.text(left, 166, page.heading, bookTextStyle({
+            color: INK, fontSize: '18px', fontStyle: 'bold', wordWrap: { width: PAGE_TEXT_WIDTH }
+        }));
+        const reference = this.scene.add.text(left, 195, t(page.sourcePages.length === 1 ? 'book.sourcePage.one' : 'book.sourcePage.many', { pages }), uiTextStyle({
+            color: '#53626a', fontSize: '12px', fontStyle: 'bold', wordWrap: { width: PAGE_TEXT_WIDTH }
+        }));
+        // The rendition body is a transcription of a historical primary source: it stays in its
+        // original language, with a localized note saying so. Translating it would be a new sourced
+        // artifact needing its own provenance and rights review (NFR11, FR26, FR27).
+        const text = this.scene.add.text(left, BODY_TOP_Y, page.paragraphs.join('\n\n'), bookTextStyle({
+            color: INK, fontSize: `${MAX_BODY_FONT_SIZE}px`, wordWrap: { width: PAGE_TEXT_WIDTH }
+        }));
         this.fitBodyText(text);
-        const pageNumber = this.scene.add.text(left + (PAGE_TEXT_WIDTH / 2), 635, `Printed page ${page.sourcePages.join(', ')}.`, {
-            color: '#53626a', fontFamily: 'Georgia, serif', fontSize: '14px', resolution: this.resolution
-        }).setOrigin(0.5);
+        const pageNumber = this.scene.add.text(left + (PAGE_TEXT_WIDTH / 2), 635, t('book.printedPage', { pages }), bookTextStyle({
+            color: '#53626a', fontSize: '14px'
+        })).setOrigin(0.5);
         this.pages?.add([heading, reference, text, pageNumber]);
     }
 
@@ -236,9 +271,14 @@ export class LectureBookRenderer {
     private drawControl(x: number, y: number, label: string, enabled: boolean): void {
         const background = this.scene.add.rectangle(x, y, 150, 42, enabled ? 0xe7c866 : 0x9aa7a6, enabled ? 1 : 0.55)
             .setStrokeStyle(2, 0x4c5d60);
-        const text = this.scene.add.text(x, y, label, {
-            color: '#10252c', fontFamily: 'system-ui', fontSize: '15px', fontStyle: 'bold', resolution: this.resolution
-        }).setOrigin(0.5);
+        // Shrink-to-fit rather than overflow: French control labels run longer than their English
+        // counterparts and the button width is fixed by the hit-test geometry below.
+        const text = this.scene.add.text(x, y, label, uiTextStyle({
+            color: '#10252c', fontSize: '15px', fontStyle: 'bold', align: 'center'
+        })).setOrigin(0.5);
+        for (let fontSize = 15; fontSize >= 10 && text.width > CONTROL_WIDTH - 16; fontSize -= 1) {
+            text.setFontSize(fontSize);
+        }
         this.pages?.add([background, text]);
     }
 
@@ -315,6 +355,7 @@ export class LectureBookRenderer {
         this.interactionSurface = undefined;
         this.title = undefined;
         this.source = undefined;
+        this.originalLanguageNote = undefined;
         this.isClosing = false;
         this.summaryOpen = false;
         this.onOverlayVisibilityChange(false);

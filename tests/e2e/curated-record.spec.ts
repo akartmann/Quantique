@@ -132,8 +132,13 @@ test('opens the readable book and closes it under reduced motion', async ({ page
 test('uses the authored reader label from the case definition as the book identity', async ({ page }) => {
     await page.route('**/cases/young-interference/case.json', async (route) => {
         const response = await route.fetch();
-        const definition = await response.json() as { contextualArtifacts: Array<{ textualRendition?: { readerLabel: string } }> };
-        definition.contextualArtifacts[0].textualRendition!.readerLabel = 'Open the local primary source';
+        const definition = await response.json() as { contextualArtifacts: Array<{ textualRendition?: { readerLabel: { en: string; fr: string } } }> };
+        // Both locales: the case contract requires every localizable string to carry `en` and `fr`,
+        // and a missing one is rejected by Zod before the definition reaches the app.
+        definition.contextualArtifacts[0].textualRendition!.readerLabel = {
+            en: 'Open the local primary source',
+            fr: 'Ouvrir la source primaire locale'
+        };
         await route.fulfill({ response, json: definition });
     });
     await page.goto('/');

@@ -134,8 +134,14 @@ const validIds = (values: readonly string[], available: ReadonlySet<string>): bo
 
 /** Revalidates untrusted progress against the immutable definition already loaded by the app. */
 export const validateCaseRecordForDefinition = (record: CaseRecord, definition: CaseDefinition): Result<CaseRecord> => {
+    // Case-definition versions whose *progress-bearing* contract is unchanged, so a record saved
+    // against the older version still validates. 1.5.0 added `fr` to authored display text and 1.6.0
+    // added a French rendition of the archival pages — no run, decision, or recognition value moved
+    // in either — and rejecting the older versions here would discard every saved investigation on
+    // upgrade (NFR12).
     const compatibleDefinitionVersion = record.caseDefinitionVersion === definition.version
-        || (definition.version === '1.2.0' && ['1.0.0', '1.1.0'].includes(record.caseDefinitionVersion));
+        || (definition.version === '1.2.0' && ['1.0.0', '1.1.0'].includes(record.caseDefinitionVersion))
+        || (definition.version === '1.6.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }

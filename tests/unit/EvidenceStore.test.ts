@@ -17,28 +17,28 @@ const caseDefinition = {
     id: 'young-interference',
     apparatus: {
         primaryControls: [
-            { id: 'slitSpacingMm', label: 'Slit spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
-            { id: 'screenDistanceM', label: 'Screen distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
+            { id: 'slitSpacingMm', label: { en: 'Slit spacing', fr: 'Slit spacing [fr]' }, unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
+            { id: 'screenDistanceM', label: { en: 'Screen distance', fr: 'Screen distance [fr]' }, unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
         ]
     },
     contextualArtifacts: [
         {
             id: 'young-lecture-1801',
-            displayName: 'Young lecture record',
+            displayName: { en: 'Young lecture record', fr: 'Young lecture record [fr]' },
             creatorOrOrigin: 'Thomas Young',
             sourceType: 'lecture-record',
             provenance: { category: 'primary-material', reference: 'young-1801-lecture' },
             rightsStatus: 'reviewed',
-            caseRelationship: 'A contemporary account of the Young investigation.'
+            caseRelationship: { en: 'A contemporary account of the Young investigation.', fr: 'A contemporary account of the Young investigation. [fr]' }
         },
         {
             id: 'unavailable-source',
-            displayName: 'Unavailable contextual record',
+            displayName: { en: 'Unavailable contextual record', fr: 'Unavailable contextual record [fr]' },
             creatorOrOrigin: 'Collection record',
             sourceType: 'interpretive-essay',
             provenance: { category: 'later-interpretation', reference: 'collection-placeholder' },
             rightsStatus: 'reviewed',
-            caseRelationship: 'A contextual item that cannot be treated as verified evidence.'
+            caseRelationship: { en: 'A contextual item that cannot be treated as verified evidence.', fr: 'A contextual item that cannot be treated as verified evidence. [fr]' }
         }
     ],
     experiment: { modelVersion: 'young-observation-v1' }

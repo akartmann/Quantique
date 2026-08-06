@@ -1,3 +1,7 @@
+// Retiring pre-pivot DOM panel (Stories 1.11, 1.12, 2.1, 2.3, 2.5 replace it with a Phaser scene).
+// Authored case text is read as canonical `.en` rather than routed through the i18n layer on purpose:
+// translating a surface scheduled for deletion is throwaway work and doubles the FR copy to review.
+// Each replacement scene localizes its own text as it is built. See docs/i18n-authoring.md.
 import type { AppStore } from '../../core/store/createStore';
 import { selectConsultation } from '../../core/store/selectors';
 
@@ -39,17 +43,17 @@ export const mountConsultationPanel = (root: HTMLElement, store: AppStore): (() 
         panel.append(heading, request, status);
         if (consultation) {
             const nextStep = document.createElement('p');
-            nextStep.textContent = `Next step: ${consultation.nextStep}`;
+            nextStep.textContent = `Next step: ${consultation.nextStep.en}`;
             const observation = document.createElement('p');
-            observation.textContent = `In-play observation: ${consultation.layers.observation}`;
+            observation.textContent = `In-play observation: ${consultation.layers.observation.en}`;
             const plainLanguage = document.createElement('p');
-            plainLanguage.textContent = `Plain-language guidance: ${consultation.layers.plainLanguage}`;
+            plainLanguage.textContent = `Plain-language guidance: ${consultation.layers.plainLanguage.en}`;
             const details = document.createElement('details');
             details.dataset.reviewFocus = 'consultation-technical-detail';
             const title = document.createElement('summary');
             title.textContent = 'Technical or source detail';
             const body = document.createElement('p');
-            body.textContent = consultation.layers.technicalDetail;
+            body.textContent = consultation.layers.technicalDetail.en;
             details.append(title, body);
             panel.append(nextStep, observation, plainLanguage, details);
         }

@@ -1,9 +1,19 @@
+// Retiring pre-pivot DOM panel (Stories 1.11, 1.12, 2.1, 2.3, 2.5 replace it with a Phaser scene).
+// Its own chrome is read as canonical `.en` on purpose: translating a surface scheduled for deletion
+// is throwaway work. See docs/i18n-authoring.md.
+//
+// EXCEPTION: everything this panel projects into the Phaser reference book — the book's title, its
+// source label, its summary, and the reuse statement shown beside it — IS localized. That book is a
+// live, in-scope surface, and feeding it English while its chrome renders French would leave the
+// reader looking at a half-translated page.
+import { resolveLocalizedText, resolveLocalizedTextList, resolveRendition } from '../../core/i18n/resolveLocalizedText';
 import type { AppStore } from '../../core/store/createStore';
 import type { ContextualArtifact, LocalizedTextualRendition } from '../../domain/cases/CaseDefinition';
 import type { LectureBookPresentation } from '../../game/main';
 import {
     selectCasePhase,
     selectContextualReadiness,
+    selectLocale,
     selectMissingContextArtifactLabels,
     selectSavedPrediction
 } from '../../core/store/selectors';
@@ -78,13 +88,18 @@ export const mountCaseContextAndPrediction = (
             return;
         }
         const spread = getLectureSpread(openLectureRecord.pagination, openLectureRecord.spreadIndex);
+        const locale = selectLocale(store.getState());
+        const rendition = openLectureRecord.source.textualRendition!;
         options.onLectureBookPresentationChange({
-            title: openLectureRecord.source.textualRendition!.readerLabel,
-            sourceLabel: openLectureRecord.source.displayName,
+            title: resolveLocalizedText(rendition.readerLabel, locale),
+            sourceLabel: resolveLocalizedText(openLectureRecord.source.displayName, locale),
             index: spread.index,
             total: spread.total,
             pages: spread.pages,
-            summary: openLectureRecord.source.textualRendition!.summary,
+            summary: rendition.summary && resolveLocalizedTextList(rendition.summary, locale),
+            // The book states what it is showing: the transcription of record, or a translation of it.
+            renditionLocale: openLectureRecord.rendition.locale,
+            renditionKind: openLectureRecord.rendition.kind,
             canGoPrevious: spread.canGoPrevious,
             canGoNext: spread.canGoNext,
             onPrevious: () => moveSpread(-1),
@@ -98,13 +113,14 @@ export const mountCaseContextAndPrediction = (
     const renderSourceAttribution = (panel: HTMLElement): void => {
         if (!openLectureRecord) return;
         const rendition = openLectureRecord.source.textualRendition!;
+        const locale = selectLocale(store.getState());
         const attribution = document.createElement('div');
         attribution.className = 'contextual-source-attribution';
         attribution.setAttribute('role', 'group');
-        attribution.setAttribute('aria-label', `${rendition.readerLabel} — source attribution`);
+        attribution.setAttribute('aria-label', `${resolveLocalizedText(rendition.readerLabel, locale)} — source attribution`);
         const reuse = document.createElement('p');
         reuse.className = 'contextual-reuse-statement';
-        reuse.textContent = rendition.citation.reuseStatement;
+        reuse.textContent = resolveLocalizedText(rendition.citation.reuseStatement, locale);
         const citation = document.createElement('p');
         citation.className = 'contextual-citation';
         citation.textContent = `${rendition.citation.citationText} `;
@@ -146,7 +162,7 @@ export const mountCaseContextAndPrediction = (
         const heading = document.createElement('h2');
         heading.textContent = 'Young context and prediction';
         const dispute = document.createElement('p');
-        dispute.textContent = state.caseDefinition.openingDispute;
+        dispute.textContent = state.caseDefinition.openingDispute.en;
         const guidance = document.createElement('p');
         guidance.textContent = phaseCopy(phase);
         const sourceSummary = document.createElement('p');
@@ -219,7 +235,10 @@ export const mountCaseContextAndPrediction = (
             root.replaceChildren();
         },
         openLectureRecord: (source, returnFocus) => {
-            const rendition = source.textualRendition?.renditions.find(({ locale }) => locale === 'en');
+            // The book is read in the active language; `resolveRendition` falls back to the
+            // transcription of record if that language has none.
+            const rendition = source.textualRendition
+                && resolveRendition(source.textualRendition, selectLocale(store.getState()));
             if (!rendition) return;
             openLectureRecord = { source, rendition, pagination: paginateLectureRendition(rendition), spreadIndex: 0 };
             returnFocusToSourceCard = returnFocus;

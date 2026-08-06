@@ -1,8 +1,11 @@
 import { BlendModes, type Scene } from 'phaser';
 
 import type { PhaserStoreAdapter } from '../PhaserStoreAdapter';
+import { uiTextStyle } from '../textStyles';
 import type { AppState } from '../../../core/store/AppState';
-import { selectFormattedControlValue, selectPrimaryControl } from '../../../core/store/selectors';
+import { formatMeasurement, formatRecordedValue } from '../../../core/i18n/formatNumber';
+import { createTranslator, type Translator } from '../../../core/i18n/translate';
+import { selectControlLabel, selectFormattedControlValue, selectLocale, selectPrimaryControl } from '../../../core/store/selectors';
 import type { PrimaryControl } from '../../../domain/cases/CaseDefinition';
 import { interferenceIntensity, rgbToInt, wavelengthToRgb } from '../../../domain/apparatus/opticalVisualModel';
 
@@ -28,10 +31,14 @@ export class ApparatusRenderer {
     private slitBottom?: Phaser.GameObjects.Rectangle;
     private screen?: Phaser.GameObjects.Rectangle;
     private screenLabel?: Phaser.GameObjects.Text;
+    private title?: Phaser.GameObjects.Text;
+    private guide?: Phaser.GameObjects.Text;
+    private sourceLabel?: Phaser.GameObjects.Text;
+    private decreaseButtons: Phaser.GameObjects.Text[] = [];
+    private increaseButtons: Phaser.GameObjects.Text[] = [];
     private beamGraphics?: Phaser.GameObjects.Graphics;
     private wavefrontGraphics?: Phaser.GameObjects.Graphics;
     private fringeGraphics?: Phaser.GameObjects.Graphics;
-    private readonly textResolution = Math.min(window.devicePixelRatio || 1, 2);
     private lastRunId?: string;
     private inputEnabled = true;
 
@@ -71,13 +78,15 @@ export class ApparatusRenderer {
     }
 
     public create(): void {
-        const title = this.scene.add.text(40, 28, 'Young interference — visual laboratory surface', { color: '#f7f4ef', fontFamily: 'system-ui', fontSize: '24px', resolution: this.textResolution });
-        const guide = this.scene.add.text(40, 62, 'Use the semantic laboratory controls or these matching visual step controls.', { color: '#c7d7d9', fontFamily: 'system-ui', fontSize: '15px', resolution: this.textResolution });
-        this.objects.push(title, guide);
+        // Text is authored empty here and populated by render(): create() runs once, but the language
+        // can change at any time, so every string has to come from the store subscription (AC2).
+        this.title = this.scene.add.text(40, 28, '', uiTextStyle({ color: '#f7f4ef', fontSize: '24px', wordWrap: { width: 900 } }));
+        this.guide = this.scene.add.text(40, 62, '', uiTextStyle({ color: '#c7d7d9', fontSize: '15px', wordWrap: { width: 900 } }));
+        this.objects.push(this.title, this.guide);
         this.createRichPattern();
         const controlsTop = Math.max(440, this.scene.scale.height - 190);
         this.storeAdapter.getState().caseDefinition.apparatus.primaryControls.forEach((control, index) => this.createControl(control.id, controlsTop + (index * 74)));
-        this.resultReadout = this.scene.add.text(40, controlsTop - 58, 'No fringe spacing recorded yet.', { color: '#f7f4ef', fontFamily: 'system-ui', fontSize: '19px', resolution: this.textResolution, wordWrap: { width: 620 } });
+        this.resultReadout = this.scene.add.text(40, controlsTop - 58, '', uiTextStyle({ color: '#f7f4ef', fontSize: '19px', wordWrap: { width: 620 } }));
         this.objects.push(this.resultReadout);
         this.updatePhoneReadOnlyMode();
         window.addEventListener('resize', this.updatePhoneReadOnlyMode);
@@ -89,8 +98,19 @@ export class ApparatusRenderer {
     }
 
     public render(state: AppState): void {
+        const locale = selectLocale(state);
+        const t = createTranslator(locale);
+        this.title?.setText(t('lab.title'));
+        this.guide?.setText(t('lab.guide'));
+        this.sourceLabel?.setText(t('lab.source'));
+        this.screenLabel?.setText(t('lab.screen'));
+        this.decreaseButtons.forEach((button) => button.setText(t('lab.control.decrease')));
+        this.increaseButtons.forEach((button) => button.setText(t('lab.control.increase')));
         state.caseDefinition.apparatus.primaryControls.forEach((control) => {
-            this.readouts.get(control.id)?.setText(`${control.label}: ${selectFormattedControlValue(state, control.id)}`);
+            this.readouts.get(control.id)?.setText(t('lab.control.readout', {
+                label: selectControlLabel(state, control.id),
+                value: selectFormattedControlValue(state, control.id)
+            }));
         });
         const latest = state.runs[state.runs.length - 1];
         const latestMatchesActiveSetup = latest?.modelInputs
@@ -100,10 +120,14 @@ export class ApparatusRenderer {
             && latest.modelInputs.wavelengthMode === state.selectedWavelengthMode;
         this.resultReadout?.setText(latest?.modelInputs
             ? latestMatchesActiveSetup
-                ? `Recorded pattern: ${latest.result.value} ${latest.result.unit} at ${latest.modelInputs.wavelengthNm} nm (${latest.modelInputs.wavelengthMode} path).`
-                : `Last recorded result: ${latest.result.value} ${latest.result.unit}. The changed setup is an unrecorded preview.`
-            : 'No fringe spacing recorded yet. Enter the experiment phase and use Run experiment in the semantic controls.');
-        this.renderApparatusGeometry(state, latestMatchesActiveSetup ? latest?.result.value : undefined);
+                ? t('lab.result.recorded', {
+                    value: formatRecordedValue(locale, latest.result.value, latest.result.unit),
+                    wavelength: latest.modelInputs.wavelengthNm,
+                    mode: t(`lab.wavelengthMode.${latest.modelInputs.wavelengthMode}`)
+                })
+                : t('lab.result.stale', { value: formatRecordedValue(locale, latest.result.value, latest.result.unit) })
+            : t('lab.result.emptyHint'));
+        this.renderApparatusGeometry(state, t, latestMatchesActiveSetup ? latest?.result.value : undefined);
         if (latest && latest.id !== this.lastRunId) this.animateRecordedRun();
         this.lastRunId = latest?.id;
         // With no update loop (reduced motion), the store subscription is the only paint trigger.
@@ -121,6 +145,8 @@ export class ApparatusRenderer {
         this.scene.tweens.killTweensOf([this.sourceGlow, this.sourceCore, this.resultReadout].filter(Boolean) as Phaser.GameObjects.GameObject[]);
         this.objects.forEach((object) => object.destroy());
         this.objects.length = 0; this.controls.length = 0; this.readouts.clear();
+        this.decreaseButtons.length = 0; this.increaseButtons.length = 0;
+        this.title = undefined; this.guide = undefined; this.sourceLabel = undefined;
         this.resultReadout = undefined; this.visualGuidance = undefined; this.slitTop = undefined; this.slitBottom = undefined; this.screen = undefined; this.screenLabel = undefined;
         this.sourceGlow = undefined; this.sourceCore = undefined; this.barrier = undefined;
         this.beamGraphics = undefined; this.wavefrontGraphics = undefined; this.fringeGraphics = undefined;
@@ -143,17 +169,17 @@ export class ApparatusRenderer {
 
         this.sourceGlow = this.scene.add.circle(SOURCE_X, CENTRE_Y, 26, this.wavelengthColor, 0.35).setBlendMode(BlendModes.ADD);
         this.sourceCore = this.scene.add.circle(SOURCE_X, CENTRE_Y, 13, 0xfff4d0);
-        const sourceLabel = this.scene.add.text(55, 232, 'source', { color: '#f7f4ef', fontFamily: 'system-ui', fontSize: '14px', resolution: this.textResolution });
+        this.sourceLabel = this.scene.add.text(55, 232, '', uiTextStyle({ color: '#f7f4ef', fontSize: '14px' }));
         this.barrier = this.scene.add.rectangle(BARRIER_X, CENTRE_Y, 16, 186, 0x8db7c2);
         this.slitTop = this.scene.add.rectangle(BARRIER_X, this.slitTopY, 22, 13, 0x10252c);
         this.slitBottom = this.scene.add.rectangle(BARRIER_X, this.slitBottomY, 22, 13, 0x10252c);
         this.screen = this.scene.add.rectangle(this.screenX, CENTRE_Y, 14, SCREEN_HALF_HEIGHT * 2, 0x0b1a20);
-        this.screenLabel = this.scene.add.text(this.screenX - 31, 322, 'screen', { color: '#f7f4ef', fontFamily: 'system-ui', fontSize: '14px', resolution: this.textResolution });
-        this.visualGuidance = this.scene.add.text(40, 348, 'Preview changes with the controls. Record a run to lock the exact model spacing into the pattern.', { color: '#c7d7d9', fontFamily: 'system-ui', fontSize: '13px', resolution: this.textResolution, wordWrap: { width: 620 } });
+        this.screenLabel = this.scene.add.text(this.screenX - 31, 322, '', uiTextStyle({ color: '#f7f4ef', fontSize: '14px' }));
+        this.visualGuidance = this.scene.add.text(40, 348, '', uiTextStyle({ color: '#c7d7d9', fontSize: '13px', wordWrap: { width: 620 } }));
 
         this.objects.push(
             this.fringeGraphics, this.beamGraphics, this.wavefrontGraphics,
-            this.sourceGlow, this.sourceCore, sourceLabel, this.barrier, this.slitTop, this.slitBottom,
+            this.sourceGlow, this.sourceCore, this.sourceLabel, this.barrier, this.slitTop, this.slitBottom,
             this.screen, this.screenLabel, this.visualGuidance
         );
     }
@@ -181,7 +207,7 @@ export class ApparatusRenderer {
         this.scene.tweens.add({ targets: this.resultReadout, alpha: 1, delay: 900, duration: 360, ease: 'Sine.easeOut' });
     }
 
-    private renderApparatusGeometry(state: AppState, recordedSpacingMm: number | undefined): void {
+    private renderApparatusGeometry(state: AppState, t: Translator, recordedSpacingMm: number | undefined): void {
         const slitSpacing = state.activeControlValues.slitSpacingMm;
         const screenDistance = state.activeControlValues.screenDistanceM;
         const slitGapPx = 28 + ((slitSpacing - 0.1) / 0.4) * 92;
@@ -200,9 +226,13 @@ export class ApparatusRenderer {
         this.bandSpacingPx = recordedSpacingMm === undefined ? previewSpacingPx : Math.max(8, Math.min(31, recordedSpacingMm * 4.6));
 
         this.paintFringes();
+        const locale = selectLocale(state);
         this.visualGuidance?.setText(recordedSpacingMm === undefined
-            ? `Visual preview: ${slitSpacing.toFixed(2)} mm slit spacing and ${screenDistance.toFixed(2)} m screen distance. Run experiment for an exact recorded fringe spacing.`
-            : `Recorded interference pattern: bright bands are ${recordedSpacingMm} mm apart in the saved Young model result.`);
+            ? t('lab.preview', {
+                slitSpacing: formatMeasurement(locale, slitSpacing, 2, 'mm'),
+                screenDistance: formatMeasurement(locale, screenDistance, 2, 'm')
+            })
+            : t('lab.pattern.recorded', { spacing: formatRecordedValue(locale, recordedSpacingMm, 'mm') }));
     }
 
     /**
@@ -276,15 +306,19 @@ export class ApparatusRenderer {
     }
 
     private createControl(controlId: PrimaryControl['id'], y: number): void {
-        const readout = this.scene.add.text(40, y, '', { color: '#f7f4ef', fontFamily: 'system-ui', fontSize: '18px', resolution: this.textResolution });
-        const decrease = this.createButton(390, y - 7, '−', controlId, -1);
-        const increase = this.createButton(510, y - 7, '+', controlId, 1);
+        // A French control label runs 15–25% longer than its English counterpart; the readout wraps
+        // rather than running under the step buttons at x = 390.
+        const readout = this.scene.add.text(40, y, '', uiTextStyle({ color: '#f7f4ef', fontSize: '18px', wordWrap: { width: 330 } }));
+        const decrease = this.createButton(390, y - 7, controlId, -1);
+        const increase = this.createButton(510, y - 7, controlId, 1);
+        this.decreaseButtons.push(decrease);
+        this.increaseButtons.push(increase);
         this.readouts.set(controlId, readout);
         this.objects.push(readout, decrease, increase);
     }
 
-    private createButton(x: number, y: number, label: string, controlId: PrimaryControl['id'], direction: -1 | 1): Phaser.GameObjects.Text {
-        const button = this.scene.add.text(x, y, label, { backgroundColor: '#f4d35e', color: '#10252c', fontFamily: 'system-ui', fontSize: '27px', resolution: this.textResolution, padding: { x: 20, y: 8 } });
+    private createButton(x: number, y: number, controlId: PrimaryControl['id'], direction: -1 | 1): Phaser.GameObjects.Text {
+        const button = this.scene.add.text(x, y, '', uiTextStyle({ backgroundColor: '#f4d35e', color: '#10252c', fontSize: '27px', padding: { x: 20, y: 8 } }));
         button.on('pointerup', () => {
             const state = this.storeAdapter.getState();
             const control = selectPrimaryControl(state, controlId);

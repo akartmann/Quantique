@@ -50,7 +50,8 @@ export const createStore = (initialState: AppState): AppStore => {
             return () => updateListeners.delete(listener);
         },
         replaceWithValidatedRecord: (record) => {
-            const restored = createAppStateFromCaseRecord(record, state.caseDefinition);
+            // The live session keeps its language: an imported record must not change it.
+            const restored = createAppStateFromCaseRecord(record, state.caseDefinition, state.locale);
             if (!restored.ok) return restored;
             state = restored.value;
             notify({ kind: 'record-replaced' });

@@ -1,11 +1,17 @@
 {
   "id": "young-interference",
-  "version": "1.4.0",
-  "openingDispute": "Does light travel as particles, waves, or something more subtle?",
+  "version": "1.6.0",
+  "openingDispute": {
+    "en": "Does light travel as particles, waves, or something more subtle?",
+    "fr": "La lumière se propage-t-elle comme des particules, comme des ondes, ou d’une manière plus subtile ?"
+  },
   "contextualArtifacts": [
     {
       "id": "young-lecture-1801",
-      "displayName": "Thomas Young’s 1801 lecture record",
+      "displayName": {
+        "en": "Thomas Young’s 1801 lecture record",
+        "fr": "Le compte rendu de la conférence de Thomas Young de 1801"
+      },
       "creatorOrOrigin": "Thomas Young, Royal Society Bakerian Lecture (read 12 November 1801; printed 1802)",
       "sourceType": "lecture-record",
       "provenance": {
@@ -13,23 +19,41 @@
         "reference": "young-1801-lecture"
       },
       "rightsStatus": "reviewed",
-      "caseRelationship": "Published primary-source printing of Young’s 1801 Royal Society Bakerian Lecture.",
+      "caseRelationship": {
+        "en": "Published primary-source printing of Young’s 1801 Royal Society Bakerian Lecture.",
+        "fr": "Impression d’époque, source primaire publiée, de la Bakerian Lecture donnée par Young devant la Royal Society en 1801."
+      },
       "textualRendition": {
-        "readerLabel": "Read the lecture record",
+        "readerLabel": {
+          "en": "Read the lecture record",
+          "fr": "Lire le compte rendu de la conférence"
+        },
         "citation": {
-          "reuseStatement": "This locally rendered English text is transcribed from the reviewed Wellcome Collection Public Domain Mark scan.",
+          "reuseStatement": {
+            "en": "This locally rendered English text is transcribed from the reviewed Wellcome Collection Public Domain Mark scan.",
+            "fr": "Traduction française réalisée pour ce jeu à partir du texte anglais restitué localement, lui-même transcrit de la numérisation vérifiée de la Wellcome Collection (Public Domain Mark). Ce n’est pas une édition savante : la source de référence demeure le texte anglais original."
+          },
           "citationText": "The Bakerian lecture: on the theory of light and colours / by Thomas Young, 1802. Public Domain Mark. Source: Wellcome Collection.",
           "archiveUrl": "https://wellcomecollection.org/works/u5dr8rgg"
         },
-        "summary": [
-          "Thomas Young's Bakerian Lecture (read November 1801, published 1802) sets out the undulatory, or wave, theory of light before the Royal Society.",
-          "Its central claim is that light travels as waves in a luminiferous ether, and that a principle of interference — where overlapping waves reinforce or cancel one another — accounts for the colours of thin plates and the fringes cast by narrow apertures.",
-          "Young frames his account as consistent with, not opposed to, Newton's careful optical observations, reinterpreting them under the wave model while drawing on Hooke and Huygens.",
-          "For this investigation it is the primary source behind the wave prediction: light sent through two closely spaced slits should form a stable, regularly spaced interference pattern."
-        ],
+        "summary": {
+          "en": [
+            "Thomas Young's Bakerian Lecture (read November 1801, published 1802) sets out the undulatory, or wave, theory of light before the Royal Society.",
+            "Its central claim is that light travels as waves in a luminiferous ether, and that a principle of interference — where overlapping waves reinforce or cancel one another — accounts for the colours of thin plates and the fringes cast by narrow apertures.",
+            "Young frames his account as consistent with, not opposed to, Newton's careful optical observations, reinterpreting them under the wave model while drawing on Hooke and Huygens.",
+            "For this investigation it is the primary source behind the wave prediction: light sent through two closely spaced slits should form a stable, regularly spaced interference pattern."
+          ],
+          "fr": [
+            "La Bakerian Lecture de Thomas Young (lue en novembre 1801, publiée en 1802) expose devant la Royal Society la théorie ondulatoire de la lumière.",
+            "Sa thèse centrale est que la lumière se propage sous forme d’ondes dans un éther luminifère, et qu’un principe d’interférence — deux ondes superposées se renforçant ou s’annulant — rend compte des couleurs des lames minces et des franges produites par des ouvertures étroites.",
+            "Young présente son analyse comme compatible avec les observations optiques minutieuses de Newton, et non comme leur contradiction : il les réinterprète dans le cadre ondulatoire, en s’appuyant sur Hooke et Huygens.",
+            "Pour cette enquête, c’est la source primaire de la prédiction ondulatoire : une lumière envoyée à travers deux fentes rapprochées devrait former une figure d’interférence stable et régulièrement espacée."
+          ]
+        },
         "renditions": [
           {
             "locale": "en",
+            "kind": "transcription",
             "sections": [
               {
                 "id": "young-bakerian-page-12",
@@ -407,13 +431,397 @@
                 ]
               }
             ]
+          },
+          {
+            "locale": "fr",
+            "kind": "translation",
+            "sections": [
+              {
+                "id": "young-bakerian-page-12",
+                "heading": "Page imprimée 12",
+                "paragraphs": [
+                  "C iO",
+                  "II. La Bakerian Lecture. Sur la théorie de la lumière et des couleurs. Par Thomas Young, docteur en médecine, membre de la Royal Society, professeur de philosophie naturelle à la Royal Institution.",
+                  "Lue le 12 novembre 1801. Quoique l’invention d’hypothèses plausibles, sans aucun lien avec des observations expérimentales, ne puisse être que de fort peu d’usage pour l’avancement de la connaissance de la nature, il faut néanmoins toujours reconnaître que la découverte de principes simples et uniformes, par lesquels un grand nombre de phénomènes apparemment hétérogènes se ramènent à des lois cohérentes et universelles, est d’une importance considérable pour le perfectionnement de l’entendement humain. L’objet de la présente dissertation n’est pas tant de proposer des opinions absolument nouvelles que de rapporter à leurs premiers auteurs certaines théories déjà avancées, de les appuyer par de nouvelles preuves, et de les appliquer à un grand nombre de faits divers restés jusqu’ici ensevelis dans l’obscurité. Il n’est pas non plus absolument nécessaire, dans ce cas, de produire une seule expérience nouvelle ; car nous disposons déjà d’un ample fonds d’expériences, d’autant moins contestables qu’elles ont dû être conduites sans la moindre partialité pour le système qui va les expliquer ; on avancera cependant quelques faits jusqu’ici inobservés, afin de montrer le parfait accord de ce système avec les phénomènes si divers de la nature."
+                ],
+                "sourcePages": [
+                  12
+                ]
+              },
+              {
+                "id": "young-bakerian-page-13",
+                "heading": "Page imprimée 13",
+                "paragraphs": [
+                  "Les observations optiques de Newton demeurent sans égales ; et, à part quelques inexactitudes accidentelles, elles ne font que gagner dans notre estime à mesure qu’on les compare aux tentatives postérieures pour les surpasser. Un nouvel examen des couleurs des lames minces, telles qu’elles sont décrites dans le second livre de l’Optique de Newton, a changé la prévention que j’avais déjà pour le système ondulatoire de la lumière en une très forte conviction de sa vérité et de sa suffisance ; conviction que l’analyse des couleurs des substances striées est depuis venue confirmer de la manière la plus frappante. Les phénomènes des lames minces sont en effet si singuliers que leur allure générale ne se concilie qu’avec la plus grande difficulté à quelque théorie que ce soit, si compliquée fût-elle, de celles qu’on leur a appliquées jusqu’ici ; et quelques-unes des principales circonstances n’ont jamais été expliquées, même par les suppositions les plus gratuites ; mais on verra que les moindres particularités de ces phénomènes sont non seulement parfaitement compatibles avec la théorie qui va être exposée, mais qu’elles en sont toutes les conséquences nécessaires, sans aucune supposition auxiliaire ; et cela par des inférences si simples qu’elles deviennent des corollaires particuliers qui n’exigent guère d’énumération distincte. Un examen plus étendu des divers écrits de Newton m’a montré qu’il fut en réalité le premier à suggérer une théorie telle que celle que j’entreprends de soutenir ; que ses propres opinions s’écartaient de cette théorie moins qu’on ne le suppose aujourd’hui presque universellement ; et qu’on a avancé contre lui quantité d’arguments, comme pour le réfuter, que l’on retrouve sous une forme presque semblable dans ses propres ouvrages ; et cela de la part d’un mathématicien qui n’est autre que Leonard Euler, dont le système de la lumière, pour autant qu’il mérite l’attention, était, ou aurait pu être,"
+                ],
+                "sourcePages": [
+                  13
+                ]
+              },
+              {
+                "id": "young-bakerian-page-14",
+                "heading": "Page imprimée 14",
+                "paragraphs": [
+                  "entièrement emprunté à Newton, Hooke, Huygens et Malebranche. Ceux qui sont attachés, comme ils peuvent l’être avec la plus grande justice, à toute doctrine marquée de l’approbation newtonienne, seront probablement disposés à accorder d’autant plus d’attention à ces considérations qu’elles paraissent s’accorder de plus près avec les opinions propres de Newton. C’est pourquoi, après avoir brièvement énoncé chaque position particulière de ma théorie, je recueillerai dans les divers écrits de Newton les passages qui semblent les plus favorables à son admission ; et, bien que je cite quelques mémoires que l’on peut croire en partie rétractés lors de la publication de l’Optique, je n’en emprunterai rien qui puisse passer pour contredire son jugement plus mûr. HYPOTHÈSE I. Un éther lumineux emplit l’univers, rare et élastique au plus haut degré. Passages de Newton. « L’hypothèse a certainement beaucoup plus d’affinité avec la sienne », c’est-à-dire celle du docteur Hooke, « qu’il ne paraît s’en douter ; les vibrations de l’éther étant aussi utiles et aussi nécessaires dans celle-ci que dans la sienne. » (Phil. Trans., vol. VII, p. 5087. Abr., vol. I, p. 145. Nov. 1672.) « Pour en venir à l’hypothèse : il faut d’abord y supposer qu’il existe un milieu éthéré, de constitution à peu près semblable à celle de l’air, mais beaucoup plus rare, plus subtil et plus fortement élastique. Il ne faut pas supposer que ce milieu soit une matière uniforme, mais qu’il est composé, en partie du corps principal et phlegmatique de l’éther, en partie d’autres esprits éthérés divers,"
+                ],
+                "sourcePages": [
+                  14
+                ]
+              },
+              {
+                "id": "young-bakerian-page-15",
+                "heading": "Page imprimée 15",
+                "paragraphs": [
+                  "à peu près de la manière dont l’air est composé du corps phlegmatique de l’air, mêlé de vapeurs et d’exhalaisons diverses : car les effluves électriques et magnétiques, et le principe de la gravitation, semblent attester une telle variété. » (Birch, Hist. of R. S., vol. III, p. 249. Déc. 1675.) « La chaleur (de la chambre chaude) n’est-elle pas transmise à travers le vide par les vibrations d’un milieu beaucoup plus subtil que l’air ? Et ce milieu n’est-il pas le même que celui par lequel la lumière est réfractée et réfléchie, et par les vibrations duquel la lumière communique la chaleur aux corps et se trouve mise dans des accès de facile réflexion et de facile transmission ? Et les vibrations de ce milieu dans les corps chauds ne contribuent-elles pas à l’intensité et à la durée de leur chaleur ? Et les corps chauds ne communiquent-ils pas leur chaleur aux corps froids contigus par les vibrations de ce milieu qui se propagent d’eux dans les corps froids ? Et ce milieu n’est-il pas incomparablement plus rare et plus subtil que l’air, et incomparablement plus élastique et plus actif ? Et ne pénètre-t-il pas aisément tous les corps ? Et n’est-il pas, par sa force élastique, étendu à travers tous les cieux ? Les planètes et les comètes, et tous les corps grossiers, ne peuvent-ils pas accomplir leurs mouvements dans ce milieu éthéré ? Et sa résistance ne peut-elle pas être assez faible pour être négligeable ? Par exemple, si cet éther (car je l’appellerai ainsi) était supposé 700 000 fois plus élastique que notre air, et plus de 700 000 fois plus rare, sa résistance serait environ 600 000 000 de fois moindre que celle de l’eau. Et une résistance si petite ferait à peine une altération sensible dans les mouvements des planètes en dix mille ans. Si quelqu’un demandait comment un milieu peut être si rare, qu’il me dise comment un corps électrique peut, par frottement, émettre une exhalaison si rare et si subtile, et pourtant si puissante ? Et comment les"
+                ],
+                "sourcePages": [
+                  15
+                ]
+              },
+              {
+                "id": "young-bakerian-page-16",
+                "heading": "Page imprimée 16",
+                "paragraphs": [
+                  "effluves d’un aimant peuvent traverser une lame de verre sans résistance, et cependant faire tourner une aiguille aimantée au-delà du verre ? » (Optique, Quest. 18, 22.) HYPOTHÈSE II. Des ondulations s’excitent dans cet éther chaque fois qu’un corps devient lumineux. Scolie. J’emploie le mot ondulation de préférence à celui de vibration, parce qu’on entend généralement par vibration un mouvement continué alternativement en avant et en arrière, par la combinaison de la quantité de mouvement du corps avec une force accélératrice, et qui est naturellement plus ou moins permanent ; au lieu qu’une ondulation est censée consister en un mouvement vibratoire transmis successivement à travers les différentes parties d’un milieu, sans que chaque particule tende à continuer son mouvement autrement que par la transmission des ondulations suivantes, venues d’un corps vibrant distinct ; comme, dans l’air, les vibrations d’une corde produisent les ondulations qui constituent le son. Passages de Newton. « Si j’avais à adopter une hypothèse, ce serait celle-ci, énoncée plus généralement, de manière à ne pas déterminer ce qu’est la lumière, sinon qu’elle est quelque chose de capable d’exciter des vibrations dans l’éther ; car elle deviendrait ainsi si générale et si compréhensive des autres hypothèses qu’elle laisserait peu de place à en inventer de nouvelles. » (Birch, vol. III, p. 249. Déc. 1675.) « En second lieu, il faut supposer que l’éther est un milieu vibrant comme l’air, avec des vibrations seulement bien plus rapides et plus menues ; celles de l’air, produites par la voix ordinaire d’un homme, se succédant à plus d’un demi-pied, ou d’un pied"
+                ],
+                "sourcePages": [
+                  16
+                ]
+              },
+              {
+                "id": "young-bakerian-page-17",
+                "heading": "Page imprimée 17",
+                "paragraphs": [
+                  "de distance ; mais celles de l’éther à une distance moindre que la cent-millième partie d’un pouce. Et de même que dans l’air les vibrations sont les unes plus grandes que les autres, tout en étant toutes également rapides (car dans une sonnerie de cloches le son de chaque ton s’entend à deux ou trois milles de distance, dans le même ordre où les cloches sont frappées), de même, je suppose que les vibrations éthérées diffèrent en grosseur, mais non en vitesse. Or ces vibrations, outre leur usage dans la réflexion et la réfraction, peuvent être supposées le principal moyen par lequel les parties des substances qui fermentent ou se putréfient, les liqueurs fluides, ou les corps fondus, brûlants ou autrement chauds, se maintiennent en mouvement. » (Birch, vol. III, p. 251. Déc. 1675.) « Lorsqu’un rayon de lumière tombe sur la surface d’un corps translucide, et qu’il y est réfracté ou réfléchi, n’excite-t-il pas par là des ondes de vibrations, ou tremblements, dans le milieu réfringent ou réfléchissant ? Et ces vibrations ne se propagent-elles pas à de grandes distances du point d’incidence ? Et ne rattrapent-elles pas les rayons de lumière, et, en les rattrapant successivement, ne les mettent-elles pas dans les accès de facile réflexion et de facile transmission décrits plus haut ? » (Optique, Quest. 17.) « La lumière est dans des accès de facile réflexion et de facile transmission avant son incidence sur les corps transparents. Et probablement elle y est mise dès sa première émission par les corps lumineux, et y demeure pendant tout son trajet. » (Optique, second livre, troisième partie, prop. 13.)"
+                ],
+                "sourcePages": [
+                  17
+                ]
+              },
+              {
+                "id": "young-bakerian-page-18",
+                "heading": "Page imprimée 18",
+                "paragraphs": [
+                  "HYPOTHÈSE III. La sensation des différentes couleurs dépend de la fréquence différente des vibrations excitées par la lumière dans la rétine. Passages de Newton. « L’hypothèse de celui qui m’objecte n’est pas, quant à sa partie fondamentale, contraire à la mienne. Cette supposition fondamentale est que les parties des corps, vivement agitées, excitent dans l’éther des vibrations qui se propagent en tous sens depuis ces corps en lignes droites, et causent une sensation de lumière en battant et en frappant le fond de l’œil, à peu près de la manière dont les vibrations de l’air causent une sensation de son en frappant les organes de l’ouïe. Or, l’application la plus libre et la plus naturelle de cette hypothèse à la solution des phénomènes me paraît être celle-ci : que les parties agitées des corps, selon leurs diverses grandeurs, figures et mouvements, excitent dans l’éther des vibrations de profondeurs ou de grosseurs diverses, lesquelles, se propageant pêle-mêle à travers ce milieu jusqu’à nos yeux, produisent en nous la sensation d’une lumière de couleur blanche ; mais si, par quelque moyen, celles de grosseurs inégales viennent à être séparées les unes des autres, les plus grandes engendrent la sensation d’une couleur rouge, les moindres ou les plus courtes celle d’un violet profond, et les intermédiaires celle des couleurs intermédiaires ; à peu près de la manière dont les corps, selon leurs diverses grandeurs, formes et mouvements, excitent dans l’air des vibrations de grosseurs diverses, qui, selon ces grosseurs, font les divers tons du son : que les plus grandes vibrations sont les plus capables de vaincre la résistance d’une surface réfringente, et de la traverser ainsi avec le moins de réfraction ; d’où il suit que les vibrations"
+                ],
+                "sourcePages": [
+                  18
+                ]
+              },
+              {
+                "id": "young-bakerian-page-19",
+                "heading": "Page imprimée 19",
+                "paragraphs": [
+                  "de diverses grosseurs, c’est-à-dire les rayons de diverses couleurs, qui sont mêlés ensemble dans la lumière, doivent être séparés les uns des autres par la réfraction, et causer ainsi les phénomènes des prismes et des autres substances réfringentes ; et qu’il dépend de l’épaisseur d’une mince lame transparente ou d’une bulle qu’une vibration soit réfléchie à sa surface postérieure ou transmise ; de sorte que, selon le nombre de vibrations comprises entre les deux surfaces, elles peuvent être réfléchies ou transmises pour un grand nombre d’épaisseurs successives. Et puisque les vibrations qui font le bleu et le violet sont supposées plus courtes que celles qui font le rouge et le jaune, elles doivent être réfléchies à une moindre épaisseur de la lame : ce qui suffit à expliquer tous les phénomènes ordinaires de ces lames ou de ces bulles, et aussi de tous les corps naturels dont les parties sont comme autant de fragments de telles lames. Telles semblent être les conditions les plus simples, les plus authentiques et les plus nécessaires de cette hypothèse. Et elles s’accordent si exactement avec ma théorie que, si celui qui la critique juge à propos de les appliquer, il n’a pas à craindre pour autant d’en être séparé. Mais comment il la défendra des autres difficultés, je l’ignore. » (Phil. Trans., vol. VII, p. 5088. Abr., vol. I, p. 145. Nov. 1672.) « Pour expliquer les couleurs, je suppose que, de même que des corps de grandeurs, de densités ou de sensations diverses excitent par percussion ou par quelque autre action des sons de tons divers, et par conséquent des vibrations de grosseurs différentes dans l’air, ainsi les rayons de lumière, en frappant les surfaces réfringentes rigides, excitent dans l’éther des vibrations de grosseurs diverses ; les rayons les plus gros, les plus forts ou les plus puissants, les plus grandes vibrations, et les autres de plus courtes, selon leur grosseur, leur force ou leur puissance : et par conséquent les extrémités des capillaments du nerf optique, qui tapissent"
+                ],
+                "sourcePages": [
+                  19
+                ]
+              },
+              {
+                "id": "young-bakerian-page-20",
+                "heading": "Page imprimée 20",
+                "paragraphs": [
+                  "ou forment la rétine, étant de telles surfaces réfringentes, doivent, lorsque les rayons les frappent, y exciter ces vibrations, lesquelles (comme celles du son dans un tuyau ou une trompette) courront le long des pores aqueux ou de la moelle cristalline des capillaments, à travers les nerfs optiques, jusque dans le sensorium ; et là, je suppose, elles affectent le sens de couleurs diverses, selon leur grosseur et leur mélange ; les plus grosses des couleurs les plus fortes, les rouges et les jaunes ; les moindres des plus faibles, les bleus et les violets ; les moyennes du vert ; et une confusion de toutes, du blanc ; à peu près de la manière dont, dans le sens de l’ouïe, la nature se sert de vibrations aériennes de grosseurs diverses pour engendrer des sons de tons divers ; car il faut observer l’analogie de la nature. » (Birch, vol. III, p. 262. Déc. 1675.) « Si l’on considère la persistance des mouvements excités au fond de l’œil par la lumière, ne sont-ils pas d’une nature vibratoire ? Les rayons les plus réfrangibles n’excitent-ils pas les vibrations les plus courtes, et les moins réfrangibles les plus grandes ? L’harmonie et la discordance des couleurs ne pourraient-elles pas naître des proportions des vibrations propagées à travers les fibres du nerf optique jusqu’au cerveau, comme l’harmonie et la discordance des sons naissent des proportions des vibrations de l’air ? » (Optique, Quest. 16, 13, 14.) Scolie. Puisque, pour la raison ici donnée par Newton, il est probable que le mouvement de la rétine est plutôt de nature vibratoire qu’ondulatoire, la fréquence des vibrations doit dépendre de la constitution de cette substance. Or, comme il est presque impossible de concevoir que chaque point sensible de la rétine contienne un nombre infini de particules, chacune capable de vibrer à l’unisson parfait avec toute ondulation possible, il",
+                  "■*-"
+                ],
+                "sourcePages": [
+                  20
+                ]
+              },
+              {
+                "id": "young-bakerian-page-21",
+                "heading": "Page imprimée 21",
+                "paragraphs": [
+                  "devient nécessaire d’en supposer le nombre limité, par exemple aux trois couleurs principales, le rouge, le jaune et le bleu, dont les ondulations sont entre elles en grandeur à peu près comme les nombres 8, 7 et 6 ; et que chacune de ces particules peut être mise en mouvement avec plus ou moins de force par des ondulations qui s’écartent plus ou moins d’un parfait unisson ; par exemple, les ondulations de la lumière verte, étant à peu près dans le rapport de 6 ½, affecteront également les particules à l’unisson du jaune et du bleu, et produiront le même effet qu’une lumière composée de ces deux espèces : et chaque filament sensible du nerf peut se composer de trois portions, une pour chaque couleur principale. En admettant cet exposé, il apparaît que toute tentative pour tirer des couleurs un effet musical doit demeurer infructueuse, ou du moins que rien de plus qu’une mélodie très simple ne saurait être imité par elles ; car la période, qui constitue en fait l’harmonie de tout accord, étant un multiple des périodes des ondulations simples, se trouverait dans ce cas entièrement hors des limites de sympathie de la rétine, et perdrait son effet ; de la même manière que l’harmonie d’une tierce ou d’une quarte est détruite lorsqu’on l’abaisse jusqu’aux notes les plus graves de l’échelle audible. Dans l’ouïe, il ne semble y avoir de vibration permanente d’aucune partie de l’organe. HYPOTHÈSE IV. Tous les corps matériels ont pour le milieu éthéré une attraction au moyen de laquelle il s’accumule dans leur substance, et à une petite distance autour d’eux, en un état de plus grande densité, mais non de plus grande élasticité. On a montré que les trois hypothèses précédentes, qu’on peut appeler essentielles, sont littéralement des parties du système newtonien, plus compliqué. Cette quatrième hypothèse diffère peut-être"
+                ],
+                "sourcePages": [
+                  21
+                ]
+              },
+              {
+                "id": "young-bakerian-page-22",
+                "heading": "Page imprimée 22",
+                "paragraphs": [
+                  "à quelque degré de toutes celles qui ont été proposées par les auteurs antérieurs, et elle est diamétralement opposée à celle de Newton ; mais, l’une et l’autre étant en elles-mêmes également probables, l’opposition n’est qu’accidentelle ; et il ne s’agit que de rechercher laquelle est la plus capable d’expliquer les phénomènes. On pourrait peut-être lui substituer d’autres suppositions, et c’est pourquoi je ne la tiens pas pour fondamentale ; elle me paraît cependant la plus simple et la meilleure de celles qui se sont présentées à moi. PROPOSITION I. Toutes les impulsions se propagent dans un milieu élastique homogène avec une vitesse égale. Toutes les expériences relatives au son s’accordent avec l’observation déjà citée de Newton, à savoir que toutes les ondulations se propagent dans l’air avec une vitesse égale ; et le calcul le confirme encore. (Lagrange, Misc. Taur., vol. I, p. 91. Et aussi, beaucoup plus brièvement, dans mon Syllabus d’un cours de leçons de philosophie naturelle et expérimentale, sur le point de paraître, article 289.) Si l’impulsion est assez grande pour altérer sensiblement la densité du milieu, celui-ci cessera d’être homogène ; mais, pour ce qui touche nos sens, la quantité de mouvement peut être regardée comme infiniment petite. Il est surprenant qu’Euler, quoique averti du fait, ait néanmoins soutenu que les ondulations les plus fréquentes se propagent plus rapidement. (Theor. mus. et Conject. phys.) Il est possible que la vitesse réelle des particules de l’éther lumineux soit dans une proportion beaucoup moindre à la vitesse des ondulations que dans le son ; car la lumière peut être excitée par le mouvement d’un corps qui ne parcourt qu’un mille dans le temps où la lumière en parcourt cent millions."
+                ],
+                "sourcePages": [
+                  22
+                ]
+              },
+              {
+                "id": "young-bakerian-page-23",
+                "heading": "Page imprimée 23",
+                "paragraphs": [
+                  "Scolie 1. On a démontré que, dans des milieux différents, la vitesse varie en raison sous-doublée de la force directement, et de la densité inversement. (Misc. Taur., vol. I, p. 91. Syllabus de Young, art. 294.) Scolie 2. Il est manifeste, d’après les phénomènes des corps élastiques et des sons, que les ondulations peuvent se croiser sans interruption. Mais il n’est nullement nécessaire que les diverses couleurs de la lumière blanche entremêlent leurs ondulations ; car, en supposant que les vibrations de la rétine ne durent qu’un cinq-centième de seconde après leur excitation, un million d’ondulations de chacune d’un million de couleurs peuvent arriver en succession distincte dans cet intervalle de temps, et produire le même effet sensible que si toutes les couleurs arrivaient précisément au même instant. PROPOSITION II. Une ondulation conçue comme naissant de la vibration d’une seule particule doit se répandre à travers un milieu homogène sous une forme sphérique, mais avec des quantités de mouvement différentes en différentes parties. Car, puisque toute impulsion, considérée comme positive ou négative, se propage avec une vitesse constante, chaque partie de l’ondulation doit avoir parcouru en des temps égaux des distances égales à partir du point vibrant. Et, si l’on suppose que la particule vibrante, dans le cours de son mouvement, avance d’une petite distance dans une direction donnée, la principale force de l’ondulation se trouvera naturellement droit devant elle ; derrière elle, le mouvement sera égal, mais en sens contraire ; et, à angle droit de la ligne de vibration, l’ondulation sera évanouissante. Or, pour qu’une telle ondulation poursuive sa marche à une distance considérable, il faut qu’il y ait dans chacune de ses parties une tendance à conserver son propre mouvement en ligne droite à partir"
+                ],
+                "sourcePages": [
+                  23
+                ]
+              },
+              {
+                "id": "young-bakerian-page-24",
+                "heading": "Page imprimée 24",
+                "paragraphs": [
+                  "du centre ; car si l’excès de force en un point quelconque était communiqué aux particules voisines, il n’y aurait aucune raison pour qu’il ne fût pas très promptement égalisé partout, ou, en d’autres termes, entièrement éteint, puisque les mouvements en sens contraires se détruiraient naturellement les uns les autres. L’origine du son dans la vibration d’une corde est évidemment de cette nature ; au contraire, dans une onde circulaire à la surface de l’eau, toutes les parties sont au même instant élevées ou abaissées. Il peut être difficile de montrer mathématiquement de quelle manière cette inégalité de force se conserve ; mais l’induction tirée du fait paraît inévitable ; et, tant que la science de l’hydrodynamique est assez imparfaite pour que nous ne sachions pas même résoudre le simple problème du temps qu’il faut pour vider un vase par une ouverture donnée, on ne saurait attendre de nous que nous rendions parfaitement compte d’une série de phénomènes aussi compliquée que celle des fluides élastiques. La théorie de Huygens explique à la vérité la chose d’une manière assez satisfaisante : il suppose que chaque particule du milieu propage une ondulation distincte dans toutes les directions, et que l’effet général n’est sensible que là où une portion de chaque ondulation concourt en direction au même instant ; et il est aisé de montrer qu’une telle ondulation générale se propagerait dans tous les cas rectilignement, avec une force proportionnée ; mais, dans cette supposition, il semble s’ensuivre qu’il faudrait perdre par la divergence des ondulations partielles une plus grande quantité de force qu’il ne paraît compatible avec la propagation de l’effet à une distance considérable. Il est pourtant manifeste qu’il faut naturellement s’attendre à quelque limitation de ce genre du mouvement ; car si l’intensité du mouvement d’une partie déterminée, au lieu de continuer à se propager tout droit en avant, était supposée affecter l’intensité d’une partie voisine de l’ondulation, une"
+                ],
+                "sourcePages": [
+                  24
+                ]
+              },
+              {
+                "id": "young-bakerian-page-25",
+                "heading": "Page imprimée 25",
+                "paragraphs": [
+                  "impulsion aurait dû alors passer d’un cercle intérieur à un cercle extérieur suivant une direction oblique, dans le même temps que suivant la direction du rayon, et par conséquent avec une plus grande vitesse : ce qui est contraire à la première proposition. Dans le cas de l’eau, la vitesse n’est nullement limitée avec autant de rigueur que dans celui d’un milieu élastique. Il n’est cependant pas nécessaire de supposer, et il n’est même pas probable, qu’il n’y ait absolument aucune communication latérale de la force de l’ondulation, mais plutôt que, dans les milieux très élastiques, cette communication est presque insensible. Dans l’air, si une corde est parfaitement isolée, de manière à propager exactement les vibrations décrites, elles seront en fait beaucoup moins fortes que si la corde est placée au voisinage d’une table d’harmonie, et probablement en quelque mesure à cause de cette communication latérale de mouvements de tendance opposée. Et l’on peut observer la différence d’intensité des différentes parties d’une même ondulation circulaire en tenant à bout de bras un diapason ordinaire qui résonne, et en le tournant depuis un plan dirigé vers l’oreille jusqu’à une position perpendiculaire à ce plan. PROPOSITION III. Une portion d’ondulation sphérique, admise par une ouverture dans un milieu au repos, continuera de se propager rectilignement en surfaces concentriques, terminées latéralement par des portions faibles et irrégulières d’ondulations nouvellement divergentes. À l’instant de l’admission, la circonférence de chacune des ondulations peut être supposée engendrer une ondulation partielle, remplissant l’angle naissant entre les rayons et la surface qui termine le milieu ; mais il ne s’y ajoutera rien de sensible MDCCCII. E"
+                ],
+                "sourcePages": [
+                  25
+                ]
+              },
+              {
+                "id": "young-bakerian-page-26",
+                "heading": "Page imprimée 26",
+                "paragraphs": [
+                  "à sa force par une divergence de mouvement venue de quelque autre partie de l’ondulation, faute d’une coïncidence dans le temps, comme on l’a déjà expliqué au sujet de la force variable d’une ondulation sphérique. Si en effet l’ouverture n’est que d’une petite proportion par rapport à la largeur d’une ondulation, l’ondulation nouvellement engendrée peut absorber presque toute la force de la portion admise ; et c’est là le cas considéré par Newton dans les Principes. Mais on ne peut faire aucune expérience de ce genre avec la lumière, à cause de l’extrême petitesse de ses ondulations et de l’interférence de l’inflexion ; et pourtant quelques faibles radiations divergent en fait au-delà de toutes les limites probables de l’inflexion, rendant le bord de l’ouverture distinctement visible dans toutes les directions ; Newton les attribue à quelque cause inconnue, distincte de l’inflexion (Optique, troisième livre, obs. 5), et elles répondent pleinement à la description de cette proposition. Que les lignes concentriques de la figure 1 (planche I) représentent la situation contemporaine de parties semblables d’un certain nombre d’ondulations successives divergeant du point A ; elles représenteront aussi les situations successives de chaque ondulation individuelle : que la force de chaque ondulation soit représentée par l’épaisseur du trait, et que le cône de lumière ABC soit admis par l’ouverture BC ; alors les ondulations principales se propageront en ligne droite vers GH, et les faibles radiations de chaque côté divergeront de B et de C comme centres, sans recevoir aucune force additionnelle d’un point intermédiaire D de l’ondulation, à cause de l’inégalité des lignes DE et DF. Mais si l’on admet quelque légère divergence latérale aux extrémités des ondulations, elle doit en diminuer la force sans ajouter sensiblement à celle de la lumière dissipée ; et leur"
+                ],
+                "sourcePages": [
+                  26
+                ]
+              },
+              {
+                "id": "young-bakerian-page-27",
+                "heading": "Page imprimée 27",
+                "paragraphs": [
+                  "terminaison, au lieu de la ligne droite BG, prendra la forme CH ; puisque la perte de force doit être plus considérable près de C qu’à de plus grandes distances. Cette ligne correspond à la limite de l’ombre dans la première observation de Newton, figure 1 ; et il est bien plus probable qu’une telle dissipation de lumière ait été la cause de l’agrandissement de l’ombre dans cette observation, que de l’attribuer à l’action de l’atmosphère inflectrice, laquelle aurait dû s’étendre d’un trentième de pouce de chaque côté pour le produire ; surtout si l’on considère que l’ombre ne fut pas diminuée lorsqu’on entoura le cheveu d’un milieu plus dense que l’air, ce qui aurait dû selon toute probabilité affaiblir et resserrer son atmosphère inflectrice. Dans d’autres circonstances, la divergence latérale pourrait paraître augmenter la largeur du faisceau au lieu de la diminuer. Comme le sujet de cette proposition a toujours été tenu pour la partie la plus difficile du système ondulatoire, il convient d’examiner ici les objections que Newton a fondées sur lui. « Pour moi, la supposition fondamentale elle-même me paraît impossible ; à savoir que les ondes ou vibrations d’un fluide quelconque puissent, comme les rayons de lumière, se propager en lignes droites, sans un épanchement continuel et très extravagant, se courbant de tous côtés dans le milieu au repos où elles se terminent. Je me trompe fort s’il n’y a pas et l’expérience et la démonstration du contraire. » (Phil. Trans., VII, 5089. Abr., I, 146. Nov. 1672.) « Motus omnis per fluidum propagatus divergit a recto tramite in spatia immota. » « Quoniam medium ibi », au milieu d’une ondulation E 2"
+                ],
+                "sourcePages": [
+                  27
+                ]
+              },
+              {
+                "id": "young-bakerian-page-28",
+                "heading": "Page imprimée 28",
+                "paragraphs": [
+                  "admise, « densius est, quam in spatiis hinc inde, dilatabit sese tam versus spatia utrinque sita, quam versus pulsuum rariora intervalla ; eoque pacto — pulsus eadem fere celeritate sese in medii partes quiescentes hinc inde relaxare debent ; — ideoque spatium totum occupabunt — Hoc experimur in sonis. » (Princip., liv. II, prop. 43.) « Toutes les hypothèses où la lumière est supposée consister en une pression ou un mouvement propagé à travers un milieu fluide ne sont-elles pas erronées ? Si elle consistait en une pression ou un mouvement propagé soit instantanément, soit dans le temps, elle se courberait dans l’ombre. Car une pression ou un mouvement ne peut se propager dans un fluide en lignes droites au-delà d’un obstacle qui en arrête une partie, mais il se courbera et s’épanchera de tous côtés dans le milieu au repos situé au-delà de l’obstacle. Les ondes à la surface d’une eau dormante, passant le long des bords d’un large obstacle qui en arrête une partie, se courbent ensuite et se répandent peu à peu dans l’eau tranquille derrière l’obstacle. Les ondes, pulsations ou vibrations de l’air, en quoi consistent les sons, se courbent manifestement, quoique moins que les ondes de l’eau. Car une cloche ou un canon peuvent s’entendre par-delà une colline qui intercepte la vue du corps sonore ; et les sons se propagent aussi aisément par des tuyaux courbes que par des tuyaux droits. Mais on ne connaît pas de lumière qui suive des passages courbes, ni qui se courbe dans l’ombre. Car les étoiles fixes, par l’interposition d’une planète quelconque, cessent d’être vues. Ainsi font les parties du soleil, par l’interposition de la lune, de Mercure ou de Vénus. Les rayons qui passent très près des bords d’un corps sont un peu infléchis par l’action de ce corps ; mais cette inflexion ne se fait pas vers l’ombre, mais en s’en éloignant,"
+                ],
+                "sourcePages": [
+                  28
+                ]
+              },
+              {
+                "id": "young-bakerian-page-29",
+                "heading": "Page imprimée 29",
+                "paragraphs": [
+                  "et ne s’accomplit que pendant le passage du rayon près du corps, et à une très petite distance de lui. Dès que le rayon a dépassé le corps, il va tout droit. » (Optique, Quest. 28.) Or la proposition citée des Principes ne contredit pas directement la présente proposition ; car elle n’affirme pas qu’un tel mouvement doive diverger également dans toutes les directions ; et l’on ne saurait non plus soutenir avec vérité que les parties d’un milieu élastique qui communiquent un mouvement quelconque doivent propager ce mouvement également dans toutes les directions. (Phil. Trans. pour 1800, p. 109-112.) Tout ce que le raisonnement permet de conclure, c’est que les parties marginales de l’ondulation doivent être quelque peu affaiblies, et qu’il doit y avoir une faible divergence dans toutes les directions ; mais si l’un ou l’autre de ces effets est d’une grandeur suffisante pour être sensible, c’est ce que l’argument n’aurait pu établir, si l’expérience n’en avait rendu l’affirmative probable. Quant à l’analogie avec les autres fluides, l’induction la plus naturelle est celle-ci : « Les ondes de l’air, en quoi consistent les sons, se courbent manifestement, quoique moins que les ondes de l’eau » ; l’eau étant un milieu inélastique et l’air un milieu modérément élastique ; mais l’éther étant élastique au plus haut point, ses ondes se courbent bien moins que celles de l’air, et par conséquent presque imperceptiblement. Les sons se propagent à travers des passages courbes parce que leurs parois sont capables de réfléchir le son, tout comme la lumière se propagerait à travers un tube courbe s’il était parfaitement poli à l’intérieur. La lumière d’une étoile est de beaucoup trop faible pour produire, par sa faible divergence, quelque illumination visible du bord d’une planète qui l’éclipse ; et l’interception de la lumière du soleil par la lune est aussi étrangère à la question que l’exposé de l’inflexion est inexact. À l’argument avancé par Huygens en faveur de la"
+                ],
+                "sourcePages": [
+                  29
+                ]
+              },
+              {
+                "id": "young-bakerian-page-30",
+                "heading": "Page imprimée 30",
+                "paragraphs": [
+                  "propagation rectiligne des ondulations, Newton n’a rien répondu ; peut-être à cause de sa propre méprise sur la nature des mouvements des milieux élastiques, qu’il faisait dépendre d’une loi particulière de vibration, corrigée depuis par les mathématiciens postérieurs. (Phil. Trans. pour 1800, p. 116.) Somme toute, on présume que cette proposition peut être admise sans danger, comme parfaitement conforme à l’analogie et à l’expérience. PROPOSITION IV. Lorsqu’une ondulation arrive à une surface qui sépare des milieux de densités différentes, il se produit une réflexion partielle, proportionnée en force à la différence des densités. On peut l’illustrer, sinon la démontrer, par l’analogie des corps élastiques de grandeurs différentes. « Si un corps élastique plus petit en frappe un plus grand, on sait bien que le plus petit est réfléchi avec plus ou moins de force, selon la différence de leurs grandeurs : ainsi y a-t-il toujours réflexion lorsque les rayons de lumière passent d’une couche d’éther plus rare à une plus dense ; et souvent un écho lorsqu’un son frappe un nuage. Un corps plus grand qui en frappe un plus petit le pousse sans perdre tout son mouvement : ainsi les particules d’une couche d’éther plus dense ne communiquent-elles pas tout leur mouvement à une plus rare, mais, dans leur effort pour avancer, elles sont rappelées par l’attraction de la substance réfringente avec une force égale ; et ainsi une réflexion se produit toujours secondairement lorsque les rayons de lumière passent d’une couche plus dense à une plus rare. » (Phil. Trans. pour 1800, p. 127.) Mais il n’est pas absolument nécessaire de supposer une attraction dans ce dernier cas, puisque l’effort pour avancer se propagerait en arrière sans elle, et que l’ondulation serait renversée, une raréfaction"
+                ],
+                "sourcePages": [
+                  30
+                ]
+              },
+              {
+                "id": "young-bakerian-page-31",
+                "heading": "Page imprimée 31",
+                "paragraphs": [
+                  "revenant à la place d’une condensation ; et c’est là ce qui se trouvera peut-être le plus conforme aux phénomènes. PROPOSITION V. Lorsqu’une ondulation est transmise à travers une surface qui sépare des milieux différents, elle se propage dans une direction telle que les sinus des angles d’incidence et de réfraction sont dans le rapport constant des vitesses de propagation dans les deux milieux. (Barrow, Lect. Opt. II, p. 4. Huygens, de la Lum., chap. 3. Euler, Conj. Phys. Phil. Trans. pour 1800, p. 128. Syllabus de Young, art. 382.) Corollaire 1. Les mêmes démonstrations prouvent l’égalité des angles de réflexion et d’incidence. Corollaire 2. Il ressort des expériences sur la réfraction de l’air comprimé que le rapport de la différence des sinus varie simplement comme la densité. De là il suit, par le scolie 1 de la proposition I, que l’excès de densité du milieu éthéré est en raison doublée de la densité de l’air ; chaque particule concourant avec ses voisines à en attirer une plus grande portion. PROPOSITION VI. Lorsqu’une ondulation tombe sur la surface d’un milieu plus rare, si obliquement qu’elle ne puisse être régulièrement réfractée, elle est totalement réfléchie sous un angle égal à celui de son incidence. (Phil. Trans. pour 1800, p. 128.) Corollaire. Ce phénomène tend à prouver l’accroissement et la diminution graduels de la densité à la surface qui termine deux milieux, comme il est supposé dans l’hypothèse IV ; bien que Huygens ait tenté de l’expliquer d’une manière quelque peu différente."
+                ],
+                "sourcePages": [
+                  31
+                ]
+              },
+              {
+                "id": "young-bakerian-page-32",
+                "heading": "Page imprimée 32",
+                "paragraphs": [
+                  "PROPOSITION VII. Si des ondulations équidistantes sont supposées traverser un milieu dont les parties sont susceptibles de vibrations permanentes un peu plus lentes que les ondulations, leur vitesse sera un peu diminuée par cette tendance vibratoire ; et, dans le même milieu, d’autant plus que les ondulations seront plus fréquentes. Car, chaque fois que l’état de l’ondulation exige un changement dans le mouvement actuel de la particule qui la transmet, ce changement sera retardé par la propension de la particule à continuer son mouvement un peu plus longtemps : et ce retard sera d’autant plus fréquent et plus considérable que la différence entre les périodes de l’ondulation et de la vibration naturelle sera plus grande. Corollaire. Ce fut longtemps une opinion établie que la chaleur consiste en vibrations des particules des corps, et qu’elle peut être transmise par ondulations à travers un vide apparent. (Newton, Opt., Quest. 18.) Cette opinion a été fort abandonnée depuis quelque temps. Le comte Rumford, le professeur Pictet et M. Davy sont presque les seuls auteurs qui aient paru la favoriser ; mais elle semble avoir été rejetée sans bonnes raisons, et recouvrera très probablement bientôt sa faveur. Supposons que ces vibrations soient moins fréquentes que celles de la lumière : tous les corps sont donc susceptibles de vibrations permanentes plus lentes que celles de la lumière ; et en effet presque tous sont susceptibles de vibrations lumineuses, soit dans l’état d’ignition, soit dans les circonstances des phosphores solaires, mais beaucoup moins aisément et à un bien moindre degré que des vibrations de la chaleur. Il suivra de ces suppositions que les ondulations lumineuses les plus fréquentes seront plus retardées que les moins fréquentes ; et"
+                ],
+                "sourcePages": [
+                  32
+                ]
+              },
+              {
+                "id": "young-bakerian-page-33",
+                "heading": "Page imprimée 33",
+                "paragraphs": [
+                  "par conséquent que la lumière bleue sera plus réfrangible que la rouge, et la chaleur rayonnante moins que toutes : conséquence qui s’accorde exactement avec les expériences si intéressantes du docteur Herschel. (Phil. Trans. pour 1800, p. 284.) On conçoit aisément aussi que l’existence effective d’un état de vibration plus lente puisse tendre à retarder davantage encore les ondulations les plus fréquentes, et que le pouvoir réfringent des corps solides puisse être sensiblement accru par une élévation de température, comme il paraît l’avoir été en effet dans les expériences d’Euler. (Acad. de Berlin, 1762, p. 328.) Scolie. Si, malgré cela, cette proposition paraissait insuffisamment démontrée, il faut du moins accorder qu’elle explique les phénomènes au moins aussi bien que tout ce qu’on peut avancer du côté contraire, d’après la doctrine des projectiles ; puisqu’une force accélératrice supposée devrait agir selon quelque autre proportion que celle du volume des particules ; et, si nous appelons cela une attraction élective, ce n’est que voiler sous un terme chimique notre incapacité d’assigner une cause mécanique. M. Short, ayant trouvé par observation l’égalité de vitesse de la lumière de toutes les couleurs, sentit l’objection si vivement qu’il en tira aussitôt une conclusion en faveur du système ondulatoire. Il est admis dans la proposition que, lorsque la lumière est dispersée par réfraction, les corpuscules de la substance réfringente sont dans un état de mouvement alternatif effectif, et concourent à sa transmission ; mais il faut avouer que nous ne pouvons pas encore nous former une conception bien nette et bien exacte des forces qui entretiennent ces vibrations corpusculaires."
+                ],
+                "sourcePages": [
+                  33
+                ]
+              },
+              {
+                "id": "young-bakerian-page-34",
+                "heading": "Page imprimée 34",
+                "paragraphs": [
+                  "PROPOSITION VIII. Lorsque deux ondulations d’origines différentes coïncident parfaitement ou très approximativement en direction, leur effet conjoint est une combinaison des mouvements qui appartiennent à chacune. Puisque chaque particule du milieu est affectée par chaque ondulation, partout où les directions coïncident les ondulations ne peuvent se propager qu’en unissant leurs mouvements, de sorte que le mouvement conjoint soit la somme ou la différence des mouvements séparés, selon que des parties semblables ou dissemblables des ondulations coïncident. J’ai déjà, en une autre occasion, longuement insisté sur l’application de ce principe à l’harmonie (Phil. Trans. pour 1800, p. 130) ; et il se montrera d’une utilité plus étendue encore pour expliquer les phénomènes des couleurs. Les ondulations qu’il s’agit maintenant de comparer sont celles de fréquence égale. Lorsque les deux séries coïncident exactement dans le temps, il est manifeste que la vitesse unie des mouvements particuliers doit être la plus grande, et, au moins en effet, double des vitesses séparées ; et aussi qu’elle doit être la moindre, et, si les ondulations sont de force égale, entièrement détruite, lorsque le moment du plus grand mouvement direct appartenant à une ondulation coïncide avec celui du plus grand mouvement rétrograde de l’autre. Dans les états intermédiaires, l’ondulation conjointe sera d’une force intermédiaire ; mais suivant quelles lois cette force intermédiaire doit varier, on ne saurait le déterminer sans d’autres données. Il est bien connu qu’une cause semblable produit dans le son l’effet qu’on appelle un battement ; deux séries d’ondulations de grandeur presque égale coopérant et se détruisant tour à tour, selon qu’elles coïncident"
+                ],
+                "sourcePages": [
+                  34
+                ]
+              },
+              {
+                "id": "young-bakerian-page-35",
+                "heading": "Page imprimée 35",
+                "paragraphs": [
+                  "plus ou moins parfaitement dans les temps où elles accomplissent leurs mouvements respectifs. Corollaire I. Des couleurs des surfaces striées. Boyle paraît avoir été le premier à observer les couleurs des rayures sur les surfaces polies. Newton ne les a pas remarquées. Mazéas et M. Brougham ont fait quelques expériences sur ce sujet, sans en tirer pourtant de conclusion satisfaisante. Mais toutes les variétés de ces couleurs se déduisent très aisément de cette proposition. Soient dans un plan donné deux points réfléchissants très voisins l’un de l’autre, et que le plan soit situé de telle sorte que l’image réfléchie d’un objet lumineux qu’on y voit paraisse coïncider avec ces points ; il est alors manifeste que la longueur du rayon incident et du rayon réfléchi, pris ensemble, est égale pour les deux points, si on les considère comme capables de réfléchir dans toutes les directions. Que l’un des points soit maintenant abaissé au-dessous du plan donné ; alors tout le chemin de la lumière réfléchie par lui sera allongé d’une ligne qui est à l’abaissement du point comme le double du cosinus d’incidence est au rayon. Figure 2. Si donc des ondulations égales de dimensions données sont réfléchies par deux points assez rapprochés pour ne paraître à l’œil que comme un seul, partout où cette ligne est égale à la moitié de la largeur d’une ondulation entière, la réflexion du point abaissé interférera avec la réflexion du point fixe de telle sorte que le mouvement progressif de l’une coïncidera avec le mouvement rétrograde de l’autre, et toutes deux seront détruites ; mais lorsque cette ligne est égale à la largeur entière d’une ondulation, l’effet sera doublé ; et à une largeur et demie, de nouveau détruit ; et ainsi pendant un nombre considérable d’alternances ; et, si les ondulations réfléchies sont de différentes espèces, elles F 2"
+                ],
+                "sourcePages": [
+                  35
+                ]
+              },
+              {
+                "id": "young-bakerian-page-36",
+                "heading": "Page imprimée 36",
+                "paragraphs": [
+                  "seront diversement affectées, selon leurs proportions à la longueur variable de la ligne qui est la différence entre les longueurs de leurs deux chemins, et qu’on peut nommer l’intervalle de retardement. Pour que l’effet soit plus perceptible, il faut réunir un certain nombre de paires de points en deux lignes parallèles ; et, si l’on place plusieurs de ces paires de lignes les unes près des autres, elles faciliteront l’observation. Si l’on fait tourner l’une des lignes autour de l’autre comme autour d’un axe, l’abaissement au-dessous du plan donné sera comme le sinus de l’inclinaison ; et, l’œil et l’objet lumineux demeurant fixes, la différence de longueur des chemins variera comme ce sinus. Les meilleurs objets pour cette expérience sont les micromètres si délicats de M. Coventry ; ceux d’entre eux qui consistent en lignes parallèles tracées sur du verre, à la distance d’un cinq-centième de pouce, sont les plus commodes. Chacune de ces lignes paraît au microscope se composer de deux lignes plus fines ou davantage, exactement parallèles, et distantes d’un peu plus d’un vingtième de la distance des lignes voisines. J’en plaçai une de manière à réfléchir la lumière du soleil sous un angle de 45°, et je la fixai de telle sorte que, pendant qu’elle tournait autour d’une des lignes comme autour d’un axe, je pusse mesurer son mouvement angulaire ; et je trouvai que la couleur rouge la plus vive se produisait aux inclinaisons de 10 ½°, 20 ½°, 32° et 45°, dont les sinus sont entre eux comme les nombres 1, 2, 3 et 4. À tous les autres angles aussi, lorsque la lumière du soleil était réfléchie par la surface, la couleur s’évanouissait avec l’inclinaison, et était égale à des inclinaisons égales de part et d’autre. Cette expérience fournit une confirmation très forte de la théorie. Il est impossible d’en déduire aucune explication d’aucune hypothèse avancée jusqu’ici ; et je crois qu’il serait"
+                ],
+                "sourcePages": [
+                  36
+                ]
+              },
+              {
+                "id": "young-bakerian-page-37",
+                "heading": "Page imprimée 37",
+                "paragraphs": [
+                  "difficile d’en inventer quelque autre qui en rendît compte. Il y a une analogie frappante entre cette séparation des couleurs et la production d’une note musicale par des échos successifs renvoyés par des palissades de fer équidistantes ; analogie que j’ai trouvée s’accorder assez exactement avec la vitesse connue du son et les distances des surfaces. Il n’est pas improbable que les couleurs des téguments de certains insectes, et de quelques autres corps naturels, qui offrent sous des lumières différentes la plus belle versatilité, se trouvent être de cette espèce, et ne dérivent point des lames minces. Dans certains cas, une seule rayure ou un seul sillon peut produire des effets semblables, par la réflexion de ses bords opposés. Corollaire II. Des couleurs des lames minces. Lorsqu’un faisceau de lumière tombe sur deux surfaces réfringentes parallèles, les réflexions partielles coïncident parfaitement en direction ; et, dans ce cas, l’intervalle de retardement, pris entre les surfaces, est à leur distance comme le double du cosinus de l’angle de réfraction est au rayon. Car, dans la figure 3, en menant AB et CD perpendiculaires aux rayons, les temps de parcours de BC et de AD seront égaux, et DE sera la moitié de l’intervalle de retardement ; or DE est à CE comme le sinus de DCE est au rayon. Donc, pour que DE soit constant, ou que la même couleur soit réfléchie, l’épaisseur CE doit varier comme la sécante de l’angle de réfraction CED : ce qui s’accorde exactement avec les expériences de Newton, car la correction est tout à fait négligeable. Que le milieu compris entre les surfaces soit plus rare que les milieux environnants ; alors l’impulsion réfléchie à la seconde surface, rencontrant une ondulation subséquente à la première, rendra les particules du milieu plus rare capables d’arrêter entièrement"
+                ],
+                "sourcePages": [
+                  37
+                ]
+              },
+              {
+                "id": "young-bakerian-page-38",
+                "heading": "Page imprimée 38",
+                "paragraphs": [
+                  "le mouvement du plus dense et de détruire la réflexion (prop. IV), tandis qu’elles-mêmes seront poussées plus fortement que si elles avaient été au repos ; et la lumière transmise sera augmentée. En sorte que les couleurs par réflexion seront détruites, et celles par transmission rendues plus vives, lorsque les doubles épaisseurs, ou intervalles de retardement, sont des multiples quelconques des largeurs entières des ondulations ; et qu’aux épaisseurs intermédiaires les effets seront inversés, conformément aux observations newtoniennes. Si les mêmes proportions se trouvent valoir pour les lames minces d’un milieu plus dense, ce qui n’est en effet pas improbable, il faudra adopter la démonstration corrigée de la proposition IV ; mais en tout cas, si une lame mince est interposée entre un milieu plus rare et un milieu plus dense, on peut s’attendre à ce que les couleurs par réflexion et par transmission échangent leurs places. D’après les mesures que Newton a données des épaisseurs qui réfléchissent les différentes couleurs, la largeur et la durée de leurs ondulations respectives peuvent être déterminées très exactement ; encore n’est-il pas improbable que, lorsque les verres s’approchent de très près, l’atmosphère d’éther produise quelque petite irrégularité. Tout le spectre visible paraît compris dans le rapport de trois à cinq, ou une sixte majeure en musique ; et les ondulations du rouge, du jaune et du bleu sont entre elles en grandeur comme les nombres 8, 7 et 6 ; de sorte que l’intervalle du rouge au bleu est une quarte. La fréquence absolue exprimée en nombres est trop grande pour être distinctement conçue, mais on peut mieux se la représenter par une comparaison avec le son. Si une corde donnant l’ut du ténor pouvait être bissectée quarante fois de suite et vibrait alors, elle donnerait une lumière vert jaunâtre : celle-ci étant notée ut, l’extrême rouge serait la, et le bleu ré."
+                ],
+                "sourcePages": [
+                  38
+                ]
+              },
+              {
+                "id": "young-bakerian-page-39",
+                "heading": "Page imprimée 39",
+                "paragraphs": [
+                  "La longueur et la fréquence absolues de chaque vibration sont exprimées dans la table ; en supposant que la lumière parcoure en 8 minutes ¼ cinq cents milliards de pieds.",
+                  "Table. Couleurs ; longueur d’une ondulation en parties de pouce, dans l’air ; nombre d’ondulations dans un pouce ; nombre d’ondulations par seconde (millions de millions) : Rouge extrême — 0,0000266 — 37640 — 463 ; Rouge — 0,0000256 — 39180 — 482 ; Intermédiaire — 0,0000246 — 40720 — 501 ; Orangé — 0,0000240 — 41610 — 512 ; Intermédiaire — 0,0000235 — 42510 — 523 ; Jaune — 0,0000227 — 44000 — 542 ; Intermédiaire — 0,0000219 — 45600 — 561 ; Vert — 0,0000211 — 47460 — 584 ; Intermédiaire — 0,0000203 — 49300 — 607 ; Bleu — 0,0000196 — 51110 — 629 ; Intermédiaire — 0,0000189 — 52910 — 652 ; Indigo — 0,0000185 — 54070 — 665 ; Intermédiaire — 0,0000181 — 55240 — 680 ; Violet — 0,0000174 — 57490 — 707 ; Violet extrême — 0,0000167 — 59750 — 735.",
+                  "Scolie. Ce n’est qu’après m’être satisfait sur tous ces phénomènes que je trouvai dans la Micrographia de Hooke un passage qui aurait pu me conduire plus tôt à une conclusion semblable. « Il est très évident que la réflexion à la face inférieure ou postérieure du corps est la cause principale de la production de ces couleurs. Que le rayon tombe obliquement sur la lame mince : une partie est donc réfléchie par la première surface, une partie réfractée jusqu’à la seconde, d’où elle est de nouveau réfléchie et réfractée. De sorte qu’après deux réfractions et une"
+                ],
+                "sourcePages": [
+                  39
+                ]
+              },
+              {
+                "id": "young-bakerian-page-40",
+                "heading": "Page imprimée 40",
+                "paragraphs": [
+                  "réflexion, il se propage une sorte de rayon plus faible » ; et « à cause du temps employé à passer et à repasser, cette pulsation plus faible vient derrière la » première pulsation réfléchie ; « de sorte que par là (les surfaces étant si voisines que l’œil ne peut les distinguer l’une de l’autre) cette pulsation confuse ou dédoublée, dont la partie la plus forte précède et la plus faible suit, produit sur la rétine la sensation d’un jaune. Si ces surfaces sont écartées davantage, la pulsation plus faible peut devenir coïncidente avec la » réflexion de la « seconde » pulsation suivante venue de la première surface, « et retarder aussi sur celle-là, et coïncider avec la troisième, la quatrième, la cinquième, la sixième, la septième ou la huitième ; de sorte que, s’il y a un corps mince et transparent qui, depuis la plus grande minceur requise pour produire des couleurs, croisse par degrés jusqu’à la plus grande épaisseur, les couleurs se répéteront autant de fois que la pulsation plus faible perd le pas sur sa pulsation primitive ou première, et coïncide avec une » pulsation « subséquente. Et cela, de même que c’est conforme à la première hypothèse que j’ai adoptée touchant les couleurs, ou en découle, de même l’ai-je trouvé par expérience dans quantité de cas qui semblent le prouver. » (P. 65-67.) Ceci fut imprimé environ sept ans avant qu’aucune des expériences de Newton eût été faite. Newton nous apprend que Hooke fut ensuite disposé à adopter sa « suggestion » sur la nature des couleurs ; et pourtant il ne paraît pas que Hooke ait jamais appliqué ce perfectionnement à son explication de ces phénomènes, ni recherché la conséquence nécessaire d’un changement d’obliquité sur sa supposition primitive ; autrement il n’aurait pu manquer de découvrir une coïncidence frappante avec les mesures établies par Newton d’après l’expérience. Toutes les tentatives antérieures pour expliquer les couleurs des lames minces sont parties de suppositions"
+                ],
+                "sourcePages": [
+                  40
+                ]
+              },
+              {
+                "id": "young-bakerian-page-41",
+                "heading": "Page imprimée 41",
+                "paragraphs": [
+                  "qui, comme celles de Newton, nous feraient attendre les plus grandes irrégularités dans la direction des rayons réfractés ; ou qui, comme celles de M. Michell, exigeraient du changement de l’angle d’incidence des effets contraires à ceux qu’on observe ; ou bien elles sont également défectueuses à ces deux égards, et incompatibles avec la plus médiocre attention aux principaux phénomènes. Corollaire III. Des couleurs des lames épaisses. Lorsqu’un faisceau de lumière traverse une surface réfringente, surtout si elle est imparfaitement polie, une portion en est irrégulièrement dispersée et rend la surface visible dans toutes les directions, mais le plus manifestement dans des directions peu éloignées de celle de la lumière elle-même : et, si l’on place une surface réfléchissante parallèlement à la surface réfringente, cette lumière dispersée, aussi bien que le faisceau principal, sera réfléchie, et il y aura de plus une nouvelle dissipation de lumière au retour du faisceau à travers la surface réfringente. Ces deux portions de lumière dispersée coïncideront en direction ; et, si les surfaces ont une forme propre à rassembler les effets semblables, elles offriront des anneaux de couleurs. L’intervalle de retardement est ici la différence entre les chemins du faisceau principal et de la lumière dispersée entre les deux surfaces ; par conséquent, partout où l’inclinaison de la lumière dispersée est égale à celle du faisceau, quoique dans des plans différents, l’intervalle s’évanouira, et toutes les ondulations concourront. Aux autres inclinaisons, l’intervalle sera la différence des sécantes à partir de la sécante de l’inclinaison ou angle de réfraction du faisceau principal. De ces causes découlent nécessairement toutes les couleurs des miroirs concaves observées par Newton et par d’autres : et il apparaît que leur production, quoique MDCCCII. Gr"
+                ],
+                "sourcePages": [
+                  41
+                ]
+              },
+              {
+                "id": "young-bakerian-page-42",
+                "heading": "Page imprimée 42",
+                "paragraphs": [
+                  "quelque peu semblable, n’est nullement identique, comme Newton l’imaginait, à la production de celles des lames minces. Corollaire IV. De la noirceur. Dans les trois corollaires précédents, nous avons considéré les substances réfringentes et réfléchissantes comme limitées par une surface mathématique ; mais cela n’est peut-être jamais physiquement vrai. Les atmosphères éthérées peuvent s’étendre de chaque côté de la surface jusqu’à la largeur d’une ou de plusieurs ondulations ; et, si l’on suppose qu’elles varient également en densité en chaque point, les réflexions partielles venues de chacune de l’infinité de surfaces où la densité change interféreront fortement les unes avec les autres et détruiront une portion considérable de la lumière réfléchie, de sorte que la substance peut devenir positivement noire ; et cet effet peut avoir lieu à un plus ou moins haut degré, selon que la densité de l’atmosphère éthérée varie plus ou moins également ; et, dans certains cas, des ondulations particulières étant plus affectées que d’autres, il peut se produire une teinte de couleur. Aussi M. Bouguer a-t-il observé une perte considérable de lumière, et dans quelques cas une teinte de couleur, dans les réflexions totales à la surface d’un milieu plus rare. Corollaire V. Des couleurs par inflexion. Quelle que soit la cause de l’inflexion de la lumière qui passe par une petite ouverture, la lumière la plus voisine de son centre doit être la moins détournée, et la plus voisine de ses bords la plus détournée : une autre portion de lumière, tombant très obliquement sur le bord de l’ouverture, sera copieusement réfléchie dans diverses directions, dont quelques-unes coïncideront parfaitement, ou presque, en direction avec la lumière non réfléchie, et, ayant suivi un chemin"
+                ],
+                "sourcePages": [
+                  42
+                ]
+              },
+              {
+                "id": "young-bakerian-page-43",
+                "heading": "Page imprimée 43",
+                "paragraphs": [
+                  "détourné, interféreront avec elle de manière à causer une apparence de couleurs. Les longueurs des deux trajets différeront d’autant moins que la direction de la lumière réfléchie aura été moins changée par sa réflexion, c’est-à-dire dans la lumière qui passe le plus près du bord ; de sorte que les bleus paraîtront dans la lumière la plus voisine de l’ombre. L’effet sera augmenté et modifié lorsque la lumière réfléchie tombe dans la sphère d’influence du bord opposé, de manière à interférer aussi avec la lumière simplement infléchie par celui-ci. Mais, pour examiner les conséquences plus en détail, il sera commode de supposer l’inflexion causée par une atmosphère éthérée dont la densité varie comme une puissance donnée de la distance à un centre, ainsi qu’il est dit dans la huitième proposition de la dernière Bakerian Lecture. (Phil. Trans. pour 1801, p. 83.) En posant r = 3 et x = ½, j’ai construit un diagramme (fig. 4) qui montre, par les deux paires de courbes, la position relative des portions réfléchie et non réfléchie d’une même ondulation à deux instants successifs, et aussi, par des lignes ombrées tracées en travers, les endroits où les intervalles de retardement sont en progression arithmétique, et où des couleurs semblables se montreront à différentes distances de la substance inflectrice. Le résultat s’accorde pleinement avec les observations du troisième livre de Newton et avec celles des auteurs plus récents. Mais je ne tiens pas pour tout à fait certain, avant que de nouvelles expériences aient été faites sur le pouvoir inflecteur des différentes substances, que l’explication de l’inflexion donnée par le docteur Hooke, par la tendance de la lumière à diverger, ne puisse avoir quelques titres à la vérité. Je suis fâché d’être obligé de retirer ici l’assentiment que je fus d’abord porté à donner à un prétendu perfectionnement d’un auteur récent. (Phil. Trans. pour 1800, p. 128.) Scolie. Dans la construction du diagramme, il devient nécessaire de trouver le temps employé par chaque rayon dans son passage, G 2"
+                ],
+                "sourcePages": [
+                  43
+                ]
+              },
+              {
+                "id": "young-bakerian-page-44",
+                "heading": "Page imprimée 44",
+                "paragraphs": [
+                  "Puisque la vitesse était désignée par x⁻ᐟ², dans la supposition d’un projectile, elle sera comme x⁺ᐟ² dans la supposition contraire (Phil. Trans. pour 1801, p. 27, scolie 2, prop. I) ; et la fluxion de la distance parcourue étant celle indiquée, celle du temps sera l’expression correspondante, dont la fluente est celle donnée. Donc, avec le rayon convenable, décrivez un cercle concentrique aux surfaces de l’atmosphère inflectrice ; alors l’angle décrit par le rayon durant son passage à travers l’atmosphère sera toujours à l’angle sous-tendu par la ligne retranchée par ce cercle sur le rayon incident prolongé, dans le rapport de r à r − 1 ; et le temps employé à ce passage sera dans le même rapport au temps qu’on aurait employé à parcourir cette portion interceptée avec la vitesse initiale. Car y, étant égal à l’expression indiquée, est le sinus de l’inclinaison du rayon incident au rayon vecteur, là où il rencontre ce cercle ; par conséquent, en vertu de la proposition citée, l’angle décrit est dans un rapport donné à l’angle au centre, qui est la différence des inclinaisons. En prenant l’expression correspondante pour rayon, le sinus, au lieu de y, devient s, et le cosinus l’expression correspondante ; et, lorsque y = s, on a la valeur indiquée ; par conséquent la ligne interceptée est à la différence des fluentes comme r est à r − 1. (Voyez aussi le Syllabus de Young, art. 372.) PROPOSITION IX. La lumière rayonnante consiste en ondulations de l’éther lumineux. Cette proposition est la conclusion générale de toutes les précédentes ; et l’on conçoit qu’elles concourent à la prouver d’une manière aussi satisfaisante qu’on puisse l’attendre de la"
+                ],
+                "sourcePages": [
+                  44
+                ]
+              },
+              {
+                "id": "young-bakerian-page-45",
+                "heading": "Page imprimée 45",
+                "paragraphs": [
+                  "nature du sujet. Newton accorde clairement qu’il existe des ondulations, mais il nie qu’elles constituent la lumière ; or on a montré dans les trois premiers corollaires de la dernière proposition que tous les cas d’augmentation ou de diminution de la lumière se ramènent à une augmentation ou à une diminution de telles ondulations, et que toutes les affections auxquelles les ondulations seraient sujettes sont distinctement visibles dans les phénomènes de la lumière ; on peut donc très logiquement en inférer que les ondulations sont la lumière. Quelques remarques détachées suffiront à prévenir certaines objections que l’on pourrait élever contre cette théorie. 1. Newton a avancé la réfraction singulière du cristal d’Islande comme un argument prouvant que les particules de lumière doivent être des corpuscules projetés ; car il juge probable que les différents côtés de ces particules soient diversement attirés par le cristal, et Huygens a confessé son impuissance à rendre compte d’une manière satisfaisante de tous les phénomènes. Mais, contrairement à ce qu’on aurait pu attendre de l’exactitude et de la candeur ordinaires de Newton, il a posé une nouvelle loi pour cette réfraction sans donner de raison de rejeter celle de Huygens, que M. Haüy a trouvée plus exacte que celle de Newton ; et, sans essayer de déduire de son propre système aucune explication des effets plus universels et plus frappants des spaths biréfringents, il a omis d’observer que la théorie si élégante et si ingénieuse de Huygens s’accorde parfaitement avec ces effets généraux, dans tous leurs détails, et en tire naturellement de nouveaux titres à la vérité : il omet cela pour signaler une difficulté à laquelle sa propre théorie ne fournit qu’une solution verbale, et qui demeurera probablement longtemps inexpliquée par toute autre. 2. M. Michell a fait quelques expériences qui semblent montrer que les rayons de lumière ont une quantité de mouvement effective, au"
+                ],
+                "sourcePages": [
+                  45
+                ]
+              },
+              {
+                "id": "young-bakerian-page-46",
+                "heading": "Page imprimée 46",
+                "paragraphs": [
+                  "moyen de laquelle un mouvement se produit lorsqu’ils tombent sur une mince lame de cuivre délicatement suspendue. (Optique de Priestley.) Mais, en accordant même la parfaite perpendicularité de la lame et l’absence de tout courant d’air ascendant, il reste que, dans toute expérience de ce genre, une plus grande quantité de chaleur doit être communiquée à l’air à la surface sur laquelle la lumière tombe qu’à la surface opposée ; l’excès de dilatation doit donc nécessairement produire un excès de pression sur la première surface, et un recul très perceptible de la lame dans la direction de la lumière. M. Bennet a répété l’expérience avec un appareil beaucoup plus sensible, et aussi en l’absence d’air ; et il tire très justement de son échec complet un argument en faveur du système ondulatoire de la lumière. (Phil. Trans. pour 1792, p. 87.) Car, en accordant aux corpuscules de lumière la plus grande subtilité imaginable, on pourrait naturellement s’attendre à ce que leurs effets fussent en quelque proportion avec les effets des mouvements bien moins rapides du fluide électrique, lesquels sont si aisément perceptibles, même dans leurs états les plus faibles. 3. Il y a des phénomènes de la lumière des phosphores solaires qui, au premier abord, pourraient sembler favoriser le système corpusculaire ; par exemple, le fait qu’elle demeure plusieurs mois comme en un état latent, et qu’elle soit ensuite réémise par l’action de la chaleur. Mais, à y regarder de plus près, il n’y a nulle difficulté à supposer que les particules des phosphores qu’on a fait vibrer par l’action de la lumière voient cette action brusquement suspendue par l’intervention du froid, soit qu’il resserre le volume de la substance, soit autrement ; puis, la contrainte levée, qu’elles poursuivent leur mouvement, comme ferait un ressort qu’on aurait retenu quelque temps à un stade intermédiaire de sa vibration ; et il n’est pas impossible que la chaleur elle-même devienne, en certaines circonstances, latente d’une manière semblable. (Journal de"
+                ],
+                "sourcePages": [
+                  46
+                ]
+              },
+              {
+                "id": "young-bakerian-page-47",
+                "heading": "Page imprimée 47",
+                "paragraphs": [
+                  "Nicholson, vol. II, p. 399.) Mais les affections de la chaleur nous deviendront peut-être un jour plus intelligibles ; à présent, il paraît très probable que la lumière ne diffère de la chaleur que par la fréquence de ses ondulations ou vibrations ; celles qui sont comprises entre certaines limites, quant à la fréquence, étant capables d’affecter le nerf optique et constituant la lumière ; et celles qui sont plus lentes, et probablement plus fortes, ne constituant que la chaleur ; que la lumière et la chaleur se présentent à nous chacune sous deux conditions, l’état vibratoire ou permanent, et l’état ondulatoire ou transitoire ; la lumière vibratoire étant le mouvement menu des corps enflammés ou des phosphores solaires, et la lumière ondulatoire ou rayonnante le mouvement du milieu éthéré excité par ces vibrations ; la chaleur vibratoire étant un mouvement auquel toutes les substances matérielles sont sujettes, et qui est plus ou moins permanent ; et la chaleur ondulatoire, ce mouvement du même milieu éthéré dont M. King (Morsels of Criticism, 1786, p. 99) et M. Pictet (Essais de physique, 1790) ont montré qu’il est aussi capable de réflexion que la lumière, et le docteur Herschel qu’il est capable d’une réfraction distincte. (Phil. Trans. pour 1800, p. 284.) Combien la chaleur se communique plus promptement par le libre accès de substances plus froides que par rayonnement ou par transmission à travers un milieu en repos, c’est ce qu’ont montré les précieuses expériences du comte Rumford. Il est aisé de concevoir que certaines substances, perméables à la lumière, puissent être impropres à la transmission de la chaleur, de la même manière que telles substances peuvent transmettre certaines espèces de lumière tout en étant opaques à l’égard des autres. Somme toute, il apparaît que le petit nombre de phénomènes optiques qui admettent une explication par le système corpusculaire s’accordent également avec cette théorie ; que beaucoup d’autres, connus depuis longtemps mais jamais compris, deviennent par ce moyen parfaitement intelligibles ; et que plusieurs faits nouveaux se"
+                ],
+                "sourcePages": [
+                  47
+                ]
+              },
+              {
+                "id": "young-bakerian-page-48",
+                "heading": "Page imprimée 48",
+                "paragraphs": [
+                  "trouvent n’être réductibles que par là à une parfaite analogie avec d’autres faits et aux principes simples du système ondulatoire. On présume que désormais les second et troisième livres de l’Optique de Newton seront tenus pour plus pleinement compris que ne l’a été jusqu’ici le premier ; mais, s’il paraissait à des juges impartiaux qu’il manque encore des preuves pour l’établissement de la théorie, il sera aisé d’entrer plus minutieusement dans le détail de diverses expériences, et de montrer les difficultés insurmontables qui accompagnent les doctrines newtoniennes, qu’il serait, sans nécessité, fastidieux et odieux d’énumérer. Les mérites de leur auteur en philosophie naturelle sont grands au-delà de toute contestation et de toute comparaison ; sa découverte optique de la composition de la lumière blanche aurait à elle seule immortalisé son nom ; et les arguments mêmes qui tendent à renverser son système donnent les preuves les plus fortes de l’admirable exactitude de ses expériences. Quelque suffisants et décisifs que paraissent ces arguments, il n’est pas superflu d’en chercher une confirmation nouvelle ; on peut l’attendre avec assez de confiance d’une expérience très ingénieusement proposée par le professeur Robison, sur la réfraction de la lumière qui nous revient des bords opposés de l’anneau de Saturne ; car, dans la théorie corpusculaire, l’anneau doit être considérablement déformé lorsqu’on le regarde à travers un prisme achromatique : une déformation semblable devrait aussi s’observer sur le disque de Jupiter ; mais, si l’on trouve qu’une déviation égale se produit dans toute la lumière réfléchie par ces planètes, il ne restera guère d’espoir d’expliquer les affections de la lumière par une comparaison avec les mouvements des projectiles."
+                ],
+                "sourcePages": [
+                  48
+                ]
+              }
+            ]
           }
         ]
       }
     },
     {
       "id": "newton-opticks",
-      "displayName": "Opticks reference",
+      "displayName": {
+        "en": "Opticks reference",
+        "fr": "Référence à l’Opticks"
+      },
       "creatorOrOrigin": "Isaac Newton, published work",
       "sourceType": "published-book",
       "provenance": {
@@ -421,23 +829,41 @@
         "reference": "newton-opticks-1730"
       },
       "rightsStatus": "reviewed",
-      "caseRelationship": "Earlier source that frames the corpuscular account considered by Young.",
+      "caseRelationship": {
+        "en": "Earlier source that frames the corpuscular account considered by Young.",
+        "fr": "Source antérieure qui pose le cadre de l’explication corpusculaire examinée par Young."
+      },
       "textualRendition": {
-        "readerLabel": "Read the Opticks reference",
+        "readerLabel": {
+          "en": "Read the Opticks reference",
+          "fr": "Lire la référence à l’Opticks"
+        },
         "citation": {
-          "reuseStatement": "This locally rendered English text transcribes printed pages 371–376 (Queries 29–31) from the reviewed Project Gutenberg transcription of the public-domain fourth edition, 1730.",
+          "reuseStatement": {
+            "en": "This locally rendered English text transcribes printed pages 371–376 (Queries 29–31) from the reviewed Project Gutenberg transcription of the public-domain fourth edition, 1730.",
+            "fr": "Traduction française réalisée pour ce jeu à partir du texte anglais restitué localement, lui-même transcrit de la transcription vérifiée du Projet Gutenberg de la quatrième édition de 1730 (domaine public), pages imprimées 371 à 376 (Queries 29 à 31). Ce n’est pas une édition savante : la source de référence demeure le texte anglais original."
+          },
           "citationText": "Newton, Isaac. Opticks: Or, a Treatise of the Reflexions, Refractions, Inflexions and Colours of Light. 4th ed., 1730, printed pages 371–376 (Queries 29–31). Public domain. Source: Project Gutenberg, eBook 33504.",
           "archiveUrl": "https://archive.org/details/opticksortreatis1730newt"
         },
-        "summary": [
-          "This reference gathers Queries 29–31 from the fourth edition of Newton's Opticks (1730), the speculative questions that close the treatise.",
-          "In them light is treated as small bodies, or corpuscles, acted upon by forces at a distance that refract, reflect, and inflect the rays, with recurring \"fits of easy reflexion and easy transmission\" governing their behaviour.",
-          "Newton extends this to a broader theme: matter and light act upon one another through forces at a distance, which he offers as a unifying cause behind many phenomena of nature.",
-          "For this investigation it is the reference for the corpuscular, particle framing of light that the two-slit observation is meant to test against Young's wave account."
-        ],
+        "summary": {
+          "en": [
+            "This reference gathers Queries 29–31 from the fourth edition of Newton's Opticks (1730), the speculative questions that close the treatise.",
+            "In them light is treated as small bodies, or corpuscles, acted upon by forces at a distance that refract, reflect, and inflect the rays, with recurring \"fits of easy reflexion and easy transmission\" governing their behaviour.",
+            "Newton extends this to a broader theme: matter and light act upon one another through forces at a distance, which he offers as a unifying cause behind many phenomena of nature.",
+            "For this investigation it is the reference for the corpuscular, particle framing of light that the two-slit observation is meant to test against Young's wave account."
+          ],
+          "fr": [
+            "Cette référence rassemble les Queries 29 à 31 de la quatrième édition de l’Opticks de Newton (1730), les questions spéculatives qui closent le traité.",
+            "La lumière y est traitée comme de petits corps, ou corpuscules, soumis à des forces agissant à distance qui réfractent, réfléchissent et infléchissent les rayons, leur comportement étant réglé par des « accès de facile réflexion et de facile transmission » qui se répètent.",
+            "Newton élargit ce propos à un thème plus général : la matière et la lumière agissent l’une sur l’autre par des forces à distance, qu’il propose comme cause unificatrice de nombreux phénomènes naturels.",
+            "Pour cette enquête, c’est la référence du cadre corpusculaire de la lumière, celui que l’observation à deux fentes doit confronter à l’explication ondulatoire de Young."
+          ]
+        },
         "renditions": [
           {
             "locale": "en",
+            "kind": "transcription",
             "sections": [
               {
                 "id": "newton-opticks-page-371",
@@ -445,7 +871,9 @@
                 "paragraphs": [
                   "Light at a distance in refracting, reflecting, and inflecting them, and the Rays mutually agitate the Parts of those Substances at a distance for heating them; and this Action and Re-action at a distance very much resembles an attractive Force between Bodies. If Refraction be perform'd by Attraction of the Rays, the Sines of Incidence must be to the Sines of Refraction in a given Proportion, as we shew'd in our Principles of Philosophy: And this Rule is true by Experience. The Rays of Light in going out of Glass into a Vacuum, are bent towards the Glass; and if they fall too obliquely on the Vacuum, they are bent backwards into the Glass, and totally reflected; and this Reflexion cannot be ascribed to the Resistance of an absolute Vacuum, but must be caused by the Power of the Glass attracting the Rays at their going out of it into the Vacuum, and bringing them back. For if the farther Surface of the Glass be moisten'd with Water or clear Oil, or liquid and clear Honey, the Rays which would otherwise be reflected will go into the Water, Oil, or Honey; and therefore are not reflected before they arrive at the farther Surface of the Glass, and begin to go out of it. If they go out of it into the Water, Oil, or Honey, they go on, because the Attraction of the Glass is almost balanced and rendered ineffectual by the contrary Attraction of the Liquor. But if they go out of it into a Vacuum which has no Attraction to balance that of the Glass, the Attraction of the Glass either bends and refracts them, or brings them back and reflects them. And this is still more evident by laying together"
                 ],
-                "sourcePages": [371]
+                "sourcePages": [
+                  371
+                ]
               },
               {
                 "id": "newton-opticks-page-372",
@@ -453,7 +881,9 @@
                 "paragraphs": [
                   "two Prisms of Glass, or two Object-glasses of very long Telescopes, the one plane, the other a little convex, and so compressing them that they do not fully touch, nor are too far asunder. For the Light which falls upon the farther Surface of the first Glass where the Interval between the Glasses is not above the ten hundred thousandth Part of an Inch, will go through that Surface, and through the Air or Vacuum between the Glasses, and enter into the second Glass, as was explain'd in the first, fourth, and eighth Observations of the first Part of the second Book. But, if the second Glass be taken away, the Light which goes out of the second Surface of the first Glass into the Air or Vacuum, will not go on forwards, but turns back into the first Glass, and is reflected; and therefore it is drawn back by the Power of the first Glass, there being nothing else to turn it back. Nothing more is requisite for producing all the variety of Colours, and degrees of Refrangibility, than that the Rays of Light be Bodies of different Sizes, the least of which may take violet the weakest and darkest of the Colours, and be more easily diverted by refracting Surfaces from the right Course; and the rest as they are bigger and bigger, may make the stronger and more lucid Colours, blue, green, yellow, and red, and be more and more difficultly diverted. Nothing more is requisite for putting the Rays of Light into Fits of easy Reflexion and easy Transmission, than that they be small Bodies which by their attractive Powers, or some other Force, stir up Vibrations in what they act upon, which Vibrations"
                 ],
-                "sourcePages": [372]
+                "sourcePages": [
+                  372
+                ]
               },
               {
                 "id": "newton-opticks-page-373",
@@ -461,7 +891,9 @@
                 "paragraphs": [
                   "being swifter than the Rays, overtake them successively, and agitate them so as by turns to increase and decrease their Velocities, and thereby put them into those Fits. And lastly, the unusual Refraction of Island-Crystal looks very much as if it were perform'd by some kind of attractive virtue lodged in certain Sides both of the Rays, and of the Particles of the Crystal. For were it not for some kind of Disposition or Virtue lodged in some Sides of the Particles of the Crystal, and not in their other Sides, and which inclines and bends the Rays towards the Coast of unusual Refraction, the Rays which fall perpendicularly on the Crystal, would not be refracted towards that Coast rather than towards any other Coast, both at their Incidence and at their Emergence, so as to emerge perpendicularly by a contrary Situation of the Coast of unusual Refraction at the second Surface; the Crystal acting upon the Rays after they have pass'd through it, and are emerging into the Air; or, if you please, into a Vacuum. And since the Crystal by this Disposition or Virtue does not act upon the Rays, unless when one of their Sides of unusual Refraction looks towards that Coast, this argues a Virtue or Disposition in those Sides of the Rays, which answers to, and sympathizes with that Virtue or Disposition of the Crystal, as the Poles of two Magnets answer to one another. And as Magnetism may be intended and remitted, and is found only in the Magnet and in Iron: So this Virtue of refracting the perpendicular Rays is greater in Island-Crystal, less in Crystal of"
                 ],
-                "sourcePages": [373]
+                "sourcePages": [
+                  373
+                ]
               },
               {
                 "id": "newton-opticks-page-374",
@@ -469,7 +901,9 @@
                 "paragraphs": [
                   "the Rock, and is not yet found in other Bodies. I do not say that this Virtue is magnetical: It seems to be of another kind. I only say, that whatever it be, it's difficult to conceive how the Rays of Light, unless they be Bodies, can have a permanent Virtue in two of their Sides which is not in their other Sides, and this without any regard to their Position to the Space or Medium through which they pass. What I mean in this Question by a Vacuum, and by the Attractions of the Rays of Light towards Glass or Crystal, may be understood by what was said in the 18th, 19th, and 20th Questions. Quest. 30. Are not gross Bodies and Light convertible into one another, and may not Bodies receive much of their Activity from the Particles of Light which enter their Composition? For all fix'd Bodies being heated emit Light so long as they continue sufficiently hot, and Light mutually stops in Bodies as often as its Rays strike upon their Parts, as we shew'd above. I know no Body less apt to shine than Water; and yet Water by frequent Distillations changes into fix'd Earth, as Mr. Boyle has try'd; and then this Earth being enabled to endure a sufficient Heat, shines by Heat like other Bodies. The changing of Bodies into Light, and Light into Bodies, is very conformable to the Course of Nature, which seems delighted with Transmutations. Water, which is a very fluid tasteless Salt, she changes by Heat into Vapour, which is a sort of Air, and by Cold into Ice, which is a hard, pellucid, brittle, fusible Stone; and this Stone returns into Water by Heat,"
                 ],
-                "sourcePages": [374]
+                "sourcePages": [
+                  374
+                ]
               },
               {
                 "id": "newton-opticks-page-375",
@@ -477,7 +911,9 @@
                 "paragraphs": [
                   "and Vapour returns into Water by Cold. Earth by Heat becomes Fire, and by Cold returns into Earth. Dense Bodies by Fermentation rarify into several sorts of Air, and this Air by Fermentation, and sometimes without it, returns into dense Bodies. Mercury appears sometimes in the form of a fluid Metal, sometimes in the form of a hard brittle Metal, sometimes in the form of a corrosive pellucid Salt call'd Sublimate, sometimes in the form of a tasteless, pellucid, volatile white Earth, call'd Mercurius Dulcis; or in that of a red opake volatile Earth, call'd Cinnaber; or in that of a red or white Precipitate, or in that of a fluid Salt; and in Distillation it turns into Vapour, and being agitated in Vacuo, it shines like Fire. And after all these Changes it returns again into its first form of Mercury. Eggs grow from insensible Magnitudes, and change into Animals; Tadpoles into Frogs; and Worms into Flies. All Birds, Beasts and Fishes, Insects, Trees, and other Vegetables, with their several Parts, grow out of Water and watry Tinctures and Salts, and by Putrefaction return again into watry Substances. And Water standing a few Days in the open Air, yields a Tincture, which (like that of Malt) by standing longer yields a Sediment and a Spirit, but before Putrefaction is fit Nourishment for Animals and Vegetables. And among such various and strange Transmutations, why may not Nature change Bodies into Light, and Light into Bodies? Quest. 31. Have not the small Particles of Bodies certain Powers, Virtues, or Forces, by which they"
                 ],
-                "sourcePages": [375]
+                "sourcePages": [
+                  375
+                ]
               },
               {
                 "id": "newton-opticks-page-376",
@@ -485,7 +921,75 @@
                 "paragraphs": [
                   "act at a distance, not only upon the Rays of Light for reflecting, refracting, and inflecting them, but also upon one another for producing a great Part of the Phænomena of Nature? For it's well known, that Bodies act one upon another by the Attractions of Gravity, Magnetism, and Electricity; and these Instances shew the Tenor and Course of Nature, and make it not improbable but that there may be more attractive Powers than these. For Nature is very consonant and conformable to her self. How these Attractions may be perform'd, I do not here consider. What I call Attraction may be perform'd by impulse, or by some other means unknown to me. I use that Word here to signify only in general any Force by which Bodies tend towards one another, whatsoever be the Cause. For we must learn from the Phænomena of Nature what Bodies attract one another, and what are the Laws and Properties of the Attraction, before we enquire the Cause by which the Attraction is perform'd. The Attractions of Gravity, Magnetism, and Electricity, reach to very sensible distances, and so have been observed by vulgar Eyes, and there may be others which reach to so small distances as hitherto escape Observation; and perhaps electrical Attraction may reach to such small distances, even without being excited by Friction. For when Salt of Tartar runs per Deliquium, is not this done by an Attraction between the Particles of the Salt of Tartar, and the Particles of the Water which float in the Air in the form of Vapours? And why does not common Salt, or Salt-petre, or Vitriol,"
                 ],
-                "sourcePages": [376]
+                "sourcePages": [
+                  376
+                ]
+              }
+            ]
+          },
+          {
+            "locale": "fr",
+            "kind": "translation",
+            "sections": [
+              {
+                "id": "newton-opticks-page-371",
+                "heading": "Page imprimée 371",
+                "paragraphs": [
+                  "la lumière à distance en la réfractant, en la réfléchissant et en l’infléchissant, et les rayons agitent réciproquement à distance les parties de ces substances de manière à les échauffer ; et cette action et cette réaction à distance ressemblent fort à une force attractive entre les corps. Si la réfraction s’opère par attraction des rayons, les sinus d’incidence doivent être aux sinus de réfraction dans une proportion donnée, comme nous l’avons montré dans nos Principes de la philosophie : et cette règle est vraie par expérience. Les rayons de lumière, en sortant du verre dans le vide, sont infléchis vers le verre ; et s’ils tombent trop obliquement sur le vide, ils sont renvoyés en arrière dans le verre et totalement réfléchis ; et cette réflexion ne saurait être attribuée à la résistance d’un vide absolu, mais doit être causée par le pouvoir qu’a le verre d’attirer les rayons au moment où ils en sortent vers le vide, et de les ramener. Car si la surface éloignée du verre est humectée d’eau, d’huile claire, ou de miel liquide et clair, les rayons qui autrement seraient réfléchis passeront dans l’eau, l’huile ou le miel ; ils ne sont donc pas réfléchis avant d’avoir atteint la surface éloignée du verre et d’avoir commencé à en sortir. S’ils en sortent dans l’eau, l’huile ou le miel, ils poursuivent leur route, parce que l’attraction du verre est presque équilibrée et rendue inefficace par l’attraction contraire de la liqueur. Mais s’ils en sortent dans un vide qui n’a aucune attraction pour équilibrer celle du verre, l’attraction du verre ou bien les infléchit et les réfracte, ou bien les ramène et les réfléchit. Et cela devient plus manifeste encore si l’on applique l’un contre l’autre"
+                ],
+                "sourcePages": [
+                  371
+                ]
+              },
+              {
+                "id": "newton-opticks-page-372",
+                "heading": "Page imprimée 372",
+                "paragraphs": [
+                  "deux prismes de verre, ou deux objectifs de très longues lunettes, l’un plan, l’autre légèrement convexe, et qu’on les comprime de telle sorte qu’ils ne se touchent pas tout à fait, sans être non plus trop écartés. Car la lumière qui tombe sur la surface éloignée du premier verre, là où l’intervalle entre les verres n’excède pas la cent-millième partie d’un pouce, traversera cette surface, puis l’air ou le vide compris entre les verres, et entrera dans le second verre, ainsi qu’il a été expliqué dans les première, quatrième et huitième observations de la première partie du second livre. Mais si l’on retire le second verre, la lumière qui sort de la seconde surface du premier verre dans l’air ou le vide n’avancera pas plus loin : elle rebrousse chemin dans le premier verre et se trouve réfléchie ; elle est donc ramenée en arrière par le pouvoir du premier verre, rien d’autre ne pouvant la faire revenir. Il ne faut rien de plus, pour produire toute la variété des couleurs et des degrés de réfrangibilité, sinon que les rayons de lumière soient des corps de grosseurs différentes : les plus petits donneraient le violet, la plus faible et la plus sombre des couleurs, et seraient le plus aisément détournés de leur droit chemin par les surfaces réfringentes ; et les autres, à mesure qu’ils grossissent, donneraient les couleurs plus fortes et plus lumineuses, le bleu, le vert, le jaune et le rouge, et seraient de plus en plus difficilement détournés. Il ne faut rien de plus, pour mettre les rayons de lumière dans des accès de facile réflexion et de facile transmission, sinon qu’ils soient de petits corps qui, par leurs pouvoirs attractifs ou par quelque autre force, excitent des vibrations dans ce sur quoi ils agissent, vibrations qui,"
+                ],
+                "sourcePages": [
+                  372
+                ]
+              },
+              {
+                "id": "newton-opticks-page-373",
+                "heading": "Page imprimée 373",
+                "paragraphs": [
+                  "étant plus rapides que les rayons, les rattrapent successivement et les agitent de manière à augmenter et à diminuer tour à tour leur vitesse, les mettant ainsi dans ces accès. Enfin, la réfraction singulière du cristal d’Islande a tout l’air de s’opérer par quelque sorte de vertu attractive logée dans certains côtés à la fois des rayons et des particules du cristal. Car s’il n’y avait quelque disposition ou vertu logée dans certains côtés des particules du cristal, et non dans les autres, inclinant et infléchissant les rayons vers la région de la réfraction singulière, les rayons qui tombent perpendiculairement sur le cristal ne seraient pas réfractés vers cette région plutôt que vers une autre, tant à leur incidence qu’à leur émergence, de manière à émerger perpendiculairement par une situation contraire de la région de réfraction singulière à la seconde surface ; le cristal agissant sur les rayons après qu’ils l’ont traversé et qu’ils émergent dans l’air, ou, si l’on veut, dans le vide. Et puisque le cristal, par cette disposition ou vertu, n’agit sur les rayons que lorsque l’un de leurs côtés de réfraction singulière est tourné vers cette région, cela plaide pour une vertu ou disposition dans ces côtés des rayons, qui répond à cette vertu ou disposition du cristal et sympathise avec elle, comme les pôles de deux aimants se répondent l’un à l’autre. Et de même que le magnétisme peut être renforcé ou affaibli, et ne se rencontre que dans l’aimant et dans le fer, ainsi cette vertu de réfracter les rayons perpendiculaires est plus grande dans le cristal d’Islande, moindre dans le cristal de"
+                ],
+                "sourcePages": [
+                  373
+                ]
+              },
+              {
+                "id": "newton-opticks-page-374",
+                "heading": "Page imprimée 374",
+                "paragraphs": [
+                  "roche, et ne s’est pas encore rencontrée dans d’autres corps. Je ne dis pas que cette vertu soit magnétique : elle semble être d’une autre espèce. Je dis seulement que, quelle qu’elle soit, il est difficile de concevoir comment les rayons de lumière, à moins d’être des corps, pourraient posséder une vertu permanente dans deux de leurs côtés et non dans les autres, et cela sans aucun égard à leur position à l’égard de l’espace ou du milieu qu’ils traversent. Ce que j’entends dans cette question par un vide, et par les attractions des rayons de lumière vers le verre ou le cristal, se comprendra par ce qui a été dit dans les dix-huitième, dix-neuvième et vingtième questions. Question 30. Les corps grossiers et la lumière ne sont-ils pas convertibles l’un en l’autre, et les corps ne reçoivent-ils pas une grande part de leur activité des particules de lumière qui entrent dans leur composition ? Car tous les corps fixes, étant échauffés, émettent de la lumière aussi longtemps qu’ils demeurent suffisamment chauds, et la lumière s’arrête réciproquement dans les corps chaque fois que ses rayons en frappent les parties, comme nous l’avons montré plus haut. Je ne connais pas de corps moins propre à briller que l’eau ; et pourtant l’eau, par des distillations répétées, se change en terre fixe, comme M. Boyle l’a éprouvé ; et alors cette terre, devenue capable de supporter une chaleur suffisante, brille par la chaleur comme les autres corps. Le changement des corps en lumière, et de la lumière en corps, est très conforme au cours de la nature, laquelle semble se plaire aux transmutations. L’eau, qui est un sel très fluide et sans saveur, elle la change par la chaleur en vapeur, qui est une sorte d’air, et par le froid en glace, qui est une pierre dure, translucide, cassante et fusible ; et cette pierre redevient eau par la chaleur,"
+                ],
+                "sourcePages": [
+                  374
+                ]
+              },
+              {
+                "id": "newton-opticks-page-375",
+                "heading": "Page imprimée 375",
+                "paragraphs": [
+                  "et la vapeur redevient eau par le froid. La terre par la chaleur devient feu, et par le froid redevient terre. Les corps denses, par la fermentation, se raréfient en diverses sortes d’air, et cet air, par la fermentation, et parfois sans elle, redevient corps dense. Le mercure paraît tantôt sous la forme d’un métal fluide, tantôt sous celle d’un métal dur et cassant, tantôt sous celle d’un sel corrosif et translucide appelé sublimé, tantôt sous celle d’une terre blanche, volatile, translucide et sans saveur, appelée mercure doux ; ou sous celle d’une terre rouge, opaque et volatile, appelée cinabre ; ou sous celle d’un précipité rouge ou blanc, ou sous celle d’un sel fluide ; et à la distillation il se change en vapeur, et, agité dans le vide, il brille comme du feu. Et après tous ces changements il revient à sa première forme de mercure. Les œufs croissent depuis des grandeurs insensibles et se changent en animaux ; les têtards en grenouilles ; et les vers en mouches. Tous les oiseaux, les bêtes et les poissons, les insectes, les arbres et les autres végétaux, avec leurs diverses parties, naissent de l’eau, de teintures aqueuses et de sels, et par la putréfaction redeviennent des substances aqueuses. Et l’eau, demeurant quelques jours à l’air libre, donne une teinture qui, en demeurant plus longtemps, donne un sédiment et un esprit, mais qui, avant la putréfaction, est une nourriture convenable pour les animaux et les végétaux. Or, parmi des transmutations si variées et si étranges, pourquoi la nature ne changerait-elle pas les corps en lumière, et la lumière en corps ? Question 31. Les petites particules des corps n’ont-elles pas certains pouvoirs, vertus ou forces, par lesquels elles"
+                ],
+                "sourcePages": [
+                  375
+                ]
+              },
+              {
+                "id": "newton-opticks-page-376",
+                "heading": "Page imprimée 376",
+                "paragraphs": [
+                  "agissent à distance, non seulement sur les rayons de lumière pour les réfléchir, les réfracter et les infléchir, mais aussi les unes sur les autres pour produire une grande partie des phénomènes de la nature ? Car il est bien connu que les corps agissent les uns sur les autres par les attractions de la gravité, du magnétisme et de l’électricité ; et ces exemples montrent la tenue et le cours de la nature, et rendent non improbable qu’il puisse exister d’autres pouvoirs attractifs que ceux-là. Car la nature est très constante et conforme à elle-même. Comment ces attractions peuvent s’opérer, je ne l’examine pas ici. Ce que j’appelle attraction peut s’opérer par impulsion, ou par quelque autre moyen qui m’est inconnu. Je n’emploie ce mot ici que pour désigner en général toute force par laquelle les corps tendent les uns vers les autres, quelle qu’en soit la cause. Car il nous faut apprendre des phénomènes de la nature quels corps s’attirent les uns les autres, et quelles sont les lois et les propriétés de cette attraction, avant de rechercher la cause par laquelle l’attraction s’opère. Les attractions de la gravité, du magnétisme et de l’électricité s’étendent à des distances très sensibles, et ont ainsi été observées par les yeux du vulgaire ; et il peut y en avoir d’autres qui s’étendent à des distances si petites qu’elles ont échappé jusqu’ici à l’observation ; et peut-être l’attraction électrique s’étend-elle à de si petites distances, même sans être excitée par le frottement. Car lorsque le sel de tartre tombe en déliquescence, cela ne se fait-il pas par une attraction entre les particules du sel de tartre et les particules de l’eau qui flottent dans l’air sous forme de vapeurs ? Et pourquoi le sel commun, ou le salpêtre, ou le vitriol,"
+                ],
+                "sourcePages": [
+                  376
+                ]
               }
             ]
           }
@@ -500,7 +1004,10 @@
     "primaryControls": [
       {
         "id": "slitSpacingMm",
-        "label": "Slit spacing",
+        "label": {
+          "en": "Slit spacing",
+          "fr": "Écartement des fentes"
+        },
         "unit": "mm",
         "min": 0.1,
         "max": 0.5,
@@ -509,7 +1016,10 @@
       },
       {
         "id": "screenDistanceM",
-        "label": "Screen distance",
+        "label": {
+          "en": "Screen distance",
+          "fr": "Distance à l’écran"
+        },
         "unit": "m",
         "min": 1,
         "max": 4,
@@ -528,18 +1038,30 @@
         650
       ]
     },
-    "assumptions": [
-      "The light is monochromatic.",
-      "The slit openings are narrow and identical."
-    ],
+    "assumptions": {
+      "en": [
+        "The light is monochromatic.",
+        "The slit openings are narrow and identical."
+      ],
+      "fr": [
+        "La lumière est monochromatique.",
+        "Les ouvertures des fentes sont étroites et identiques."
+      ]
+    },
     "confound": {
       "id": "misaligned-screen",
-      "description": "The screen begins slightly misaligned.",
+      "description": {
+        "en": "The screen begins slightly misaligned.",
+        "fr": "L’écran est légèrement désaligné au départ."
+      },
       "discoverableBy": "replication"
     },
     "resetPath": {
       "recoveryRoute": "replication",
-      "description": "Repeat the observation after aligning the screen."
+      "description": {
+        "en": "Repeat the observation after aligning the screen.",
+        "fr": "Répétez l’observation après avoir aligné l’écran."
+      }
     }
   },
   "requirements": {
@@ -553,11 +1075,23 @@
         "kind": "missing-run"
       },
       "layers": {
-        "observation": "The notebook has fewer than two recorded observations.",
-        "plainLanguage": "Record another observation so you can compare what changed.",
-        "technicalDetail": "Use a different bounded apparatus setting and preserve its recorded controls and result."
+        "observation": {
+          "en": "The notebook has fewer than two recorded observations.",
+          "fr": "Le carnet contient moins de deux observations enregistrées."
+        },
+        "plainLanguage": {
+          "en": "Record another observation so you can compare what changed.",
+          "fr": "Enregistrez une autre observation afin de pouvoir comparer ce qui a changé."
+        },
+        "technicalDetail": {
+          "en": "Use a different bounded apparatus setting and preserve its recorded controls and result.",
+          "fr": "Utilisez un autre réglage prévu de l’appareil et conservez les commandes et le résultat enregistrés."
+        }
       },
-      "nextStep": "Record a second observation in the measurement notebook."
+      "nextStep": {
+        "en": "Record a second observation in the measurement notebook.",
+        "fr": "Enregistrez une deuxième observation dans le carnet de mesures."
+      }
     },
     {
       "id": "inspect-young-source",
@@ -566,11 +1100,23 @@
         "sourceId": "young-lecture-1801"
       },
       "layers": {
-        "observation": "The Young lecture record has not been inspected.",
-        "plainLanguage": "Inspect the lecture record before using it as evidence.",
-        "technicalDetail": "Compare the source’s provenance and case relationship with your recorded observations."
+        "observation": {
+          "en": "The Young lecture record has not been inspected.",
+          "fr": "Le compte rendu de la conférence de Young n’a pas été examiné."
+        },
+        "plainLanguage": {
+          "en": "Inspect the lecture record before using it as evidence.",
+          "fr": "Examinez le compte rendu de la conférence avant de l’utiliser comme preuve."
+        },
+        "technicalDetail": {
+          "en": "Compare the source’s provenance and case relationship with your recorded observations.",
+          "fr": "Confrontez la provenance de la source et son lien avec l’enquête à vos observations enregistrées."
+        }
       },
-      "nextStep": "Inspect Thomas Young’s 1801 lecture record in the Curated Record."
+      "nextStep": {
+        "en": "Inspect Thomas Young’s 1801 lecture record in the Curated Record.",
+        "fr": "Examinez le compte rendu de la conférence de Thomas Young de 1801 dans le fonds documentaire."
+      }
     },
     {
       "id": "try-control-change",
@@ -579,11 +1125,23 @@
         "controlId": "screenDistanceM"
       },
       "layers": {
-        "observation": "The recorded observations use the same screen-distance setting.",
-        "plainLanguage": "Try a different screen distance to make the comparison more informative.",
-        "technicalDetail": "Keep the observation record intact while changing only a bounded primary control."
+        "observation": {
+          "en": "The recorded observations use the same screen-distance setting.",
+          "fr": "Les observations enregistrées utilisent la même distance à l’écran."
+        },
+        "plainLanguage": {
+          "en": "Try a different screen distance to make the comparison more informative.",
+          "fr": "Essayez une autre distance à l’écran pour rendre la comparaison plus instructive."
+        },
+        "technicalDetail": {
+          "en": "Keep the observation record intact while changing only a bounded primary control.",
+          "fr": "Conservez le relevé d’observation intact en ne modifiant qu’une seule commande principale prévue."
+        }
       },
-      "nextStep": "Adjust screen distance and record an additional observation."
+      "nextStep": {
+        "en": "Adjust screen distance and record an additional observation.",
+        "fr": "Modifiez la distance à l’écran et enregistrez une observation supplémentaire."
+      }
     },
     {
       "id": "state-a-limit",
@@ -591,11 +1149,23 @@
         "kind": "missing-limitation"
       },
       "layers": {
-        "observation": "No limitation or alternative explanation is recorded with the draft.",
-        "plainLanguage": "State what the available evidence does not settle.",
-        "technicalDetail": "A limitation distinguishes the observed record from a claim that goes beyond it."
+        "observation": {
+          "en": "No limitation or alternative explanation is recorded with the draft.",
+          "fr": "Aucune limite ni explication alternative n’accompagne le brouillon."
+        },
+        "plainLanguage": {
+          "en": "State what the available evidence does not settle.",
+          "fr": "Indiquez ce que les preuves disponibles ne tranchent pas."
+        },
+        "technicalDetail": {
+          "en": "A limitation distinguishes the observed record from a claim that goes beyond it.",
+          "fr": "Une limite distingue ce qui a été observé d’une affirmation qui va au-delà."
+        }
       },
-      "nextStep": "Add a limitation or alternative explanation to the Theory Board."
+      "nextStep": {
+        "en": "Add a limitation or alternative explanation to the Theory Board.",
+        "fr": "Ajoutez une limite ou une explication alternative au tableau de théorie."
+      }
     }
   ],
   "peerReviewRules": [
@@ -604,29 +1174,54 @@
       "predicate": {
         "kind": "missing-evidence"
       },
-      "feedback": "The draft needs more selected, inspected evidence before it can be reviewed as a bounded claim.",
-      "revisionPath": "Return to the Theory Board and select the missing evidence."
+      "feedback": {
+        "en": "The draft needs more selected, inspected evidence before it can be reviewed as a bounded claim.",
+        "fr": "Le brouillon a besoin de davantage de preuves examinées et sélectionnées avant de pouvoir être relu comme une affirmation délimitée."
+      },
+      "revisionPath": {
+        "en": "Return to the Theory Board and select the missing evidence.",
+        "fr": "Revenez au tableau de théorie et sélectionnez les preuves manquantes."
+      }
     },
     {
       "id": "review-unsupported-support",
       "predicate": {
         "kind": "unsupported-support"
       },
-      "feedback": "One or more selected support references are no longer available in the current evidence record.",
-      "revisionPath": "Return to the Theory Board and replace unavailable support with current evidence."
+      "feedback": {
+        "en": "One or more selected support references are no longer available in the current evidence record.",
+        "fr": "Un ou plusieurs appuis sélectionnés ne figurent plus dans le relevé de preuves actuel."
+      },
+      "revisionPath": {
+        "en": "Return to the Theory Board and replace unavailable support with current evidence.",
+        "fr": "Revenez au tableau de théorie et remplacez les appuis indisponibles par des preuves actuelles."
+      }
     },
     {
       "id": "review-overreach",
       "predicate": {
         "kind": "overreach",
-        "overreachPhrases": [
-          "proves",
-          "certainly",
-          "without question"
-        ]
+        "overreachPhrases": {
+          "en": [
+            "proves",
+            "certainly",
+            "without question"
+          ],
+          "fr": [
+            "prouve",
+            "certainement",
+            "sans aucun doute"
+          ]
+        }
       },
-      "feedback": "The draft uses language that may reach beyond the recorded evidence. Consider a more bounded statement.",
-      "revisionPath": "Return to the Theory Board and qualify the claim using the available evidence and limitation."
+      "feedback": {
+        "en": "The draft uses language that may reach beyond the recorded evidence. Consider a more bounded statement.",
+        "fr": "Le brouillon emploie des formulations qui peuvent dépasser les preuves enregistrées. Envisagez un énoncé plus délimité."
+      },
+      "revisionPath": {
+        "en": "Return to the Theory Board and qualify the claim using the available evidence and limitation.",
+        "fr": "Revenez au tableau de théorie et nuancez l’affirmation à l’aide des preuves disponibles et de la limite énoncée."
+      }
     }
   ],
   "flow": {
@@ -641,33 +1236,69 @@
   },
   "scenarioScript": {
     "scenes": [
-      { "phase": "context", "sceneKey": "Library" },
-      { "phase": "prediction", "sceneKey": "Colleagues" },
-      { "phase": "experiment", "sceneKey": "Laboratory" },
-      { "phase": "synthesis", "sceneKey": "TheoryBoard" },
-      { "phase": "review", "sceneKey": "TheoryBoard" },
-      { "phase": "debrief", "sceneKey": "Debrief" }
+      {
+        "phase": "context",
+        "sceneKey": "Library"
+      },
+      {
+        "phase": "prediction",
+        "sceneKey": "Colleagues"
+      },
+      {
+        "phase": "experiment",
+        "sceneKey": "Laboratory"
+      },
+      {
+        "phase": "synthesis",
+        "sceneKey": "TheoryBoard"
+      },
+      {
+        "phase": "review",
+        "sceneKey": "TheoryBoard"
+      },
+      {
+        "phase": "debrief",
+        "sceneKey": "Debrief"
+      }
     ]
   },
   "debrief": {
-    "summary": "Compare the observed pattern with the available evidence before drawing a conclusion.",
+    "summary": {
+      "en": "Compare the observed pattern with the available evidence before drawing a conclusion.",
+      "fr": "Comparez la figure observée aux preuves disponibles avant de tirer une conclusion."
+    },
     "sourceRefs": [
       "young-1801-lecture",
       "newton-opticks-1730"
     ],
     "historicalComparison": {
-      "title": "Young’s record and the earlier Opticks reference",
-      "text": "The fixed historical record places Young’s 1801 lecture alongside Newton’s earlier Opticks reference. Your investigation is a bounded reconstruction and does not alter either source.",
+      "title": {
+        "en": "Young’s record and the earlier Opticks reference",
+        "fr": "Le compte rendu de Young et la référence antérieure à l’Opticks"
+      },
+      "text": {
+        "en": "The fixed historical record places Young’s 1801 lecture alongside Newton’s earlier Opticks reference. Your investigation is a bounded reconstruction and does not alter either source.",
+        "fr": "Le dossier historique établi place la conférence de Young de 1801 aux côtés de la référence antérieure à l’Opticks de Newton. Votre enquête est une reconstitution délimitée et ne modifie ni l’une ni l’autre de ces sources."
+      },
       "sourceIds": [
         "young-lecture-1801",
         "newton-opticks"
       ]
     },
     "deeperTheory": {
-      "title": "Optional deeper theory",
-      "text": "The recorded fringe-spacing model describes how the selected wavelength, slit spacing, and screen distance relate in this reconstruction. It does not by itself settle every later interpretation of light."
+      "title": {
+        "en": "Optional deeper theory",
+        "fr": "Approfondissement théorique facultatif"
+      },
+      "text": {
+        "en": "The recorded fringe-spacing model describes how the selected wavelength, slit spacing, and screen distance relate in this reconstruction. It does not by itself settle every later interpretation of light.",
+        "fr": "Le modèle d’interfrange enregistré décrit comment la longueur d’onde choisie, l’écartement des fentes et la distance à l’écran se relient dans cette reconstitution. À lui seul, il ne tranche pas toutes les interprétations ultérieures de la lumière."
+      }
     },
-    "replayLabel": "Start counterfactual replay — not the recorded historical result"
+    "replayLabel": {
+      "en": "Start counterfactual replay — not the recorded historical result",
+      "fr": "Lancer une rejouabilité contrefactuelle — il ne s’agit pas du résultat historique enregistré"
+    }
   },
   "assets": {
     "manifestVersion": "1.0.0",

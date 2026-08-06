@@ -3,7 +3,11 @@
 // case.json left in the cache fails validation and boots into "content unavailable" instead of a
 // degraded session. This worker caches per response as it fetches, with no atomic swap, so a
 // mixed-version cache is reachable in either direction — a new name is what retires the old pairing.
-const CACHE_NAME = 'quantique-bootstrap-v2';
+// v3: same change class — every localizable authored string now requires an `fr` member (Story
+// 1.1b), so a pre-1.1b case.json left in the cache fails the strict parse the same way.
+// v4: again the same class — a readable source now requires one rendition per shipped locale, so a
+// v3-era case.json carrying only the English rendition no longer parses.
+const CACHE_NAME = 'quantique-bootstrap-v4';
 
 self.addEventListener('install', (event) => {
     event.waitUntil(self.skipWaiting());

@@ -1,3 +1,7 @@
+// Retiring pre-pivot DOM panel (Stories 1.11, 1.12, 2.1, 2.3, 2.5 replace it with a Phaser scene).
+// Authored case text is read as canonical `.en` rather than routed through the i18n layer on purpose:
+// translating a surface scheduled for deletion is throwaway work and doubles the FR copy to review.
+// Each replacement scene localizes its own text as it is built. See docs/i18n-authoring.md.
 import type { AppStore } from '../../core/store/createStore';
 import { selectFormattedControlValue } from '../../core/store/selectors';
 import type { PrimaryControl } from '../../domain/cases/CaseDefinition';
@@ -57,7 +61,7 @@ export const mountApparatusControls = (root: HTMLElement, store: AppStore): (() 
 
     store.getState().caseDefinition.apparatus.primaryControls.forEach((control) => {
         const group = document.createElement('div'); group.className = 'apparatus-control';
-        const label = document.createElement('label'); label.htmlFor = control.id; label.textContent = `${control.label} (${control.unit})`;
+        const label = document.createElement('label'); label.htmlFor = control.id; label.textContent = `${control.label.en} (${control.unit})`;
         const input = document.createElement('input');
         input.id = control.id; input.name = control.id; input.type = 'number'; input.inputMode = 'decimal';
         input.min = String(control.min); input.max = String(control.max); input.step = String(control.step);
@@ -70,7 +74,7 @@ export const mountApparatusControls = (root: HTMLElement, store: AppStore): (() 
         const applyValue = (): void => {
             const result = dispatchControlValueFromDom(store, control.id, input.valueAsNumber);
             status.textContent = result.ok
-                ? `${control.label} set to ${selectFormattedControlValue(store.getState(), control.id)}.`
+                ? `${control.label.en} set to ${selectFormattedControlValue(store.getState(), control.id)}.`
                 : 'Enter a finite laboratory control value. Your existing work is unchanged.';
         };
         input.addEventListener('change', applyValue);
@@ -80,7 +84,7 @@ export const mountApparatusControls = (root: HTMLElement, store: AppStore): (() 
             event.preventDefault();
             const result = dispatchControlValueFromDom(store, control.id, store.getState().activeControlValues[control.id] + (event.key === 'ArrowUp' ? control.step : -control.step));
             status.textContent = result.ok
-                ? `${control.label} set to ${selectFormattedControlValue(store.getState(), control.id)}.`
+                ? `${control.label.en} set to ${selectFormattedControlValue(store.getState(), control.id)}.`
                 : result.error.message;
         });
         controls.set(control.id, input); readouts.set(control.id, readout); instructions.set(control.id, instruction);
@@ -116,7 +120,7 @@ export const mountApparatusControls = (root: HTMLElement, store: AppStore): (() 
     });
     actionRow.append(run, reset);
     const model = document.createElement('p'); model.className = 'young-model-assumptions';
-    model.textContent = `Model: adjacent fringe spacing = wavelength × screen distance ÷ slit spacing. Assumptions: ${store.getState().caseDefinition.experiment.assumptions.join(' ')}`;
+    model.textContent = `Model: adjacent fringe spacing = wavelength × screen distance ÷ slit spacing. Assumptions: ${store.getState().caseDefinition.experiment.assumptions.en.join(' ')}`;
     const visual = createPatternVisual();
     let lastAnimatedRunId: string | undefined;
 
@@ -135,8 +139,8 @@ export const mountApparatusControls = (root: HTMLElement, store: AppStore): (() 
             input.disabled = isPhoneReadOnly;
             readouts.get(control.id)!.textContent = selectFormattedControlValue(state, control.id);
             instructions.get(control.id)!.textContent = isPhoneReadOnly
-                ? `${control.label} is read-only on phones. Use a tablet or desktop browser to adjust the laboratory.`
-                : `Use the number field, its keyboard stepper, or the laboratory surface to adjust ${control.label}.`;
+                ? `${control.label.en} is read-only on phones. Use a tablet or desktop browser to adjust the laboratory.`
+                : `Use the number field, its keyboard stepper, or the laboratory surface to adjust ${control.label.en}.`;
         });
         const completedMinimumRuns = state.runs.filter((record) => record.modelInputs?.wavelengthMode === 'minimum' && record.modelInputs.wavelengthNm === 550).length;
         const unlocked = completedMinimumRuns >= state.caseDefinition.requirements.minimumRuns;

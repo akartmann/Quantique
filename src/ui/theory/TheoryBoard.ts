@@ -1,3 +1,7 @@
+// Retiring pre-pivot DOM panel (Stories 1.11, 1.12, 2.1, 2.3, 2.5 replace it with a Phaser scene).
+// Authored case text is read as canonical `.en` rather than routed through the i18n layer on purpose:
+// translating a surface scheduled for deletion is throwaway work and doubles the FR copy to review.
+// Each replacement scene localizes its own text as it is built. See docs/i18n-authoring.md.
 import type { AppStore } from '../../core/store/createStore';
 import {
     selectCasePhase,
@@ -155,7 +159,7 @@ export const mountTheoryBoard = (root: HTMLElement, store: AppStore): (() => voi
                 checkbox.type = 'checkbox';
                 checkbox.dataset.theoryFocus = `source-${source.id}`;
                 checkbox.checked = draft.selectedSourceIds.includes(source.id);
-                checkbox.setAttribute('aria-label', `Select ${source.displayName} as conclusion support`);
+                checkbox.setAttribute('aria-label', `Select ${source.displayName.en} as conclusion support`);
                 checkbox.addEventListener('change', () => {
                     requestedFocusKey = checkbox.dataset.theoryFocus;
                     const transition = store.dispatch(checkbox.checked
@@ -165,7 +169,7 @@ export const mountTheoryBoard = (root: HTMLElement, store: AppStore): (() => voi
                     render(true);
                 });
                 const provenance = `${source.provenance.category.replace(/-/g, ' ')}; ${source.provenance.reference}`;
-                label.append(checkbox, ` ${source.displayName} — provenance: ${provenance}`);
+                label.append(checkbox, ` ${source.displayName.en} — provenance: ${provenance}`);
                 item.append(label);
                 list.append(item);
             });

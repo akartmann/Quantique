@@ -8,12 +8,12 @@ import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 const definition = {
     id: 'young-interference', version: '1.0.0', prediction: { required: true }, requirements: { minimumRuns: 2, minimumSources: 2 },
     apparatus: { primaryControls: [
-        { id: 'slitSpacingMm', label: 'Slit spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
-        { id: 'screenDistanceM', label: 'Screen distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
+        { id: 'slitSpacingMm', label: { en: 'Slit spacing', fr: 'Slit spacing [fr]' }, unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
+        { id: 'screenDistanceM', label: { en: 'Screen distance', fr: 'Screen distance [fr]' }, unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
     ] },
     contextualArtifacts: [
-        { id: 'young-lecture-1801', displayName: 'Young lecture record', creatorOrOrigin: 'Archive', sourceType: 'lecture-record', provenance: { category: 'primary-material', reference: 'young' }, rightsStatus: 'reviewed', caseRelationship: 'Evidence.' },
-        { id: 'newton-opticks', displayName: 'Opticks reference', creatorOrOrigin: 'Archive', sourceType: 'published-book', provenance: { category: 'primary-material', reference: 'opticks' }, rightsStatus: 'reviewed', caseRelationship: 'Evidence.' }
+        { id: 'young-lecture-1801', displayName: { en: 'Young lecture record', fr: 'Young lecture record [fr]' }, creatorOrOrigin: 'Archive', sourceType: 'lecture-record', provenance: { category: 'primary-material', reference: 'young' }, rightsStatus: 'reviewed', caseRelationship: { en: 'Evidence.', fr: 'Evidence. [fr]' } },
+        { id: 'newton-opticks', displayName: { en: 'Opticks reference', fr: 'Opticks reference [fr]' }, creatorOrOrigin: 'Archive', sourceType: 'published-book', provenance: { category: 'primary-material', reference: 'opticks' }, rightsStatus: 'reviewed', caseRelationship: { en: 'Evidence.', fr: 'Evidence. [fr]' } }
     ],
     experiment: { modelVersion: 'young-v1' }
 } as CaseDefinition;

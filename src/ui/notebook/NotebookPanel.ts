@@ -1,3 +1,7 @@
+// Retiring pre-pivot DOM panel (Stories 1.11, 1.12, 2.1, 2.3, 2.5 replace it with a Phaser scene).
+// Authored case text is read as canonical `.en` rather than routed through the i18n layer on purpose:
+// translating a surface scheduled for deletion is throwaway work and doubles the FR copy to review.
+// Each replacement scene localizes its own text as it is built. See docs/i18n-authoring.md.
 import type { Result } from '../../core/errors/Result';
 import type { AppStore } from '../../core/store/createStore';
 import { selectComparisonNote, selectNotebookObservations, selectPrimaryControl, selectSelectedComparisonPair, selectSourceLabel } from '../../core/store/selectors';
@@ -29,8 +33,8 @@ const recordDetails = (record: RunRecord, observationNumber: number, store: AppS
         definition('Timestamp', record.timestamp),
         definition('Experiment model version', record.experimentModelVersion),
         definition('Wavelength', record.modelInputs ? `${record.modelInputs.wavelengthNm} nm (${record.modelInputs.wavelengthMode} path)` : 'Pre-model observation'),
-        definition(slitSpacing.label, `${record.controls.slitSpacingMm} ${slitSpacing.unit}`),
-        definition(screenDistance.label, `${record.controls.screenDistanceM} ${screenDistance.unit}`),
+        definition(slitSpacing.label.en, `${record.controls.slitSpacingMm} ${slitSpacing.unit}`),
+        definition(screenDistance.label.en, `${record.controls.screenDistanceM} ${screenDistance.unit}`),
         definition('Observed result', `${record.result.label}: ${record.result.value} ${record.result.unit}`),
         definition('Linked evidence', record.linkedEvidenceIds.length
             ? record.linkedEvidenceIds.map((sourceId) => selectSourceLabel(store.getState(), sourceId)).join(', ')

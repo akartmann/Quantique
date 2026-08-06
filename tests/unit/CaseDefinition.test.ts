@@ -3,60 +3,65 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it, vi } from 'vitest';
 
 import { loadCaseDefinition } from '../../src/adapters/content/loadCaseDefinition';
-import type { CaseDefinition, TextualRendition } from '../../src/domain/cases/CaseDefinition';
+import type { CaseDefinition, LocalizedText, LocalizedTextList, TextualRendition } from '../../src/domain/cases/CaseDefinition';
 import { CASE_PHASES, createInitialCaseProgress } from '../../src/domain/cases/CaseProgress';
 import { advanceCasePhase, resetCaseProgress } from '../../src/domain/cases/caseReducer';
 import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
 
+/** Fixture helpers: every localizable authored string must carry both shipped locales. */
+const bilingual = (english: string, french = `${english} [fr]`): LocalizedText => ({ en: english, fr: french });
+const bilingualList = (english: readonly string[], french = english.map((entry) => `${entry} [fr]`)): LocalizedTextList =>
+    ({ en: [...english], fr: [...french] });
+
 const validYoungCase: CaseDefinition = {
     id: 'young-interference',
     version: '1.0.0',
-    openingDispute: 'Does light travel as particles, waves, or something more subtle?',
+    openingDispute: bilingual('Does light travel as particles, waves, or something more subtle?'),
     contextualArtifacts: [
         {
             id: 'young-lecture-1801',
-            displayName: 'Thomas Young’s 1801 lecture record',
+            displayName: bilingual('Thomas Young’s 1801 lecture record'),
             creatorOrOrigin: 'Thomas Young, Royal Institution lecture',
             sourceType: 'lecture-record',
             provenance: { category: 'primary-material', reference: 'young-1801-lecture' },
             rightsStatus: 'reviewed',
-            caseRelationship: 'Contemporary account of Young’s interference demonstration.'
+            caseRelationship: bilingual('Contemporary account of Young’s interference demonstration.')
         },
         {
             id: 'newton-opticks',
-            displayName: 'Opticks reference',
+            displayName: bilingual('Opticks reference'),
             creatorOrOrigin: 'Isaac Newton, published work',
             sourceType: 'published-book',
             provenance: { category: 'primary-material', reference: 'newton-opticks-1704' },
             rightsStatus: 'reviewed',
-            caseRelationship: 'Earlier source that frames the corpuscular account considered by Young.'
+            caseRelationship: bilingual('Earlier source that frames the corpuscular account considered by Young.')
         }
     ],
     prediction: { required: true },
     apparatus: {
         primaryControls: [
-            { id: 'slitSpacingMm', label: 'Slit spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
-            { id: 'screenDistanceM', label: 'Screen distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
+            { id: 'slitSpacingMm', label: bilingual('Slit spacing', 'Écartement des fentes'), unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
+            { id: 'screenDistanceM', label: bilingual('Screen distance', 'Distance à l’écran'), unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
         ]
     },
     experiment: {
         modelVersion: 'young-double-slit-v1',
         wavelengthNm: 550,
-        assumptions: ['The light is monochromatic.', 'The slit openings are narrow and identical.'],
-        confound: { id: 'misaligned-screen', description: 'The screen begins slightly misaligned.', discoverableBy: 'replication' },
-        resetPath: { recoveryRoute: 'replication', description: 'Repeat the observation after aligning the screen.' }
+        assumptions: bilingualList(['The light is monochromatic.', 'The slit openings are narrow and identical.']),
+        confound: { id: 'misaligned-screen', description: bilingual('The screen begins slightly misaligned.'), discoverableBy: 'replication' },
+        resetPath: { recoveryRoute: 'replication', description: bilingual('Repeat the observation after aligning the screen.') }
     },
     requirements: { minimumRuns: 2, minimumSources: 2 },
     consultationRules: [
-        { id: 'missing-run', predicate: { kind: 'missing-run' }, layers: { observation: 'Fewer than two observations are recorded.', plainLanguage: 'Record another observation.', technicalDetail: 'Use another bounded setting.' }, nextStep: 'Record an observation.' },
-        { id: 'missing-source', predicate: { kind: 'missing-source', sourceId: 'young-lecture-1801' }, layers: { observation: 'A source is not inspected.', plainLanguage: 'Inspect the source.', technicalDetail: 'Check its provenance.' }, nextStep: 'Inspect the lecture record.' },
-        { id: 'alternative-test', predicate: { kind: 'alternative-test', controlId: 'screenDistanceM' }, layers: { observation: 'Settings are unchanged.', plainLanguage: 'Change one setting.', technicalDetail: 'Preserve the observation record.' }, nextStep: 'Adjust screen distance.' },
-        { id: 'missing-limit', predicate: { kind: 'missing-limitation' }, layers: { observation: 'No limitation is stated.', plainLanguage: 'State a limitation.', technicalDetail: 'Distinguish evidence from a broader claim.' }, nextStep: 'Add a limitation.' }
+        { id: 'missing-run', predicate: { kind: 'missing-run' }, layers: { observation: bilingual('Fewer than two observations are recorded.'), plainLanguage: bilingual('Record another observation.'), technicalDetail: bilingual('Use another bounded setting.') }, nextStep: bilingual('Record an observation.') },
+        { id: 'missing-source', predicate: { kind: 'missing-source', sourceId: 'young-lecture-1801' }, layers: { observation: bilingual('A source is not inspected.'), plainLanguage: bilingual('Inspect the source.'), technicalDetail: bilingual('Check its provenance.') }, nextStep: bilingual('Inspect the lecture record.') },
+        { id: 'alternative-test', predicate: { kind: 'alternative-test', controlId: 'screenDistanceM' }, layers: { observation: bilingual('Settings are unchanged.'), plainLanguage: bilingual('Change one setting.'), technicalDetail: bilingual('Preserve the observation record.') }, nextStep: bilingual('Adjust screen distance.') },
+        { id: 'missing-limit', predicate: { kind: 'missing-limitation' }, layers: { observation: bilingual('No limitation is stated.'), plainLanguage: bilingual('State a limitation.'), technicalDetail: bilingual('Distinguish evidence from a broader claim.') }, nextStep: bilingual('Add a limitation.') }
     ],
     peerReviewRules: [
-        { id: 'missing-evidence', predicate: { kind: 'missing-evidence' }, feedback: 'More evidence is needed.', revisionPath: 'Select evidence.' },
-        { id: 'unsupported', predicate: { kind: 'unsupported-support' }, feedback: 'Support is unavailable.', revisionPath: 'Use current evidence.' },
-        { id: 'overreach', predicate: { kind: 'overreach', overreachPhrases: ['proves'] }, feedback: 'The claim may overreach.', revisionPath: 'Use a bounded claim.' }
+        { id: 'missing-evidence', predicate: { kind: 'missing-evidence' }, feedback: bilingual('More evidence is needed.'), revisionPath: bilingual('Select evidence.') },
+        { id: 'unsupported', predicate: { kind: 'unsupported-support' }, feedback: bilingual('Support is unavailable.'), revisionPath: bilingual('Use current evidence.') },
+        { id: 'overreach', predicate: { kind: 'overreach', overreachPhrases: bilingualList(['proves'], ['prouve']) }, feedback: bilingual('The claim may overreach.'), revisionPath: bilingual('Use a bounded claim.') }
     ],
     flow: {
         openingDispute: true,
@@ -79,9 +84,9 @@ const validYoungCase: CaseDefinition = {
         ]
     },
     debrief: {
-        summary: 'Compare the observed pattern with the available evidence before drawing a conclusion.', sourceRefs: ['young-1801-lecture'],
-        historicalComparison: { title: 'Young and Opticks', text: 'The authored records remain fixed.', sourceIds: ['young-lecture-1801', 'newton-opticks'] },
-        deeperTheory: { title: 'Deeper theory', text: 'A reconstruction is not the historical record.' }, replayLabel: 'Start counterfactual replay'
+        summary: bilingual('Compare the observed pattern with the available evidence before drawing a conclusion.'), sourceRefs: ['young-1801-lecture'],
+        historicalComparison: { title: bilingual('Young and Opticks'), text: bilingual('The authored records remain fixed.'), sourceIds: ['young-lecture-1801', 'newton-opticks'] },
+        deeperTheory: { title: bilingual('Deeper theory'), text: bilingual('A reconstruction is not the historical record.') }, replayLabel: bilingual('Start counterfactual replay')
     },
     assets: { manifestVersion: '1.0.0', entries: [{ id: 'quantique-logo', type: 'image', path: '/assets/logo.png' }] }
 };
@@ -89,16 +94,26 @@ const validYoungCase: CaseDefinition = {
 const cloneValidCase = (): CaseDefinition => structuredClone(validYoungCase);
 
 const localLectureRendition = (): TextualRendition => ({
-    readerLabel: 'Read the lecture record',
+    readerLabel: bilingual('Read the lecture record'),
     citation: {
-        reuseStatement: 'Public Domain Mark source.',
+        reuseStatement: bilingual('Public Domain Mark source.'),
         citationText: 'Young, The Bakerian lecture.',
         archiveUrl: 'https://wellcomecollection.org/works/u5dr8rgg'
     },
-    renditions: [{
-        locale: 'en',
-        sections: [{ id: 'young-bakerian-page-12', heading: 'Printed page 12', paragraphs: ['Opening text.'], sourcePages: [12] }]
-    }]
+    // One rendition per shipped locale, page-for-page aligned: the transcription of record plus a
+    // translation of it.
+    renditions: [
+        {
+            locale: 'en',
+            kind: 'transcription',
+            sections: [{ id: 'young-bakerian-page-12', heading: 'Printed page 12', paragraphs: ['Opening text.'], sourcePages: [12] }]
+        },
+        {
+            locale: 'fr',
+            kind: 'translation',
+            sections: [{ id: 'young-bakerian-page-12', heading: 'Page imprimée 12', paragraphs: ['Texte d’ouverture.'], sourcePages: [12] }]
+        }
+    ]
 });
 
 describe('CaseDefinitionSchema', () => {
@@ -138,7 +153,7 @@ describe('CaseDefinitionSchema', () => {
         ['blank source creator context', (definition: Record<string, unknown>) => { ((definition.contextualArtifacts as Array<{ creatorOrOrigin: string }>)[0]).creatorOrOrigin = ' '; }],
         ['unsupported provenance category', (definition: Record<string, unknown>) => { ((definition.contextualArtifacts as Array<{ provenance: { category: string } }>)[0]).provenance.category = 'unlabelled'; }],
         ['unsupported rights status', (definition: Record<string, unknown>) => { ((definition.contextualArtifacts as Array<{ rightsStatus: string }>)[0]).rightsStatus = 'verified-somewhere'; }],
-        ['blank source relationship', (definition: Record<string, unknown>) => { ((definition.contextualArtifacts as Array<{ caseRelationship: string }>)[0]).caseRelationship = ''; }],
+        ['blank source relationship', (definition: Record<string, unknown>) => { ((definition.contextualArtifacts as Array<{ caseRelationship: { en: string } }>)[0]).caseRelationship.en = ''; }],
         ['duplicate source ID', (definition: Record<string, unknown>) => { ((definition.contextualArtifacts as Array<{ id: string }>)[1]).id = 'young-lecture-1801'; }],
         ['unknown source field', (definition: Record<string, unknown>) => { (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].unreviewedClaim = true; }],
         ['unknown top-level field', (definition: Record<string, unknown>) => { definition.laterCaseField = true; }]
@@ -156,7 +171,9 @@ describe('CaseDefinitionSchema', () => {
         ['missing source ID from a missing-source predicate', (definition: Record<string, unknown>) => { delete ((definition.consultationRules as Array<{ predicate: { sourceId?: string } }>)[1]).predicate.sourceId; }],
         ['missing control ID from an alternative-test predicate', (definition: Record<string, unknown>) => { delete ((definition.consultationRules as Array<{ predicate: { controlId?: string } }>)[2]).predicate.controlId; }],
         ['unknown consultation source', (definition: Record<string, unknown>) => { ((definition.consultationRules as Array<{ predicate: { sourceId?: string } }>)[1]).predicate.sourceId = 'unknown'; }],
-        ['phase path in authored help', (definition: Record<string, unknown>) => { ((definition.consultationRules as Array<{ nextStep: string }>)[0]).nextStep = 'Move to review phase.'; }]
+        ['phase path in authored English help', (definition: Record<string, unknown>) => { ((definition.consultationRules as Array<{ nextStep: LocalizedText }>)[0]).nextStep = { en: 'Move to review phase.', fr: 'Passez à la relecture.' }; }],
+        ['arrow path in authored French help', (definition: Record<string, unknown>) => { ((definition.consultationRules as Array<{ nextStep: LocalizedText }>)[0]).nextStep = { en: 'Record an observation.', fr: 'Carnet -> tableau de théorie.' }; }],
+        ['arrow path in French peer-review copy', (definition: Record<string, unknown>) => { ((definition.peerReviewRules as Array<{ revisionPath: LocalizedText }>)[0]).revisionPath = { en: 'Select evidence.', fr: 'Preuves → conclusion.' }; }]
     ])('rejects %s', (_description, mutate) => {
         const definition = cloneValidCase() as unknown as Record<string, unknown>;
         mutate(definition);
@@ -234,7 +251,72 @@ describe('CaseDefinitionSchema', () => {
         const definition = cloneValidCase();
         definition.contextualArtifacts[0] = {
             ...definition.contextualArtifacts[0],
-            textualRendition: { ...localLectureRendition(), summary: ['A concise overview.', 'A second paragraph.'] }
+            textualRendition: { ...localLectureRendition(), summary: bilingualList(['A concise overview.', 'A second paragraph.']) }
+        };
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
+    });
+
+    // AC3: Zod rejects a case missing a required locale before any domain logic runs.
+    it.each([
+        ['the opening dispute', (definition: Record<string, unknown>) => { delete (definition.openingDispute as Record<string, unknown>).fr; }],
+        ['a source display name', (definition: Record<string, unknown>) => { delete ((definition.contextualArtifacts as Array<{ displayName: Record<string, unknown> }>)[0]).displayName.fr; }],
+        ['a source case relationship', (definition: Record<string, unknown>) => { delete ((definition.contextualArtifacts as Array<{ caseRelationship: Record<string, unknown> }>)[0]).caseRelationship.fr; }],
+        ['a control label', (definition: Record<string, unknown>) => { delete ((definition.apparatus as { primaryControls: Array<{ label: Record<string, unknown> }> }).primaryControls[0]).label.fr; }],
+        ['the experiment assumptions', (definition: Record<string, unknown>) => { delete (definition.experiment as { assumptions: Record<string, unknown> }).assumptions.fr; }],
+        ['the confound description', (definition: Record<string, unknown>) => { delete ((definition.experiment as { confound: { description: Record<string, unknown> } }).confound).description.fr; }],
+        ['a consultation help layer', (definition: Record<string, unknown>) => { delete ((definition.consultationRules as Array<{ layers: { plainLanguage: Record<string, unknown> } }>)[0]).layers.plainLanguage.fr; }],
+        ['a consultation next step', (definition: Record<string, unknown>) => { delete ((definition.consultationRules as Array<{ nextStep: Record<string, unknown> }>)[0]).nextStep.fr; }],
+        ['peer-review feedback', (definition: Record<string, unknown>) => { delete ((definition.peerReviewRules as Array<{ feedback: Record<string, unknown> }>)[0]).feedback.fr; }],
+        ['the overreach detection phrases', (definition: Record<string, unknown>) => { delete ((definition.peerReviewRules as Array<{ predicate: { overreachPhrases: Record<string, unknown> } }>)[2]).predicate.overreachPhrases.fr; }],
+        ['the debrief summary', (definition: Record<string, unknown>) => { delete (definition.debrief as { summary: Record<string, unknown> }).summary.fr; }],
+        ['the replay label', (definition: Record<string, unknown>) => { delete (definition.debrief as { replayLabel: Record<string, unknown> }).replayLabel.fr; }],
+        ['a rendition reader label', (definition: Record<string, unknown>) => {
+            const rendition = localLectureRendition() as unknown as { readerLabel: Record<string, unknown> };
+            delete rendition.readerLabel.fr;
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
+        }],
+        ['a rendition reuse statement', (definition: Record<string, unknown>) => {
+            const rendition = localLectureRendition() as unknown as { citation: { reuseStatement: Record<string, unknown> } };
+            delete rendition.citation.reuseStatement.fr;
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
+        }]
+    ])('rejects a case missing the French locale on %s', (_description, mutate) => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        mutate(definition);
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
+
+    it.each([
+        ['blank', ''],
+        ['whitespace-only', '   ']
+    ])('rejects a %s French translation', (_description, french) => {
+        const definition = cloneValidCase();
+        definition.contextualArtifacts[0] = { ...definition.contextualArtifacts[0], displayName: { en: 'Lecture record', fr: french } };
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
+
+    it('rejects a localized list whose locales hold different numbers of entries', () => {
+        const definition = cloneValidCase() as unknown as { experiment: { assumptions: { fr: string[] } } };
+        definition.experiment.assumptions.fr = ['Une seule hypothèse.'];
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues.map(({ message }) => message))
+            .toContain('A localized list must provide the same number of entries in every locale.');
+    });
+
+    // `route` and `phase` are ordinary French words: applying the English word list to French copy
+    // would produce only false positives and pressure to mangle the translation.
+    it('accepts legitimate French copy containing “route” and “phase”', () => {
+        const definition = cloneValidCase();
+        definition.consultationRules[0] = {
+            ...definition.consultationRules[0],
+            nextStep: { en: 'Record an observation.', fr: 'Notez la phase de l’onde en route vers l’écran.' }
         };
 
         expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
@@ -248,7 +330,33 @@ describe('CaseDefinitionSchema', () => {
         }],
         ['duplicate stable section ID', (definition: Record<string, unknown>) => {
             const rendition = structuredClone(localLectureRendition()) as unknown as { renditions: Array<{ sections: Array<{ id: string; heading: string; paragraphs: string[]; sourcePages: number[] }> }> };
-            rendition.renditions[0].sections.push({ ...rendition.renditions[0].sections[0] });
+            rendition.renditions.forEach((entry) => entry.sections.push({ ...entry.sections[0] }));
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
+        }],
+        ['a source with only one rendition', (definition: Record<string, unknown>) => {
+            const rendition = structuredClone(localLectureRendition()) as unknown as { renditions: unknown[] };
+            rendition.renditions.pop();
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
+        }],
+        ['two renditions in the same language', (definition: Record<string, unknown>) => {
+            const rendition = structuredClone(localLectureRendition()) as unknown as { renditions: Array<{ locale: string }> };
+            rendition.renditions[1].locale = 'en';
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
+        }],
+        // Two transcriptions of the same pages is a provenance claim nobody has reviewed.
+        ['a translation presented as a second transcription', (definition: Record<string, unknown>) => {
+            const rendition = structuredClone(localLectureRendition()) as unknown as { renditions: Array<{ kind: string }> };
+            rendition.renditions[1].kind = 'transcription';
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
+        }],
+        ['renditions that cover different source pages', (definition: Record<string, unknown>) => {
+            const rendition = structuredClone(localLectureRendition()) as unknown as { renditions: Array<{ sections: Array<{ sourcePages: number[] }> }> };
+            rendition.renditions[1].sections[0].sourcePages = [13];
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
+        }],
+        ['a translation that drops a paragraph', (definition: Record<string, unknown>) => {
+            const rendition = structuredClone(localLectureRendition()) as unknown as { renditions: Array<{ sections: Array<{ paragraphs: string[] }> }> };
+            rendition.renditions[1].sections[0].paragraphs.push('Un paragraphe de trop.');
             (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
         }],
         ['invalid reader archive URL', (definition: Record<string, unknown>) => {
@@ -267,10 +375,10 @@ describe('CaseDefinitionSchema', () => {
             (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
         }],
         ['empty reader summary', (definition: Record<string, unknown>) => {
-            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = { ...localLectureRendition(), summary: [] };
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = { ...localLectureRendition(), summary: { en: [], fr: [] } };
         }],
         ['blank reader summary paragraph', (definition: Record<string, unknown>) => {
-            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = { ...localLectureRendition(), summary: ['  '] };
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = { ...localLectureRendition(), summary: bilingualList(['  ']) };
         }]
     ])('rejects %s', (_description, mutate) => {
         const definition = cloneValidCase() as unknown as Record<string, unknown>;
@@ -292,7 +400,8 @@ describe('loadCaseDefinition', () => {
         expect(result).toMatchObject({ ok: true, value: { id: 'young-interference' } });
         if (result.ok) {
             const rendition = result.value.contextualArtifacts[0].textualRendition;
-            expect(rendition?.renditions[0].locale).toBe('en');
+            expect(rendition?.renditions.map(({ locale, kind }) => `${locale}:${kind}`))
+                .toEqual(['en:transcription', 'fr:translation']);
             expect(rendition?.renditions[0].sections.map(({ id }) => id)).toEqual(
                 Array.from({ length: 37 }, (_, index) => `young-bakerian-page-${index + 12}`)
             );
@@ -302,10 +411,11 @@ describe('loadCaseDefinition', () => {
             expect(rendition?.renditions[0].sections.find(({ id }) => id === 'young-bakerian-page-39')?.paragraphs[1]).toContain(
                 'Extreme red — .0000266 — 37640 — 463'
             );
-            expect(rendition?.summary?.length).toBeGreaterThan(0);
+            expect(rendition?.summary?.en.length).toBeGreaterThan(0);
+            expect(rendition?.summary?.fr.length).toBe(rendition?.summary?.en.length);
             const opticksRendition = result.value.contextualArtifacts[1].textualRendition;
             expect(opticksRendition).toMatchObject({
-                readerLabel: 'Read the Opticks reference',
+                readerLabel: { en: 'Read the Opticks reference', fr: 'Lire la référence à l’Opticks' },
                 citation: { archiveUrl: 'https://archive.org/details/opticksortreatis1730newt' }
             });
             expect(opticksRendition?.renditions[0].sections.map(({ id }) => id)).toEqual(
@@ -316,7 +426,24 @@ describe('loadCaseDefinition', () => {
             );
             expect(opticksRendition?.renditions[0].sections[0].paragraphs[0].startsWith('Light at a distance in refracting')).toBe(true);
             expect(opticksRendition?.renditions[0].sections[5].paragraphs[0].endsWith('or Vitriol,')).toBe(true);
-            expect(opticksRendition?.summary?.length).toBeGreaterThan(0);
+            expect(opticksRendition?.summary?.en.length).toBeGreaterThan(0);
+            expect(opticksRendition?.summary?.fr.length).toBe(opticksRendition?.summary?.en.length);
+
+            // The French pages are authored, page-for-page, against the transcription of record.
+            for (const artifact of result.value.contextualArtifacts) {
+                const [transcription, translation] = artifact.textualRendition!.renditions;
+                expect(translation.locale).toBe('fr');
+                expect(translation.kind).toBe('translation');
+                expect(translation.sections.map(({ id, sourcePages }) => ({ id, sourcePages })))
+                    .toEqual(transcription.sections.map(({ id, sourcePages }) => ({ id, sourcePages })));
+                expect(translation.sections.every(({ heading }) => heading.startsWith('Page imprimée'))).toBe(true);
+                // Nothing left untranslated: no French page may simply echo its English counterpart.
+                expect(translation.sections.filter((section, index) =>
+                    section.paragraphs.join(' ') === transcription.sections[index].paragraphs.join(' ')
+                    && section.paragraphs.join(' ').length > 8)).toEqual([]);
+                // And the reuse statement says plainly what the French reader is looking at.
+                expect(artifact.textualRendition!.citation.reuseStatement.fr).toContain('Traduction française');
+            }
         }
         expect(JSON.parse(manifestContent)).toEqual(validYoungCase.assets);
         expect(fetchCase).toHaveBeenNthCalledWith(1, '/cases/young-interference/case.json');
