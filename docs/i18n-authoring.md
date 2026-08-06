@@ -77,9 +77,11 @@ in French), and `experiment.modelVersion`.
 
 A readable source carries **one rendition per shipped locale**, and each declares what it is:
 
-- `kind: 'transcription'` — reproduces the printed source. **Exactly one per source**, enforced by
-  Zod. Two transcriptions of the same pages in different languages is a provenance claim nobody has
-  reviewed.
+- `kind: 'transcription'` — reproduces the printed source. **Exactly one per source, and it must be
+  the `en` rendition** — both enforced by Zod. Two transcriptions of the same pages in different
+  languages is a provenance claim nobody has reviewed, and the reader-facing notice names English as
+  the original in both locales, so a French transcription would state the provenance backwards on the
+  page. Generalising `book.translatedRendition` is the prerequisite for relaxing that.
 - `kind: 'translation'` — a modern rendering of that transcription. The book shows
   `book.translatedRendition` on every translated spread, and the locale's `citation.reuseStatement`
   must say plainly that the pages are a translation and that the source of record is the original.
@@ -128,6 +130,20 @@ the learner's own conclusion, so an English-only list never fires for a French l
 detection depend on the active locale would make trap 3's recomputation locale-dependent. Author
 both lists and always match **the union of both locales**, regardless of the active language.
 
+Two consequences worth knowing before you touch that list:
+
+- **The lists are sized independently.** They use `DetectionPhraseListSchema`, not
+  `LocalizedTextListSchema` — the equal-length rule encodes a *display* correspondence that detection
+  phrases do not have. French inflects where English does not: `prouve` and `prouvent` are both
+  required and neither has an English counterpart to pad the list with. Author every inflection a
+  natural subject would take; missing one credits the learner with a calibrated conclusion for an
+  overreaching claim.
+- **Widening the union is not a free change.** `validateCaseRecordForDefinition` re-runs the
+  evaluator over every saved decision and rejects a record whose recomputed issues differ from the
+  stored ones. Adding the French list in 1.6.0 was safe only because every build that could have
+  saved a record was English-only. Any future addition needs the same argument, or a version-gated
+  detection set.
+
 A tempting alternative — resolving the whole `CaseDefinition` to one locale at the loading boundary
 — breaks exactly here: it would make `state.caseDefinition` locale-dependent while revalidation
 compares recomputed results against stored ones.
@@ -139,6 +155,14 @@ authored control step, and `formatRecordedValue(locale, value, unit)` for a valu
 rounded. French renders `0,25 mm` — comma decimal, U+202F narrow no-break space before the unit.
 Assert on the exact code point in tests, never a plain space. Recorded scientific values stay
 canonical numbers in the record; only their rendering changes.
+
+## Errors
+
+Resolve a `Result` failure through `selectLocalizedError(state, error)` — not `translateError`
+directly. Codes whose authored string interpolates content (`missing-contextual-sources` takes a
+`{label}`) have their parameters supplied inside that selector, so a surface cannot forget one and
+print a raw `{label}` to the player. The domain keeps pre-formatting the canonical English into
+`error.message`, which stays the dev-facing default and the fallback for any unmapped code.
 
 ## Rendering text
 
@@ -162,13 +186,21 @@ mechanism. `tests/e2e/french-typography.spec.ts` measures both.
 - `tests/unit/I18n.test.ts` — resource completeness in both directions, fallback, interpolation.
 - `tests/integration/LocaleProjection.test.ts` — a French browser produces French text, formatting
   and case content in a single first paint.
-- `tests/e2e/french-typography.spec.ts` — glyph coverage and wrap bounds at 1280×720.
+- `tests/e2e/french-typography.spec.ts` — glyph coverage and wrap bounds at 1280×720. Interpolated
+  surfaces are measured with the values they actually render (`SAMPLE_PARAMS`), never the raw
+  `{label}` tokens; add an entry there when you add an interpolated surface, or the bound is not
+  really being checked.
 - `tests/e2e/offline-reload.spec.ts` — a French browser is still French after an offline reload.
   Release gate.
 
 ## Not localized on purpose
 
-- The retiring `src/ui/*` DOM panels. They read authored text as canonical `.en` and are deleted by
+- The retiring `src/ui/*` DOM panels. They read authored text as canonical `.en` — and must use
+  `selectCanonicalSourceLabel` / `selectCanonicalControlValue` rather than their locale-aware
+  siblings. Calling `selectSourceLabel` or `selectFormattedControlValue` from inside an English panel
+  produces *mixed* output: the same source named in French on one line and English on the next, or
+  `"Slit spacing set to 0,25 mm."` with a French decimal inside an English sentence. A panel picks
+  one language for everything it renders. They are deleted by
   Stories 1.11, 1.12, 2.1, 2.3 and 2.5 as each Phaser scene reaches parity. Each replacement scene
   localizes its own text as it is built. **Two exceptions are kept and fully localized: the print
   view, and the Curated Record** — the Curated Record is where a learner first meets the sources, so

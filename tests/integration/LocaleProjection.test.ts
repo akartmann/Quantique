@@ -6,7 +6,8 @@ import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore, type AppStore } from '../../src/core/store/createStore';
 import {
     selectControlLabel, selectFormattedControlValue, selectLocale, selectMissingContextArtifactLabels,
-    selectMissingContextArtifactNames, selectSourceLabel
+    selectMissingContextArtifactNames, selectSourceLabel,
+    selectCanonicalSourceLabel, selectCanonicalControlValue, selectLocalizedError
 } from '../../src/core/store/selectors';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 
@@ -77,6 +78,30 @@ describe('browser-resolved locale across the whole projection', () => {
     it('resolves authored case text in the resolved language by stable id', () => {
         expect(selectSourceLabel(bootWith(['en']).getState(), 'newton-opticks')).toBe('Opticks reference');
         expect(selectSourceLabel(bootWith(['fr-CA']).getState(), 'newton-opticks')).toBe('Référence à l’Opticks');
+    });
+
+    // The retiring pre-pivot DOM panels are English-only by scope. Reading a locale-aware selector
+    // from inside one produced mixed output — the same source named in French on one line and
+    // English on the next, and a French decimal inside an English sentence.
+    it('offers canonical English counterparts for the panels that are not localized', () => {
+        const state = bootWith(['fr-FR']).getState();
+
+        expect(selectSourceLabel(state, 'newton-opticks')).toBe('Référence à l’Opticks');
+        expect(selectCanonicalSourceLabel(state, 'newton-opticks')).toBe('Opticks reference');
+
+        expect(selectFormattedControlValue(state, 'slitSpacingMm')).toBe(`0,25${NARROW_NO_BREAK_SPACE}mm`);
+        expect(selectCanonicalControlValue(state, 'slitSpacingMm')).toBe('0.25 mm');
+    });
+
+    // The `{label}` parameter is supplied at this boundary, not by each surface — a surface that
+    // forgot it would print a literal `{label}` to the player.
+    it('resolves a parameterised error code with its content already filled in', () => {
+        const state = bootWith(['fr-FR']).getState();
+
+        const message = selectLocalizedError(state, { code: 'missing-contextual-sources', message: 'dev-facing default' });
+
+        expect(message).not.toContain('{label}');
+        expect(message).toContain('Compte rendu de la conférence de Young');
     });
 
     it('keeps readiness labels canonical while offering localized names alongside them', () => {

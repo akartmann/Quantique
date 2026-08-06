@@ -1,7 +1,8 @@
 import { decimalPlaces, formatMeasurement } from '../i18n/formatNumber';
-import type { Locale } from '../i18n/Locale';
+import { DEFAULT_LOCALE, type Locale } from '../i18n/Locale';
 import { resolveLocalizedText } from '../i18n/resolveLocalizedText';
-import { translate } from '../i18n/translate';
+import { translate, translateError } from '../i18n/translate';
+import type { ResultError } from '../errors/Result';
 import type { ContextualArtifact, PrimaryControl } from '../../domain/cases/CaseDefinition';
 import type { RunRecord } from '../../domain/evidence/RunRecord';
 import type { AppState, ComparisonNote, CompletionSnapshot, ReplayState } from './AppState';
@@ -61,6 +62,23 @@ export const selectMissingContextArtifactLabels = (state: AppState): readonly st
 export const selectMissingContextArtifactNames = (state: AppState): readonly string[] =>
     selectContextualReadiness(state).missingArtifactIds.map((sourceId) => selectSourceLabel(state, sourceId));
 
+/**
+ * The single presentation boundary for a `Result` failure (trap 4). The domain emits a stable `code`
+ * plus a dev-facing English `message`; this resolves `error.<code>` in the active language.
+ *
+ * Codes whose authored string interpolates content have their parameters supplied *here* rather than
+ * at each call site — a surface cannot forget one and leave a raw `{label}` on screen. The domain
+ * still pre-formats the canonical English into `message`, which stays the fallback for any code the
+ * layer does not carry a key for.
+ */
+export const selectLocalizedError = (state: AppState, error: ResultError): string => {
+    const locale = selectLocale(state);
+    if (error.code === 'missing-contextual-sources') {
+        return translateError(locale, error, { label: selectMissingContextArtifactNames(state)[0] ?? '' });
+    }
+    return translateError(locale, error);
+};
+
 export const selectPredictionReadiness = (state: AppState): PredictionReadiness =>
     evaluatePredictionReadiness(state.caseDefinition, state.prediction);
 
@@ -70,7 +88,27 @@ export const selectIsSourceInspected = (state: AppState, sourceId: string): bool
 export const selectSourceLabel = (state: AppState, sourceId: string): string => {
     const source = selectSourceById(state, sourceId);
     const locale = selectLocale(state);
-    return source ? resolveLocalizedText(source.displayName, locale) : translate(locale, 'source.unavailable', { id: sourceId });
+    // No `sourceId` in the fallback: this reaches the printed record, and an internal id is not
+    // something a learner should read in a document they take away.
+    return source ? resolveLocalizedText(source.displayName, locale) : translate(locale, 'source.unavailable');
+};
+
+/**
+ * Canonical English counterparts of {@link selectSourceLabel} and {@link selectFormattedControlValue},
+ * for the retiring pre-pivot DOM panels.
+ *
+ * Those panels are deliberately not localized (see `docs/i18n-authoring.md`), and they read authored
+ * text as `.en` directly. Calling the locale-aware selectors from inside them produced *mixed*
+ * output — the same source named in French on one line and English on the next, and
+ * `"Slit spacing set to 0,25 mm."` with a French decimal inside an English sentence. A panel picks
+ * one language for everything it renders; these are how it picks English.
+ */
+export const selectCanonicalSourceLabel = (state: AppState, sourceId: string): string =>
+    selectSourceById(state, sourceId)?.displayName.en ?? translate(DEFAULT_LOCALE, 'source.unavailable');
+
+export const selectCanonicalControlValue = (state: AppState, controlId: PrimaryControl['id']): string => {
+    const control = selectPrimaryControl(state, controlId);
+    return formatMeasurement(DEFAULT_LOCALE, selectControlValue(state, controlId), decimalPlaces(control.step), control.unit);
 };
 
 export const selectRunObservation = (state: AppState, runId: string): Readonly<{ order: number; record: RunRecord }> | undefined => {

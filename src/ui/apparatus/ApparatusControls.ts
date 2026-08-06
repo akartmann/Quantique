@@ -3,7 +3,7 @@
 // translating a surface scheduled for deletion is throwaway work and doubles the FR copy to review.
 // Each replacement scene localizes its own text as it is built. See docs/i18n-authoring.md.
 import type { AppStore } from '../../core/store/createStore';
-import { selectFormattedControlValue } from '../../core/store/selectors';
+import { selectCanonicalControlValue } from '../../core/store/selectors';
 import type { PrimaryControl } from '../../domain/cases/CaseDefinition';
 
 const phoneReadOnlyQuery = '(max-width: 767px)';
@@ -74,7 +74,7 @@ export const mountApparatusControls = (root: HTMLElement, store: AppStore): (() 
         const applyValue = (): void => {
             const result = dispatchControlValueFromDom(store, control.id, input.valueAsNumber);
             status.textContent = result.ok
-                ? `${control.label.en} set to ${selectFormattedControlValue(store.getState(), control.id)}.`
+                ? `${control.label.en} set to ${selectCanonicalControlValue(store.getState(), control.id)}.`
                 : 'Enter a finite laboratory control value. Your existing work is unchanged.';
         };
         input.addEventListener('change', applyValue);
@@ -84,7 +84,7 @@ export const mountApparatusControls = (root: HTMLElement, store: AppStore): (() 
             event.preventDefault();
             const result = dispatchControlValueFromDom(store, control.id, store.getState().activeControlValues[control.id] + (event.key === 'ArrowUp' ? control.step : -control.step));
             status.textContent = result.ok
-                ? `${control.label.en} set to ${selectFormattedControlValue(store.getState(), control.id)}.`
+                ? `${control.label.en} set to ${selectCanonicalControlValue(store.getState(), control.id)}.`
                 : result.error.message;
         });
         controls.set(control.id, input); readouts.set(control.id, readout); instructions.set(control.id, instruction);
@@ -137,7 +137,7 @@ export const mountApparatusControls = (root: HTMLElement, store: AppStore): (() 
             const input = controls.get(control.id)!;
             input.value = String(state.activeControlValues[control.id]);
             input.disabled = isPhoneReadOnly;
-            readouts.get(control.id)!.textContent = selectFormattedControlValue(state, control.id);
+            readouts.get(control.id)!.textContent = selectCanonicalControlValue(state, control.id);
             instructions.get(control.id)!.textContent = isPhoneReadOnly
                 ? `${control.label.en} is read-only on phones. Use a tablet or desktop browser to adjust the laboratory.`
                 : `Use the number field, its keyboard stepper, or the laboratory surface to adjust ${control.label.en}.`;

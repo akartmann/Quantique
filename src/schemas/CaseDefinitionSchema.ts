@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { LOCALES } from '../core/i18n/Locale';
+import { DEFAULT_LOCALE, LOCALES } from '../core/i18n/Locale';
 import { CASE_PHASES } from '../domain/cases/CaseProgress';
 import { SCENE_KEYS } from '../domain/cases/ScenarioScript';
 
@@ -34,6 +34,18 @@ export const LocalizedTextListSchema = z.object({
         });
     }
 });
+/**
+ * Detection phrases, not display text. Deliberately *not* {@link LocalizedTextListSchema}: that
+ * schema's equal-length rule encodes a display correspondence (entry 3 of `assumptions` is the same
+ * assumption in either language), and detection phrases have no such correspondence. One English
+ * verb can need two French renderings, and French inflects where English does not — `prouve` and
+ * `prouvent` are both required, and neither has an English counterpart to pad the list with.
+ */
+export const DetectionPhraseListSchema = z.object({
+    en: z.array(z.string().trim().min(1)).min(1),
+    fr: z.array(z.string().trim().min(1)).min(1)
+}).strict();
+
 const isOnStep = (value: number, min: number, step: number): boolean =>
     Math.abs((value - min) / step - Math.round((value - min) / step)) < 0.0000001;
 
@@ -96,8 +108,16 @@ const TextualRenditionSchema = z.object({
     // Exactly one rendition may claim to reproduce the printed source; the rest are translations of
     // it. Two transcriptions of the same pages in different languages is a provenance claim nobody
     // has reviewed, which is precisely what this rule exists to stop.
-    if (rendition.renditions.filter(({ kind }) => kind === 'transcription').length !== 1) {
+    //
+    // The transcription must be `en`. The reader-facing notice (`book.translatedRendition`) names
+    // English as the original in both locales, so a French transcription with an English translation
+    // would state the provenance backwards on the page. Pinning it here keeps that string true by
+    // construction; generalising the notice is the prerequisite for relaxing this rule.
+    const transcriptions = rendition.renditions.filter(({ kind }) => kind === 'transcription');
+    if (transcriptions.length !== 1) {
         context.addIssue({ code: 'custom', message: 'Exactly one rendition may be the transcription of record; any others are translations.', path: ['renditions'] });
+    } else if (transcriptions[0].locale !== DEFAULT_LOCALE) {
+        context.addIssue({ code: 'custom', message: 'The transcription of record must be the English rendition; the reader-facing notice names English as the original.', path: ['renditions'] });
     }
     // Page-for-page alignment keeps the spread count and the printed page numbers identical in
     // either language, so "spread 3 of 19" means the same thing to every reader.
@@ -148,8 +168,9 @@ const PeerReviewRuleSchema = z.object({
     id: stableId,
     predicate: z.object({
         kind: z.enum(['missing-evidence', 'unsupported-support', 'overreach']),
-        // Detection phrases, not display text: both locales are always matched as a union.
-        overreachPhrases: LocalizedTextListSchema.optional()
+        // Detection phrases, not display text: both locales are always matched as a union, and the
+        // two lists are sized independently. See {@link DetectionPhraseListSchema}.
+        overreachPhrases: DetectionPhraseListSchema.optional()
     }).strict(),
     feedback: LocalizedTextSchema,
     revisionPath: LocalizedTextSchema
@@ -186,18 +207,34 @@ const ScenarioScriptSchema = z.object({
 /**
  * Authored help content must describe *what to do next*, never the route the app takes to get there.
  *
- * The word list is locale-specific by necessity: `route` and `phase` are ordinary French words (and
+ * Arrows are the reliable cross-language signal and are matched identically in both locales.
+ *
+ * The *word* list has to be locale-specific: `route` and `phase` are ordinary French words (and
  * `scène` reads naturally in "mise en scène"), so applying the English list to French copy produces
- * only false positives and pressure to mangle the translation. The arrow forms are the reliable
- * cross-language signal and stay in both.
+ * only false positives and pressure to mangle the translation. French is guarded at the phrase level
+ * instead — "ouvrez la scène" encodes a route, "la mise en scène de l'expérience" does not — which
+ * catches the real failure without punishing legitimate copy.
  */
-const forbiddenPath: Readonly<Record<'en' | 'fr', RegExp>> = {
-    en: /(?:\b(?:scene|phase|route)\b|→|->)/i,
-    fr: /(?:→|->)/
+const FORBIDDEN_ARROWS = /(?:→|⇒|⟶|->|=>)/;
+
+/**
+ * A word boundary that understands accents. `\b` is ASCII-only, so `\bétape` never matches — the
+ * position before `é` is not a boundary because `é` is not a `\w` character. Every French pattern
+ * here has to use this instead.
+ */
+const word = (pattern: string): string => `(?:^|[^\\p{L}\\p{N}_])(?:${pattern})(?=$|[^\\p{L}\\p{N}_])`;
+
+const forbiddenPath: Readonly<Record<'en' | 'fr', readonly RegExp[]>> = {
+    en: [FORBIDDEN_ARROWS, new RegExp(word('scene|phase|route'), 'iu')],
+    fr: [
+        FORBIDDEN_ARROWS,
+        new RegExp(`${word('ouvrez|allez|rendez-vous|retournez|naviguez|passez')}[^.!?]{0,20}${word('scène|phase|étape|écran|route')}`, 'iu')
+    ]
 };
 
 const encodesPath = (text: Readonly<{ en: string; fr: string }>): boolean =>
-    forbiddenPath.en.test(text.en) || forbiddenPath.fr.test(text.fr);
+    forbiddenPath.en.some((pattern) => pattern.test(text.en))
+    || forbiddenPath.fr.some((pattern) => pattern.test(text.fr));
 
 export const AssetManifestSchema = z.object({
     manifestVersion: z.string().trim().min(1),

@@ -21,8 +21,14 @@ test.describe('French browser', () => {
         // No in-game control: the browser is the only input, so there is nothing to click or store.
         await expect(page.getByTestId('language-selector')).toHaveCount(0);
 
-        await page.waitForFunction(() => navigator.serviceWorker.ready);
-        // The worker caches per response as it fetches; let the warm-up finish before cutting the network.
+        // `navigator.serviceWorker.ready` is a Promise, so it must be awaited inside the predicate —
+        // returning it directly makes `waitForFunction` resolve on its first poll, because every
+        // Promise is truthy. The worker caches per response as it fetches, so the warm-up has to
+        // finish before the network is cut or this gate races on a slow machine.
+        await page.waitForFunction(async () => {
+            await navigator.serviceWorker.ready;
+            return true;
+        });
         await page.reload();
         await expect(page.getByRole('button', { name: fr['boot.enter'] })).toBeVisible();
 
@@ -37,11 +43,30 @@ test.describe('French browser', () => {
     });
 });
 
-test('boots an English browser in English', async ({ page }) => {
-    await page.goto('/');
+// Declared rather than inherited: without it this asserts against whatever locale the Playwright
+// project or the CI runner happens to supply. The two cases below are also deliberately separate —
+// an English browser *matching* and an unsupported language *falling back* are different behaviours
+// that both end at `en`, and one assertion cannot tell them apart.
+test.describe('browser-locale resolution at boot', () => {
+    test.use({ locale: 'en-GB' });
 
-    await expect(page.getByRole('heading', { name: en['boot.title'] })).toBeVisible();
-    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    test('boots an English browser in English', async ({ page }) => {
+        await page.goto('/');
+
+        await expect(page.getByRole('heading', { name: en['boot.title'] })).toBeVisible();
+        await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    });
+});
+
+test.describe('unsupported browser language', () => {
+    test.use({ locale: 'de-DE' });
+
+    test('falls back to English rather than rendering a raw locale', async ({ page }) => {
+        await page.goto('/');
+
+        await expect(page.getByRole('heading', { name: en['boot.title'] })).toBeVisible();
+        await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    });
 });
 
 test('restores saved progress and decision history after an offline reload', async ({ page, context }) => {

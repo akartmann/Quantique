@@ -8,7 +8,7 @@ import {
     selectConclusionReadiness,
     selectContextualArtifacts,
     selectNotebookObservations,
-    selectSourceLabel,
+    selectCanonicalSourceLabel,
     selectTheoryBoardDraft
 } from '../../core/store/selectors';
 import type { RunRecord } from '../../domain/evidence/RunRecord';
@@ -36,7 +36,7 @@ const runDetails = (record: RunRecord, order: number, store: AppStore): HTMLElem
             .join('; ')),
         definition('Observed result', `${record.result.label}: ${record.result.value} ${record.result.unit}`),
         definition('Linked evidence', record.linkedEvidenceIds.length
-            ? record.linkedEvidenceIds.map((sourceId) => selectSourceLabel(store.getState(), sourceId)).join(', ')
+            ? record.linkedEvidenceIds.map((sourceId) => selectCanonicalSourceLabel(store.getState(), sourceId)).join(', ')
             : 'None recorded')
     );
     return details;

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { expect, test } from '@playwright/test';
 
 import { fr } from '../../src/core/i18n/locales/fr';
@@ -31,18 +33,60 @@ const WRAPPED_SURFACES = [
     { key: 'lab.result.stale', font: UI_FONT_STACK, fontSize: 19, wrapWidth: 620 },
     { key: 'lab.preview', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 620 },
     { key: 'lab.pattern.recorded', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 620 },
-    { key: 'lab.guidance', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 620 },
     { key: 'lab.control.readout', font: UI_FONT_STACK, fontSize: 18, wrapWidth: 330 },
     { key: 'book.caption.spread', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 770 },
     { key: 'book.caption.summary', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 770 },
     { key: 'book.summary.heading', font: BOOK_FONT_STACK, fontSize: 20, wrapWidth: 770 },
     { key: 'book.sourcePage.many', font: UI_FONT_STACK, fontSize: 12, wrapWidth: 372 },
-    { key: 'book.printedPage', font: BOOK_FONT_STACK, fontSize: 14, wrapWidth: 372 },
-    { key: 'book.originalLanguage', font: UI_FONT_STACK, fontSize: 12, wrapWidth: 770 }
+    { key: 'book.printedPage', font: BOOK_FONT_STACK, fontSize: 14, wrapWidth: 372 }
 ] as const;
 
 /** Book controls are a fixed hit-test width and shrink to fit down to 10px before they would clip. */
 const BOOK_CONTROLS = ['book.previous', 'book.next', 'book.close', 'book.summary.show', 'book.summary.close'] as const;
+
+/**
+ * The runtime values that fill each interpolated surface. Measuring the raw `{label}` / `{value}`
+ * tokens would be a guaranteed pass that says nothing: the string that actually clips is
+ * `"Écartement des fentes : 0,25 mm"`, not `{label}`. Authored source names come from `case.json`
+ * so this cannot drift from the content, and the measurement values carry the real U+202F separator
+ * `formatMeasurement` emits in French.
+ */
+const caseDefinition = JSON.parse(
+    readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
+) as {
+    contextualArtifacts: { displayName: { fr: string } }[];
+    apparatus: { primaryControls: { label: { fr: string } }[] };
+};
+
+/**
+ * Whitespace Phaser may wrap at — everything except the no-break spaces. French keeps `0,25` and its
+ * unit on one line with U+202F, so `"0,25 mm"` is a single unbreakable token and must be measured as
+ * one; a plain `\s+` split would quietly halve it.
+ */
+const BREAKABLE_WHITESPACE = /[^\S\u00A0\u202F]+/;
+
+const longestFrench = (values: readonly string[]): string =>
+    values.reduce((longest, value) => (value.length > longest.length ? value : longest), '');
+
+const SOURCE_NAME = longestFrench(caseDefinition.contextualArtifacts.map(({ displayName }) => displayName.fr));
+const CONTROL_LABEL = longestFrench(caseDefinition.apparatus.primaryControls.map(({ label }) => label.fr));
+const SPACING = '0,2200 mm';
+
+const SAMPLE_PARAMS: Readonly<Record<string, Readonly<Record<string, string | number>>>> = {
+    'lab.result.recorded': { value: SPACING, wavelength: 550, mode: fr['lab.wavelengthMode.minimum'] },
+    'lab.result.stale': { value: SPACING },
+    'lab.preview': { slitSpacing: '0,25 mm', screenDistance: '2,50 m' },
+    'lab.pattern.recorded': { spacing: SPACING },
+    'lab.control.readout': { label: CONTROL_LABEL, value: '0,25 mm' },
+    'book.caption.spread': { source: SOURCE_NAME, index: 19, total: 19 },
+    'book.caption.summary': { source: SOURCE_NAME },
+    'book.sourcePage.many': { pages: '138, 139' },
+    'book.printedPage': { pages: '138, 139' }
+};
+
+const fillParams = (key: string): string =>
+    Object.entries(SAMPLE_PARAMS[key] ?? {})
+        .reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), fr[key as keyof typeof fr]);
 
 type Measurement = Readonly<{ font: string; fontSize: number; text: string }>;
 
@@ -78,17 +122,22 @@ test('renders the French pangram at a plausible width in both font stacks', asyn
     await page.goto('/');
     await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
 
-    const [uiWidth, bookWidth, asciiWidth] = await measure(page, [
+    // What a fully-tofu render of this pangram would measure: every glyph replaced by the
+    // missing-glyph box. Comparing against *that* is the assertion — an `x`-repeat control is not,
+    // because a tofu box is roughly as wide as a 16px `x`, so a tofu run would sit comfortably
+    // inside any ratio bound drawn against it.
+    const [uiWidth, bookWidth, tofuWidth] = await measure(page, [
         { font: UI_FONT_STACK, fontSize: 16, text: FRENCH_GLYPH_SAMPLE },
         { font: BOOK_FONT_STACK, fontSize: 16, text: FRENCH_GLYPH_SAMPLE },
-        // A same-length ASCII control. A tofu run measures as a column of identical boxes, which is
-        // visibly wider and far more uniform than proportional text.
-        { font: UI_FONT_STACK, fontSize: 16, text: 'x'.repeat(FRENCH_GLYPH_SAMPLE.length) }
+        { font: UI_FONT_STACK, fontSize: 16, text: '￿' }
     ]);
 
+    const allTofuWidth = tofuWidth * FRENCH_GLYPH_SAMPLE.length;
     for (const width of [uiWidth, bookWidth]) {
         expect(width).toBeGreaterThan(FRENCH_GLYPH_SAMPLE.length * 3);
-        expect(width).toBeLessThan(asciiWidth * 1.4);
+        // Proportional text is narrower than a column of identical boxes, and the pangram is dense
+        // with narrow letters. A run that measured at or near the all-tofu width is not being drawn.
+        expect(width).toBeLessThan(allTofuWidth * 0.9);
     }
 });
 
@@ -96,10 +145,11 @@ test('keeps every French string inside the wrap bound of the surface that holds 
     await page.goto('/');
     await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
 
-    // Interpolation placeholders stand in for runtime values; measuring the widest *token* is what
-    // matters, because Phaser word-wrap cannot break inside one.
+    // Placeholders are filled with the values the surface actually renders before splitting, because
+    // Phaser word-wrap cannot break inside a token and the widest token is usually an interpolated
+    // one — a formatted measurement or an authored French source name, never `{value}`.
     const samples = WRAPPED_SURFACES.flatMap(({ key, font, fontSize }) =>
-        fr[key].split(/\s+/).filter(Boolean).map((token) => ({ key, font, fontSize, text: token })));
+        fillParams(key).split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({ key, font, fontSize, text: token })));
     const widths = await measure(page, samples);
 
     const overflowing = samples

@@ -24,11 +24,9 @@ export const fr: Record<TranslationKey, string> = {
     'lab.guide': 'Utilisez les commandes sémantiques du laboratoire ou ces commandes visuelles équivalentes.',
     'lab.source': 'source',
     'lab.screen': 'écran',
-    'lab.guidance': 'Prévisualisez les changements avec les commandes. Enregistrez une mesure pour fixer l’interfrange exact du modèle dans la figure.',
     'lab.control.readout': '{label} : {value}',
     'lab.control.decrease': '−',
     'lab.control.increase': '+',
-    'lab.result.empty': 'Aucun interfrange enregistré pour l’instant.',
     'lab.result.emptyHint': 'Aucun interfrange enregistré pour l’instant. Passez à l’étape d’expérimentation et utilisez « Lancer l’expérience » dans les commandes sémantiques.',
     'lab.result.recorded': 'Figure enregistrée : {value} à {wavelength} nm (parcours {mode}).',
     'lab.result.stale': 'Dernier résultat enregistré : {value}. Le montage modifié est un aperçu non enregistré.',
@@ -40,7 +38,7 @@ export const fr: Record<TranslationKey, string> = {
     // --- Deterministic experiment result --------------------------------------------------------
     'experiment.result.fringeSpacing': 'Interfrange',
 
-    // --- Archival book chrome (the rendition body stays in its original language) ----------------
+    // --- Archival book chrome (the pages themselves are authored per locale; see book.translatedRendition) ---
     'book.previous': '‹ Précédent',
     'book.next': 'Suivant ›',
     'book.close': 'Fermer le livre',
@@ -52,7 +50,6 @@ export const fr: Record<TranslationKey, string> = {
     'book.sourcePage.one': 'Page source {pages}.',
     'book.sourcePage.many': 'Pages sources {pages}.',
     'book.printedPage': 'Page imprimée {pages}.',
-    'book.originalLanguage': 'Présenté dans sa langue d’origine, l’anglais.',
     'book.translatedRendition': 'Traduction française de l’original anglais. La source de référence citée reste le texte anglais.',
 
     // --- Source provenance categories (enum ids rendered as prose) ------------------------------
@@ -60,7 +57,7 @@ export const fr: Record<TranslationKey, string> = {
     'source.provenance.reconstruction': 'reconstitution',
     'source.provenance.later-interpretation': 'interprétation postérieure',
     'source.provenance.deliberate-fiction': 'fiction assumée',
-    'source.unavailable': 'Source indisponible ({id})',
+    'source.unavailable': 'Source indisponible',
 
     // --- Curated Record (semantic source panel) -------------------------------------------------
     'curatedRecord.heading': 'Fonds documentaire',
@@ -137,7 +134,6 @@ export const fr: Record<TranslationKey, string> = {
     'print.sources.heading': 'Sources examinées',
     'print.sources.item': '{name} — {category} ; {reference}.',
     'print.sources.empty': 'Aucune source examinée.',
-    'print.sources.unavailable': 'Source indisponible',
     'print.prediction.heading': 'Prédiction provisoire',
     'print.prediction.term': 'Prédiction enregistrée',
     'print.prediction.empty': 'Aucune prédiction enregistrée.',

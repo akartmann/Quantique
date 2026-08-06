@@ -192,14 +192,12 @@ export class LectureBookRenderer {
         presentation.pages.forEach((page, pageIndex) => {
             if (page) this.drawPage(page, pageIndex, t);
         });
-        // The reader is never left guessing what these pages are. A translation says so; a source in
-        // a language other than the one being read says that instead. Only on the spread — the
-        // summary beside it is authored copy, so the note would misdescribe it.
-        this.originalLanguageNote?.setText(
-            presentation.renditionKind === 'translation'
-                ? t('book.translatedRendition')
-                : presentation.renditionLocale === this.getLocale() ? '' : t('book.originalLanguage')
-        );
+        // The reader is never left guessing what these pages are: a translated rendition says so.
+        // Only on the spread — the summary beside it is authored copy, so the note would misdescribe
+        // it. The schema pins the transcription of record to `en` and requires one rendition per
+        // shipped locale, which is what makes `book.translatedRendition`'s "English original"
+        // wording true for every rendition that can reach this line.
+        this.originalLanguageNote?.setText(presentation.renditionKind === 'translation' ? t('book.translatedRendition') : '');
         this.drawControl(188, CONTROL_Y, t('book.previous'), presentation.canGoPrevious);
         this.drawControl(512, CONTROL_Y, t('book.close'), true);
         this.drawControl(836, CONTROL_Y, t('book.next'), presentation.canGoNext);
@@ -246,9 +244,11 @@ export class LectureBookRenderer {
         const reference = this.scene.add.text(left, 195, t(page.sourcePages.length === 1 ? 'book.sourcePage.one' : 'book.sourcePage.many', { pages }), uiTextStyle({
             color: '#53626a', fontSize: '12px', fontStyle: 'bold', wordWrap: { width: PAGE_TEXT_WIDTH }
         }));
-        // The rendition body is a transcription of a historical primary source: it stays in its
-        // original language, with a localized note saying so. Translating it would be a new sourced
-        // artifact needing its own provenance and rights review (NFR11, FR26, FR27).
+        // The body is the authored rendition for the active locale — the English transcription of
+        // record, or the French translation of it. A translated spread carries the
+        // `book.translatedRendition` notice above, because a translation is a new sourced artifact:
+        // the citation and archive URL still point at the English original (NFR11, FR26, FR27), and
+        // the French translation has not been reviewed by a translator or a historian of science.
         const text = this.scene.add.text(left, BODY_TOP_Y, page.paragraphs.join('\n\n'), bookTextStyle({
             color: INK, fontSize: `${MAX_BODY_FONT_SIZE}px`, wordWrap: { width: PAGE_TEXT_WIDTH }
         }));

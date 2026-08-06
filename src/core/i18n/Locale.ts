@@ -7,8 +7,16 @@ export const LOCALES = ['en', 'fr'] as const;
 export type Locale = typeof LOCALES[number];
 
 /**
- * First-run language. Deliberately not read from `navigator.language`: it would put a browser API on
- * the boot path and make every E2E spec locale-dependent. The boot selector is the first-run affordance.
+ * The fallback language, and the canonical one.
+ *
+ * There is no language control anywhere in the game: `resolveBrowserLocale` reads
+ * `navigator.languages` synchronously at boot and `en` is what an unsupported language falls back
+ * to. It is also the locale the domain and every persisted record use — authored text crosses into
+ * `src/domain/` as `.en`, never as the active language (see the canonical-value traps in
+ * `docs/i18n-authoring.md`), so that saved progress revalidates whatever language it is read in.
+ *
+ * E2E specs stay deterministic because Playwright defaults to an English context; a French spec opts
+ * in with `test.use({ locale: 'fr-FR' })`.
  */
 export const DEFAULT_LOCALE: Locale = 'en';
 

@@ -4,7 +4,7 @@
 // Each replacement scene localizes its own text as it is built. See docs/i18n-authoring.md.
 import type { Result } from '../../core/errors/Result';
 import type { AppStore } from '../../core/store/createStore';
-import { selectComparisonNote, selectNotebookObservations, selectPrimaryControl, selectSelectedComparisonPair, selectSourceLabel } from '../../core/store/selectors';
+import { selectComparisonNote, selectNotebookObservations, selectPrimaryControl, selectSelectedComparisonPair, selectCanonicalSourceLabel } from '../../core/store/selectors';
 import type { RunRecord } from '../../domain/evidence/RunRecord';
 
 export type PrepareRun = () => Result<RunRecord>;
@@ -37,7 +37,7 @@ const recordDetails = (record: RunRecord, observationNumber: number, store: AppS
         definition(screenDistance.label.en, `${record.controls.screenDistanceM} ${screenDistance.unit}`),
         definition('Observed result', `${record.result.label}: ${record.result.value} ${record.result.unit}`),
         definition('Linked evidence', record.linkedEvidenceIds.length
-            ? record.linkedEvidenceIds.map((sourceId) => selectSourceLabel(store.getState(), sourceId)).join(', ')
+            ? record.linkedEvidenceIds.map((sourceId) => selectCanonicalSourceLabel(store.getState(), sourceId)).join(', ')
             : 'None recorded')
     );
     article.append(heading, details);

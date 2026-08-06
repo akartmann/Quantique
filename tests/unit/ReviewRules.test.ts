@@ -76,6 +76,21 @@ describe('authored consultation and peer-review rules', () => {
         });
     });
 
+    // French inflects where English does not. `prouvent` is the form every natural plural subject
+    // here takes ("ces observations", "les mesures"), and missing it would leave the learner credited
+    // with a calibrated conclusion for an overreaching one.
+    it('detects the French plural inflection, not just the singular', () => {
+        const inflected = { ...definition, peerReviewRules: definition.peerReviewRules.map((rule) => (rule.predicate.kind === 'overreach'
+            ? { ...rule, predicate: { ...rule.predicate, overreachPhrases: { en: ['proves'], fr: ['prouve', 'prouvent'] } } }
+            : rule)) };
+
+        const review = evaluatePeerReview(inflected, { runs: [], inspectedSourceIds: [] },
+            { ...createTheoryBoardDraft(), conclusion: 'Ces observations prouvent que la lumière est une onde.' });
+
+        expect(review.status).toBe('reviewed');
+        if (review.status === 'reviewed') expect(review.issues.map((issue) => issue.code)).toContain('overreach');
+    });
+
     it('handles unsupported support, unavailable rules, and boundary-aware overreach checks', () => {
         const unsupportedDraft = { ...createTheoryBoardDraft(), selectedRunIds: ['missing-run'] };
         const unsupported = evaluatePeerReview(definition, { runs: [], inspectedSourceIds: [] }, unsupportedDraft);

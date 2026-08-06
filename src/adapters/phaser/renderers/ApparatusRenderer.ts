@@ -3,7 +3,7 @@ import { BlendModes, type Scene } from 'phaser';
 import type { PhaserStoreAdapter } from '../PhaserStoreAdapter';
 import { uiTextStyle } from '../textStyles';
 import type { AppState } from '../../../core/store/AppState';
-import { formatMeasurement, formatRecordedValue } from '../../../core/i18n/formatNumber';
+import { formatRecordedValue } from '../../../core/i18n/formatNumber';
 import { createTranslator, type Translator } from '../../../core/i18n/translate';
 import { selectControlLabel, selectFormattedControlValue, selectLocale, selectPrimaryControl } from '../../../core/store/selectors';
 import type { PrimaryControl } from '../../../domain/cases/CaseDefinition';
@@ -18,11 +18,19 @@ const FRINGE_ROW_STEP = 2;
 const WAVEFRONT_RINGS = 6;
 const WAVEFRONT_PERIOD_MS = 2600;
 
+/** Clearance between the bottom of the result readout and the first control row. */
+const RESULT_READOUT_GAP = 14;
+const MAX_RESULT_FONT_SIZE = 19;
+const MIN_RESULT_FONT_SIZE = 15;
+/** Headroom above the readout before it would reach the painted screen and its label. */
+const RESULT_READOUT_MAX_HEIGHT = 96;
+
 export class ApparatusRenderer {
     private readonly objects: Phaser.GameObjects.GameObject[] = [];
     private readonly controls: Phaser.GameObjects.Text[] = [];
     private readonly readouts = new Map<PrimaryControl['id'], Phaser.GameObjects.Text>();
     private resultReadout?: Phaser.GameObjects.Text;
+    private resultReadoutBottomY = 0;
     private visualGuidance?: Phaser.GameObjects.Text;
     private sourceGlow?: Phaser.GameObjects.Arc;
     private sourceCore?: Phaser.GameObjects.Arc;
@@ -86,7 +94,12 @@ export class ApparatusRenderer {
         this.createRichPattern();
         const controlsTop = Math.max(440, this.scene.scale.height - 190);
         this.storeAdapter.getState().caseDefinition.apparatus.primaryControls.forEach((control, index) => this.createControl(control.id, controlsTop + (index * 74)));
-        this.resultReadout = this.scene.add.text(40, controlsTop - 58, '', uiTextStyle({ color: '#f7f4ef', fontSize: '19px', wordWrap: { width: 620 } }));
+        // The readout is bottom-anchored to the gap above the first control, so a string that needs
+        // an extra line grows upward into empty space instead of down over the control row. French
+        // runs 15–25% longer than English and `lab.result.emptyHint` is a third line at this width.
+        this.resultReadoutBottomY = controlsTop - RESULT_READOUT_GAP;
+        this.resultReadout = this.scene.add.text(40, this.resultReadoutBottomY, '', uiTextStyle({ color: '#f7f4ef', fontSize: `${MAX_RESULT_FONT_SIZE}px`, wordWrap: { width: 620 } }))
+            .setOrigin(0, 1);
         this.objects.push(this.resultReadout);
         this.updatePhoneReadOnlyMode();
         window.addEventListener('resize', this.updatePhoneReadOnlyMode);
@@ -127,6 +140,7 @@ export class ApparatusRenderer {
                 })
                 : t('lab.result.stale', { value: formatRecordedValue(locale, latest.result.value, latest.result.unit) })
             : t('lab.result.emptyHint'));
+        this.fitResultReadout();
         this.renderApparatusGeometry(state, t, latestMatchesActiveSetup ? latest?.result.value : undefined);
         if (latest && latest.id !== this.lastRunId) this.animateRecordedRun();
         this.lastRunId = latest?.id;
@@ -184,6 +198,22 @@ export class ApparatusRenderer {
         );
     }
 
+    /**
+     * Keeps the readout inside the gap above the controls. Bottom-anchored, so the common case costs
+     * one measurement and no reflow; the shrink loop only runs for a string long enough to reach the
+     * painted screen above, which is the same mechanism {@link LectureBookRenderer} uses for its
+     * authored leaves. Called on state change, never per frame.
+     */
+    private fitResultReadout(): void {
+        const readout = this.resultReadout;
+        if (!readout) return;
+        readout.setFontSize(MAX_RESULT_FONT_SIZE);
+        for (let fontSize = MAX_RESULT_FONT_SIZE; fontSize > MIN_RESULT_FONT_SIZE && readout.height > RESULT_READOUT_MAX_HEIGHT; fontSize -= 1) {
+            readout.setFontSize(fontSize - 1);
+        }
+        readout.setY(this.resultReadoutBottomY);
+    }
+
     /** Visual-only measurement flash for a saved deterministic run; no domain calculation occurs here. */
     private animateRecordedRun(): void {
         // Kill the prior flash — including the `targets: this` boost tween — so a rapid re-run cannot run two concurrently.
@@ -228,9 +258,11 @@ export class ApparatusRenderer {
         this.paintFringes();
         const locale = selectLocale(state);
         this.visualGuidance?.setText(recordedSpacingMm === undefined
+            // Same precision and unit as the readouts above: both come from the authored control, so
+            // the preview cannot drift from the value it is previewing when a step changes.
             ? t('lab.preview', {
-                slitSpacing: formatMeasurement(locale, slitSpacing, 2, 'mm'),
-                screenDistance: formatMeasurement(locale, screenDistance, 2, 'm')
+                slitSpacing: selectFormattedControlValue(state, 'slitSpacingMm'),
+                screenDistance: selectFormattedControlValue(state, 'screenDistanceM')
             })
             : t('lab.pattern.recorded', { spacing: formatRecordedValue(locale, recordedSpacingMm, 'mm') }));
     }

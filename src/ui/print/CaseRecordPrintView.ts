@@ -8,7 +8,7 @@ import {
     selectSourceLabel, selectTheoryBoardDraft
 } from '../../core/store/selectors';
 import type { AppState } from '../../core/store/AppState';
-import type { PeerReviewProjection } from '../../domain/review/peerReviewRules';
+import { CANONICAL_UNAVAILABLE_MESSAGE, type PeerReviewProjection } from '../../domain/review/peerReviewRules';
 
 const term = (label: string, value: string): HTMLDivElement => {
     const item = document.createElement('div');
@@ -28,7 +28,12 @@ const listItem = (text: string): HTMLLIElement => Object.assign(document.createE
  * `ruleId`, and falls back to the canonical text if a rule ever disappears from the definition.
  */
 const localizedFeedback = (state: AppState, t: Translator, feedback: PeerReviewProjection): string => {
-    if (feedback.status !== 'reviewed') return t('review.unavailable');
+    // `review.unavailable` mirrors the canonical string the domain persists. A record written by an
+    // older definition may carry a different one; that message is the authored record of what the
+    // learner was told, so it is preferred over the current wording rather than overwritten.
+    if (feedback.status !== 'reviewed') {
+        return feedback.message === CANONICAL_UNAVAILABLE_MESSAGE ? t('review.unavailable') : feedback.message;
+    }
     if (!feedback.issues.length) return t('print.history.noIssues');
     const locale = selectLocale(state);
     return feedback.issues.map((issue) => {
@@ -74,9 +79,13 @@ export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): ((
                 : t('print.observations.preModel');
             observationList.append(listItem(t('print.observations.item', {
                 index: index + 1,
-                // The stored `result.label` stays canonical English so saved runs revalidate; the
-                // display resolves the same measurement by key.
-                label: t('experiment.result.fringeSpacing'),
+                // The stored `result.label` stays canonical English so saved runs revalidate, and a
+                // Young run always carries the same one — so that measurement localizes by key.
+                // A pre-model observation (`modelInputs` is optional in `RunRecordSchema`) is *not*
+                // that measurement, and printing it as "fringe spacing" would contradict the
+                // "not treated as a physical Young measurement" line beside it. Its canonical label
+                // is shown as-is rather than mislabelled.
+                label: run.modelInputs ? t('experiment.result.fringeSpacing') : run.result.label,
                 value: formatRecordedValue(locale, run.result.value, run.result.unit),
                 timestamp: run.timestamp,
                 model: run.experimentModelVersion,

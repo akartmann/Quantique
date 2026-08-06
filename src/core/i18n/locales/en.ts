@@ -26,11 +26,9 @@ export const en = {
     'lab.guide': 'Use the semantic laboratory controls or these matching visual step controls.',
     'lab.source': 'source',
     'lab.screen': 'screen',
-    'lab.guidance': 'Preview changes with the controls. Record a run to lock the exact model spacing into the pattern.',
     'lab.control.readout': '{label}: {value}',
     'lab.control.decrease': '−',
     'lab.control.increase': '+',
-    'lab.result.empty': 'No fringe spacing recorded yet.',
     'lab.result.emptyHint': 'No fringe spacing recorded yet. Enter the experiment stage and use Run experiment in the semantic controls.',
     'lab.result.recorded': 'Recorded pattern: {value} at {wavelength} nm ({mode} path).',
     'lab.result.stale': 'Last recorded result: {value}. The changed setup is an unrecorded preview.',
@@ -44,7 +42,7 @@ export const en = {
     // equality on load; only its *display* is localized. See docs/i18n-authoring.md.
     'experiment.result.fringeSpacing': 'Fringe spacing',
 
-    // --- Archival book chrome (the rendition body stays in its original language) ----------------
+    // --- Archival book chrome (the pages themselves are authored per locale; see book.translatedRendition) ---
     'book.previous': '‹ Previous',
     'book.next': 'Next ›',
     'book.close': 'Close book',
@@ -56,7 +54,6 @@ export const en = {
     'book.sourcePage.one': 'Source page {pages}.',
     'book.sourcePage.many': 'Source pages {pages}.',
     'book.printedPage': 'Printed page {pages}.',
-    'book.originalLanguage': 'Presented in the original English.',
     'book.translatedRendition': 'French translation of the English original. The cited source of record remains the English text.',
 
     // --- Source provenance categories (enum ids rendered as prose) ------------------------------
@@ -64,7 +61,7 @@ export const en = {
     'source.provenance.reconstruction': 'reconstruction',
     'source.provenance.later-interpretation': 'later interpretation',
     'source.provenance.deliberate-fiction': 'deliberate fiction',
-    'source.unavailable': 'Unavailable source ({id})',
+    'source.unavailable': 'Unavailable source',
 
     // --- Curated Record (semantic source panel) -------------------------------------------------
     'curatedRecord.heading': 'Curated Record',
@@ -142,7 +139,6 @@ export const en = {
     'print.sources.heading': 'Inspected sources',
     'print.sources.item': '{name} — {category}; {reference}.',
     'print.sources.empty': 'No sources inspected.',
-    'print.sources.unavailable': 'Unavailable source',
     'print.prediction.heading': 'Tentative prediction',
     'print.prediction.term': 'Recorded prediction',
     'print.prediction.empty': 'No prediction recorded.',

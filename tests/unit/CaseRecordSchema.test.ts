@@ -56,8 +56,9 @@ describe('portable case records', () => {
         expect(createInitialAppState(definition).caseDefinition).toBe(definition);
     });
 
-    // Adding `fr` to authored display text moved no progress-bearing value, so an investigation
-    // saved against 1.4.0 must still load against 1.5.0 rather than being discarded (NFR12).
+    // Adding `fr` to authored display text (1.5.0) and a French rendition of the archival pages
+    // (1.6.0) moved no progress-bearing value, so investigations saved against any of the earlier
+    // versions must still load against 1.6.0 rather than being discarded (NFR12).
     it.each(['1.2.0', '1.3.0', '1.4.0', '1.5.0'])('accepts a %s record against the 1.6.0 localized definition', (recordVersion) => {
         const localized = { ...definition, version: '1.6.0' } as CaseDefinition;
         const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: recordVersion });

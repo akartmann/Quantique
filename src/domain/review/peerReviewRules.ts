@@ -18,9 +18,21 @@ export type PeerReviewProjection = Readonly<{
     message: string;
 }>;
 
+/**
+ * Canonical English, the same contract as `Result.error.message`: the domain owns the dev-facing
+ * default and the presentation localizes it. `message` is persisted inside `DecisionHistoryEntry`,
+ * so it must not vary with the active language.
+ *
+ * **Keep in sync with the `review.unavailable` key** in `src/core/i18n/locales/{en,fr}.ts` — the
+ * surfaces resolve that key, and this string is what they fall back to. The status is not code-
+ * bearing (`PeerReviewProjection`'s shape is persisted and cannot gain a `code` field without a
+ * `schemaVersion` bump), so the link is by convention rather than by type.
+ */
+export const CANONICAL_UNAVAILABLE_MESSAGE = 'Peer feedback is temporarily unavailable. Your evidence and draft have been kept unchanged.';
+
 const unavailable = (): PeerReviewProjection => Object.freeze({
     status: 'unavailable',
-    message: 'Peer feedback is temporarily unavailable. Your evidence and draft have been kept unchanged.'
+    message: CANONICAL_UNAVAILABLE_MESSAGE
 });
 
 /**
@@ -57,6 +69,13 @@ const isApplicable = (
         case 'overreach':
             // The union of both locales' phrases, never the active one: detection must stay
             // deterministic so the recomputation on record load matches what was persisted.
+            //
+            // Widening the union is therefore not a free change — `validateCaseRecordForDefinition`
+            // re-runs this evaluator and rejects a record whose recomputed issues differ from the
+            // stored ones. Adding the French list in 1.6.0 is safe only because every build that
+            // could have saved a record was English-only with English authored proposals, so no
+            // persisted conclusion can contain these words. Any future addition needs the same
+            // argument, or a version-gated detection set.
             return overreachPhrases(rule).some((phrase) => {
                 const escaped = phrase.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
                 return new RegExp(`(?:^|[^\\p{L}\\p{N}_])${escaped}(?=$|[^\\p{L}\\p{N}_])`, 'u').test(draft.conclusion.toLowerCase());

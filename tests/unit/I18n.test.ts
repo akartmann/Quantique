@@ -97,6 +97,30 @@ describe('translate', () => {
     });
 });
 
+describe('resolveLocalizedText fallback floor', () => {
+    // The same contract as `translate`: never `undefined` and never an empty string. A Phaser
+    // `setText(undefined)` prints "undefined" to the player, and `.join()` on an absent list throws.
+    it('returns a placeholder rather than undefined when a degraded case is missing both locales', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const degraded = { fr: '   ' } as unknown as { en: string; fr: string };
+
+        const resolved = resolveLocalizedText(degraded, 'fr');
+
+        expect(resolved).toBeTypeOf('string');
+        expect(resolved.length).toBeGreaterThan(0);
+        warn.mockRestore();
+    });
+
+    it('returns an empty array rather than undefined for a degraded list', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const degraded = { fr: [] } as unknown as { en: readonly string[]; fr: readonly string[] };
+
+        expect(resolveLocalizedTextList(degraded, 'fr')).toEqual([]);
+        expect(() => resolveLocalizedTextList(degraded, 'fr').join(' ')).not.toThrow();
+        warn.mockRestore();
+    });
+});
+
 describe('translateError', () => {
     it('localizes a Result error by its stable code', () => {
         expect(translateError('fr', { code: 'persistence-unavailable', message: 'dev-facing default' }))

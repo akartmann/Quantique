@@ -4,7 +4,7 @@ baseline_commit: 128f1bf8f0ba540b69090cb45cb6d73cb5d75648
 
 # Story 1.1b: Internationalization foundation — English + French
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -215,8 +215,8 @@ until then.
   - [x] **Keep `evaluatePeerReview` emitting canonical `en` feedback** (trap 3). Do not change `PeerReviewIssue`'s shape or `CaseRecordSchema`'s `schemaVersion`; the review panel localizes by `ruleId`.
   - [x] **Add `missingArtifactIds` to `ContextReadiness`** alongside the existing canonical `missingArtifactLabels`, so the presentation can resolve localized source names by id.
   - [x] **Extend the `forbiddenPath` guard to both locales.** `CaseDefinitionSchema` rejects authored help text matching `/(?:\b(?:scene|phase|route)\b|→|->)/i`. Run it over the `fr` strings too. Note the French collision: *route* is an ordinary French word, and *phase* is spelled identically — expect false positives on legitimate French copy and adjust the rule (locale-specific word list) rather than mangling the translation. Cover both directions in a test.
-  - [x] Bump `case.json` `version` `1.4.0` → `1.5.0`, **and extend the compatibility allowance in `validateCaseRecordForDefinition`** (`src/schemas/CaseRecordSchema.ts:137-141`) so `1.4.0` records still load against `1.5.0`. Without this every saved investigation is rejected on upgrade — a direct NFR12 violation. Add a regression test that a `1.4.0` record loads.
-  - [x] **Bump `public/sw.js` `CACHE_NAME` to `quantique-bootstrap-v3`** with a comment matching the v2 precedent: the strict case schema now requires `fr`, so a stale cached `case.json` fails validation and boots into "content unavailable".
+  - [x] Bump `case.json` `version` `1.4.0` → `1.5.0` _(landed as **1.6.0** — the second revision added the translated renditions on top, see the Change Log)_, **and extend the compatibility allowance in `validateCaseRecordForDefinition`** (`src/schemas/CaseRecordSchema.ts:137-141`) so `1.4.0` records still load against `1.5.0`. Without this every saved investigation is rejected on upgrade — a direct NFR12 violation. Add a regression test that a `1.4.0` record loads.
+  - [x] **Bump `public/sw.js` `CACHE_NAME` to `quantique-bootstrap-v3`** _(landed as **v4**, for the same reason as the 1.6.0 bump)_ with a comment matching the v2 precedent: the strict case schema now requires `fr`, so a stale cached `case.json` fails validation and boots into "content unavailable".
   - [x] Unit tests in `tests/unit/CaseDefinition.test.ts`: a case with both locales parses; a case missing `fr` on any converted field is rejected; mismatched list lengths are rejected; the `forbiddenPath` rule fires on both locales.
 
 - [x] **Task 5 — ~~Language selectors~~ → no selectors (AC: 2)** _(revised 2026-08-06)_
@@ -436,7 +436,7 @@ is the tracked baseline failure.
   language needs no storage to survive a reload. `quantique-progress` stays at v1.
 - **Localized case contract:** `LocalizedText` / `LocalizedTextList`, Zod schemas requiring both
   locales and equal list lengths, and the full Young `case.json` authored in EN + FR (v1.4.0 →
-  v1.5.0). `sw.js` `CACHE_NAME` → `quantique-bootstrap-v3`.
+  **v1.6.0** after the second revision). `sw.js` `CACHE_NAME` → **`quantique-bootstrap-v4`**.
 - **No selectors:** the language is resolved from `navigator.languages` at boot and held in
   `AppState.locale` for the session. See the revision note below.
 - **Localized surfaces:** `ApparatusRenderer`, the reference book (chrome *and* pages), the boot
@@ -503,6 +503,27 @@ source of record — but the project rule "do not add unreviewed historical asse
 this should not ship without a human pass. It belongs with Open Question 4, at a higher bar than the
 interface copy.
 
+**AC3 coverage — deviation recorded at review (2026-08-06)**
+
+AC3 enumerates the authored text that must carry both locales: *"dialogue beats, colleague names/roles,
+the four prediction and four conclusion proposals with their limitations, colleague hints, rival-lab
+critiques, source labels, and debrief."* Only the last two, plus the Task 4 field list, exist in
+`case.json` today. The rest is not missing translation — **it is not authored yet in either language**:
+
+| AC3 content | Exists in `case.json` | Authored by |
+| --- | --- | --- |
+| Source labels, debrief, opening dispute, apparatus labels, assumptions, consultation layers, peer-review feedback | yes — EN + FR | this story |
+| Dialogue beats (`scenarioScript[].dialogueBeats`) | no — the script is six `{phase, sceneKey}` entries | 1.11, 1.12 |
+| Colleague names / roles, colleague hints | no | 1.11 |
+| The four prediction and four conclusion proposals with limitations | no | 2.1, 2.3 |
+| Rival-lab critiques | no | 2.3 |
+
+**AC3 is accepted as satisfied for the content that exists.** The contract those stories inherit is
+already in place: `LocalizedText` / `LocalizedTextList`, Zod requiring both locales before domain
+logic, and `ScenarioDialogueBeat.textKey` resolving through the same `translate` lookup as every
+other key. Nothing about the later content needs a second mechanism — which is what "foundation
+before scene text" was for. The gap is recorded here rather than left implicit in a `[x]`.
+
 **Decisions worth flagging at review**
 
 1. **`error.<code>` map is broader than the story's "8 in domain/core".** Every `Result` code
@@ -558,7 +579,6 @@ locales and is the natural place for that.
 - `src/core/i18n/formatNumber.ts`
 - `src/core/i18n/resolveLocalizedText.ts`
 - `src/core/i18n/resolveBrowserLocale.ts`
-- `docs/` — no new files; `docs/i18n-authoring.md` updated for the translated renditions
 - `src/core/i18n/locales/en.ts`
 - `src/core/i18n/locales/fr.ts`
 - `src/adapters/phaser/textStyles.ts`
@@ -570,12 +590,10 @@ locales and is the natural place for that.
 **Modified**
 
 - `index.html`
-- `public/style.css`
 - `public/sw.js`
 - `public/cases/young-interference/case.json`
 - `src/main.ts`
 - `src/game/main.ts`
-- `src/core/store/AppAction.ts`
 - `src/core/store/AppState.ts`
 - `src/core/store/createStore.ts`
 - `src/core/store/selectors.ts`
@@ -587,7 +605,6 @@ locales and is the natural place for that.
 - `src/schemas/CaseRecordSchema.ts`
 - `src/adapters/phaser/renderers/ApparatusRenderer.ts`
 - `src/adapters/phaser/renderers/LectureBookRenderer.ts`
-- `src/adapters/phaser/scenes/LaboratoryScene.ts`
 - `src/adapters/phaser/scenes/LectureBookScene.ts`
 - `src/adapters/phaser/scenes/PhasePlaceholderScene.ts`
 - `src/ui/BootShell.ts`
@@ -609,6 +626,94 @@ locales and is the natural place for that.
 - `tests/integration/ReviewFlow.test.ts`
 - `tests/e2e/curated-record.spec.ts`
 - `tests/e2e/offline-reload.spec.ts`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+
+### Review Findings
+
+Code review 2026-08-06 (`gds-code-review`, baseline `128f1bf..f31ae0f`). Three parallel layers ran and
+returned: Blind Hunter (diff only), Edge Case Hunter (diff + project), Acceptance Auditor (diff + spec).
+6 decisions, 16 patches, 4 deferred, 2 dismissed as noise.
+
+**Decisions — resolved 2026-08-06 by Alexis**
+
+| # | Decision | Resolution | Becomes |
+| --- | --- | --- | --- |
+| D1 | AC3's enumerated authored text is not in `case.json` | Accept AC3 as satisfied for the authored subset; record the deviation | patch (story note) |
+| D2 | The 43-page archival translation is unreviewed | Ship behind the `kind: 'translation'` tag and the in-book notice; folds into Open Question 4 / Story 2.4 | no action |
+| D3 | Overreach union can reject saved 1.2.0–1.5.0 records | Accept — unreachable in practice (the pre-change build was English-only); record the reasoning so it is not re-raised | patch (code comment) |
+| D4 | French overreach detection misses `prouvent` | Exempt `overreachPhrases` from the equal-length rule, then author the missing inflections | patch (schema + `case.json`) |
+| D5 | `book.translatedRendition` hard-codes English as the original | Constrain the schema so the single transcription must be `en`; drop the unreachable `book.originalLanguage` branch | patch (schema + renderer) |
+| D6 | French `forbiddenPath` is arrows-only and the arrow set is incomplete | Share one arrow set (`→ -> => ⇒ ⟶`) across both locales with the `i` flag, and give French a phrase-level list rather than bare words | patch (schema) |
+
+<details><summary>Original decision detail</summary>
+
+- [x] [Review][Decision] AC3's enumerated authored text is not in `case.json` — AC3 names dialogue beats, colleague names/roles, the four prediction and four conclusion proposals with their limitations, colleague hints, and rival-lab critiques. None exist in `public/cases/young-interference/case.json` (`scenarioScript` is six `{phase, sceneKey}` entries with no `dialogueBeats`), and no dialogue/proposal/colleague keys exist in `en.ts`. They belong to Stories 1.11, 1.12, 2.1, 2.3 — but AC3 is written as if they are here now, and Task 4's field list silently narrows it. Decide: accept AC3 as satisfied for the authored subset and record the deviation, or reopen. No key convention aligned with `ScenarioDialogueBeat.textKey` was established either, which is the hook 1.10 left for this story.
+- [x] [Review][Decision] The 43-page archival translation is unreviewed — the story flags this itself. Project rule: *"do not add unreviewed historical assets or claims."* The `kind: 'translation'` tag and the in-book notice keep the claim honest, but ~78 000 characters of French primary-source text were authored by the implementing agent. Decide whether this blocks `done` or ships behind the notice pending Open Question 4.
+- [x] [Review][Decision] Widening overreach detection to both locales can reject saved records — `overreachPhrases()` (`src/domain/review/peerReviewRules.ts:39-43`) now returns `[...authored.en, ...authored.fr]`. A record saved at 1.2.0–1.5.0 whose conclusion contains `prouve` / `certainement` / `sans aucun doute` recomputes an extra `overreach` issue that was never persisted, so `validateCaseRecordForDefinition` (`src/schemas/CaseRecordSchema.ts:231-243`) rejects the whole record on `JSON.stringify` mismatch and the player is dropped to a fresh investigation. The version allowlist was extended precisely to prevent that; this defeats it through a different door. Narrow (needs a French-language conclusion typed into the EN-only build) but real. Decide: version-gate the detection set, accept the risk, or accept it as unreachable in practice.
+- [x] [Review][Decision] French overreach detection misses the inflection a plural subject takes — `prouvent` is unmatched, so *"Ces observations prouvent que la lumière est une onde."* raises no `overreach` issue and the learner is then *credited* with `recognition.calibrated-conclusion` for a bounded claim. The natural French subjects here ("ces observations", "les mesures", "les résultats") all take `prouvent`. The fix is blocked by `LocalizedTextListSchema`'s equal-length rule (`src/schemas/CaseDefinitionSchema.ts:80`), which is justified in its own docstring by a *display* concern and is misapplied to a detection list. Decide: exempt `overreachPhrases` from equal-length, or pad the English list with a filler phrase.
+- [x] [Review][Decision] `book.translatedRendition` hard-codes English as the original — the string is *"French translation of the English original. The cited source of record remains the English text."* but `RenditionLocale` was widened to `Locale` and nothing pins the transcription to `en`. A source authored with an FR transcription + EN translation is fully schema-valid and would print its provenance backwards, in the one surface whose stated job is that the reader is never left guessing what the pages are. No such source exists today. Decide: derive the notice from the transcription's locale, constrain the schema to `en` transcriptions, or accept as a future-content constraint.
+- [x] [Review][Decision] French `forbiddenPath` is arrows-only, and the arrow set is incomplete — `src/schemas/CaseDefinitionSchema.ts:194-200` applies `\b(scene|phase|route)\b|→|->` to `.en` and `→|->` only to `.fr` (Open Question 3, resolved as recommended). Consequence: French authored help — the only copy a French player reads — has no word-based route guard at all. Neither regex covers `=>`, `⇒`, `⟶`, or `»`, and the FR regex drops the `i` flag. Decide: accept as designed, or extend the arrow set and add a French word list (`ouvrez la scène`, `passez à l'étape`).
+
+</details>
+
+**Patches**
+
+Five patches below (D1, D3, D4, D5, D6) came out of the decisions above.
+
+- [x] [Review][Patch] D1 — record the AC3 deviation — AC3 is accepted as satisfied for the authored subset. Add a note to Completion Notes stating which AC3-enumerated content (dialogue beats, colleague cast, the four prediction and four conclusion proposals with limitations, colleague hints, rival-lab critiques) does not yet exist in `case.json` and which story authors each, so the AC does not read as fully discharged.
+- [x] [Review][Patch] D3 — record why the overreach union is safe for saved records [src/domain/review/peerReviewRules.ts:39-43] — accepted as unreachable in practice. Extend the existing comment to say *why*: the pre-change build was English-only with English authored proposals, so a persisted conclusion containing `prouve` / `certainement` / `sans aucun doute` is implausible, and the recomputation in `validateCaseRecordForDefinition` would otherwise reject the whole record.
+- [x] [Review][Patch] D4 — exempt `overreachPhrases` from the equal-length rule and author the missing inflections [src/schemas/CaseDefinitionSchema.ts:80,145, public/cases/young-interference/case.json] — detection phrases have no cross-locale correspondence, so `LocalizedTextListSchema`'s equal-length `superRefine` is misapplied to them; use a plain per-locale string-array schema instead. Then add `prouvent` (and any other natural inflection for the plural subjects this case invites) to the French list.
+- [x] [Review][Patch] D5 — require the transcription of record to be `en` [src/schemas/CaseDefinitionSchema.ts:71-72, src/adapters/phaser/renderers/LectureBookRenderer.ts:199-202] — add a Zod rule that the single `kind: 'transcription'` rendition has `locale: 'en'`, making `book.translatedRendition`'s hardcoded direction true by construction and closing the backwards-provenance path. Drop the unreachable `book.originalLanguage` branch and its key (see the dead-keys patch below).
+- [x] [Review][Patch] D6 — share one arrow set across locales and give French a phrase-level guard [src/schemas/CaseDefinitionSchema.ts:194-200] — use `→ -> => ⇒ ⟶` with the `i` flag for both locales, keep the English word list, and add a French *phrase* list (`ouvrez la scène`, `passez à l'étape`, `allez à la phase`, `rendez-vous à`) rather than bare words, so legitimate French copy containing *route* / *phase* / *scène* still passes. Cover both directions in `tests/unit/CaseDefinition.test.ts`.
+
+- [x] [Review][Patch] The French empty-state readout wraps to a third line and overlaps the first control row [src/adapters/phaser/renderers/ApparatusRenderer.ts:89] — `lab.result.emptyHint` is 147 chars in FR vs 107 in EN (+37%). At 19px in a 620px wrap that is 3 lines vs 2; `resultReadout` sits at `controlsTop - 58` with the first control readout at `controlsTop`, so ~58px of clearance holds two lines and not three. This is the exact AC4 failure Task 7 named ("overflow is a far likelier AC4 failure than a missing glyph"), on the first paint of the laboratory for every French player, and `french-typography.spec.ts` cannot catch it because it measures token widths, never wrapped height or vertical stacking.
+- [x] [Review][Patch] The printed record labels every observation "Fringe spacing", including pre-model ones [src/ui/print/CaseRecordPrintView.ts:79] — `modelInputs` is `.optional()` in `RunRecordSchema` and `AppState.ts:100` handles its absence, so pre-model observations are representable and restorable. The print view unconditionally substitutes `label: t('experiment.result.fringeSpacing')`, discarding the stored `run.result.label`, while the adjacent `{inputs}` branch prints *"Pre-model observation; not treated as a physical Young measurement."* — a self-contradicting line in the learner's exported document. Regression: the pre-change code printed `run.result.label`.
+- [x] [Review][Patch] `error.missing-contextual-sources` can only ever print its `{label}` placeholder verbatim [src/core/store/AppState.ts:390,440] — Task 6's error subtask is marked `[x]` but the domain still pre-formats the canonical English label into `error.message` (`Inspect ${readiness.missingArtifactLabels[0]} before recording a prediction.`), unchanged from baseline. The only `translateError` call site is `src/main.ts:57`, with no params. `selectMissingContextArtifactNames` (`src/core/store/selectors.ts:61`), added expressly to supply the param, has zero consumers in `src/`. `interpolate` leaves unsupplied placeholders untouched, so the first surface to localize this code shows the player the literal `{label}`.
+- [x] [Review][Patch] Retiring panels declared English-only now emit mixed-language and mixed-format output [src/ui/theory/TheoryBoard.ts:39 vs :162, src/ui/notebook/NotebookPanel.ts:40, src/ui/apparatus/ApparatusControls.ts:77] — `selectSourceLabel` and `selectFormattedControlValue` were made locale-aware underneath panels whose new four-line headers say they read canonical `.en`. In one French render pass the Theory Board shows the same source as *"Compte rendu de la conférence de Thomas Young"* (line 39, via the selector) and *"Thomas Young's 1801 lecture record"* (line 162, via `displayName.en`) a few nodes apart, so a learner ticking evidence cannot tell they are the same artifact. `ApparatusControls` produces `"Slit spacing set to 0,25 mm."` — an English sentence carrying a French-formatted number with U+202F. Related: `src/ui/context/CaseContextAndPrediction.ts:116-121` localizes its own DOM attribution block, outside the two sanctioned exceptions, yielding the half-French accessible name `Lire la référence à l'Opticks — source attribution`, which `french-typography.spec.ts:165` now locks in as expected.
+- [x] [Review][Patch] `resolveLocalizedText` / `resolveLocalizedTextList` return `undefined` typed as `string` [src/core/i18n/resolveLocalizedText.ts:21,28] — the active-locale branch is guarded (`!== undefined`, `.trim().length > 0`); the fallback returns `text[DEFAULT_LOCALE]` unguarded, one line after `?? ''` admits it can be absent. The module's stated job is guarding a degraded cached `case.json`. `setText(undefined)` prints `undefined`; `resolveLocalizedTextList(...).join('\n\n')` in `drawPage` throws. Unreachable today because Zod requires both locales — but the sibling contract (`translate`) promises "never a raw key or an empty string" and this one has no floor.
+- [x] [Review][Patch] `Locale.ts` documents the superseded selector design and denies the shipped resolver [src/core/i18n/Locale.ts:9-11] — *"Deliberately not read from `navigator.language`: it would put a browser API on the boot path and make every E2E spec locale-dependent. The boot selector is the first-run affordance."* Both claims are false as of the 2026-08-06 revision, in the module that defines `DEFAULT_LOCALE`, naming a control the scope forbids. This is the foundation story whose whole point is that later authors read these files.
+- [x] [Review][Patch] Shipped comments state the archival pages are not translated, above the code rendering 43 French pages [src/adapters/phaser/renderers/LectureBookRenderer.ts:249-251, src/core/i18n/locales/en.ts:47, src/core/i18n/locales/fr.ts:43] — *"The rendition body is a transcription of a historical primary source: it stays in its original language… Translating it would be a new sourced artifact needing its own provenance and rights review (NFR11, FR26, FR27)."* Same contradiction inside the story: Completion Notes *"Not done, by scope: … translating the archival renditions"* versus the Change Log row recording the translation.
+- [x] [Review][Patch] `waitForFunction(() => navigator.serviceWorker.ready)` never waits [tests/e2e/offline-reload.spec.ts:24] — `navigator.serviceWorker.ready` is a Promise, and a Promise is always truthy, so the predicate resolves on its first poll. The comment's stated purpose ("let the warm-up finish before cutting the network") is not achieved. This is the AC2 release gate: it passes on a fast machine, flakes on a slow one, and will not catch a worker that fails to register. Needs `async () => { await navigator.serviceWorker.ready; return true; }`.
+- [x] [Review][Patch] The pangram test passes under a full tofu render [tests/e2e/french-typography.spec.ts:90-91] — the ceiling is `asciiWidth * 1.4` on the premise that "a tofu run measures as a column of identical boxes, which is visibly wider". A missing-glyph box at 16px is roughly the width of a 16px `x`, so a fully-tofu render measures ≈ `asciiWidth` — under the ceiling and over the `3px/char` floor. The test cannot fail for the reason it exists, and `docs/i18n-authoring.md` cites it as the evidence for the no-webfont decision.
+- [x] [Review][Patch] The wrap-bound test measures `{placeholder}` tokens, not the text that renders [tests/e2e/french-typography.spec.ts:101-102] — it splits each key on whitespace, so `lab.control.readout` (`'{label} : {value}'`) is measured as `{label}`, `:`, `{value}` against a 330px bound: a guaranteed pass. The value actually painted is `"Écartement des fentes : 0,25 mm"`. Same hole on `lab.result.recorded`, `lab.result.stale`, `lab.preview`, `lab.pattern.recorded`, `book.caption.spread`, `book.sourcePage.many`. Every wrap bound is also hand-copied into the spec rather than read from the renderer.
+- [x] [Review][Patch] Dead and unreachable locale keys, two of them padding the e2e coverage list [src/core/i18n/locales/en.ts, fr.ts, src/adapters/phaser/renderers/LectureBookRenderer.ts:201] — `lab.guidance`, `lab.result.empty` and `print.sources.unavailable` have zero consumers in `src/` (verified by grep); they were the pre-change initial `Text` contents, now superseded by `lab.preview` / `lab.pattern.recorded` / `lab.result.emptyHint` / `source.unavailable`. `book.originalLanguage` is unreachable: the schema requires one rendition per shipped locale, so `resolveRendition` always exact-matches and the `renditionLocale !== getLocale()` branch never fires — contradicting the Completion Note *"The `book.originalLanguage` key I had added was also never rendered — now it is."* `lab.guidance` and `book.originalLanguage` are both listed in `WRAPPED_SURFACES`, overstating what the AC4 spec verifies.
+- [x] [Review][Patch] The printed decision history leaks internal source ids to the learner [src/core/store/selectors.ts:74, src/ui/print/CaseRecordPrintView.ts:120] — `selectSourceLabel`'s miss path resolves `source.unavailable` = `'Unavailable source ({id})'`, so a history entry citing a removed source now prints `Unavailable source (newton-opticks)` in the exported document. Pre-change it printed a bare `'Unavailable source'`. The id-free `print.sources.unavailable` key is still authored in both locales but no longer reachable.
+- [x] [Review][Patch] `review.unavailable` is a second copy of a string the domain owns, and the print view now discards the persisted one [src/core/i18n/locales/en.ts, src/domain/review/peerReviewRules.ts:23, src/ui/print/CaseRecordPrintView.ts:31] — two byte-identical English sentences in two modules with no link; the interpolation-parity test cannot catch drift because the domain copy is not a translation key. Separately a silent behaviour change: the print view previously rendered the `entry.feedback.message` actually persisted with that decision and now substitutes a fixed sentence, so a stored message written by an older definition is no longer visible anywhere.
+- [x] [Review][Patch] The English-boot assertion inherits whatever locale the runner supplies [tests/e2e/offline-reload.spec.ts:40] — its French counterpart declares `test.use({ locale: 'fr-FR' })`; this one declares nothing. It also cannot distinguish "an English browser resolves to English" from "an unsupported locale fell back to English", which are the two different behaviours it appears to pin.
+- [x] [Review][Patch] The laboratory preview hardcodes precision and units beside a step-derived readout [src/adapters/phaser/renderers/ApparatusRenderer.ts:230] — `formatMeasurement(locale, slitSpacing, 2, 'mm')` / `(…, screenDistance, 2, 'm')` render the same two control values on the same screen as `selectFormattedControlValue`, which derives precision from `decimalPlaces(control.step)` and the unit from `control.unit`. They agree only because both steps happen to be 2dp today; change either in `case.json` — the authority on control precision — and the readout says `2.5 m` while the preview line below says `2.50 m`.
+- [x] [Review][Patch] Dev Agent Record inaccuracies — File List → Modified names `src/core/store/AppAction.ts`, `src/adapters/phaser/scenes/LaboratoryScene.ts` and `public/style.css`, none of which appear in `git diff --name-only 128f1bf..HEAD`; it omits `sprint-status.yaml`; and the Added list contains a non-file entry (*"`docs/` — no new files…"*). Task 4 and Completion Notes still state `case.json` `1.4.0 → 1.5.0` and `CACHE_NAME` `quantique-bootstrap-v3`; the code carries `1.6.0` and `v4`. `tests/unit/CaseRecordSchema.test.ts:74` repeats the stale comment over a test targeting 1.6.0.
+
+**Deferred**
+
+- [x] [Review][Defer] Save-compat allowlist leaves 1.0.0/1.1.0 records unreachable, and nothing guards the next bump [src/schemas/CaseRecordSchema.ts:143-145] — deferred, pre-existing
+- [x] [Review][Defer] `LOCALES` is presented as the single source of truth but controls nothing that matters [src/core/i18n/Locale.ts:5, src/schemas/CaseDefinitionSchema.ts:30,85,92] — deferred, EN+FR is hard-scoped by NFR19/ADR-010
+- [x] [Review][Defer] `locale` threaded as an optional parameter with a silent `DEFAULT_LOCALE` default [src/core/store/AppState.ts:147,165, src/adapters/phaser/renderers/LectureBookRenderer.ts:72] — deferred, fixture churn
+- [x] [Review][Defer] The book control width exists as three unlinked magic numbers [src/adapters/phaser/renderers/LectureBookRenderer.ts:272,281, tests/e2e/french-typography.spec.ts:117] — deferred, cosmetic
+
+**Verification after the patches (2026-08-06)**
+
+- `npm run typecheck` — clean.
+- `npx vitest run` — 29 files, **287 tests passing** (was 267; 20 added for the new behaviour:
+  the French route-in-words guard, the arrow set in both locales, unequal-length detection lists,
+  the `en`-transcription rule, the `prouvent` inflection, the `resolveLocalizedText` floor, the
+  canonical-selector split, and the parameterised error boundary).
+- `npm run test:e2e` — **29 passed / 7 failed**, the identical `deferred-work.md` baseline set
+  (`accessibility`, `curated-record`, `inquiry-recognition`, `offline-reload` *restores saved
+  progress*, `progress-portability`, `theory-board`, `young-experiment`). No regression; one spec
+  added (unsupported browser language falls back to English).
+- `npm run test:e2e:offline` — **4 passed / 1 failed**; the failure is the same tracked baseline
+  spec. The locale gate itself passes: French offline reload, English boot, unsupported-language
+  fallback.
+
+One patch ships without a unit test: the print view's pre-model observation label
+(`CaseRecordPrintView.ts`). Vitest has no DOM environment configured in `vitest.config.ts`, so that
+surface is reachable only from e2e; adding jsdom was out of scope for a review patch. Verified by
+reading, and the conditional is one line.
+
+**Dismissed as noise (2)**
+
+- `decimalPlaces` mishandling exponential notation — not reachable: `roundForStoredDisplay` caps stored results at 4dp, and control values are authored decimals, so no value reaching `formatRecordedValue` stringifies in exponential form.
+- `src/domain/cases/CaseDefinition.ts:1` importing `Locale` from `core/i18n/` — mandated by Task 4 (*"`RenditionLocale` widens to `Locale`"*), type-only, and reads no active locale. The purity rule means the active locale, not the string union.
 
 ## Change Log
 

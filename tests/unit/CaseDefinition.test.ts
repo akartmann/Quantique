@@ -322,6 +322,48 @@ describe('CaseDefinitionSchema', () => {
         expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
     });
 
+    // The other half of that trade: French is guarded at the phrase level instead, so a route
+    // encoded in words does not ship just because the word list had to be dropped.
+    it.each([
+        ['ouvrez la scène', 'Ouvrez la scène du carnet pour comparer les mesures.'],
+        ['passez à l’étape', 'Passez à l’étape de synthèse une fois les deux mesures notées.'],
+        ['allez à la phase', 'Allez à la phase de révision pour demander un retour.']
+    ])('rejects French help that encodes a route in words (%s)', (_label, frenchCopy) => {
+        const definition = cloneValidCase();
+        definition.consultationRules[0] = {
+            ...definition.consultationRules[0],
+            nextStep: { en: 'Record an observation.', fr: frenchCopy }
+        };
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
+
+    it.each([
+        ['en', '→'], ['en', '->'], ['en', '=>'], ['en', '⇒'], ['en', '⟶'],
+        ['fr', '→'], ['fr', '->'], ['fr', '=>'], ['fr', '⇒'], ['fr', '⟶']
+    ])('rejects an arrow encoding a path in %s (%s)', (locale, arrow) => {
+        const definition = cloneValidCase();
+        const nextStep = { en: 'Record an observation.', fr: 'Notez une observation.' };
+        definition.consultationRules[0] = {
+            ...definition.consultationRules[0],
+            nextStep: { ...nextStep, [locale]: `${nextStep[locale as 'en' | 'fr']} ${arrow} suite` }
+        };
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
+
+    // Detection phrases are not display text: French inflects where English does not, so the two
+    // lists are sized independently. This is the one localized list where that is allowed.
+    it('accepts overreach detection lists of different lengths per locale', () => {
+        const definition = cloneValidCase() as unknown as { peerReviewRules: Array<{ predicate: { overreachPhrases: { en: string[]; fr: string[] } } }> };
+        definition.peerReviewRules[2].predicate.overreachPhrases = {
+            en: ['proves'],
+            fr: ['prouve', 'prouvent', 'prouvé']
+        };
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
+    });
+
     it.each([
         ['unreviewed reader source', (definition: Record<string, unknown>) => {
             const source = (definition.contextualArtifacts as Array<Record<string, unknown>>)[0];
@@ -346,6 +388,14 @@ describe('CaseDefinitionSchema', () => {
         // Two transcriptions of the same pages is a provenance claim nobody has reviewed.
         ['a translation presented as a second transcription', (definition: Record<string, unknown>) => {
             const rendition = structuredClone(localLectureRendition()) as unknown as { renditions: Array<{ kind: string }> };
+            rendition.renditions[1].kind = 'transcription';
+            (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
+        }],
+        // `book.translatedRendition` names English as the original in both locales, so a French
+        // transcription with an English translation would state the provenance backwards on the page.
+        ['a French transcription of record', (definition: Record<string, unknown>) => {
+            const rendition = structuredClone(localLectureRendition()) as unknown as { renditions: Array<{ kind: string }> };
+            rendition.renditions[0].kind = 'translation';
             rendition.renditions[1].kind = 'transcription';
             (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
         }],

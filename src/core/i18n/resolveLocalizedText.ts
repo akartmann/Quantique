@@ -17,15 +17,21 @@ const warnMissingLocale = (locale: Locale, sample: string): void => {
 export const resolveLocalizedText = (text: LocalizedText, locale: Locale): string => {
     const value = text[locale];
     if (value !== undefined && value.trim().length > 0) return value;
-    warnMissingLocale(locale, text[DEFAULT_LOCALE] ?? '');
-    return text[DEFAULT_LOCALE];
+    const fallback = text[DEFAULT_LOCALE];
+    warnMissingLocale(locale, fallback ?? '');
+    // The same floor as `translate`: never `undefined` and never an empty string. A degraded case
+    // can be missing both locales, and a Phaser `setText(undefined)` would print "undefined" to the
+    // player rather than degrade.
+    return fallback !== undefined && fallback.trim().length > 0 ? fallback : '—';
 };
 
 export const resolveLocalizedTextList = (list: LocalizedTextList, locale: Locale): readonly string[] => {
     const values = list[locale];
     if (values !== undefined && values.length > 0) return values;
-    warnMissingLocale(locale, list[DEFAULT_LOCALE]?.[0] ?? '');
-    return list[DEFAULT_LOCALE];
+    const fallback = list[DEFAULT_LOCALE];
+    warnMissingLocale(locale, fallback?.[0] ?? '');
+    // Callers `.join(...)` this, so an absent list has to come back as an empty array, not undefined.
+    return fallback ?? [];
 };
 
 /**
