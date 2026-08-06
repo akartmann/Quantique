@@ -1,6 +1,10 @@
+---
+baseline_commit: bfdf24635e7d9263104680110a4b12a8d1357973
+---
+
 # Story 2.7: In-scene phase transitions and the adventure's forward path
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -64,68 +68,68 @@ _Build this first in the 2.7–2.12 sequence: it delivers the reusable advance a
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Widen `PhaserStoreAdapter` with one dispatcher per forward transition** (AC1, AC2)
-  - [ ] Add dispatchers for all six transitions. Use the **exact** actions in §The six transitions — three of them are *not* `case.phaseAdvance`, and getting this wrong is either a permanent refusal or a bypassed evidence check.
-  - [ ] Rename/replace `advanceToSynthesis` with the generalized surface. Keep the adapter the only place a timestamp is stamped (`case.debriefCompleted` follows `submitConclusion`'s precedent: `new Date().toISOString()` in the adapter, never in a reducer).
-  - [ ] Do **not** add store fields, actions, reducers, or phases. Every action this story needs already exists in `AppAction.ts`.
+- [x] **Task 1 — Widen `PhaserStoreAdapter` with one dispatcher per forward transition** (AC1, AC2)
+  - [x] Add dispatchers for all six transitions. Use the **exact** actions in §The six transitions — three of them are *not* `case.phaseAdvance`, and getting this wrong is either a permanent refusal or a bypassed evidence check.
+  - [x] Rename/replace `advanceToSynthesis` with the generalized surface. Keep the adapter the only place a timestamp is stamped (`case.debriefCompleted` follows `submitConclusion`'s precedent: `new Date().toISOString()` in the adapter, never in a reducer).
+  - [x] Do **not** add store fields, actions, reducers, or phases. Every action this story needs already exists in `AppAction.ts`.
 
-- [ ] **Task 2 — Phaser-free transition resolution module** (AC1, AC2, AC4, AC6)
-  - [ ] New module beside `sideColumnView.ts` (suggested `src/adapters/phaser/renderers/advanceView.ts`) that maps the live `CasePhase` to `{ labelKey, dispatch }` and resolves the affordance's view: enabled/ready state, the answer text for a refusal, and the speaker attribution slot.
-  - [ ] Reuse and generalize `resolveSideColumnView`'s three-part rule (hint only after an actual refusal; the hint withdraws itself; a non-gate error outranks and takes the whole slot with no speaker attribution). Fold `sideColumnView.ts` into the generalized module or keep it as the laboratory's specialization — either is fine, but there must be **one** rule, not two.
-  - [ ] No Phaser import, not even as a type value. Vitest runs in Node and Phaser touches `window` at import time.
+- [x] **Task 2 — Phaser-free transition resolution module** (AC1, AC2, AC4, AC6)
+  - [x] New module beside `sideColumnView.ts` (suggested `src/adapters/phaser/renderers/advanceView.ts`) that maps the live `CasePhase` to `{ labelKey, dispatch }` and resolves the affordance's view: enabled/ready state, the answer text for a refusal, and the speaker attribution slot.
+  - [x] Reuse and generalize `resolveSideColumnView`'s three-part rule (hint only after an actual refusal; the hint withdraws itself; a non-gate error outranks and takes the whole slot with no speaker attribution). Fold `sideColumnView.ts` into the generalized module or keep it as the laboratory's specialization — either is fine, but there must be **one** rule, not two.
+  - [x] No Phaser import, not even as a type value. Vitest runs in Node and Phaser touches `window` at import time.
 
-- [ ] **Task 3 — Explicit transient-message lifetime, shared by both renderers** (AC5)
-  - [ ] Implement the state-identity anchor described in §The transient lifetime fix, as a small Phaser-free helper both renderers use.
-  - [ ] Apply it in `ApparatusRenderer` (replacing the clear-inside-render at the top of `renderSideColumn`) **and** in `ColleagueRenderer` (replacing the `this.transientError = undefined; this.transientNotice = undefined;` pair in `render`).
-  - [ ] `transientNotice` (`theoryBoard.submitAcknowledged`) gets the same lifetime — it is the same slot and the same defect.
-  - [ ] Closes the `deferred-work.md` item "`transientError` is cleared inside the render that draws it". Say so in the Completion Notes.
+- [x] **Task 3 — Explicit transient-message lifetime, shared by both renderers** (AC5)
+  - [x] Implement the state-identity anchor described in §The transient lifetime fix, as a small Phaser-free helper both renderers use.
+  - [x] Apply it in `ApparatusRenderer` (replacing the clear-inside-render at the top of `renderSideColumn`) **and** in `ColleagueRenderer` (replacing the `this.transientError = undefined; this.transientNotice = undefined;` pair in `render`).
+  - [x] `transientNotice` (`theoryBoard.submitAcknowledged`) gets the same lifetime — it is the same slot and the same defect.
+  - [x] Closes the `deferred-work.md` item "`transientError` is cleared inside the render that draws it". Say so in the Completion Notes.
 
-- [ ] **Task 4 — The reusable Phaser widget** (AC1, AC3)
-  - [ ] New widget in `src/adapters/phaser/ui/` (suggested `AdvanceControl.ts`), following `DialogueBox` / `ProposalChoice`: **store-agnostic** — it takes resolved strings, geometry, and an `onAdvance` callback, never a `PhaserStoreAdapter`, a selector, or a locale.
-  - [ ] `create()` / `render(...)` / `destroy()`; text created empty in `create()` and written in `render`; `setInputEnabled(enabled)`; `destroy()` releases every object, tween, timer, and listener it made.
-  - [ ] Export the geometry constants and a `…ControlCentre()` helper so browser specs derive the click target instead of restating it (the rule `apparatusGeometry.ts` exists to satisfy). Export the label wrap bound for `french-typography.spec.ts`.
-  - [ ] If the control is ever repositioned or resized, write `input.hitArea.width/height` directly — `setInteractive` a second time only re-enables (see `ProposalChoice.resizeHitArea`).
+- [x] **Task 4 — The reusable Phaser widget** (AC1, AC3)
+  - [x] New widget in `src/adapters/phaser/ui/` (suggested `AdvanceControl.ts`), following `DialogueBox` / `ProposalChoice`: **store-agnostic** — it takes resolved strings, geometry, and an `onAdvance` callback, never a `PhaserStoreAdapter`, a selector, or a locale.
+  - [x] `create()` / `render(...)` / `destroy()`; text created empty in `create()` and written in `render`; `setInputEnabled(enabled)`; `destroy()` releases every object, tween, timer, and listener it made.
+  - [x] Export the geometry constants and a `…ControlCentre()` helper so browser specs derive the click target instead of restating it (the rule `apparatusGeometry.ts` exists to satisfy). Export the label wrap bound for `french-typography.spec.ts`.
+  - [x] If the control is ever repositioned or resized, write `input.hitArea.width/height` directly — `setInteractive` a second time only re-enables (see `ProposalChoice.resizeHitArea`).
 
-- [ ] **Task 5 — Wire the affordance into every phase's scene** (AC1, AC2, AC3)
-  - [ ] `LaboratoryScene` / `ApparatusRenderer`: replace the 2.6 control in place. Keep `advanceToSynthesisControlCentre()` working (or re-export an equivalent) — `rival-lab.spec.ts` and `ApparatusGeometry.test.ts` both read it.
-  - [ ] `ColleaguesScene` / `ColleagueRenderer`: `prediction → experiment`.
-  - [ ] `TheoryBoardScene` / `ColleagueRenderer`: **phase-aware** — this one scene hosts `synthesis` *and* `review`, and the two dispatch different actions. Read `selectCasePhase(state)`, never a captured value.
-  - [ ] `LibraryScene` and `DebriefScene`: they are still `PhasePlaceholderScene` subclasses (2.8 and 2.11 replace them). Host the affordance so `context → prediction` and the post-debrief replay are dispatchable now — see §Where the affordance lives for the two acceptable placements. Do not build room or debrief content.
-  - [ ] `RivalLabScene` gets **no** advance affordance: the rival lab is not a phase and its only exit is the existing revise control.
-  - [ ] Never place the affordance over the painted apparatus — `ADVANCE_CONTROL_Y = 360` exists because it was at 130 and painted across the interference screen at long throws.
+- [x] **Task 5 — Wire the affordance into every phase's scene** (AC1, AC2, AC3)
+  - [x] `LaboratoryScene` / `ApparatusRenderer`: replace the 2.6 control in place. Keep `advanceToSynthesisControlCentre()` working (or re-export an equivalent) — `rival-lab.spec.ts` and `ApparatusGeometry.test.ts` both read it.
+  - [x] `ColleaguesScene` / `ColleagueRenderer`: `prediction → experiment`.
+  - [x] `TheoryBoardScene` / `ColleagueRenderer`: **phase-aware** — this one scene hosts `synthesis` *and* `review`, and the two dispatch different actions. Read `selectCasePhase(state)`, never a captured value.
+  - [x] `LibraryScene` and `DebriefScene`: they are still `PhasePlaceholderScene` subclasses (2.8 and 2.11 replace them). Host the affordance so `context → prediction` and the post-debrief replay are dispatchable now — see §Where the affordance lives for the two acceptable placements. Do not build room or debrief content.
+  - [x] `RivalLabScene` gets **no** advance affordance: the rival lab is not a phase and its only exit is the existing revise control.
+  - [x] Never place the affordance over the painted apparatus — `ADVANCE_CONTROL_Y = 360` exists because it was at 130 and painted across the interference screen at long throws.
 
-- [ ] **Task 6 — Reference-book input suppression for every new host** (AC1)
-  - [ ] Extend `src/game/main.ts`'s `onOverlayVisibilityChange` callback to `LibraryScene` and `DebriefScene`, and give each a `setInputEnabled` pass-through, exactly as `LaboratoryScene` / `ColleaguesScene` / `TheoryBoardScene` / `RivalLabScene` already have.
-  - [ ] Each scene must also apply suppression **at creation** from `isOverlayVisible()`, not only from the edge-triggered callback: the router rebuilds the scene while the book may already be open.
-  - [ ] Without this, a page-turn click falls through the book and advances the phase — the exact defect 1.12, 2.5, and 2.6 each had to fix. The book is reachable in **every** phase, including `context`.
+- [x] **Task 6 — Reference-book input suppression for every new host** (AC1)
+  - [x] Extend `src/game/main.ts`'s `onOverlayVisibilityChange` callback to `LibraryScene` and `DebriefScene`, and give each a `setInputEnabled` pass-through, exactly as `LaboratoryScene` / `ColleaguesScene` / `TheoryBoardScene` / `RivalLabScene` already have.
+  - [x] Each scene must also apply suppression **at creation** from `isOverlayVisible()`, not only from the edge-triggered callback: the router rebuilds the scene while the book may already be open.
+  - [x] Without this, a page-turn click falls through the book and advances the phase — the exact defect 1.12, 2.5, and 2.6 each had to fix. The book is reachable in **every** phase, including `context`.
 
-- [ ] **Task 7 — Interface copy, both locales** (AC1, AC6)
-  - [ ] Add one `advance.*` key per transition to `src/core/i18n/locales/en.ts` **and** `fr.ts`. Retire `lab.advance` into the family (it has exactly two consumers: `ApparatusRenderer` and `french-typography.spec.ts`).
-  - [ ] Each label names the destination **in the fiction** — a place, a person, or an act — never a scene key, a phase name, a route, or an arrow. `Colleagues`, `Laboratory`, `TheoryBoard`, `Debrief`, `Library` are scene keys; "the theory board", "the bench", "your colleagues" are fiction. `lab.advance` = `'To the theory board'` is the calibration point.
-  - [ ] Keep every label short enough to fit its fixed-height control **as a whole string in French**, at its authored font size. French runs 15–25% longer.
-  - [ ] No case content, no `case.json` edit, no `CaseDefinition.version` bump: these are interface strings, not authored case prose.
+- [x] **Task 7 — Interface copy, both locales** (AC1, AC6)
+  - [x] Add one `advance.*` key per transition to `src/core/i18n/locales/en.ts` **and** `fr.ts`. Retire `lab.advance` into the family (it has exactly two consumers: `ApparatusRenderer` and `french-typography.spec.ts`).
+  - [x] Each label names the destination **in the fiction** — a place, a person, or an act — never a scene key, a phase name, a route, or an arrow. `Colleagues`, `Laboratory`, `TheoryBoard`, `Debrief`, `Library` are scene keys; "the theory board", "the bench", "your colleagues" are fiction. `lab.advance` = `'To the theory board'` is the calibration point.
+  - [x] Keep every label short enough to fit its fixed-height control **as a whole string in French**, at its authored font size. French runs 15–25% longer.
+  - [x] No case content, no `case.json` edit, no `CaseDefinition.version` bump: these are interface strings, not authored case prose.
 
-- [ ] **Task 8 — Unit tests** (AC6)
-  - [ ] Phase→action/label resolution: all six transitions, plus a phase with no forward transition if the mapping admits one.
-  - [ ] View resolution, extending `tests/unit/SideColumnView.test.ts`'s coverage to the generalized module: ready vs not-ready; hint drawn only after an actual refusal; hint (and the refusal with it) withdrawing when it stops applying; a non-gate error outranking the hint and carrying no speaker attribution; a frozen return value.
-  - [ ] Transient lifetime: a message survives an unrelated repaint with the same state object and is cleared by a new one. Assert on the helper, not on a renderer.
-  - [ ] No vacuous tests. Do not compute an expectation with the implementation's own predicate, and do not write a determinism test over a frozen fixture that cannot fail (both named by the 2.5 review).
+- [x] **Task 8 — Unit tests** (AC6)
+  - [x] Phase→action/label resolution: all six transitions, plus a phase with no forward transition if the mapping admits one.
+  - [x] View resolution, extending `tests/unit/SideColumnView.test.ts`'s coverage to the generalized module: ready vs not-ready; hint drawn only after an actual refusal; hint (and the refusal with it) withdrawing when it stops applying; a non-gate error outranking the hint and carrying no speaker attribution; a frozen return value.
+  - [x] Transient lifetime: a message survives an unrelated repaint with the same state object and is cleared by a new one. Assert on the helper, not on a renderer.
+  - [x] No vacuous tests. Do not compute an expectation with the implementation's own predicate, and do not write a determinism test over a frozen fixture that cannot fail (both named by the 2.5 review).
 
-- [ ] **Task 9 — Integration and E2E** (AC2, AC6)
-  - [ ] **Integration** (`tests/integration/`): drive all six transitions through **public store actions and selectors only**. This *can* be complete today — the store has every action; only the canvas is missing dispatchers. Walk `context → prediction → experiment → synthesis → review → debrief → replay`, asserting the phase after each, and assert the two refusal registers (gate code vs. `progress-operation-active` via `acquireExclusiveOperation`). Reuse `tests/integration/SignificantMeasureGate.test.ts`'s authored-case-parsing setup and `tests/integration/ReviewFlow.test.ts` for the support/peer-review/revision chain.
-  - [ ] **E2E** (`tests/e2e/`): a canvas-transition spec on `rival-lab.spec.ts`'s pattern — derive every click target from exported geometry, assert `data-active-scene` after each transition, scroll before clicking (sticky canvas). Every *transition* click is a canvas click; the intents the canvas cannot yet dispatch stay on their current DOM path and are annotated with the story that closes each.
-  - [ ] Establish the e2e baseline **before** attributing any failure: seven chromium specs and six firefox/webkit specs already fail (`deferred-work.md`, `docs/validation/young-technical-evidence.md`).
-  - [ ] `french-typography.spec.ts`: add every new `advance.*` key to the `FIXED_HEIGHT_CONTROLS` **whole-string** test (not only to the per-token `WRAPPED_SURFACES` sweep — the per-token sweep provably cannot catch a two-line wrap inside a fixed-height rectangle), reading each bound from the widget's exported constant.
+- [x] **Task 9 — Integration and E2E** (AC2, AC6)
+  - [x] **Integration** (`tests/integration/`): drive all six transitions through **public store actions and selectors only**. This *can* be complete today — the store has every action; only the canvas is missing dispatchers. Walk `context → prediction → experiment → synthesis → review → debrief → replay`, asserting the phase after each, and assert the two refusal registers (gate code vs. `progress-operation-active` via `acquireExclusiveOperation`). Reuse `tests/integration/SignificantMeasureGate.test.ts`'s authored-case-parsing setup and `tests/integration/ReviewFlow.test.ts` for the support/peer-review/revision chain.
+  - [x] **E2E** (`tests/e2e/`): a canvas-transition spec on `rival-lab.spec.ts`'s pattern — derive every click target from exported geometry, assert `data-active-scene` after each transition, scroll before clicking (sticky canvas). Every *transition* click is a canvas click; the intents the canvas cannot yet dispatch stay on their current DOM path and are annotated with the story that closes each.
+  - [x] Establish the e2e baseline **before** attributing any failure: seven chromium specs and six firefox/webkit specs already fail (`deferred-work.md`, `docs/validation/young-technical-evidence.md`).
+  - [x] `french-typography.spec.ts`: add every new `advance.*` key to the `FIXED_HEIGHT_CONTROLS` **whole-string** test (not only to the per-token `WRAPPED_SURFACES` sweep — the per-token sweep provably cannot catch a two-line wrap inside a fixed-height rectangle), reading each bound from the widget's exported constant.
 
-- [ ] **Task 10 — Repair, don't weaken** (AC3, AC6)
-  - [ ] Anything asserting against `lab.advance` or `advanceToSynthesisControlCentre` must keep meaning what it meant: `tests/e2e/rival-lab.spec.ts`, `tests/e2e/french-typography.spec.ts`, `tests/unit/ApparatusGeometry.test.ts`, `tests/unit/SideColumnView.test.ts`.
-  - [ ] Never assert a magic number a test shares with source unless both read one exported constant.
-  - [ ] If a test's meaning genuinely changes, change the test and say so in the Completion Notes. Do not delete an assertion to make a suite pass.
+- [x] **Task 10 — Repair, don't weaken** (AC3, AC6)
+  - [x] Anything asserting against `lab.advance` or `advanceToSynthesisControlCentre` must keep meaning what it meant: `tests/e2e/rival-lab.spec.ts`, `tests/e2e/french-typography.spec.ts`, `tests/unit/ApparatusGeometry.test.ts`, `tests/unit/SideColumnView.test.ts`.
+  - [x] Never assert a magic number a test shares with source unless both read one exported constant.
+  - [x] If a test's meaning genuinely changes, change the test and say so in the Completion Notes. Do not delete an assertion to make a suite pass.
 
-- [ ] **Task 11 — Verify** (all ACs)
-  - [ ] `npm run typecheck`, `npm test`, `npm run test:e2e`; record the baseline comparison in the Dev Agent Record.
-  - [ ] Manual at 1280×720, EN and FR: in each phase, confirm the affordance is present, legible, un-truncated, does not paint over the apparatus at `screenDistanceM = 4.0`, and that a refusal is answered rather than silent.
-  - [ ] Confirm `prefers-reduced-motion: reduce` is unaffected — this story adds no animation. If you add one, it inherits the whole media-query/static-frame contract.
+- [x] **Task 11 — Verify** (all ACs)
+  - [x] `npm run typecheck`, `npm test`, `npm run test:e2e`; record the baseline comparison in the Dev Agent Record.
+  - [x] Manual at 1280×720, EN and FR: in each phase, confirm the affordance is present, legible, un-truncated, does not paint over the apparatus at `screenDistanceM = 4.0`, and that a refusal is answered rather than silent.
+  - [x] Confirm `prefers-reduced-motion: reduce` is unaffected — this story adds no animation. If you add one, it inherits the whole media-query/static-frame contract.
 
 ## Dev Notes
 
@@ -316,16 +320,95 @@ Pinned; no upgrade and **no new dependency** is in scope: Phaser 4.2.1, TypeScri
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Opus 5 (`claude-opus-5[1m]`) — Game Developer (Link Freeman), 2026-08-07.
+
+### Implementation Plan
+
+Built in the story's task order, red-green-refactor per pure module (test written and confirmed failing before the implementation).
+
+1. **`PhaserStoreAdapter.advanceCase(transition)`** replaced `advanceToSynthesis`. A named `AdvanceTransitionId` union plus an exhaustive `Record` of dispatchers, so the three non-`phaseAdvance` moves cannot be guessed. `case.debriefCompleted`'s timestamp is stamped here, following `submitConclusion`.
+2. **`renderers/advanceView.ts`** — Phaser-free. Holds the total `CasePhase → { transition, labelKey }` map, `advanceRefusalRegister(code)`, and `resolveAdvanceView`. `sideColumnView.ts` was **folded into it and deleted**, so there is one rule rather than two.
+3. **`renderers/transientMessage.ts`** — the `AppState`-identity anchor, used by both renderers.
+4. **`ui/AdvanceControl.ts`** — the store-agnostic widget, owning the control's geometry. `apparatusGeometry.ts` keeps the *placement* and re-exports the widget's dimensions.
+5. **Wiring** — laboratory (widget replaces the 2.6 control in place), both boards, and `PhasePlaceholderScene`.
+6. **Suppression, copy, tests, spec repairs.**
 
 ### Debug Log References
 
+- **Two new e2e tests failed on first run, both at the same step: the Library advance click immediately after closing the reference book.** Not a defect in the affordance. `LectureBookRenderer.isOverlayVisible` stays `true` for the whole 180 ms closing fade *by design* — `hide()` disables the book's own input at once but keeps the overlay painted, and everything underneath must stay suppressed until `destroyOverlay`. So the click was correctly ignored. `rival-lab.spec.ts` never hit this because its next action after closing the book is a DOM click. Resolved with a bounded retrying click (`clickUntilScene`) for that one window, which is what a player does; the suppression itself is asserted directly, not tolerated, in the third test of `canvas-transitions.spec.ts`.
+- **`placeholderAdvanceControlCentre` could not live in `PhasePlaceholderScene`.** That class *extends* `Phaser.Scene`, so it imports Phaser as a value and Phaser touches `window` at import time; the first unit run died inside `phaser.esm.js`. Split into `scenes/phasePlaceholderGeometry.ts`, following `apparatusGeometry.ts`'s precedent for exactly the same reason.
+- **The `encodesPath` unit check caught two stale label keys** (`advance.toPeerReview`, `advance.toHistoricalAccount`) left in the mapping after the copy was renamed — the "labels every transition in both locales" assertion failed rather than the app silently falling back to English at runtime.
+
 ### Completion Notes List
 
+**What was built.** One reusable Phaser advance affordance, mounted in all five phase scenes, dispatching six typed actions through one adapter surface. All six forward transitions — `context → prediction`, `prediction → experiment`, `experiment → synthesis`, `synthesis → review`, `review → debrief`, and the post-debrief replay — are now dispatchable from the canvas. `RivalLabScene` deliberately has none.
+
+**AC2 is delivered as bounded, and the bound is real.** Every *transition* is canvas-dispatchable and `tests/e2e/canvas-transitions.spec.ts` walks all six with canvas clicks. A **pure** canvas walk still cannot complete Young: `source.inspected`, `experiment.run`, the notebook comparison, the theory-board support selections, and the peer-review chain have no canvas dispatcher and are out of this story's scope. The e2e spec takes each of those on its current DOM path and annotates it inline with the story that closes it. This is not a "passes" claim for the full walk — 2.8 and 2.10 make it true and 2.12 verifies it.
+
+**The unowned-coverage gap is real and reaches 2.12.** `theory.supportRunSelected` / `theory.supportSourceSelected` and `peerReview.requested` / `revision.saved` are claimed by no story in the 2.7–2.12 plan, and 2.12 deletes their only dispatchers. Recorded in `deferred-work.md` under this story. **Story 2.12 cannot pass its own completion check until these are owned** — decide 2.11 or a new 2.13 before scheduling it.
+
+**Deferred items closed.** ✅ "`transientError` is cleared inside the render that draws it" — closed in *both* renderers in one pass, as the item asked, via `transientMessage.ts`. ✅ "A fourth unlinked copy of the book-control coordinate" — partly closed: `bookCloseControlCentre()` is now exported and both specs derive it (the `768`/`1024` restatement remains open). ✅ The whole-string fixed-height typography test now covers every fixed-height control, not just the newest.
+
+**Decisions taken on the story's three open questions.** (1) Left for the reviewer, and recorded in `deferred-work.md` as above. (2) Followed the story's reading: the missing-sources gate is answered here by the localized error, and Story 2.8 AC4 authors the in-fiction colleague line. (3) Retired `lab.advance` into the `advance.*` family — the churn was two test files and the family is now consistent.
+
+**Changes to existing behaviour, stated rather than buried.**
+- `CONCLUSION_HEADING_WRAP` was **renamed** to `BOARD_TEXT_WRAP` and now bounds the heading *and* the guide on *both* boards, not the conclusion heading alone. The number is unchanged (696); what changed is that the right-hand control column is now a permanent feature of both boards rather than the conclusion board's exception. `french-typography.spec.ts` measures all four texts against it.
+- `ColleagueRenderer.dialogueTop()` now also clears the control column, not just the guide. On the conclusion board the column's floor (112) sits within 6 px of `DIALOGUE_TOP` (118); measuring against it rather than trusting that margin is the same rule the guide already had.
+- `ColleagueRenderer`'s two transient fields (`transientError`, `transientNotice`) became **one** slot carrying `{ text, tone }`. They were always one line of text differing only in colour, and holding them in two fields is what let `render` clear both on every paint.
+- `PhasePlaceholderScene` now takes `isOverlayVisible` and carries player-facing behaviour. Its un-localized development marker is unchanged.
+
+**No test assertion was deleted or weakened.** `tests/unit/SideColumnView.test.ts` was renamed to `tests/unit/AdvanceView.test.ts` when its module was folded in; every one of its assertions is carried forward verbatim, with new coverage added around them. The one added tolerance — the retrying click in the e2e — is bounded and is paired with a test that asserts the suppression it tolerates.
+
+**Verification.** `npm run typecheck` clean. `npm test`: **46 files / 660 tests pass** (baseline `bfdf246`: 42 / 614). `npm run test:e2e` (chromium): **7 failed, 43 passed**. The baseline was **measured, not assumed** — the working tree was stashed and the suite run at `bfdf246`, giving **7 failed, 40 passed** with an identical failure set by spec title. All seven are the documented pre-existing failures (six from the stale `Record prepared observation` notebook flow, one from the `aria-disabled`/`disabled` mismatch); the delta is exactly the three new passing tests. No new failure, and none of the seven is attributable to this change.
+
+**Manual check at 1280×720, EN and FR** (screenshots taken through a throwaway capture spec, deleted afterwards; the permanent assertions live in `canvas-transitions.spec.ts` and `french-typography.spec.ts`). In every phase the affordance is present, legible, and un-truncated in both locales. At `screenDistanceM = 4.0` the laboratory control at y=360 clears the screen bar (y ≤ 308) and its label (y ≤ 342), and the colleague hint remains floor-anchored. Refusals are answered, not silent: the library shows the localized missing-sources error with the French source name interpolated (no raw `{label}`), the laboratory shows the authored colleague hint, and the theory board shows the localized `conclusion-not-ready` error. In `review` the same board control correctly relabels itself from "To your reviewers" to "Close the case", which is the phase-awareness Task 5 asks for.
+
+**`prefers-reduced-motion` is unaffected: this story adds no animation at all.** `AdvanceControl` registers no tween, timer, or update loop, and neither does the shell; `grep` over the four new modules finds no animation call. The laboratory's existing reduced-motion subscription and static-frame path are untouched.
+
+**One observation worth a reviewer's eye.** `error.conclusion-not-ready` tells the player "the theory board shows what is missing", but only the retired DOM panel enumerates the missing requirements — the canvas board shows nothing of the kind, and will show nothing at all once 2.12 deletes the panel. Localized and non-raw, so AC4 holds, but the copy promises a surface that does not exist. Recorded in `deferred-work.md`.
+
 ### File List
+
+**New**
+
+- `src/adapters/phaser/ui/AdvanceControl.ts`
+- `src/adapters/phaser/renderers/advanceView.ts`
+- `src/adapters/phaser/renderers/transientMessage.ts`
+- `src/adapters/phaser/scenes/phasePlaceholderGeometry.ts`
+- `tests/unit/AdvanceView.test.ts`
+- `tests/unit/AdvanceControlGeometry.test.ts`
+- `tests/unit/TransientMessage.test.ts`
+- `tests/unit/PhaserStoreAdapter.test.ts`
+- `tests/integration/PhaseTransitions.test.ts`
+- `tests/e2e/canvas-transitions.spec.ts`
+
+**Modified**
+
+- `src/adapters/phaser/PhaserStoreAdapter.ts`
+- `src/adapters/phaser/renderers/ApparatusRenderer.ts`
+- `src/adapters/phaser/renderers/ColleagueRenderer.ts`
+- `src/adapters/phaser/renderers/LectureBookRenderer.ts`
+- `src/adapters/phaser/renderers/apparatusGeometry.ts`
+- `src/adapters/phaser/scenes/PhasePlaceholderScene.ts`
+- `src/adapters/phaser/scenes/LibraryScene.ts`
+- `src/adapters/phaser/scenes/DebriefScene.ts`
+- `src/core/i18n/locales/en.ts`
+- `src/core/i18n/locales/fr.ts`
+- `src/game/main.ts`
+- `tests/e2e/french-typography.spec.ts`
+- `tests/e2e/rival-lab.spec.ts`
+- `_bmad-output/implementation-artifacts/deferred-work.md`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+- `_bmad-output/implementation-artifacts/2-7-in-scene-phase-transitions.md`
+
+**Deleted**
+
+- `src/adapters/phaser/renderers/sideColumnView.ts` — folded into `advanceView.ts` (one rule, not two)
+- `tests/unit/SideColumnView.test.ts` — renamed to `tests/unit/AdvanceView.test.ts`, every assertion carried forward
 
 ## Change Log
 
 | Date | Version | Description | Author |
 | --- | --- | --- | --- |
 | 2026-08-06 | 0.1 | Story context created from epics.md §Story 2.7, sprint-change-proposal-2026-08-06, game-architecture v1.2, project-context v2.1, and the live source. | Game Scrum Master |
+| 2026-08-07 | 1.0 | Implemented all eleven tasks. Reusable `AdvanceControl` widget mounted in all five phase scenes; `PhaserStoreAdapter.advanceCase` dispatching all six forward transitions; `sideColumnView` folded into `advanceView`; explicit `AppState`-identity lifetime for transient messages in both renderers; six `advance.*` labels in EN+FR with `lab.advance` retired; book-overlay suppression extended to Library and Debrief. Net +46 Vitest tests (614 → 660) across four new unit/integration files, plus three new e2e tests. Closes two `deferred-work.md` items. | Game Developer (Link Freeman) |

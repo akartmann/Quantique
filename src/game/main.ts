@@ -23,15 +23,19 @@ const StartGame = (parent: string, store: AppStore, onLectureBookReady?: (contro
     const colleaguesScene = new ColleaguesScene(store, isOverlayVisible);
     const theoryBoardScene = new TheoryBoardScene(store, isOverlayVisible);
     const rivalLabScene = new RivalLabScene(store, isOverlayVisible);
+    // Since Story 2.7 these two carry an advance control of their own, so they own canvas input like
+    // the four above and need the same suppression.
+    const libraryScene = new LibraryScene(store, isOverlayVisible);
+    const debriefScene = new DebriefScene(store, isOverlayVisible);
     // A Record, not an array of pairs: this is the one place that has to be exhaustive over the
     // *routable* keys, and only the index signature makes the compiler reject a key the router can
     // activate. It is wider than `SceneKey` because the rival lab is routable but not authorable.
     const phaseScenes: Record<RoutableSceneKey, Scene> = {
-        Library: new LibraryScene(store),
+        Library: libraryScene,
         Colleagues: colleaguesScene,
         Laboratory: laboratoryScene,
         TheoryBoard: theoryBoardScene,
-        Debrief: new DebriefScene(store),
+        Debrief: debriefScene,
         [RIVAL_LAB_SCENE_KEY]: rivalLabScene
     };
 
@@ -69,6 +73,12 @@ const StartGame = (parent: string, store: AppStore, onLectureBookReady?: (contro
             // the canvas, so omitting it reproduces exactly the click-through defect 1.12 fixed for the
             // proposal cards — a page-turn falling through to the revise control underneath.
             rivalLabScene.setInputEnabled(!visible);
+            // And the two routing shells, which since Story 2.7 own an advance control. The library is
+            // where the book is *most* reachable — inspecting a source in the context phase is what
+            // opens it — so a page-turn falling through here would move the player straight out of the
+            // reading they had just started.
+            libraryScene.setInputEnabled(!visible);
+            debriefScene.setInputEnabled(!visible);
         },
         onLectureBookReady
     );

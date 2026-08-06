@@ -10,11 +10,17 @@
  * a test shares with source unless both read one exported constant" — without a Phaser-free
  * refactor of the whole renderer.
  *
+ * What is left here after Story 2.7 is the *placement* — where the laboratory puts a control that
+ * every other scene also has. The control's own dimensions moved into `ui/AdvanceControl.ts` and are
+ * re-exported below, so there is one set of numbers rather than two that agree by coincidence.
+ *
  * A column rather than a band, because the laboratory has no spare horizontal strip: `lab.title` and
  * `lab.guide` wrap to x=940 across the top, `resultReadout` and `visualGuidance` both wrap 620px from
  * x=40 and end at 660, and the two control rows occupy x=40–560 from y≈578 down. x≥680 is what is
  * left — but only *below* the apparatus, which is the correction below.
  */
+
+import { advanceControlCentre, advanceControlLabelWrap } from '../ui/AdvanceControl';
 
 /** The painted apparatus, in the same design space, so the column can be placed clear of it. */
 export const CENTRE_Y = 200;
@@ -37,6 +43,18 @@ export const SIDE_COLUMN_LEFT = 680;
 export const SIDE_COLUMN_WIDTH = 304;
 
 /**
+ * The control's own geometry now belongs to the widget that draws it (Story 2.7) — every phase's
+ * scene carries one, so its height, padding, and type size stopped being the laboratory's business.
+ * Re-exported here so the specs and the renderer that already read them keep reading **one** constant
+ * rather than a copy that could drift from the widget.
+ */
+export {
+    ADVANCE_CONTROL_FONT_SIZE,
+    ADVANCE_CONTROL_HEIGHT,
+    ADVANCE_CONTROL_PADDING
+} from '../ui/AdvanceControl';
+
+/**
  * Below the apparatus, not beside it.
  *
  * This was 130 and it was wrong (review, 2026-08-06). The screen slides right with the throw —
@@ -56,10 +74,8 @@ export const SIDE_COLUMN_WIDTH = 304;
  * measured and grows upward from the floor.
  */
 export const ADVANCE_CONTROL_Y = 360;
-export const ADVANCE_CONTROL_HEIGHT = 40;
-export const ADVANCE_CONTROL_PADDING = 12;
-export const ADVANCE_CONTROL_FONT_SIZE = 15;
-export const ADVANCE_CONTROL_LABEL_WRAP = SIDE_COLUMN_WIDTH - (2 * ADVANCE_CONTROL_PADDING);
+/** The laboratory's control fills the column, so its label bound is wider than the widget's default. */
+export const ADVANCE_CONTROL_LABEL_WRAP = advanceControlLabelWrap(SIDE_COLUMN_WIDTH);
 
 /** Between the hint's last line and the canvas floor. */
 export const HINT_BOTTOM_MARGIN = 24;
@@ -74,7 +90,5 @@ export const HINT_TEXT_WRAP = SIDE_COLUMN_WIDTH - (2 * HINT_PADDING);
  * The design-space centre of the control that leaves the laboratory, so a browser test can click it
  * without restating the column's gutters.
  */
-export const advanceToSynthesisControlCentre = (): Readonly<{ x: number; y: number }> => ({
-    x: SIDE_COLUMN_LEFT + (SIDE_COLUMN_WIDTH / 2),
-    y: ADVANCE_CONTROL_Y + (ADVANCE_CONTROL_HEIGHT / 2)
-});
+export const advanceToSynthesisControlCentre = (): Readonly<{ x: number; y: number }> =>
+    advanceControlCentre({ x: SIDE_COLUMN_LEFT, y: ADVANCE_CONTROL_Y, width: SIDE_COLUMN_WIDTH });

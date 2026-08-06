@@ -2,8 +2,11 @@ import type { Scene } from 'phaser';
 
 import type { PhaserStoreAdapter, ProposalKind } from '../PhaserStoreAdapter';
 import { uiTextStyle } from '../textStyles';
+import { AdvanceControl, ADVANCE_CONTROL_HEIGHT, advanceControlCentre } from '../ui/AdvanceControl';
 import { DialogueBox } from '../ui/DialogueBox';
 import { ProposalChoice } from '../ui/ProposalChoice';
+import { advanceTransitionForPhase } from './advanceView';
+import { TransientMessageSlot } from './transientMessage';
 import type { AppState } from '../../../core/store/AppState';
 import { createTranslator, type Translator } from '../../../core/i18n/translate';
 import {
@@ -72,8 +75,22 @@ const SUBMIT_FILL = 0x1d4451;
 
 export const SUBMIT_CONTROL_FONT_SIZE = 15;
 export const SUBMIT_CONTROL_LABEL_WRAP = SUBMIT_WIDTH - (2 * SUBMIT_LABEL_PADDING);
-/** The conclusion heading shares its row with the submit control, so it wraps against what is left. */
-export const CONCLUSION_HEADING_WRAP = PROPOSAL_SURFACE_WIDTH - SUBMIT_WIDTH - SUBMIT_GAP;
+
+/**
+ * A right-hand column of controls, and the width the prose on the left wraps against (Story 2.7).
+ *
+ * Story 2.5 gave the *conclusion* heading's row to the submit control and narrowed that one heading.
+ * Story 2.7 adds an advance control to **both** boards, so the column is now a permanent feature of
+ * the surface rather than the conclusion board's exception — and the heading *and* the guide on both
+ * boards wrap against what is left of the width, instead of running underneath it.
+ *
+ * The number is unchanged from `CONCLUSION_HEADING_WRAP`, which this replaces: it is the same column
+ * at the same width, now applying to four texts rather than one.
+ */
+export const BOARD_CONTROL_LEFT = PROPOSAL_SURFACE_LEFT + PROPOSAL_SURFACE_WIDTH - SUBMIT_WIDTH;
+export const BOARD_TEXT_WRAP = PROPOSAL_SURFACE_WIDTH - SUBMIT_WIDTH - SUBMIT_GAP;
+/** Between the submit control and the advance control beneath it, on the conclusion board. */
+const CONTROL_ROW_GAP = 8;
 
 /**
  * The design-space centre of the submit control, so a browser test can click it without restating the
@@ -81,9 +98,30 @@ export const CONCLUSION_HEADING_WRAP = PROPOSAL_SURFACE_WIDTH - SUBMIT_WIDTH - S
  * nothing measured pushes around.
  */
 export const submitConclusionControlCentre = (): Readonly<{ x: number; y: number }> => ({
-    x: PROPOSAL_SURFACE_LEFT + PROPOSAL_SURFACE_WIDTH - (SUBMIT_WIDTH / 2),
+    x: BOARD_CONTROL_LEFT + (SUBMIT_WIDTH / 2),
     y: HEADING_Y + (SUBMIT_HEIGHT / 2)
 });
+
+/**
+ * Where the advance control sits on each board.
+ *
+ * The prediction board has the column to itself and puts the control at the top of it. The conclusion
+ * board stacks it under the submit control, because the two are different acts and the order they are
+ * read in is the order they happen in: submit the claim, then move on.
+ */
+const advanceControlBounds = (kind: ProposalKind): Readonly<{ x: number; y: number; width: number }> => ({
+    x: BOARD_CONTROL_LEFT,
+    y: kind === 'conclusion' ? HEADING_Y + SUBMIT_HEIGHT + CONTROL_ROW_GAP : HEADING_Y,
+    width: SUBMIT_WIDTH
+});
+
+/** The design-space centre of the advance control on either board, for a browser spec to click. */
+export const advanceControlCentreOnBoard = (kind: ProposalKind): Readonly<{ x: number; y: number }> =>
+    advanceControlCentre(advanceControlBounds(kind));
+
+/** The measured floor of the control column, so nothing below it can be drawn underneath the column. */
+const controlColumnBottom = (kind: ProposalKind): number =>
+    advanceControlBounds(kind).y + ADVANCE_CONTROL_HEIGHT;
 /**
  * Where the dialogue panel sits when the guide above it has not been measured yet — `create()` builds
  * the panel before the first `render` writes any copy into the guide, so there is nothing to measure.
@@ -159,16 +197,25 @@ export class ColleagueRenderer {
     /** Conclusion board only: choosing is revisable, submitting is what invites the rival lab. */
     private submitControl?: Phaser.GameObjects.Rectangle;
     private submitLabel?: Phaser.GameObjects.Text;
+    /** Story 2.7: the way on from this board, whichever phase it is currently hosting. */
+    private advanceControl?: AdvanceControl;
     private inputEnabled = true;
-    /** Shown in place of the guide line until the next render, so a refused click is not silent. */
-    private transientError?: string;
     /**
-     * The same slot, for the opposite case: a submission that draws no challenge. It is deliberately
-     * presentation-only — the defensible branch of `theory.conclusionSubmitted` changes nothing in the
-     * store, and AC3 pins that it must not, so acknowledging it here is what keeps the control's success
-     * path from reading as a dead button without moving the phase (2.5 review).
+     * Shown in place of the guide line so a refused click is not silent, and — for the opposite case —
+     * so a submission that draws no challenge is not silent either. The acknowledgement is deliberately
+     * presentation-only: the defensible branch of `theory.conclusionSubmitted` changes nothing in the
+     * store, and AC3 pins that it must not, so saying so here is what keeps the control's success path
+     * from reading as a dead button without moving the phase (2.5 review).
+     *
+     * One slot, because it is one line of text: the two cases differ only in colour, and holding them
+     * in two fields is what let `render` clear both on every paint.
+     *
+     * The lifetime is explicit (Story 2.7, AC5). The old fields were cleared inside the render that
+     * drew them, and this renderer repaints for reasons that are not state changes — a dialogue
+     * advance relayouts the cards, the refusal's own follow-up render repaints everything — so a
+     * message could vanish before it had been read.
      */
-    private transientNotice?: string;
+    private readonly transientGuide = new TransientMessageSlot<Readonly<{ text: string; tone: 'error' | 'notice' }>>();
 
     public constructor(
         private readonly scene: Scene,
@@ -192,11 +239,10 @@ export class ColleagueRenderer {
         const state = this.storeAdapter.getState();
         // Text is authored empty here and populated by render(): create() runs once, but the
         // language can change at any time, so every string comes from the store subscription.
-        // The conclusion board gives its heading row to the submit control, so the heading wraps
-        // against the space that is actually left rather than running underneath it.
-        const headingWrap = this.kind === 'conclusion' ? CONCLUSION_HEADING_WRAP : CARD_WIDTH;
-        this.heading = this.scene.add.text(CARD_LEFT, HEADING_Y, '', uiTextStyle({ color: '#f7f4ef', fontSize: '25px', wordWrap: { width: headingWrap } }));
-        this.guide = this.scene.add.text(CARD_LEFT, GUIDE_Y, '', uiTextStyle({ color: '#c7d7d9', fontSize: '15px', wordWrap: { width: CARD_WIDTH } }));
+        // Both boards give the right of their top rows to the control column, so the heading and the
+        // guide wrap against the space that is actually left rather than running underneath it.
+        this.heading = this.scene.add.text(CARD_LEFT, HEADING_Y, '', uiTextStyle({ color: '#f7f4ef', fontSize: '25px', wordWrap: { width: BOARD_TEXT_WRAP } }));
+        this.guide = this.scene.add.text(CARD_LEFT, GUIDE_Y, '', uiTextStyle({ color: '#c7d7d9', fontSize: '15px', wordWrap: { width: BOARD_TEXT_WRAP } }));
         this.objects.push(this.heading, this.guide);
 
         if (this.kind === 'conclusion') {
@@ -208,6 +254,14 @@ export class ColleagueRenderer {
             this.submitControl.on('pointerup', () => this.submitConclusion());
             this.objects.push(this.submitControl, this.submitLabel);
         }
+
+        // The widget owns its own display objects and releases them itself, so it is deliberately not
+        // pushed onto `this.objects`.
+        this.advanceControl = new AdvanceControl(this.scene, {
+            ...advanceControlBounds(this.kind),
+            onAdvance: () => this.requestAdvance()
+        });
+        this.advanceControl.create();
 
         this.dialogueBox = new DialogueBox(this.scene, {
             x: CARD_LEFT,
@@ -252,18 +306,22 @@ export class ColleagueRenderer {
     public render(state: AppState): void {
         const t = createTranslator(selectLocale(state));
         this.heading?.setText(t(this.kind === 'prediction' ? 'colleagues.heading' : 'theoryBoard.heading'));
-        this.guide?.setText(this.transientError ?? this.transientNotice ?? t(this.kind === 'prediction' ? 'colleagues.guide' : 'theoryBoard.guide'));
-        this.guide?.setColor(this.transientError ? '#f4d35e' : this.transientNotice ? '#f7f4ef' : '#c7d7d9');
+        // Reading the slot is what spends it: the message survives every repaint of the state it was
+        // set against, and clears on the first render carrying a new one (AC5).
+        const transient = this.transientGuide.read(state);
+        this.guide?.setText(transient?.text ?? t(this.kind === 'prediction' ? 'colleagues.guide' : 'theoryBoard.guide'));
+        this.guide?.setColor(transient?.tone === 'error' ? '#f4d35e' : transient?.tone === 'notice' ? '#f7f4ef' : '#c7d7d9');
         this.submitLabel?.setText(t('theoryBoard.submit'));
-        // Cleared after drawing, so a refused click stays legible until the next real state change
-        // replaces it rather than vanishing on the same frame.
-        this.transientError = undefined;
-        this.transientNotice = undefined;
+        // Resolved from the **live** phase on every render, never captured: this one renderer hosts
+        // both `synthesis` and `review` on the theory board, and the two dispatch different actions.
+        // Its readiness stays `true` — the store decides on the click, and a board control that
+        // guessed would be holding an opinion about a conclusion (ADR-006).
+        this.advanceControl?.render({ label: t(advanceTransitionForPhase(selectCasePhase(state)).labelKey), isReady: true });
 
-        // Placed against the heading's *measured* bottom, not the constant. Giving the conclusion
-        // heading's row to the submit control narrowed its wrap to `CONCLUSION_HEADING_WRAP`, which
-        // strictly increases the chance it wraps — and a 25px heading at a constant `HEADING_Y` has only
-        // 38px before `GUIDE_Y`. The floor keeps this a safety net: today's EN and FR headings both fit
+        // Placed against the heading's *measured* bottom, not the constant. Giving both boards' top
+        // rows to the control column narrowed every heading's wrap to `BOARD_TEXT_WRAP`, which
+        // strictly increases the chance one wraps — and a 25px heading at a constant `HEADING_Y` has only
+        // 38px before `GUIDE_Y`. The floor keeps this a safety net: today's EN and FR headings all fit
         // one line and do not move, so the derived click targets stay where they are (2.5 review).
         this.guide?.setY(Math.max(GUIDE_Y, HEADING_Y + (this.heading?.height ?? 0) + HEADING_GAP));
 
@@ -285,12 +343,13 @@ export class ColleagueRenderer {
         this.cards.length = 0;
         this.dialogueBox?.destroy();
         this.dialogueBox = undefined;
+        this.advanceControl?.destroy();
+        this.advanceControl = undefined;
         this.heading = undefined;
         this.guide = undefined;
         this.submitControl = undefined;
         this.submitLabel = undefined;
-        this.transientError = undefined;
-        this.transientNotice = undefined;
+        this.transientGuide.clear();
     }
 
     /** The accent is the one thing the localized projection does not carry, because it is not text. */
@@ -311,7 +370,7 @@ export class ColleagueRenderer {
         const result = this.storeAdapter.submitConclusion();
         const current = this.storeAdapter.getState();
         if (!result.ok) {
-            this.transientError = selectLocalizedError(current, result.error);
+            this.transientGuide.set({ text: selectLocalizedError(current, result.error), tone: 'error' }, current);
             this.render(current);
             return;
         }
@@ -320,7 +379,10 @@ export class ColleagueRenderer {
         // flash. A submission that drew none changes no state at all, so this is the only signal there
         // is that the click did anything.
         if (selectRivalLabCritique(current)) return;
-        this.transientNotice = createTranslator(selectLocale(current))('theoryBoard.submitAcknowledged');
+        this.transientGuide.set(
+            { text: createTranslator(selectLocale(current))('theoryBoard.submitAcknowledged'), tone: 'notice' },
+            current
+        );
         this.render(current);
     }
 
@@ -332,7 +394,24 @@ export class ColleagueRenderer {
         // clickable".
         if (result.ok) return;
         const current = this.storeAdapter.getState();
-        this.transientError = selectLocalizedError(current, result.error);
+        this.transientGuide.set({ text: selectLocalizedError(current, result.error), tone: 'error' }, current);
+        this.render(current);
+    }
+
+    /**
+     * Asks to make the move that leaves the phase this board is currently hosting.
+     *
+     * Every refusal reachable here is answered by the localized error, and that is not an omission:
+     * the one gate with an authored in-fiction colleague line is the significant-measure gate, which
+     * sits on `experiment → synthesis` and can only be refused at the bench. A board that routed a
+     * refusal to a hint slot it does not have would be silent, which is the one thing AC4 forbids.
+     */
+    private requestAdvance(): void {
+        const { transition } = advanceTransitionForPhase(selectCasePhase(this.storeAdapter.getState()));
+        const result = this.storeAdapter.advanceCase(transition);
+        if (result.ok) return;
+        const current = this.storeAdapter.getState();
+        this.transientGuide.set({ text: selectLocalizedError(current, result.error), tone: 'error' }, current);
         this.render(current);
     }
 
@@ -348,7 +427,11 @@ export class ColleagueRenderer {
      */
     private dialogueTop(): number {
         const guideBottom = (this.guide?.y ?? GUIDE_Y) + (this.guide?.height ?? 0);
-        return Math.max(DIALOGUE_TOP, guideBottom + DIALOGUE_GAP);
+        // The panel spans the full width, so it has to clear the control column on the right as well
+        // as the guide on the left. On the conclusion board the column is two controls tall and its
+        // floor sits within a few pixels of `DIALOGUE_TOP`; measuring against it rather than trusting
+        // that margin is the same rule the guide gets, and for the same reason.
+        return Math.max(DIALOGUE_TOP, guideBottom + DIALOGUE_GAP, controlColumnBottom(this.kind) + DIALOGUE_GAP);
     }
 
     /**
@@ -396,6 +479,7 @@ export class ColleagueRenderer {
     private applyInputState(): void {
         this.cards.forEach(({ choice }) => choice.setInputEnabled(this.inputEnabled));
         this.dialogueBox?.setInputEnabled(this.inputEnabled);
+        this.advanceControl?.setInputEnabled(this.inputEnabled);
         if (this.inputEnabled) this.submitControl?.setInteractive({ useHandCursor: true });
         else this.submitControl?.disableInteractive();
     }

@@ -27,7 +27,6 @@ export const fr: Record<TranslationKey, string> = {
     // --- Laboratory surface ---------------------------------------------------------------------
     'lab.title': 'Interférences de Young — surface visuelle du laboratoire',
     'lab.guide': 'Utilisez les commandes sémantiques du laboratoire ou ces commandes visuelles équivalentes.',
-    'lab.advance': 'Au tableau de théorie',
     'lab.source': 'source',
     'lab.screen': 'écran',
     'lab.control.readout': '{label} : {value}',
@@ -40,6 +39,17 @@ export const fr: Record<TranslationKey, string> = {
     'lab.pattern.recorded': 'Figure d’interférence enregistrée : les franges brillantes sont espacées de {spacing} dans le résultat du modèle de Young enregistré.',
     'lab.wavelengthMode.minimum': 'minimal',
     'lab.wavelengthMode.advanced': 'avancé',
+
+    // --- In-scene advance affordance (Story 2.7) -------------------------------------------------
+    // See `en.ts` for the rule these follow. French runs 15–25% longer than English and each of these
+    // labels a fixed-height rectangle, so the whole-string check in `french-typography.spec.ts` is the
+    // binding constraint on how long any of them may get.
+    'advance.toColleagues': 'Vers vos collègues',
+    'advance.toBench': 'À la paillasse',
+    'advance.toTheoryBoard': 'Au tableau de théorie',
+    'advance.toReviewers': 'Vers vos relecteurs',
+    'advance.closeTheCase': 'Clore l’enquête',
+    'advance.replay': 'Enquêter à nouveau',
 
     // --- Deterministic experiment result --------------------------------------------------------
     'experiment.result.fringeSpacing': 'Interfrange',

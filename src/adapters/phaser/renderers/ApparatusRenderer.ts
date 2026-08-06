@@ -6,6 +6,7 @@ import type { AppState } from '../../../core/store/AppState';
 import { formatRecordedValue } from '../../../core/i18n/formatNumber';
 import { createTranslator, type Translator } from '../../../core/i18n/translate';
 import {
+    selectCasePhase,
     selectControlLabel,
     selectFormattedControlValue,
     selectLocale,
@@ -16,10 +17,9 @@ import {
 } from '../../../core/store/selectors';
 import type { PrimaryControl } from '../../../domain/cases/CaseDefinition';
 import { interferenceIntensity, rgbToInt, wavelengthToRgb } from '../../../domain/apparatus/opticalVisualModel';
+import { AdvanceControl } from '../ui/AdvanceControl';
 import {
-    ADVANCE_CONTROL_FONT_SIZE,
-    ADVANCE_CONTROL_HEIGHT,
-    ADVANCE_CONTROL_LABEL_WRAP,
+    ADVANCE_CONTROL_Y,
     CENTRE_Y,
     HINT_BOTTOM_MARGIN,
     HINT_LINE_FONT_SIZE,
@@ -31,10 +31,10 @@ import {
     SCREEN_LABEL_Y,
     SIDE_COLUMN_LEFT,
     SIDE_COLUMN_WIDTH,
-    advanceToSynthesisControlCentre,
     screenXForDistance
 } from './apparatusGeometry';
-import { resolveSideColumnView } from './sideColumnView';
+import { advanceRefusalRegister, advanceTransitionForPhase, resolveAdvanceView } from './advanceView';
+import { TransientMessageSlot } from './transientMessage';
 
 const SOURCE_X = 92;
 const BARRIER_X = 260;
@@ -52,16 +52,16 @@ const RESULT_READOUT_MAX_HEIGHT = 96;
 
 /**
  * The right-hand column carrying the control that leaves the laboratory and the colleague hint that
- * answers a refusal (Story 2.6). Its geometry lives in `apparatusGeometry.ts`, which imports no
- * Phaser, so a Playwright spec can derive its click target — this file cannot be imported from one.
+ * answers a refusal (Story 2.6, generalized by Story 2.7). Its *placement* lives in
+ * `apparatusGeometry.ts` and the control itself in `ui/AdvanceControl.ts`, neither of which imports
+ * Phaser as a value, so a Playwright spec can derive the click target — this file cannot be imported
+ * from one.
  *
- * The control has to exist at all because `src/ui/theory/TheoryBoard.ts` was the only dispatcher of
- * `nextPhase: 'synthesis'` in the codebase, and it is a retired-but-mounted DOM panel. Without a
- * canvas affordance the gate would refuse on a surface the pivot retired and the hint would render
- * nowhere.
+ * The control had to exist at all because `src/ui/theory/TheoryBoard.ts` was the only dispatcher of
+ * `nextPhase: 'synthesis'` in the codebase, and it is a retired-but-mounted DOM panel. Story 2.7 found
+ * the same thing true of five further transitions and gave every phase's scene the same widget, so
+ * what is special about the laboratory is now only its column and its authored hint — not the control.
  */
-const ADVANCE_FILL = 0x1d4451;
-const ADVANCE_FILL_READY = 0x276b55;
 
 export class ApparatusRenderer {
     private readonly objects: Phaser.GameObjects.GameObject[] = [];
@@ -88,8 +88,7 @@ export class ApparatusRenderer {
     private lastRunId?: string;
     private inputEnabled = true;
     /** Story 2.6: the way out of the laboratory, and the colleague who answers a refused attempt. */
-    private advanceControl?: Phaser.GameObjects.Rectangle;
-    private advanceLabel?: Phaser.GameObjects.Text;
+    private advanceControl?: AdvanceControl;
     private hintBackground?: Phaser.GameObjects.Rectangle;
     private hintSpeaker?: Phaser.GameObjects.Text;
     private hintLine?: Phaser.GameObjects.Text;
@@ -103,8 +102,15 @@ export class ApparatusRenderer {
      * change that could clear the refusal.
      */
     private advanceRefused = false;
-    /** Shown beside the hint when a dispatch is refused for a reason the gate has nothing to do with. */
-    private transientError?: string;
+    /**
+     * Shown beside the hint when a dispatch is refused for a reason the gate has nothing to do with.
+     *
+     * Held in a slot with an explicit lifetime rather than in a bare field (Story 2.7, AC5): the old
+     * field was cleared inside the render that drew it, so the message painted once and any later
+     * repaint — a control nudge, the export's own completion notify, the refusal's follow-up render —
+     * erased it before the player could read it.
+     */
+    private readonly transientError = new TransientMessageSlot<string>();
 
     // Live optical geometry, refreshed from store state and consumed by the animation loop.
     private slitTopY = CENTRE_Y - 30;
@@ -215,6 +221,8 @@ export class ApparatusRenderer {
         // and the resultReadout fade — so nothing writes to torn-down objects after destroy.
         this.scene.tweens.killTweensOf(this);
         this.scene.tweens.killTweensOf([this.sourceGlow, this.sourceCore, this.resultReadout].filter(Boolean) as Phaser.GameObjects.GameObject[]);
+        // The widget owns its own objects, so it releases them itself rather than through `objects`.
+        this.advanceControl?.destroy();
         this.objects.forEach((object) => object.destroy());
         this.objects.length = 0; this.controls.length = 0; this.readouts.clear();
         this.decreaseButtons.length = 0; this.increaseButtons.length = 0;
@@ -222,9 +230,9 @@ export class ApparatusRenderer {
         this.resultReadout = undefined; this.visualGuidance = undefined; this.slitTop = undefined; this.slitBottom = undefined; this.screen = undefined; this.screenLabel = undefined;
         this.sourceGlow = undefined; this.sourceCore = undefined; this.barrier = undefined;
         this.beamGraphics = undefined; this.wavefrontGraphics = undefined; this.fringeGraphics = undefined;
-        this.advanceControl = undefined; this.advanceLabel = undefined;
+        this.advanceControl = undefined;
         this.hintBackground = undefined; this.hintSpeaker = undefined; this.hintLine = undefined;
-        this.advanceRefused = false; this.transientError = undefined;
+        this.advanceRefused = false; this.transientError.clear();
         this.lastRunId = undefined; this.fringeSignature = ''; this.measurementBoost = 0;
     }
 
@@ -405,12 +413,15 @@ export class ApparatusRenderer {
      * locale can change at any time.
      */
     private createSideColumn(): void {
-        const { x, y } = advanceToSynthesisControlCentre();
-        this.advanceControl = this.scene.add.rectangle(x, y, SIDE_COLUMN_WIDTH, ADVANCE_CONTROL_HEIGHT, ADVANCE_FILL).setOrigin(0.5, 0.5);
-        this.advanceLabel = this.scene.add.text(x, y, '', uiTextStyle({
-            color: '#f7f4ef', fontSize: `${ADVANCE_CONTROL_FONT_SIZE}px`, align: 'center', wordWrap: { width: ADVANCE_CONTROL_LABEL_WRAP }
-        })).setOrigin(0.5, 0.5);
-        this.advanceControl.on('pointerup', () => this.advanceToSynthesis());
+        // The widget owns its own display objects and releases them in its own `destroy()`, so it is
+        // deliberately not pushed onto `this.objects`.
+        this.advanceControl = new AdvanceControl(this.scene, {
+            x: SIDE_COLUMN_LEFT,
+            y: ADVANCE_CONTROL_Y,
+            width: SIDE_COLUMN_WIDTH,
+            onAdvance: () => this.requestAdvance()
+        });
+        this.advanceControl.create();
 
         // Bottom-anchored, for the same reason `resultReadout` is: an authored hint is prose of
         // unbounded-by-layout length and French runs 15–25% longer, so it has to grow *upward* into
@@ -424,27 +435,35 @@ export class ApparatusRenderer {
             color: '#f4d35e', fontSize: `${HINT_SPEAKER_FONT_SIZE}px`, wordWrap: { width: HINT_TEXT_WRAP }
         })).setOrigin(0, 1);
 
-        this.objects.push(this.advanceControl, this.advanceLabel, this.hintBackground, this.hintLine, this.hintSpeaker);
+        this.objects.push(this.hintBackground, this.hintLine, this.hintSpeaker);
     }
 
     /**
-     * Asks to leave for the theory board.
+     * Asks to make the move that leaves this phase.
      *
-     * It decides nothing itself. A refusal may come from the significant-measure gate or from
-     * `createStore` short-circuiting during an exclusive progress operation, and the two need
-     * different answers: the gate's refusal is answered by the authored colleague hint, and anything
-     * else by the localized error — swallowing either would leave the control looking inert with no
-     * way to tell "refused" from "not clickable" (1.11 review).
+     * It decides nothing itself, and it does not know that the laboratory is the `experiment` phase:
+     * the transition is resolved from the **live** phase every time, which is the rule every host of
+     * this control follows (ADR-009 — a scene mirrors the phase and never defines it).
+     *
+     * A refusal may come from the significant-measure gate or from `createStore` short-circuiting
+     * during an exclusive progress operation, and the two need different answers: the gate's refusal
+     * is answered by the authored colleague hint, and anything else by the localized error —
+     * swallowing either would leave the control looking inert with no way to tell "refused" from
+     * "not clickable" (1.11 review).
      */
-    private advanceToSynthesis(): void {
-        const result = this.storeAdapter.advanceToSynthesis();
+    private requestAdvance(): void {
+        const { transition } = advanceTransitionForPhase(selectCasePhase(this.storeAdapter.getState()));
+        const result = this.storeAdapter.advanceCase(transition);
         if (result.ok) return;
         const current = this.storeAdapter.getState();
-        if (result.error.code === 'significant-measures-required') {
+        if (advanceRefusalRegister(result.error.code) === 'gate') {
             this.advanceRefused = true;
-            this.transientError = undefined;
+            // The colleague answers this one, so any error still standing in the slot is superseded.
+            this.transientError.clear();
         } else {
-            this.transientError = selectLocalizedError(current, result.error);
+            // Anchored to the state the refusal happened against: a refused dispatch leaves the state
+            // object untouched, so the message survives every repaint until something really changes.
+            this.transientError.set(selectLocalizedError(current, result.error), current);
         }
         this.render(current);
     }
@@ -457,23 +476,26 @@ export class ApparatusRenderer {
      * returns `undefined` as soon as the gate is met.
      */
     private renderSideColumn(state: AppState, t: Translator): void {
-        // What to show is decided in `sideColumnView`, which is Phaser-free and therefore testable;
-        // this method only paints the answer. See that module for why the split exists.
-        const view = resolveSideColumnView({
+        // What to show is decided in `advanceView`, which is Phaser-free and therefore testable; this
+        // method only paints the answer. See that module for why the split exists.
+        const view = resolveAdvanceView({
             isGateMet: selectSignificantMeasureGate(state).isMet,
             hint: selectLocalizedColleagueHint(state),
-            transientError: this.transientError,
+            // Reading the slot is what spends it: it survives every repaint of the state it was set
+            // against and clears on the first render that carries a new one (AC5).
+            transientError: this.transientError.read(state),
             advanceRefused: this.advanceRefused
         });
         this.advanceRefused = view.advanceRefused;
-        this.transientError = undefined;
         const { lineText, speakerText } = view;
 
-        this.advanceLabel?.setText(t('lab.advance'));
         // The one thing the control says about the evidence is whether the way on is open, which is a
         // fact about the player's own notebook rather than a judgement about a conclusion. It never
         // marks a proposal, and nothing here can reach the defensible set.
-        this.advanceControl?.setFillStyle(view.isAdvanceReady ? ADVANCE_FILL_READY : ADVANCE_FILL);
+        this.advanceControl?.render({
+            label: t(advanceTransitionForPhase(selectCasePhase(state)).labelKey),
+            isReady: view.isAdvanceReady
+        });
 
         this.hintLine?.setText(lineText);
         this.hintSpeaker?.setText(speakerText);
@@ -530,7 +552,6 @@ export class ApparatusRenderer {
         // The advance control follows the same suppression. Without it, a click meant for the
         // reference book's page controls falls through to it and moves the player out of the
         // laboratory — the same defect the book overlay caused on the proposal cards (1.12 review).
-        if (enabled) this.advanceControl?.setInteractive({ useHandCursor: true });
-        else this.advanceControl?.disableInteractive();
+        this.advanceControl?.setInputEnabled(enabled);
     };
 }

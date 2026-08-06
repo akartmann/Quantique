@@ -56,6 +56,17 @@ const SUMMARY_TEXT_WIDTH = 760;
 const SUMMARY_MAX_HEIGHT = 420;
 const CENTER_X = 512;
 
+/**
+ * The design-space centre of the book's own close control.
+ *
+ * Exported so a browser spec can dismiss the overlay without restating the coordinate — the book
+ * covers the whole canvas while it is open and legitimately suppresses every control underneath, so
+ * closing it is a step in almost every canvas walk. `rival-lab.spec.ts` carried it as a literal;
+ * Story 2.7 needed a second copy of it and exported this instead, which is the project's rule ("never
+ * assert a magic number that a test shares with source unless both read one exported constant").
+ */
+export const bookCloseControlCentre = (): Readonly<{ x: number; y: number }> => ({ x: CENTER_X, y: CONTROL_Y });
+
 export class LectureBookRenderer {
     private overlay?: Phaser.GameObjects.Container;
     private pages?: Phaser.GameObjects.Container;

@@ -5,7 +5,7 @@ import { expect, test } from '@playwright/test';
 import { fr } from '../../src/core/i18n/locales/fr';
 import { BOOK_FONT_STACK, FRENCH_GLYPH_SAMPLE, UI_FONT_STACK } from '../../src/adapters/phaser/textStyles';
 import {
-    CONCLUSION_HEADING_WRAP,
+    BOARD_TEXT_WRAP,
     PROPOSAL_SURFACE_WIDTH,
     SUBMIT_CONTROL_FONT_SIZE,
     SUBMIT_CONTROL_LABEL_WRAP
@@ -19,6 +19,7 @@ import {
     HINT_SPEAKER_FONT_SIZE,
     HINT_TEXT_WRAP
 } from '../../src/adapters/phaser/renderers/apparatusGeometry';
+import { advanceControlLabelWrap } from '../../src/adapters/phaser/ui/AdvanceControl';
 import {
     RIVAL_LAB_BODY_FONT_SIZE,
     RIVAL_LAB_CONTROL_FONT_SIZE,
@@ -73,13 +74,33 @@ const DIALOGUE_SPEAKER_WRAP_WIDTH = dialogueSpeakerWrapWidth(PROPOSAL_SURFACE_WI
 const RIVAL_LAB_TEXT_WRAP_WIDTH = rivalLabTextWrapWidth();
 
 /**
+ * Every in-scene advance control, with the bound of the host that draws it (Story 2.7).
+ *
+ * Two bounds, not one: the laboratory's control fills its 304px side column, and every other host
+ * uses the widget's 232px default. Both are read from the source rather than restated, so a column
+ * or a widget resized without this table being updated fails here instead of clipping on screen.
+ *
+ * This list replaces the single `lab.advance` entry. It is the same control, six times over.
+ */
+const ADVANCE_CONTROLS = [
+    { key: 'advance.toColleagues', bound: advanceControlLabelWrap() },
+    { key: 'advance.toBench', bound: advanceControlLabelWrap() },
+    { key: 'advance.toTheoryBoard', bound: ADVANCE_CONTROL_LABEL_WRAP },
+    { key: 'advance.toReviewers', bound: advanceControlLabelWrap() },
+    { key: 'advance.closeTheCase', bound: advanceControlLabelWrap() },
+    { key: 'advance.replay', bound: advanceControlLabelWrap() }
+] as const;
+
+/**
  * Each wrapped Phaser `Text` that holds authored French copy, with the wrap bound and font size
  * declared in the renderer. Phaser word-wrap cannot break inside a word, so a single token wider
  * than its bound is the overflow that actually clips.
  */
 const WRAPPED_SURFACES = [
     { key: 'lab.title', font: UI_FONT_STACK, fontSize: 24, wrapWidth: 900 },
-    { key: 'lab.advance', font: UI_FONT_STACK, fontSize: ADVANCE_CONTROL_FONT_SIZE, wrapWidth: ADVANCE_CONTROL_LABEL_WRAP },
+    ...ADVANCE_CONTROLS.map(({ key, bound }) => ({
+        key, font: UI_FONT_STACK, fontSize: ADVANCE_CONTROL_FONT_SIZE, wrapWidth: bound
+    })),
     { key: 'lab.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 900 },
     { key: 'lab.result.emptyHint', font: UI_FONT_STACK, fontSize: 19, wrapWidth: 620 },
     { key: 'lab.result.recorded', font: UI_FONT_STACK, fontSize: 19, wrapWidth: 620 },
@@ -95,12 +116,13 @@ const WRAPPED_SURFACES = [
     // Colleague cast and proposals (Story 1.11). The bounds are `ColleagueRenderer`'s: the chrome
     // wraps at the full card width, everything inside a card at `TEXT_WRAP_WIDTH`, and the choice
     // marker at its own narrow right-hand column.
-    { key: 'colleagues.heading', font: UI_FONT_STACK, fontSize: 25, wrapWidth: PROPOSAL_SURFACE_WIDTH },
-    { key: 'colleagues.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: PROPOSAL_SURFACE_WIDTH },
-    // Narrower than its prediction counterpart: Story 2.5 gave the conclusion heading's row to the
-    // submit control, so the bound is derived from the renderer rather than shared with the guide.
-    { key: 'theoryBoard.heading', font: UI_FONT_STACK, fontSize: 25, wrapWidth: CONCLUSION_HEADING_WRAP },
-    { key: 'theoryBoard.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: PROPOSAL_SURFACE_WIDTH },
+    // All four narrower than the surface: Story 2.5 gave the conclusion heading's row to the submit
+    // control, and Story 2.7 turned that into a permanent right-hand control column on **both** boards,
+    // so every heading and guide now wraps against what is left rather than running underneath it.
+    { key: 'colleagues.heading', font: UI_FONT_STACK, fontSize: 25, wrapWidth: BOARD_TEXT_WRAP },
+    { key: 'colleagues.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: BOARD_TEXT_WRAP },
+    { key: 'theoryBoard.heading', font: UI_FONT_STACK, fontSize: 25, wrapWidth: BOARD_TEXT_WRAP },
+    { key: 'theoryBoard.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: BOARD_TEXT_WRAP },
     { key: 'theoryBoard.submit', font: UI_FONT_STACK, fontSize: SUBMIT_CONTROL_FONT_SIZE, wrapWidth: SUBMIT_CONTROL_LABEL_WRAP },
     // Rival lab (Story 2.5). The prose wraps against the surface less the accent column; the revise
     // control is a fixed hit target, so its label is bounded by the control rather than by the surface.
@@ -451,10 +473,13 @@ test('fits every French fixed-height control label on one line', async ({ page }
     //
     // These controls are a fixed height by design — they are hit targets, not prose — so the label has
     // to fit on one line at its authored size. That is a whole-string measurement, and it is the same
-    // gap `deferred-work.md` already tracks for `theoryBoard.submit` and `rivalLab.revise`, now closed
-    // for all three rather than for the newest one only.
+    // gap `deferred-work.md` already tracked for `theoryBoard.submit` and `rivalLab.revise`, closed for
+    // every fixed-height control there is rather than for the newest one only.
     const FIXED_HEIGHT_CONTROLS = [
-        { key: 'lab.advance', fontSize: ADVANCE_CONTROL_FONT_SIZE, bound: ADVANCE_CONTROL_LABEL_WRAP },
+        // Story 2.7's six advance controls, each against its own host's bound. Story 2.6 shipped one of
+        // these claiming the per-token sweep pinned it; it did not, and this is where that is actually
+        // checked — six times over now, which is the obligation the generalization carries with it.
+        ...ADVANCE_CONTROLS.map(({ key, bound }) => ({ key, fontSize: ADVANCE_CONTROL_FONT_SIZE, bound })),
         { key: 'theoryBoard.submit', fontSize: SUBMIT_CONTROL_FONT_SIZE, bound: SUBMIT_CONTROL_LABEL_WRAP },
         { key: 'rivalLab.revise', fontSize: RIVAL_LAB_CONTROL_FONT_SIZE, bound: RIVAL_LAB_CONTROL_LABEL_WRAP },
         { key: 'dialogue.advance', fontSize: DIALOGUE_CONTROL_FONT_SIZE, bound: DIALOGUE_CONTROL_LABEL_WRAP }

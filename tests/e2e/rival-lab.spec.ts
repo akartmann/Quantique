@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 
 import { lastProposalCardProbe, submitConclusionControlCentre } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
 import { rivalLabReviseControlCentre } from '../../src/adapters/phaser/renderers/RivalLabRenderer';
 // From `apparatusGeometry`, not `ApparatusRenderer`: that renderer imports Phaser as a *value*
 // (`BlendModes`), Phaser touches `window` at import time, and these specs run in Node.
@@ -27,8 +28,13 @@ import { fr } from '../../src/core/i18n/locales/fr';
 
 const canvas = (page: import('@playwright/test').Page) => page.locator('#game-container canvas');
 
-/** The archival book's own canvas "Close book" control, which covers the surface once a source is read. */
-const BOOK_CLOSE = { x: 512, y: 678 };
+/**
+ * The archival book's own canvas "Close book" control, which covers the surface once a source is read.
+ *
+ * Derived from the renderer since Story 2.7, rather than restated: a second spec needed the same
+ * coordinate, and two copies of a literal shared with source is exactly what the project rule forbids.
+ */
+const BOOK_CLOSE = bookCloseControlCentre();
 const CARD = lastProposalCardProbe(768);
 const SUBMIT = submitConclusionControlCentre();
 const REVISE = rivalLabReviseControlCentre(768);

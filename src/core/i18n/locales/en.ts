@@ -31,13 +31,6 @@ export const en = {
     // --- Laboratory surface ---------------------------------------------------------------------
     'lab.title': 'Young interference — visual laboratory surface',
     'lab.guide': 'Use the semantic laboratory controls or these matching visual step controls.',
-    // The way out of the laboratory (Story 2.6). Names the destination in the fiction, not a scene:
-    // `encodesPath` rejects "scene", "phase", and "route" in authored case copy, and interface copy
-    // holds to the same line so the two never contradict each other on screen.
-    // Kept short deliberately. It labels a fixed-height rectangle, and a label that wraps to two
-    // lines inside one is the defect class `deferred-work.md` already tracks for `theoryBoard.submit`
-    // and `rivalLab.revise`. `french-typography.spec.ts` pins that neither locale can reach the wrap.
-    'lab.advance': 'To the theory board',
     'lab.source': 'source',
     'lab.screen': 'screen',
     'lab.control.readout': '{label}: {value}',
@@ -50,6 +43,28 @@ export const en = {
     'lab.pattern.recorded': 'Recorded interference pattern: bright bands are {spacing} apart in the saved Young model result.',
     'lab.wavelengthMode.minimum': 'minimum',
     'lab.wavelengthMode.advanced': 'advanced',
+
+    // --- In-scene advance affordance (Story 2.7) -------------------------------------------------
+    // One label per forward transition. Every phase's scene carries one of these controls, because a
+    // transition reachable only from outside the canvas does not exist.
+    //
+    // Each names what the player is moving **toward in the fiction** — a place, a person, or an act —
+    // and never a scene key, a phase, a route, or an arrow. That is the `encodesPath` rule, which
+    // rejects "scene", "phase", and "route" in authored case copy; interface copy holds to the same
+    // line so the two never contradict each other on screen. `Colleagues`, `Laboratory`, `TheoryBoard`,
+    // `Library`, and `Debrief` are scene keys; "the theory board" and "your colleagues" are furniture
+    // and people. `advance.toTheoryBoard` is Story 2.6's `lab.advance` verbatim, and it is the
+    // calibration point the rest were written against.
+    //
+    // Kept short deliberately. Each labels a fixed-height rectangle, and a label that wraps to two
+    // lines inside one clips — the defect class the per-token typography sweep provably cannot catch.
+    // `french-typography.spec.ts` measures every one of these as a **whole string** in French.
+    'advance.toColleagues': 'To your colleagues',
+    'advance.toBench': 'To the bench',
+    'advance.toTheoryBoard': 'To the theory board',
+    'advance.toReviewers': 'To your reviewers',
+    'advance.closeTheCase': 'Close the case',
+    'advance.replay': 'Investigate it again',
 
     // --- Deterministic experiment result --------------------------------------------------------
     // The canonical `ExperimentResult.label` stays English in the record and is compared for string
