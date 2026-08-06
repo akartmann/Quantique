@@ -80,7 +80,7 @@ development_status:
   2-1-young-contextual-record-and-prediction: done  # rework:pivot -> library reading + choice-of-4 prediction
   2-2-young-double-slit-experiment: done  # kept (deterministic model reused)
   2-3-young-synthesis-debrief-and-replay: done  # rework:pivot -> significant-measure gate + colleague conclusion
-  2-4-young-learning-and-educator-validation-gate: in-progress  # rework:pivot -> metrics revised, EN+FR + no a11y gate
+  2-4-young-learning-and-educator-validation-gate: ready-for-dev  # rework:pivot -> re-baselined 2026-08-06: metrics revised, EN+FR gate added, a11y gate removed; blocked on 2.5/2.6 before the gate can be run
   2-5-rival-lab-critique-and-revision: backlog  # new (pivot)
   2-6-significant-measure-gate-and-colleague-hints: backlog  # new (pivot)
   epic-2-retrospective: optional
