@@ -1,3 +1,4 @@
+import type { LocalizedText } from './CaseDefinition';
 import type { CasePhase } from './CaseProgress';
 
 /** The Phaser scenes an authored case may route to. Content vocabulary: adding one is a case-contract change. */
@@ -6,14 +7,25 @@ export const SCENE_KEYS = ['Library', 'Colleagues', 'Laboratory', 'TheoryBoard',
 export type SceneKey = typeof SCENE_KEYS[number];
 
 /**
- * Placeholder for the authored dialogue of a scene. Beats reference localized copy by key rather
- * than carrying text, so authoring stays compatible with the EN+FR foundation (Story 1.1b / ADR-010).
- * The colleague cast and proposal content that fills these in arrives with Story 1.11 / 3.4.
+ * One line of authored dialogue: who speaks, and what they say in every shipped locale.
+ *
+ * `text` carries the prose rather than referencing `en.ts` by key, which the Story 1.10 placeholder
+ * shape (`textKey`) assumed. Two independent reasons that shape could not be implemented:
+ *
+ * 1. `translate` takes a `TranslationKey = keyof typeof en`. A key authored in `case.json` is a plain
+ *    `string`, so passing it needs a cast — and the cast defeats the only mechanism that guarantees
+ *    `fr.ts` carries the key too.
+ * 2. It would put case prose into the application bundle. Every other authored string a player reads
+ *    is `LocalizedText` inside `case.json`, because case content is versioned and immutable (ADR-003)
+ *    while `en.ts`/`fr.ts` are interface chrome that ships with the build.
+ *
+ * `speakerId` resolves to an authored `colleagues[]` entry, so a beat is attributed through the same
+ * path the proposal cards use.
  */
 export type ScenarioDialogueBeat = Readonly<{
     id: string;
     speakerId: string;
-    textKey: string;
+    text: LocalizedText;
 }>;
 
 export type ScenarioScene = Readonly<{

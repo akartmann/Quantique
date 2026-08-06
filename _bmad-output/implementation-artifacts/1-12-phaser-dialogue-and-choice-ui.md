@@ -4,7 +4,7 @@ baseline_commit: 099f945
 
 # Story 1.12: Phaser dialogue and choice UI
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -218,46 +218,46 @@ it — over clipping with `maxLines`. Truncation is the failure mode the AC name
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Beat content contract (AC: 1)**
-  - [ ] `src/domain/cases/ScenarioScript.ts`: change `ScenarioDialogueBeat` to
+- [x] **Task 1 — Beat content contract (AC: 1)**
+  - [x] `src/domain/cases/ScenarioScript.ts`: change `ScenarioDialogueBeat` to
         `{ id: string; speakerId: string; text: LocalizedText }`. Import the `LocalizedText` type from
         `./CaseDefinition`. Pure TypeScript — no Zod, no Phaser. Replace the now-wrong "reference
         localized copy by key" comment.
-  - [ ] `src/schemas/CaseDefinitionSchema.ts:255-259`: `ScenarioDialogueBeatSchema` becomes
+  - [x] `src/schemas/CaseDefinitionSchema.ts:255-259`: `ScenarioDialogueBeatSchema` becomes
         `{ id: stableId, speakerId: stableId, text: LocalizedTextSchema }`, still `.strict()`.
-  - [ ] Add cross-field rules in the **existing top-level `superRefine`** (`CaseDefinitionSchema.ts:303`,
+  - [x] Add cross-field rules in the **existing top-level `superRefine`** (`CaseDefinitionSchema.ts:303`,
         where every other cross-field rule already lives — not in `ScenarioScriptSchema`'s own
         refinement, which cannot see `colleagues`):
     - every beat `speakerId` resolves to an authored `colleagues[]` id;
     - beat `id`s are unique **within a scene** (across scenes they may repeat — a scene is the unit);
     - apply the existing `encodesPath` check to every beat `text` in both locales, as Task 2 of Story
       1.11 did for proposal copy. Authored copy must not name a scene, phase, or route.
-  - [ ] Unit tests in `tests/unit/CaseDefinition.test.ts`: the valid fixture parses (assert on
+  - [x] Unit tests in `tests/unit/CaseDefinition.test.ts`: the valid fixture parses (assert on
         `parsed.data`, never the input object); each new rule rejects **independently**, asserted by its
         authored message rather than a bare `success: false` — several mutations trip a neighbouring
         rule too, and a boolean assertion could not tell which rule fired nor fail if the rule under
         test were deleted (1.11 review).
 
-- [ ] **Task 2 — `DialogueBox` widget (AC: 1)**
-  - [ ] New `src/adapters/phaser/ui/DialogueBox.ts` — first file in a new directory that the
+- [x] **Task 2 — `DialogueBox` widget (AC: 1)**
+  - [x] New `src/adapters/phaser/ui/DialogueBox.ts` — first file in a new directory that the
         architecture target tree already names (`game-architecture.md:391`). It is not a generic
         catch-all; do not put anything store-aware or case-specific in it.
-  - [ ] Implement the shape in the decision above. Own every display object, tween, timer, and listener
+  - [x] Implement the shape in the decision above. Own every display object, tween, timer, and listener
         it creates; release all of them in `destroy()`.
-  - [ ] Render: a panel background, the speaker attribution line, the beat body (wrapped, measured), a
+  - [x] Render: a panel background, the speaker attribution line, the beat body (wrapped, measured), a
         beat counter (`{index} / {total}`), and an interactive advance control.
-  - [ ] The advance control must show its **end state** as a label, not by disappearing silently — the
+  - [x] The advance control must show its **end state** as a label, not by disappearing silently — the
         last beat's control reads "done"-style copy and further clicks are no-ops.
-  - [ ] `setInputEnabled(false)` calls `disableInteractive()` on the advance control, mirroring
+  - [x] `setInputEnabled(false)` calls `disableInteractive()` on the advance control, mirroring
         `ColleagueRenderer.applyInputState` (`ColleagueRenderer.ts:134-139`).
-  - [ ] `getBottomY()` returns the measured bottom edge (panel top + measured content height), so the
+  - [x] `getBottomY()` returns the measured bottom edge (panel top + measured content height), so the
         owner lays out beneath it rather than against a constant.
-  - [ ] No animation, no `update()` loop, no per-frame work.
-  - [ ] Text objects are created **empty** and populated in `render` — `create()` runs once and the
+  - [x] No animation, no `update()` loop, no per-frame work.
+  - [x] Text objects are created **empty** and populated in `render` — `create()` runs once and the
         locale can change (`project-context.md` §Engine).
 
-- [ ] **Task 3 — `ProposalChoice` widget (AC: 2)**
-  - [ ] New `src/adapters/phaser/ui/ProposalChoice.ts`. Extract, do not reinvent: every behaviour
+- [x] **Task 3 — `ProposalChoice` widget (AC: 2)**
+  - [x] New `src/adapters/phaser/ui/ProposalChoice.ts`. Extract, do not reinvent: every behaviour
         below already exists in `ColleagueRenderer.createCard`/`render` and is there because a review
         found the bug it prevents. Moving it must not lose it.
     - the interactive background rectangle and `useHandCursor`;
@@ -270,98 +270,98 @@ it — over clipping with `maxLines`. Truncation is the failure mode the AC name
     - the selected-state **label** marker (`✓ Chosen` / `Choose this`) as the carrier of state, with
       tint and fill as reinforcement only (AC2: more than colour alone);
     - `setInputEnabled`.
-  - [ ] The widget calls `onChoose()` and nothing else. It does not import the store, the adapter, any
+  - [x] The widget calls `onChoose()` and nothing else. It does not import the store, the adapter, any
         selector, or `selectDefensibleConclusionProposalIds`. A widget that could read the defensible
         set could mark the "right" answer, which ADR-006 and Story 1.11 AC3 both forbid.
 
-- [ ] **Task 4 — `ColleagueRenderer` composes both widgets (AC: 1, 2)**
-  - [ ] Refactor `src/adapters/phaser/renderers/ColleagueRenderer.ts` to own one `DialogueBox` and four
+- [x] **Task 4 — `ColleagueRenderer` composes both widgets (AC: 1, 2)**
+  - [x] Refactor `src/adapters/phaser/renderers/ColleagueRenderer.ts` to own one `DialogueBox` and four
         `ProposalChoice` instances instead of building cards inline. This is the consumer Story 1.11
         deliberately deferred ("Story 1.12 extracts the reusable `DialogueBox` / `ProposalChoice`
         widgets and this renderer becomes their consumer", `ColleagueRenderer.ts:21-23`).
-  - [ ] Keep in the renderer (they are store concerns, not widget concerns): the heading, the guide
+  - [x] Keep in the renderer (they are store concerns, not widget concerns): the heading, the guide
         line, the **transient error on a refused click** (`ColleagueRenderer.ts:151-162,184-188` — a
         `chooseProposal` during an exclusive progress operation legitimately fails and must not be
         silent), and the localized projection lookups.
-  - [ ] Resolve the beats for the current scenario scene and pass them to the dialogue box as resolved
+  - [x] Resolve the beats for the current scenario scene and pass them to the dialogue box as resolved
         strings. Beats come from the scene entry matching the **live phase** — `TheoryBoardScene` hosts
         both `synthesis` and `review`, which are separate scenario-script entries with their own beats.
-  - [ ] Lay the cards out from `dialogueBox.getBottomY() + CARDS_GAP`, replacing the `CARDS_TOP = 132`
+  - [x] Lay the cards out from `dialogueBox.getBottomY() + CARDS_GAP`, replacing the `CARDS_TOP = 132`
         constant. Keep the `Math.max(72, …)` floor so four conclusion cards with a limitation line still
         fit 768px.
-  - [ ] `setInputEnabled` must now cover the dialogue advance control **as well as** the cards. Missing
+  - [x] `setInputEnabled` must now cover the dialogue advance control **as well as** the cards. Missing
         this reintroduces the exact 1.11 review defect: the reference book is reachable in every phase,
         its own surface is disabled during its open/turn/fade animations while still painted, and a
         page-turn click falls through to whatever is underneath.
-  - [ ] `destroy()` destroys both widgets and clears every reference. No tween, listener, or display
+  - [x] `destroy()` destroys both widgets and clears every reference. No tween, listener, or display
         object outlives it.
-  - [ ] Construction stays cheap and defensive: `create()` runs synchronously inside
+  - [x] Construction stays cheap and defensive: `create()` runs synchronously inside
         `dispatch() → notify()`, so a throw advances the phase, skips every later subscriber, and breaks
         `dispatch`'s `Result` contract (Story 1.10 review).
 
-- [ ] **Task 5 — Beat selection (AC: 1)**
-  - [ ] Add `selectDialogueBeats(state)` to `src/core/store/selectors.ts`, returning the beats of the
+- [x] **Task 5 — Beat selection (AC: 1)**
+  - [x] Add `selectDialogueBeats(state)` to `src/core/store/selectors.ts`, returning the beats of the
         scenario scene matching the current phase, projected to `{ id, speaker, text }` with the active
         locale applied via `resolveLocalizedText`, and the speaker attributed through the existing
         `projectAttribution` helper (`selectors.ts:198-206`) so the unattributed fallback is shared
         rather than duplicated. Return a frozen empty array when the scene authors no beats.
-  - [ ] Unit-test it in `tests/unit/` against fixtures: beats for the live phase only; both locales;
+  - [x] Unit-test it in `tests/unit/` against fixtures: beats for the live phase only; both locales;
         empty for a scene with no beats; the unattributed fallback for a degraded definition.
 
-- [ ] **Task 6 — Content and EN + FR (AC: 1, 2)**
-  - [ ] Author `dialogueBeats` in `public/cases/young-interference/case.json` for the `prediction`,
+- [x] **Task 6 — Content and EN + FR (AC: 1, 2)**
+  - [x] Author `dialogueBeats` in `public/cases/young-interference/case.json` for the `prediction`,
         `synthesis`, and `review` scenario scenes. Two to four beats each — enough to prove speaker
         rotation and paging, short enough to stay inside the layout budget. Voices per
         `narrative-design.md` §Young Team: Thea Young (lead) frames, Elias Wren (builder) is practical,
         Marianne Cole (analyst) is precise and unwilling to accept beauty as proof, Samuel Hart
         (communicator) clarifies.
-  - [ ] Beat copy must **point at the choice, never at the answer**: consultations and dialogue may
+  - [x] Beat copy must **point at the choice, never at the answer**: consultations and dialogue may
         name an observable, a source, an alternative test, or a limitation, and never supply the
         conclusion. No beat may imply which proposal is correct.
-  - [ ] Bump `version` `1.7.0` → `1.8.0`; extend the allowlist in `validateCaseRecordForDefinition`
+  - [x] Bump `version` `1.7.0` → `1.8.0`; extend the allowlist in `validateCaseRecordForDefinition`
         (`src/schemas/CaseRecordSchema.ts:154-156`) so `1.8.0` accepts `1.2.0`–`1.7.0`; bump
         `CACHE_NAME` `quantique-bootstrap-v5` → `v6` (`public/sw.js:13`). All three, or a returning
         player loses their investigation or boots on stale content.
-  - [ ] `src/core/i18n/locales/en.ts`: a `// --- Dialogue ---` block with the advance-control label, its
+  - [x] `src/core/i18n/locales/en.ts`: a `// --- Dialogue ---` block with the advance-control label, its
         end-state label, and the beat counter (`'{index} / {total}'`). Add the identical keys to
         `fr.ts` — `tsc` will demand them.
-  - [ ] Author `fr` for every new beat `text`. A missing `fr` is a base-parse Zod failure, not a
+  - [x] Author `fr` for every new beat `text`. A missing `fr` is a base-parse Zod failure, not a
         warning.
-  - [ ] Extend `WRAPPED_SURFACES` in `tests/e2e/french-typography.spec.ts` with every new wrapped
+  - [x] Extend `WRAPPED_SURFACES` in `tests/e2e/french-typography.spec.ts` with every new wrapped
         surface, using the widget's real font size and wrap bound. Note the 1.11 review finding: that
         spec's pass condition is **per-token width** while its sampling picks one string per set by
         total length, so a short string containing one long token can slip through. Sample the authored
         beats accordingly.
-  - [ ] i18n surface checklist before calling this done: dialogue beat body · speaker attribution ·
+  - [x] i18n surface checklist before calling this done: dialogue beat body · speaker attribution ·
         advance label · advance end-state label · beat counter · every string the refactor moved into a
         widget. Content translation is this project's most-repeated defect — enumerate, do not assume.
 
-- [ ] **Task 7 — Tests (AC: 3)**
-  - [ ] Integration test (extend `tests/integration/ProposalSelection.test.ts` or add a sibling) using a
+- [x] **Task 7 — Tests (AC: 3)**
+  - [x] Integration test (extend `tests/integration/ProposalSelection.test.ts` or add a sibling) using a
         **real `createStore`**: choosing a prediction option dispatches `prediction.proposalChosen` and
         the authoritative state carries both the proposal ID and the canonical `prediction`; the same
         for the conclusion; re-choosing succeeds and replaces (revisable, AC2); an unauthored ID returns
         a typed `Result` failure and leaves state untouched.
-  - [ ] Assert **public actions and selectors** — never widget internals, Phaser private fields, or
+  - [x] Assert **public actions and selectors** — never widget internals, Phaser private fields, or
         incidental pixels.
-  - [ ] Write tests that **can fail**. The 1.10 review found three that could not: one asserted the
+  - [x] Write tests that **can fail**. The 1.10 review found three that could not: one asserted the
         input fixture rather than `parsed.data`, one asserted the initial phase it had just set, one
         forged state with `Object.assign` instead of the function under test.
-  - [ ] Never assert a magic number that a test shares with source unless both read one exported
+  - [x] Never assert a magic number that a test shares with source unless both read one exported
         constant (the book-control width is three unlinked literals today — do not add a fourth case).
 
-- [ ] **Task 8 — Verify (AC: 1–3)**
-  - [ ] `npm run typecheck` clean.
-  - [ ] `npm test` green, reconciled against a **measured** baseline (`git stash push --include-untracked`,
+- [x] **Task 8 — Verify (AC: 1–3)**
+  - [x] `npm run typecheck` clean.
+  - [x] `npm test` green, reconciled against a **measured** baseline (`git stash push --include-untracked`,
         run, `git stash pop`) — 372 passing at `099f945`. State what you measured, not what you counted.
-  - [ ] `npm run test:e2e` shows **no new failures beyond the tracked 7-spec baseline** (see below).
-  - [ ] **Re-check `tests/e2e/scene-router.spec.ts`.** `clickApparatusIncrease` clicks design coordinate
+  - [x] `npm run test:e2e` shows **no new failures beyond the tracked 7-spec baseline** (see below).
+  - [x] **Re-check `tests/e2e/scene-router.spec.ts`.** `clickApparatusIncrease` clicks design coordinate
         (540, 603) to prove the laboratory was torn down (`scene-router.spec.ts:14`). With `TheoryBoard`
         active, that coordinate currently lands inside a proposal card — the 1.11 review found and
         restructured this. **Moving the cards down moves what that coordinate hits.** Re-verify the
         spec's assertions still test what they claim; fix the probe rather than letting it pass for a
         new wrong reason.
-  - [ ] Confirm the pre-pivot DOM flow still completes end to end. This story does not touch
+  - [x] Confirm the pre-pivot DOM flow still completes end to end. This story does not touch
         `src/ui/*`.
 
 ## Dev Notes
@@ -627,17 +627,131 @@ Never expose a raw error to the player. Verify with `npm run typecheck`, `npm te
 
 ### Agent Model Used
 
+Opus 5 (`claude-opus-5[1m]`), via `gds-dev-story`.
+
 ### Debug Log References
+
+**Measured baselines, taken with `git stash push --include-untracked` before any change:**
+
+| Suite | Baseline at `099f945` | After this story |
+|---|---|---|
+| `npm test` | 372 passing, 31 files | 405 passing, 33 files |
+| `npm run test:e2e` | 30 passed, **7 failed** | 33 passed, **7 failed** — the same seven |
+| `npm run typecheck` | clean | clean |
+
+The seven e2e failures are the ones tracked in `deferred-work.md` (`accessibility`,
+`curated-record:179`, `inquiry-recognition`, `offline-reload:72`, `progress-portability`,
+`theory-board`, `young-experiment:12`). They were reproduced on a stashed tree, so the match is
+measured rather than assumed. No new failure. The three extra passing e2e tests are one new French
+typography check plus the two in `dialogue-advance.spec.ts`.
+
+**Two defects found by looking at the running game, which every unit and integration test passed
+through.** Both are recorded because they are the class of bug this layer produces:
+
+1. **`DialogueBox.advance()` moved the beat index without repainting.** The counter stayed at `1 / 3`
+   and the conversation looked frozen. `render` had been split so the owner could re-lay-out the cards
+   without clearing its transient error, and the repaint went with it. Fixed by extracting `paint()`,
+   retaining the last `Translator`, and painting *before* notifying the owner — the owner lays out
+   against `getBottomY()`, which only `paint` updates. `tests/e2e/dialogue-advance.spec.ts` now fails
+   if the repaint is removed (verified by reverting the fix).
+2. **`ProposalChoice.setBounds` resized the card background but left its Phaser hit area stale.** Phaser
+   derives the hit area from the object's size at the moment `setInteractive` runs and never resizes it,
+   so cards built at their pre-dialogue height (145px) stayed clickable ~19px below where they are
+   drawn. Fixed by re-applying the interactive state from `setBounds`. Verified in the browser: a click
+   in the gap between two cards now records nothing, and a click inside a card still records the
+   proposal. Deliberately **not** pinned with a coordinate assertion — locating a 10px gap needs the
+   very layout arithmetic AC1 requires to move, and that is the brittleness the 1.11 review objected to.
+
+**Layout budget, measured rather than chosen.** With `DIALOGUE_TOP = 118` and the panel's measured
+height, a one-line beat leaves 126px per card and a two-line French beat 121px, against ≈114px of
+conclusion-card content (attribution, a two-line claim at 16px, a two-line limitation at 13px placed
+under the claim's measured height). Verified visually at 1280×720 in both locales: nothing truncated,
+nothing drawn outside its card, and the four French conclusion cards — the tightest case in the
+content — fit with ≈7px to spare.
+
+**`tests/e2e/scene-router.spec.ts` re-checked, and its probe fixed.** The `clickApparatusIncrease`
+coordinate (540, 603) still lands inside the third proposal card — but with **two pixels** to spare, and
+only because a one-line beat happens to be authored. The spec passed, and would have kept passing, for a
+reason a beat re-wording would silently flip into a confusing conclusion-field failure. The
+`not.toHaveValue(TYPED_CONCLUSION)` assertion was replaced with the layout-independent invariant: the
+field holds either the player's own words or one authored claim adopted verbatim, never anything else.
+The unconditional restore that the 1.11 review added is kept.
 
 ### Completion Notes List
 
+- **AC1 satisfied.** `src/adapters/phaser/ui/DialogueBox.ts` renders speaker, beat prose, an
+  `{index} / {total}` counter, and an advance control whose end state is a *label*
+  (`dialogue.end`), not a disappearance. The body is wrapped and **measured** — no `maxLines`, because
+  truncation is the failure mode the AC names — and the panel grows to the wrapped height. Body type is
+  16 design px, which is ≈15 CSS px after the 0.9375 height-bound `Scale.FIT` factor at 1280×720.
+- **AC2 satisfied.** `src/adapters/phaser/ui/ProposalChoice.ts` renders each option and reports the
+  choice through an `onChoose` callback; the owner dispatches the existing typed intents. Selection is
+  carried by a label (`✓ Chosen` / `Choose this`), with tint and accent alpha as reinforcement only.
+  Re-choosing replaces and never fails.
+- **AC3 satisfied.** `tests/integration/DialogueAndChoice.test.ts` drives a real `createStore` through
+  `PhaserStoreAdapter.chooseProposal` — the exact seam `onChoose` uses — and asserts the authoritative
+  state, including that an unauthored ID returns a typed `Result` failure and leaves state identical by
+  reference.
+- **No new typed action, state field, or `CaseRecord` field**, as scoped. Beat position is widget-local
+  and ephemeral; reloading mid-conversation restores to beat 0, which is the intended behaviour.
+- `ScenarioDialogueBeat.textKey` became `text: LocalizedText`, with the case-contract triad done in
+  full: `version` 1.7.0 → 1.8.0, the `validateCaseRecordForDefinition` allowlist extended so 1.8.0
+  accepts 1.2.0–1.7.0, and `CACHE_NAME` v5 → v6.
+- **i18n surface checklist, all EN+FR:** beat body (authored, 8 beats × 2 locales) · speaker attribution
+  (shared `formatAttribution`) · advance label · advance end-state label · beat counter · every string
+  the refactor moved into a widget. Verified in a `fr-FR` session on the canvas, not assumed.
+- `SceneNav.ts` left unbuilt, no beats authored for the placeholder Library/Debrief scenes, and no
+  `src/ui/*` panel touched (`git diff --stat -- src/ui/` is empty) — all as scoped.
+- **Two deliberate refinements to the story's prescribed shapes**, both to make a property the story
+  demands actually hold: `DialogueBeatView` carries `id` as well as `speaker`/`text`, so `render`'s
+  required idempotence keys on authored identity rather than on resolved prose (which would restart the
+  conversation on a locale change); and `ProposalChoice` gained `setBounds`, because the cards' vertical
+  band is no longer fixed for their lifetime once a growing dialogue panel sits above them.
+- `formatAttribution` was extracted into `selectors.ts` so the unattributed fallback is shared between
+  the dialogue speaker line and the proposal cards rather than written twice.
+- Wrap bounds and the advance-control centre are now **derived** from the widgets by the e2e specs
+  (`proposalTextWrapWidth`, `dialogueBodyWrapWidth`, `dialogueSpeakerWrapWidth`,
+  `dialogueAdvanceControlCentre`, `PROPOSAL_SURFACE_WIDTH`), replacing the literal `744`/`944` the
+  typography spec restated.
+- New unit and integration tests were mutation-checked: reverting the phase-keyed beat lookup fails
+  `DialogueBeats.test.ts`, and reverting the repaint fails `dialogue-advance.spec.ts`.
+
 ### File List
+
+**New**
+
+- `src/adapters/phaser/ui/DialogueBox.ts`
+- `src/adapters/phaser/ui/ProposalChoice.ts`
+- `tests/unit/DialogueBeats.test.ts`
+- `tests/integration/DialogueAndChoice.test.ts`
+- `tests/e2e/dialogue-advance.spec.ts`
+
+**Modified**
+
+- `src/domain/cases/ScenarioScript.ts`
+- `src/schemas/CaseDefinitionSchema.ts`
+- `src/schemas/CaseRecordSchema.ts`
+- `src/core/store/selectors.ts`
+- `src/core/i18n/locales/en.ts`
+- `src/core/i18n/locales/fr.ts`
+- `src/adapters/phaser/renderers/ColleagueRenderer.ts`
+- `public/cases/young-interference/case.json`
+- `public/sw.js`
+- `tests/unit/CaseDefinition.test.ts`
+- `tests/e2e/french-typography.spec.ts`
+- `tests/e2e/scene-router.spec.ts`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+
+**Deleted** — none.
 
 ## Change Log
 
 | Date       | Version | Description                                    | Author |
 |------------|---------|------------------------------------------------|--------|
 | 2026-08-06 | 0.1     | Initial story draft created (gds-create-story) | Alexis |
+| 2026-08-06 | 1.0     | Implemented Tasks 1–8: `DialogueBox` and `ProposalChoice` widgets under `src/adapters/phaser/ui/`, `ColleagueRenderer` refactored as their consumer, `ScenarioDialogueBeat.textKey` → `text: LocalizedText` with the case-version/allowlist/`CACHE_NAME` triad (1.8.0 / v6), `selectDialogueBeats` selector, authored EN+FR beats for `prediction`/`synthesis`/`review`, and new unit, integration, and canvas e2e coverage | Alexis |
+| 2026-08-06 | 1.1     | Fixed two defects found while verifying in the browser: an advance that moved the beat index without repainting the panel, and a proposal-card hit area left stale by a resize | Alexis |
+| 2026-08-06 | 1.2     | Re-checked and fixed the `scene-router.spec.ts` coordinate probe, which was passing on a 2px margin; its assertion is now layout-independent | Alexis |
 
 ## Open Questions (for author confirmation — do not block dev)
 

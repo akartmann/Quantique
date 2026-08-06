@@ -150,6 +150,16 @@ const validYoungCase: CaseDefinition = {
 
 const cloneValidCase = (): CaseDefinition => structuredClone(validYoungCase);
 
+/**
+ * The valid case with `dialogueBeats` attached to the `prediction` scene (index 1), as a loose record
+ * so a test can author a deliberately invalid beat without fighting the type.
+ */
+const withBeats = (beats: readonly unknown[]): Record<string, unknown> => {
+    const definition = cloneValidCase() as unknown as Record<string, unknown>;
+    ((definition.scenarioScript as { scenes: Array<Record<string, unknown>> }).scenes[1]).dialogueBeats = beats;
+    return definition;
+};
+
 const localLectureRendition = (): TextualRendition => ({
     readerLabel: bilingual('Read the lecture record'),
     citation: {
@@ -263,11 +273,84 @@ describe('CaseDefinitionSchema', () => {
             .toContain('The scenario script must map every case phase exactly once.');
     });
 
-    it('accepts an optional dialogue beat placeholder on a scenario scene', () => {
-        const definition = cloneValidCase() as unknown as { scenarioScript: { scenes: Array<Record<string, unknown>> } };
-        definition.scenarioScript.scenes[1].dialogueBeats = [{ id: 'colleague-intro', speakerId: 'colleague-1', textKey: 'young.prediction.intro' }];
+    it('accepts authored dialogue beats on a scenario scene and preserves their prose', () => {
+        const definition = withBeats([
+            { id: 'intro', speakerId: 'thea-young', text: bilingual('Two openings, one lamp, and a disagreement worth settling.') },
+            { id: 'caution', speakerId: 'marianne-cole', text: bilingual('Say what you expect before we light it, and we can tell whether we were right.') }
+        ]);
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        // Asserted on the parse output, not the fixture: reading the input back would pass even if
+        // the schema stripped `dialogueBeats` or its `text` entirely.
+        expect(parsed.data.scenarioScript.scenes[1].dialogueBeats?.map(({ id, speakerId, text }) => [id, speakerId, text.en]))
+            .toEqual([
+                ['intro', 'thea-young', 'Two openings, one lamp, and a disagreement worth settling.'],
+                ['caution', 'marianne-cole', 'Say what you expect before we light it, and we can tell whether we were right.']
+            ]);
+    });
+
+    it('accepts the same beat ID reused in a different scene', () => {
+        const definition = withBeats([{ id: 'intro', speakerId: 'thea-young', text: bilingual('An opening line.') }]);
+        (definition.scenarioScript as { scenes: Array<Record<string, unknown>> }).scenes[3].dialogueBeats =
+            [{ id: 'intro', speakerId: 'samuel-hart', text: bilingual('Another opening line.') }];
 
         expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
+    });
+
+    // Each rule asserted by its authored message rather than a bare `success: false`: these mutations
+    // sit next to one another, and a boolean could neither say which rule fired nor fail if the rule
+    // under test were deleted.
+    it.each([
+        [
+            'a beat spoken by nobody in the cast',
+            'Every dialogue beat must be spoken by an authored colleague.',
+            [{ id: 'intro', speakerId: 'arthur-bell', text: bilingual('A line from outside the cast.') }]
+        ],
+        [
+            'two beats sharing an ID within one scene',
+            'Dialogue beat IDs must be unique within a scene.',
+            [
+                { id: 'intro', speakerId: 'thea-young', text: bilingual('A first line.') },
+                { id: 'intro', speakerId: 'elias-wren', text: bilingual('A second line reusing the id.') }
+            ]
+        ],
+        [
+            'an English phase path in a beat',
+            'Authored dialogue copy must not encode a scene, route, or phase path.',
+            [{ id: 'intro', speakerId: 'thea-young', text: { en: 'Move to the experiment phase.', fr: 'Allumons la lampe.' } }]
+        ],
+        [
+            'a French route encoded in words in a beat',
+            'Authored dialogue copy must not encode a scene, route, or phase path.',
+            [{ id: 'intro', speakerId: 'thea-young', text: { en: 'Let us light the lamp.', fr: 'Ouvrez la scène du laboratoire.' } }]
+        ],
+        [
+            'an arrow encoding a path in a beat',
+            'Authored dialogue copy must not encode a scene, route, or phase path.',
+            [{ id: 'intro', speakerId: 'thea-young', text: { en: 'Prediction -> result.', fr: 'Prédiction, puis résultat.' } }]
+        ]
+    ])('rejects %s', (_description, expectedMessage, beats) => {
+        const parsed = CaseDefinitionSchema.safeParse(withBeats(beats));
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues.map(({ message }) => message)).toContain(expectedMessage);
+    });
+
+    it.each([
+        ['a missing French translation', (beat: Record<string, unknown>) => { delete (beat.text as Record<string, unknown>).fr; }],
+        ['a blank French translation', (beat: Record<string, unknown>) => { (beat.text as Record<string, string>).fr = '   '; }],
+        ['a missing speaker', (beat: Record<string, unknown>) => { delete beat.speakerId; }],
+        ['a beat still carrying the retired textKey shape', (beat: Record<string, unknown>) => { delete beat.text; beat.textKey = 'young.prediction.intro'; }],
+        ['an unknown beat field', (beat: Record<string, unknown>) => { beat.portrait = 'thea'; }]
+    ])('rejects a dialogue beat with %s', (_description, mutate) => {
+        const beat: Record<string, unknown> = { id: 'intro', speakerId: 'thea-young', text: bilingual('An opening line.') };
+        mutate(beat);
+
+        expect(CaseDefinitionSchema.safeParse(withBeats([beat]))).toMatchObject({ success: false });
     });
 
     it.each([

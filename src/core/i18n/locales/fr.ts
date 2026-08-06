@@ -119,6 +119,11 @@ export const fr: Record<TranslationKey, string> = {
     'proposal.selected': '✓ Retenue',
     'proposal.choose': 'Retenir celle-ci',
 
+    // --- Dialogue ---------------------------------------------------------------------------------
+    'dialogue.advance': 'Continuer',
+    'dialogue.end': 'Fin de la conversation',
+    'dialogue.counter': '{index} / {total}',
+
     // --- Peer review projection -----------------------------------------------------------------
     'review.unavailable': 'La relecture par les pairs est momentanément indisponible. Vos preuves et votre brouillon restent inchangés.',
 

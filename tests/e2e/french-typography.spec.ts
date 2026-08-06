@@ -4,6 +4,22 @@ import { expect, test } from '@playwright/test';
 
 import { fr } from '../../src/core/i18n/locales/fr';
 import { BOOK_FONT_STACK, FRENCH_GLYPH_SAMPLE, UI_FONT_STACK } from '../../src/adapters/phaser/textStyles';
+import { PROPOSAL_SURFACE_WIDTH } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import {
+    DIALOGUE_CONTROL_FONT_SIZE,
+    DIALOGUE_CONTROL_LABEL_WRAP,
+    DIALOGUE_COUNTER_FONT_SIZE,
+    DIALOGUE_COUNTER_WRAP,
+    DIALOGUE_BODY_FONT_SIZE,
+    DIALOGUE_SPEAKER_FONT_SIZE,
+    dialogueBodyWrapWidth,
+    dialogueSpeakerWrapWidth
+} from '../../src/adapters/phaser/ui/DialogueBox';
+import {
+    PROPOSAL_LIMITATION_FONT_SIZE,
+    PROPOSAL_BODY_FONT_SIZE,
+    proposalTextWrapWidth
+} from '../../src/adapters/phaser/ui/ProposalChoice';
 
 /**
  * AC4: French renders without missing glyphs or clipping at 1280×720.
@@ -19,6 +35,15 @@ test.use({ viewport: { width: 1280, height: 720 }, locale: 'fr-FR' });
 
 /** Every French-specific glyph the interface can render, plus the guillemets and the œ ligature. */
 const FRENCH_GLYPHS = [...'éèêëàâçîïôûùÿœŒÉÈÊÀÂÇÎÏÔÛÙ«»’—'];
+
+/**
+ * Derived from the widgets rather than restated as literals: these bounds are a function of the
+ * surface width and each widget's own gutters, and a layout change that did not update a hard-coded
+ * copy here would leave the check measuring against a bound the game no longer uses.
+ */
+const CARD_TEXT_WRAP_WIDTH = proposalTextWrapWidth(PROPOSAL_SURFACE_WIDTH);
+const DIALOGUE_BODY_WRAP_WIDTH = dialogueBodyWrapWidth(PROPOSAL_SURFACE_WIDTH);
+const DIALOGUE_SPEAKER_WRAP_WIDTH = dialogueSpeakerWrapWidth(PROPOSAL_SURFACE_WIDTH);
 
 /**
  * Each wrapped Phaser `Text` that holds authored French copy, with the wrap bound and font size
@@ -42,15 +67,23 @@ const WRAPPED_SURFACES = [
     // Colleague cast and proposals (Story 1.11). The bounds are `ColleagueRenderer`'s: the chrome
     // wraps at the full card width, everything inside a card at `TEXT_WRAP_WIDTH`, and the choice
     // marker at its own narrow right-hand column.
-    { key: 'colleagues.heading', font: UI_FONT_STACK, fontSize: 25, wrapWidth: 944 },
-    { key: 'colleagues.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 944 },
-    { key: 'theoryBoard.heading', font: UI_FONT_STACK, fontSize: 25, wrapWidth: 944 },
-    { key: 'theoryBoard.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 944 },
-    { key: 'colleague.attribution', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 744 },
-    { key: 'colleague.unattributed', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 744 },
-    { key: 'proposal.limitation', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 744 },
+    { key: 'colleagues.heading', font: UI_FONT_STACK, fontSize: 25, wrapWidth: PROPOSAL_SURFACE_WIDTH },
+    { key: 'colleagues.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: PROPOSAL_SURFACE_WIDTH },
+    { key: 'theoryBoard.heading', font: UI_FONT_STACK, fontSize: 25, wrapWidth: PROPOSAL_SURFACE_WIDTH },
+    { key: 'theoryBoard.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: PROPOSAL_SURFACE_WIDTH },
+    // The card bound, which is the tighter of the two places an attribution line is drawn. The dialogue
+    // speaker line is measured against its own narrower bound in the authored-beat test below, because
+    // this table is keyed by translation key and cannot hold two bounds for one key.
+    { key: 'colleague.attribution', font: UI_FONT_STACK, fontSize: 15, wrapWidth: CARD_TEXT_WRAP_WIDTH },
+    { key: 'colleague.unattributed', font: UI_FONT_STACK, fontSize: 15, wrapWidth: CARD_TEXT_WRAP_WIDTH },
+    { key: 'proposal.limitation', font: UI_FONT_STACK, fontSize: PROPOSAL_LIMITATION_FONT_SIZE, wrapWidth: CARD_TEXT_WRAP_WIDTH },
     { key: 'proposal.selected', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 160 },
-    { key: 'proposal.choose', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 160 }
+    { key: 'proposal.choose', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 160 },
+    // Dialogue widget chrome (Story 1.12). The advance control is a fixed hit target, so its label is
+    // bounded by the control rather than by the panel; the counter has its own narrow column.
+    { key: 'dialogue.advance', font: UI_FONT_STACK, fontSize: DIALOGUE_CONTROL_FONT_SIZE, wrapWidth: DIALOGUE_CONTROL_LABEL_WRAP },
+    { key: 'dialogue.end', font: UI_FONT_STACK, fontSize: DIALOGUE_CONTROL_FONT_SIZE, wrapWidth: DIALOGUE_CONTROL_LABEL_WRAP },
+    { key: 'dialogue.counter', font: UI_FONT_STACK, fontSize: DIALOGUE_COUNTER_FONT_SIZE, wrapWidth: DIALOGUE_COUNTER_WRAP }
 ] as const;
 
 /** Book controls are a fixed hit-test width and shrink to fit down to 10px before they would clip. */
@@ -71,6 +104,7 @@ const caseDefinition = JSON.parse(
     colleagues: { name: string }[];
     predictionProposals: { text: { fr: string } }[];
     conclusionProposals: { claim: { fr: string }; limitation: { fr: string } }[];
+    scenarioScript: { scenes: { phase: string; dialogueBeats?: { id: string; text: { fr: string } }[] }[] };
 };
 
 /**
@@ -104,6 +138,18 @@ const PROPOSAL_TEXTS = caseDefinition.predictionProposals.map(({ text }) => text
 const CONCLUSION_CLAIMS = caseDefinition.conclusionProposals.map(({ claim }) => claim.fr);
 const CONCLUSION_LIMITATIONS = caseDefinition.conclusionProposals.map(({ limitation }) => limitation.fr);
 
+/**
+ * Every authored dialogue beat, flattened across the scenes that author one. Read from `case.json` for
+ * the same reason the proposal copy is: the strings most likely to overflow the dialogue panel are the
+ * French beats, and they live in the case, not in `fr.ts`.
+ */
+const DIALOGUE_BEATS = caseDefinition.scenarioScript.scenes.flatMap(({ phase, dialogueBeats }) =>
+    (dialogueBeats ?? []).map(({ id, text }) => ({ label: `${phase} beat ${id}`, text: text.fr })));
+const LONGEST_CONVERSATION = Math.max(
+    1,
+    ...caseDefinition.scenarioScript.scenes.map(({ dialogueBeats }) => dialogueBeats?.length ?? 0)
+);
+
 const SAMPLE_PARAMS: Readonly<Record<string, Readonly<Record<string, string | number>>>> = {
     'lab.result.recorded': { value: SPACING, wavelength: 550, mode: fr['lab.wavelengthMode.minimum'] },
     'lab.result.stale': { value: SPACING },
@@ -115,6 +161,8 @@ const SAMPLE_PARAMS: Readonly<Record<string, Readonly<Record<string, string | nu
     'book.sourcePage.many': { pages: '138, 139' },
     'book.printedPage': { pages: '138, 139' },
     'colleague.attribution': { name: COLLEAGUE_NAME, role: ROLE_LABEL },
+    // The widest the counter ever gets in the authored content: the last beat of the longest conversation.
+    'dialogue.counter': { index: LONGEST_CONVERSATION, total: LONGEST_CONVERSATION },
     // One representative is right here: this sample only fills the interface key's own template, and
     // the per-proposal sweep over every limitation lives in the colleague-card test below.
     'proposal.limitation': { limitation: longestFrench(CONCLUSION_LIMITATIONS) }
@@ -203,13 +251,12 @@ test('keeps the authored French proposal copy inside the colleague card', async 
     await page.goto('/');
     await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
 
-    // `ColleagueRenderer`'s in-card wrap bound. The body and the limitation are drawn at different
-    // sizes, so each authored string is measured at the size the card actually uses for it.
-    const CARD_TEXT_WRAP_WIDTH = 744;
+    // `ProposalChoice`'s in-card wrap bound, derived from the widget. The body and the limitation are
+    // drawn at different sizes, so each authored string is measured at the size the card uses for it.
     const authored = [
-        ...PROPOSAL_TEXTS.map((text, index) => ({ label: `prediction text ${index + 1}`, fontSize: 16, text })),
-        ...CONCLUSION_CLAIMS.map((text, index) => ({ label: `conclusion claim ${index + 1}`, fontSize: 16, text })),
-        ...CONCLUSION_LIMITATIONS.map((text, index) => ({ label: `conclusion limitation ${index + 1}`, fontSize: 13, text }))
+        ...PROPOSAL_TEXTS.map((text, index) => ({ label: `prediction text ${index + 1}`, fontSize: PROPOSAL_BODY_FONT_SIZE, text })),
+        ...CONCLUSION_CLAIMS.map((text, index) => ({ label: `conclusion claim ${index + 1}`, fontSize: PROPOSAL_BODY_FONT_SIZE, text })),
+        ...CONCLUSION_LIMITATIONS.map((text, index) => ({ label: `conclusion limitation ${index + 1}`, fontSize: PROPOSAL_LIMITATION_FONT_SIZE, text }))
     ];
     const samples = authored.flatMap(({ label, fontSize, text }) =>
         text.split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({ label, font: UI_FONT_STACK, fontSize, text: token })));
@@ -221,6 +268,40 @@ test('keeps the authored French proposal copy inside the colleague card', async 
         .map(({ label, text, width }) => `${label}: "${text}" (${Math.round(width)}px)`);
 
     expect(overflowing).toEqual([]);
+});
+
+test('keeps the authored French dialogue inside the panel that holds it', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
+
+    // *Every* beat, not the longest one: the pass condition is per-token width, and the widest
+    // unbreakable token has no reason to live in the longest string. The speaker line is measured at
+    // its own bound, which is narrower than the card's because the counter and the advance control
+    // share its row.
+    const authored = [
+        ...DIALOGUE_BEATS.map(({ label, text }) => ({
+            label, fontSize: DIALOGUE_BODY_FONT_SIZE, wrapWidth: DIALOGUE_BODY_WRAP_WIDTH, text
+        })),
+        {
+            label: 'dialogue speaker',
+            fontSize: DIALOGUE_SPEAKER_FONT_SIZE,
+            wrapWidth: DIALOGUE_SPEAKER_WRAP_WIDTH,
+            text: fillParams('colleague.attribution')
+        }
+    ];
+    const samples = authored.flatMap(({ label, fontSize, wrapWidth, text }) =>
+        text.split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({ label, font: UI_FONT_STACK, fontSize, wrapWidth, text: token })));
+    const widths = await measure(page, samples);
+
+    const overflowing = samples
+        .map((sample, index) => ({ ...sample, width: widths[index] }))
+        .filter(({ width, wrapWidth }) => width > wrapWidth)
+        .map(({ label, text, width, wrapWidth }) => `${label}: "${text}" (${Math.round(width)}px > ${wrapWidth}px)`);
+
+    expect(overflowing).toEqual([]);
+    // A guard on the sweep itself: an empty list would make the assertion above vacuous, which is how
+    // a spec starts passing because the content it measures stopped being found.
+    expect(DIALOGUE_BEATS.length).toBeGreaterThan(0);
 });
 
 test('fits every French book control inside its fixed button width', async ({ page }) => {

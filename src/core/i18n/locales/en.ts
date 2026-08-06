@@ -126,6 +126,15 @@ export const en = {
     'proposal.selected': '✓ Chosen',
     'proposal.choose': 'Choose this',
 
+    // --- Dialogue ---------------------------------------------------------------------------------
+    // Widget chrome only. The beats themselves are `LocalizedText` in case.json, like every other
+    // string a player reads as content.
+    'dialogue.advance': 'Continue',
+    // Shown on the last beat instead of the control vanishing, so the reader can see the conversation
+    // has finished rather than wondering where the control went. Further clicks are no-ops.
+    'dialogue.end': 'End of conversation',
+    'dialogue.counter': '{index} / {total}',
+
     // --- Peer review projection -----------------------------------------------------------------
     'review.unavailable': 'Peer feedback is temporarily unavailable. Your evidence and draft have been kept unchanged.',
 

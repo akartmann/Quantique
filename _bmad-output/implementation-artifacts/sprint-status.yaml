@@ -74,7 +74,7 @@ development_status:
   1-9-inclusive-feedback-and-inquiry-recognition: done  # rework:pivot -> in-scene feedback, a11y descoped
   1-10-scene-router-and-adventure-flow: done  # new (pivot)
   1-11-colleague-cast-and-proposal-system: done  # new (pivot)
-  1-12-phaser-dialogue-and-choice-ui: ready-for-dev  # new (pivot)
+  1-12-phaser-dialogue-and-choice-ui: review  # new (pivot)
   epic-1-retrospective: skipped
   epic-2: in-progress
   2-1-young-contextual-record-and-prediction: done  # rework:pivot -> library reading + choice-of-4 prediction

@@ -1,6 +1,6 @@
 {
   "id": "young-interference",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "openingDispute": {
     "en": "Does light travel as particles, waves, or something more subtle?",
     "fr": "La lumière se propage-t-elle comme des particules, comme des ondes, ou d’une manière plus subtile ?"
@@ -1377,7 +1377,33 @@
       },
       {
         "phase": "prediction",
-        "sceneKey": "Colleagues"
+        "sceneKey": "Colleagues",
+        "dialogueBeats": [
+          {
+            "id": "framing",
+            "speakerId": "thea-young",
+            "text": {
+              "en": "Two narrow openings, one steady lamp. Say what you expect on the far wall before we light it.",
+              "fr": "Deux fentes étroites, une lampe régulière. Dites ce que vous attendez sur le mur avant qu’on l’allume."
+            }
+          },
+          {
+            "id": "commit-first",
+            "speakerId": "marianne-cole",
+            "text": {
+              "en": "Commit to one expectation now. Whatever we see, we will know whether you called it.",
+              "fr": "Engagez-vous sur une attente dès maintenant. Quoi que nous voyions, nous saurons si vous l’aviez annoncé."
+            }
+          },
+          {
+            "id": "revisable",
+            "speakerId": "elias-wren",
+            "text": {
+              "en": "The bench holds whichever you pick. You can change your mind once the light is on.",
+              "fr": "La paillasse acceptera votre choix. Vous pourrez en changer une fois la lumière allumée."
+            }
+          }
+        ]
       },
       {
         "phase": "experiment",
@@ -1385,11 +1411,55 @@
       },
       {
         "phase": "synthesis",
-        "sceneKey": "TheoryBoard"
+        "sceneKey": "TheoryBoard",
+        "dialogueBeats": [
+          {
+            "id": "four-drafts",
+            "speakerId": "samuel-hart",
+            "text": {
+              "en": "Four of us have drafted a conclusion, and each one states a different limit alongside it.",
+              "fr": "Nous sommes quatre à avoir rédigé une conclusion, chacune assortie d’une limite différente."
+            }
+          },
+          {
+            "id": "read-the-limits",
+            "speakerId": "marianne-cole",
+            "text": {
+              "en": "Read the limits as carefully as the claims. A claim reaching past our measurements is the risk.",
+              "fr": "Lisez les limites aussi attentivement que les affirmations. Une affirmation qui dépasse nos mesures, voilà le risque."
+            }
+          },
+          {
+            "id": "sign-one",
+            "speakerId": "thea-young",
+            "text": {
+              "en": "Put your name to the one you would defend. Nothing here is final.",
+              "fr": "Signez celle que vous seriez prêt à défendre. Rien n’est définitif ici."
+            }
+          }
+        ]
       },
       {
         "phase": "review",
-        "sceneKey": "TheoryBoard"
+        "sceneKey": "TheoryBoard",
+        "dialogueBeats": [
+          {
+            "id": "check-the-wording",
+            "speakerId": "thea-young",
+            "text": {
+              "en": "Before anyone else reads this, check the wording against what we actually recorded.",
+              "fr": "Avant que quelqu’un d’autre ne le lise, comparez la formulation à ce que nous avons réellement enregistré."
+            }
+          },
+          {
+            "id": "outside-reader",
+            "speakerId": "samuel-hart",
+            "text": {
+              "en": "A reader outside this room has only our words and our measurements. Nothing else.",
+              "fr": "Un lecteur extérieur à cette pièce ne disposera que de nos mots et de nos mesures. Rien d’autre."
+            }
+          }
+        ]
       },
       {
         "phase": "debrief",

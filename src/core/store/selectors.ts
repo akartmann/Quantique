@@ -1,7 +1,7 @@
 import { decimalPlaces, formatMeasurement } from '../i18n/formatNumber';
 import { DEFAULT_LOCALE, type Locale } from '../i18n/Locale';
 import { resolveLocalizedText } from '../i18n/resolveLocalizedText';
-import { translate, translateError } from '../i18n/translate';
+import { createTranslator, translate, translateError, type Translator } from '../i18n/translate';
 import type { ResultError } from '../errors/Result';
 import type { ContextualArtifact, PrimaryControl } from '../../domain/cases/CaseDefinition';
 import type { Colleague, ConclusionProposal, PredictionProposal } from '../../domain/cases/ColleagueCast';
@@ -219,6 +219,49 @@ export const selectLocalizedConclusionProposals = (state: AppState): readonly Lo
         text: resolveLocalizedText(proposal.claim, selectLocale(state)),
         limitation: resolveLocalizedText(proposal.limitation, selectLocale(state))
     }));
+
+/**
+ * `'{name} — {role}'`, or the name alone when a degraded cached `case.json` leaves the role empty.
+ *
+ * Shared rather than reimplemented per surface: the two-part template would otherwise render a
+ * trailing em dash with nothing after it, and both the proposal cards and the dialogue speaker line
+ * need the same fallback.
+ */
+export const formatAttribution = (t: Translator, attribution: Readonly<{ colleagueName: string; roleLabel: string }>): string =>
+    attribution.roleLabel
+        ? t('colleague.attribution', { name: attribution.colleagueName, role: attribution.roleLabel })
+        : attribution.colleagueName;
+
+/** One resolved line of authored dialogue, ready for a widget that knows nothing about the store. */
+export type DialogueBeatProjection = Readonly<{
+    id: string;
+    /** The attributed speaker line, already formatted. */
+    speaker: string;
+    text: string;
+}>;
+
+/** A scene that authors no conversation gets this, so a caller never has to guard on `undefined`. */
+const NO_DIALOGUE_BEATS: readonly DialogueBeatProjection[] = Object.freeze([]);
+
+/**
+ * The authored beats of the scenario scene mirroring the **live phase**, resolved for display.
+ *
+ * Keyed on phase rather than scene key on purpose: `TheoryBoard` hosts both `synthesis` and `review`,
+ * which are separate scenario-script entries with their own conversations.
+ */
+export const selectDialogueBeats = (state: AppState): readonly DialogueBeatProjection[] => {
+    const scene = state.caseDefinition.scenarioScript.scenes.find(({ phase }) => phase === selectCasePhase(state));
+    const beats = scene?.dialogueBeats;
+    if (!beats || beats.length === 0) return NO_DIALOGUE_BEATS;
+
+    const locale = selectLocale(state);
+    const t = createTranslator(locale);
+    return beats.map((beat) => Object.freeze({
+        id: beat.id,
+        speaker: formatAttribution(t, projectAttribution(state, beat.speakerId)),
+        text: resolveLocalizedText(beat.text, locale)
+    }));
+};
 
 export const selectConsultation = (state: AppState): ConsultationProjection | undefined => state.consultation;
 

@@ -145,14 +145,16 @@ const validIds = (values: readonly string[], available: ReadonlySet<string>): bo
 export const validateCaseRecordForDefinition = (record: CaseRecord, definition: CaseDefinition): Result<CaseRecord> => {
     // Case-definition versions whose *progress-bearing* contract is unchanged, so a record saved
     // against the older version still validates. 1.5.0 added `fr` to authored display text, 1.6.0
-    // added a French rendition of the archival pages, and 1.7.0 added the colleague cast and the two
-    // proposal sets — no run, decision, or recognition value moved in any of them, and the proposal
-    // IDs a 1.7.0 record can carry are optional. Rejecting the older versions here would discard
-    // every saved investigation on upgrade (NFR12).
+    // added a French rendition of the archival pages, 1.7.0 added the colleague cast and the two
+    // proposal sets, and 1.8.0 gave scenario scenes authored dialogue beats — no run, decision, or
+    // recognition value moved in any of them, the proposal IDs a 1.7.0 record can carry are optional,
+    // and nothing about reading a beat is persisted at all. Rejecting the older versions here would
+    // discard every saved investigation on upgrade (NFR12).
     const compatibleDefinitionVersion = record.caseDefinitionVersion === definition.version
         || (definition.version === '1.2.0' && ['1.0.0', '1.1.0'].includes(record.caseDefinitionVersion))
         || (definition.version === '1.6.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0'].includes(record.caseDefinitionVersion))
-        || (definition.version === '1.7.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0'].includes(record.caseDefinitionVersion));
+        || (definition.version === '1.7.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0'].includes(record.caseDefinitionVersion))
+        || (definition.version === '1.8.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }

@@ -10,7 +10,10 @@
 // v5: and again — `colleagues`, `predictionProposals`, and `conclusionProposals` became required
 // fields of the strictly-parsed case definition (Story 1.11), so a cached pre-1.11 case.json boots
 // a returning offline player into "content unavailable" with no recovery.
-const CACHE_NAME = 'quantique-bootstrap-v5';
+// v6: and again — a scenario scene's `dialogueBeats` now carry `text` as required `LocalizedText`
+// instead of the pre-1.12 `textKey`, so a cached v5-era case.json fails the strict parse and boots a
+// returning offline player into "content unavailable" with no recovery.
+const CACHE_NAME = 'quantique-bootstrap-v6';
 
 self.addEventListener('install', (event) => {
     event.waitUntil(self.skipWaiting());

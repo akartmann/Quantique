@@ -255,7 +255,8 @@ const hasEmptyAllOf = (predicate: z.infer<typeof ConclusionSupportPredicateSchem
 const ScenarioDialogueBeatSchema = z.object({
     id: stableId,
     speakerId: stableId,
-    textKey: stableId
+    // Authored prose, not a bundle key. See `ScenarioDialogueBeat` for why the key shape could not work.
+    text: LocalizedTextSchema
 }).strict();
 
 const ScenarioSceneSchema = z.object({
@@ -494,4 +495,36 @@ export const CaseDefinitionSchema = z.object({
     if (definition.conclusionProposals.length > 0 && !definition.conclusionProposals.some(({ supportPredicate }) => isSatisfiablePredicate(supportPredicate))) {
         context.addIssue({ code: 'custom', message: 'At least one conclusion proposal must be defensible on some evidence.', path: ['conclusionProposals'] });
     }
+
+    // --- Scenario dialogue beats ----------------------------------------------------------------
+    //
+    // Here rather than in `ScenarioScriptSchema`'s own refinement: that one cannot see `colleagues`,
+    // and a speaker is only meaningful against the authored cast.
+
+    definition.scenarioScript.scenes.forEach((scene, sceneIndex) => {
+        const beats = scene.dialogueBeats;
+        if (!beats) return;
+        const beatPath = ['scenarioScript', 'scenes', sceneIndex, 'dialogueBeats'];
+        // Unique *within* a scene. Across scenes a beat id may repeat: a scene is the unit a
+        // conversation belongs to, and `prediction` and `review` both reasonably open with `intro`.
+        if (new Set(beats.map(({ id }) => id)).size !== beats.length) {
+            context.addIssue({ code: 'custom', message: 'Dialogue beat IDs must be unique within a scene.', path: beatPath });
+        }
+        beats.forEach((beat, beatIndex) => {
+            if (!colleagueIds.has(beat.speakerId)) {
+                context.addIssue({
+                    code: 'custom',
+                    message: 'Every dialogue beat must be spoken by an authored colleague.',
+                    path: [...beatPath, beatIndex, 'speakerId']
+                });
+            }
+            if (encodesPath(beat.text)) {
+                context.addIssue({
+                    code: 'custom',
+                    message: 'Authored dialogue copy must not encode a scene, route, or phase path.',
+                    path: [...beatPath, beatIndex, 'text']
+                });
+            }
+        });
+    });
 });
