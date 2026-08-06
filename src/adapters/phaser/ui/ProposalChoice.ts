@@ -2,7 +2,10 @@ import type { Scene } from 'phaser';
 
 import { uiTextStyle } from '../textStyles';
 import type { Translator } from '../../../core/i18n/translate';
-import { formatAttribution, type LocalizedProposalProjection } from '../../../core/store/selectors';
+import { formatAttribution } from '../../../core/i18n/formatAttribution';
+// Type-only, and deliberately so: a `type` import is erased at compile time, so the selectors module
+// stays out of this widget's runtime graph. See `formatAttribution` for why that matters.
+import type { LocalizedProposalProjection } from '../../../core/store/selectors';
 
 /**
  * One attributed proposal card: accent, speaker, claim, optional stated limitation, and a choice
@@ -36,8 +39,17 @@ const BODY_TOP = 32;
  * under the claim's *measured* height at render time. Bottom-anchoring the limitation instead left
  * roughly three pixels of slack against today's French copy — one extra wrapped line, from a copy edit
  * or a longer future translation, drew the two strings on top of each other (1.11 review).
+ *
+ * **Two claim lines, matching the card budget that was actually measured** (see `MIN_CARD_HEIGHT` in
+ * `ColleagueRenderer`): attribution + a two-line claim at 16px + a two-line limitation at 13px is
+ * ≈114px against a card of 121–126px. A *third* claim line adds ≈21px and pushes the limitation to
+ * ≈135px — past the card's bottom edge, and because nothing here clips against the card, the overflow
+ * paints into `CARD_GAP` and onto the **next** colleague's card, attaching a stated limitation to the
+ * wrong claim. This was 3 until the 1.12 review; the cards were 143px tall before this story shrank
+ * them to make room for the dialogue panel, and the line bound was not lowered with them. Keeping it
+ * at 2 makes the overflow unreachable by construction rather than something a clamp has to catch.
  */
-const BODY_MAX_LINES = 3;
+const BODY_MAX_LINES = 2;
 const LIMITATION_MAX_LINES = 2;
 const LIMITATION_TOP_GAP = 6;
 
@@ -124,11 +136,34 @@ export class ProposalChoice {
         this.height = height;
         this.background?.setPosition(this.options.x, top).setSize(this.options.width, height);
         this.accent?.setPosition(this.options.x, top).setSize(ACCENT_WIDTH, height);
-        // Phaser derives the input hit area from the object's size *at the moment* `setInteractive` runs
-        // and does not resize it afterwards, so a resized background would keep testing against its old
-        // height — leaving a card clickable in the gap below where it is actually drawn. Re-applying the
-        // interactive state rebuilds the hit area from the new size.
-        this.applyInputState();
+        this.resizeHitArea();
+    }
+
+    /**
+     * Resizes the input hit area to match the background's new size.
+     *
+     * Phaser fixes a hit area at the moment `setInteractive` runs and never resizes it, so a resized
+     * background would keep testing clicks against its old height — leaving a card clickable in the gap
+     * below where it is actually drawn.
+     *
+     * **Calling `setInteractive` again does not fix that**, which is what the 1.12 review caught this
+     * code claiming: `InputPlugin.enable` is `if (gameObject.input) { gameObject.input.enabled = true }`,
+     * so a second call on an already-interactive object only re-enables it and never rebuilds the shape.
+     * `Rectangle.setSize` does update `input.hitArea` — but only `if (input && !input.customHitArea)`,
+     * so the correctness was incidental and would have vanished silently the first time anyone passed an
+     * explicit hit area to inset a click target. Writing the geometry directly is what actually holds,
+     * and it holds either way.
+     *
+     * Duck-typed rather than `instanceof Phaser.Geom.Rectangle`, deliberately: `instanceof` needs a
+     * *value* import of Phaser, and Phaser touches `window` at import time. This module is imported by
+     * the Playwright specs for its exported font sizes and wrap bounds, in Node, where that throws.
+     * Setting `width`/`height` is exactly what `Geom.Rectangle.setSize` does anyway.
+     */
+    private resizeHitArea(): void {
+        const hitArea = this.background?.input?.hitArea as { width?: number; height?: number } | undefined;
+        if (!hitArea || typeof hitArea.width !== 'number' || typeof hitArea.height !== 'number') return;
+        hitArea.width = this.options.width;
+        hitArea.height = this.height;
     }
 
     public render(projection: LocalizedProposalProjection, isSelected: boolean, t: Translator): void {

@@ -7,6 +7,7 @@ import { ProposalChoice } from '../ui/ProposalChoice';
 import type { AppState } from '../../../core/store/AppState';
 import { createTranslator, type Translator } from '../../../core/i18n/translate';
 import {
+    selectCasePhase,
     selectDialogueBeats,
     selectLocale,
     selectLocalizedConclusionProposals,
@@ -47,22 +48,59 @@ const CARD_WIDTH = PROPOSAL_SURFACE_WIDTH;
 
 const HEADING_Y = 30;
 const GUIDE_Y = 68;
-/** Below a two-line French guide at {@link CARD_WIDTH}, which is the taller of the two cases. */
+/**
+ * Where the dialogue panel sits when the guide above it has not been measured yet — `create()` builds
+ * the panel before the first `render` writes any copy into the guide, so there is nothing to measure.
+ * Sized for a two-line French guide at {@link CARD_WIDTH}, the taller of the two cases.
+ *
+ * From the first render on, the real top is **measured** from the guide's wrapped height by
+ * {@link ColleagueRenderer.dialogueTop}. Leaving it a constant left ~11px of unmeasured slack between a
+ * two-line French guide and the panel — the same "two objects sharing a fixed window with no
+ * measurement" defect the 1.11 review found one layer down, and the guide slot also carries the
+ * transient error, so a three-line refusal message shared that budget (1.12 review).
+ */
 export const DIALOGUE_TOP = 118;
+/** Between the measured bottom of the guide line and the dialogue panel. */
+const DIALOGUE_GAP = 12;
 /** Between the measured bottom of the dialogue panel and the first card. */
 const CARDS_GAP = 12;
 const CARD_GAP = 10;
 const CANVAS_BOTTOM_MARGIN = 16;
 /**
- * The floor that keeps four cards on a 768px canvas even if the dialogue panel grows unexpectedly.
+ * The floor on a card's height.
  *
  * The budget it protects, measured at the authored content: a one-line beat leaves ≈126px per card and
  * a two-line French beat ≈121px, against ≈114px of conclusion card content — attribution, a two-line
  * claim at 16px, and a two-line stated limitation at 13px placed under the claim's measured height.
- * Authoring a beat long enough to wrap three times is what would eat that margin, which is why the
- * beats in `case.json` are deliberately short.
+ *
+ * On its own this floor is **not** what keeps the cards on the canvas: it bounds each card's height, and
+ * an unbounded panel above them pushes their *top* down regardless, so past roughly eighteen wrapped
+ * beat lines the last cards began below y=768 — on a fixed 1024×768 `Scale.FIT` surface with no scroll,
+ * that is a phase the player cannot complete, because the card they must click is not merely ugly but
+ * absent. The clamp in {@link ColleagueRenderer.cardGeometry} is what actually bounds the top, and this
+ * floor is the budget it clamps against (1.12 review).
  */
 const MIN_CARD_HEIGHT = 72;
+
+/**
+ * A design-space point that lies inside the **last** proposal card, whatever the dialogue panel above it
+ * measures to — for a browser test that needs to click a card without restating the band as literals.
+ *
+ * Anchored to the canvas floor rather than the band's top, which is the whole point: the top moves with
+ * the beat being read, and a fixed mid-surface coordinate silently lands in a {@link CARD_GAP} the moment
+ * a beat wraps one line further (1.12 review found exactly that in `dialogue-advance.spec.ts`, under a
+ * comment asserting the cards divide the space continuously — they do not, there are gaps between them).
+ *
+ * The cards always fill down to within `CARD_GAP` of the bottom margin: integer division of the
+ * available height leaves at most that much unused, and the {@link MIN_CARD_HEIGHT} clamp only ever makes
+ * the last card taller relative to the floor. So a point one inset above that is inside it either way.
+ */
+export const lastProposalCardProbe = (
+    canvasHeight: number
+): Readonly<{ x: number; y: number }> => ({
+    x: PROPOSAL_SURFACE_LEFT + (PROPOSAL_SURFACE_WIDTH / 2),
+    y: canvasHeight - CANVAS_BOTTOM_MARGIN - CARD_GAP - 4
+});
 
 /** A colleague with no silhouette accent of their own still gets a legible, neutral stripe. */
 const NEUTRAL_ACCENT = 0x6f8f99;
@@ -161,9 +199,14 @@ export class ColleagueRenderer {
         // replaces it rather than vanishing on the same frame.
         this.transientError = undefined;
 
+        // Set before rendering the panel, because the guide's height is only known once its copy is in.
+        this.dialogueBox?.setTop(this.dialogueTop());
         // The beats of the scene mirroring the *live* phase: TheoryBoard hosts both `synthesis` and
-        // `review`, which are separate scenario-script entries with their own conversations.
-        this.dialogueBox?.render(selectDialogueBeats(state), t);
+        // `review`, which are separate scenario-script entries with their own conversations. The phase
+        // is therefore the conversation's identity, and it is what the widget keys its reading position
+        // on — the beat ids cannot serve, because the schema lets them repeat across scenes and this one
+        // renderer instance survives the `synthesis → review` transition (1.12 review).
+        this.dialogueBox?.render(selectDialogueBeats(state), t, selectCasePhase(state));
         this.layoutAndRenderCards(state, t);
     }
 
@@ -200,13 +243,38 @@ export class ColleagueRenderer {
     }
 
     /**
+     * The dialogue panel's top edge: below the guide line's *measured* bottom, and never above
+     * {@link DIALOGUE_TOP}.
+     *
+     * The floor is what keeps this a safety net rather than a layout change. Today's guide — one line in
+     * English, two in French — measures to at or above the constant, so the panel does not move and the
+     * click target the browser tests derive stays where it was. What the measurement adds is the case the
+     * constant could not survive: a three-line guide, or a three-line French transient error in the same
+     * slot, now pushes the panel down instead of being drawn over by it.
+     */
+    private dialogueTop(): number {
+        const guideBottom = (this.guide?.y ?? GUIDE_Y) + (this.guide?.height ?? 0);
+        return Math.max(DIALOGUE_TOP, guideBottom + DIALOGUE_GAP);
+    }
+
+    /**
      * The vertical band the cards divide, taken from the dialogue panel's *measured* bottom rather than
      * a constant: a longer French beat pushes the cards down instead of being drawn over by them.
+     *
+     * The measured top is **clamped**, because the panel it is measured from has no ceiling of its own —
+     * the beat body is deliberately unbounded so it can never truncate (AC1), and `LocalizedTextSchema`
+     * sets no maximum length. Past the clamp the panel and the cards overlap, which is a legible layout
+     * fault an author can see and fix; unclamped, the cards silently leave the canvas and the phase
+     * becomes uncompletable, which an author cannot see at all. Overlap beats absence.
      */
     private cardGeometry(count: number): Readonly<{ top: number; height: number }> {
-        const top = (this.dialogueBox?.getBottomY() ?? DIALOGUE_TOP) + CARDS_GAP;
+        const measuredTop = (this.dialogueBox?.getBottomY() ?? DIALOGUE_TOP) + CARDS_GAP;
+        const cards = Math.max(count, 1);
+        const limit = this.scene.scale.height - CANVAS_BOTTOM_MARGIN
+            - (cards * MIN_CARD_HEIGHT) - ((cards - 1) * CARD_GAP);
+        const top = Math.min(measuredTop, Math.max(DIALOGUE_TOP, limit));
         const available = this.scene.scale.height - top - CANVAS_BOTTOM_MARGIN;
-        return { top, height: Math.max(MIN_CARD_HEIGHT, Math.floor(available / Math.max(count, 1)) - CARD_GAP) };
+        return { top, height: Math.max(MIN_CARD_HEIGHT, Math.floor(available / cards) - CARD_GAP) };
     }
 
     private layoutAndRenderCards(state: AppState, t: Translator): void {

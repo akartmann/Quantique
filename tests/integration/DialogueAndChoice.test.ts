@@ -152,11 +152,17 @@ describe('authored dialogue beats', () => {
         }
     });
 
+    // Each of the three sweeps below asserts it actually swept something. Without that, all three pass
+    // vacuously the moment the content they measure goes missing — an empty `french`/`english` pair is
+    // `0 === 0` and `[] === []`, and a `for…of` over an empty list makes zero assertions. A `case.json`
+    // edit dropping `dialogueBeats`, or a `selectDialogueBeats` regression returning the frozen empty
+    // array unconditionally, would have emptied all three while they still reported green (1.12 review).
     it('reads differently in French, so no beat is shipping English to a French player', () => {
         for (const phase of ['prediction', 'synthesis', 'review'] as const) {
             const english = beatsAt(phase).map(({ text }) => text);
             const french = beatsAt(phase, 'fr').map(({ text }) => text);
 
+            expect(english.length).toBeGreaterThan(0);
             expect(french).toHaveLength(english.length);
             expect(french.filter((text, index) => text === english[index])).toEqual([]);
         }
@@ -166,7 +172,10 @@ describe('authored dialogue beats', () => {
     // beyond what a dialogue widget needs, and a matcher that ignores extra keys would pass just as
     // happily if a defensibility signal were added to it.
     it('projects nothing beyond what the widget renders', () => {
-        for (const beat of beatsAt('synthesis')) {
+        const beats = beatsAt('synthesis');
+
+        expect(beats.length).toBeGreaterThan(0);
+        for (const beat of beats) {
             expect(Object.keys(beat).sort()).toEqual(['id', 'speaker', 'text']);
         }
     });
@@ -174,8 +183,29 @@ describe('authored dialogue beats', () => {
     it('keeps beat IDs unique within each conversation', () => {
         for (const phase of ['prediction', 'synthesis', 'review'] as const) {
             const ids = beatsAt(phase).map(({ id }) => id);
+
+            expect(ids.length).toBeGreaterThan(0);
             expect(new Set(ids).size).toBe(ids.length);
         }
+    });
+
+    /**
+     * `TheoryBoard` hosts two separate conversations, which is the content fact that made the widget's
+     * old id-based conversation key reachable rather than theoretical: `SceneRouter` does not restart a
+     * scene whose key is unchanged, so one `DialogueBox` renders both in sequence. The keying itself is
+     * pinned in `tests/unit/DialogueBox.test.ts`; what belongs here is that the content really does put
+     * two distinct conversations behind one scene key.
+     */
+    it('authors two distinct conversations behind the single TheoryBoard scene key', () => {
+        const synthesis = beatsAt('synthesis');
+        const review = beatsAt('review');
+
+        expect(synthesis.length).toBeGreaterThan(0);
+        expect(review.length).toBeGreaterThan(0);
+        expect(synthesis.map(({ text }) => text)).not.toEqual(review.map(({ text }) => text));
+
+        const scenes = definition.scenarioScript.scenes.filter(({ phase }) => phase === 'synthesis' || phase === 'review');
+        expect(scenes.map(({ sceneKey }) => sceneKey)).toEqual(['TheoryBoard', 'TheoryBoard']);
     });
 });
 
@@ -185,20 +215,59 @@ describe('authored dialogue beats', () => {
  * and it would hand a scene something that looks like progression state (ADR-009).
  */
 describe('beat position is never persisted', () => {
-    it('carries no dialogue or beat field in the portable case record', () => {
+    /**
+     * The **exact** key set, not a `/dialogue|beat/` filter over the names.
+     *
+     * A regex over key names was what the 1.12 review found here, and it could only catch a violation
+     * that happened to spell itself `dialogue` or `beat`: a persisted index called `scenePosition`,
+     * `conversationIndex`, `currentLine`, or nested inside an existing branch passed it unchanged. These
+     * lists fail on *any* field arriving, whatever it is called — which is the property the decision
+     * actually needs, since the cost being guarded against is a record field plus a migration.
+     */
+    const RECORD_FIELDS = [
+        'activeControlValues', 'caseDefinitionVersion', 'caseId', 'comparison', 'completion',
+        'decisionHistory', 'inspectedSourceIds', 'phase', 'prediction', 'recognition', 'replay', 'runs',
+        'schemaVersion', 'selectedConclusionProposalId', 'selectedPredictionProposalId',
+        'selectedWavelengthMode', 'selectedWavelengthNm', 'theory'
+    ];
+    const STATE_FIELDS = [
+        'activeControlValues', 'caseDefinition', 'comparison', 'completion', 'consultation',
+        'decisionHistory', 'inspectedSourceIds', 'locale', 'peerReview', 'phase', 'prediction',
+        'recognition', 'replay', 'runs', 'selectedConclusionProposalId', 'selectedPredictionProposalId',
+        'selectedWavelengthMode', 'selectedWavelengthNm', 'theory'
+    ];
+
+    it('carries exactly the authored record fields, so no beat position could have been added', () => {
         const record = selectPortableCaseRecord(storeAtSynthesis().getState());
 
         expect(record.ok).toBe(true);
         if (!record.ok) return;
-        expect(Object.keys(record.value).filter((key) => /dialogue|beat/i.test(key))).toEqual([]);
+        expect(Object.keys(record.value).sort()).toEqual(RECORD_FIELDS);
+        expect(JSON.stringify(record.value)).not.toMatch(/dialogue|beatIndex/i);
     });
 
-    it('leaves the authoritative state unchanged by anything a conversation can do', () => {
-        // There is no action a dialogue widget could dispatch: it is given a callback, not the store.
-        // The whole action union is exercised elsewhere; what matters here is that reaching the phase
-        // that authors beats does not itself record anything about reading them.
-        const state = storeAtSynthesis().getState();
+    it('carries exactly the authored state fields at the phase that authors beats', () => {
+        expect(Object.keys(storeAtSynthesis().getState()).sort()).toEqual(STATE_FIELDS);
+    });
 
-        expect(Object.keys(state).filter((key) => /dialogue|beat/i.test(key))).toEqual([]);
+    /**
+     * Reading a conversation is a *query*, so resolving every beat of every authored phase — repeatedly,
+     * which is what a widget re-rendering on each store notification does — must leave the authoritative
+     * state identical **by reference**. The previous version of this test performed no conversation
+     * action at all and asserted only on key names, so it could not have detected a selector that
+     * dispatched or mutated.
+     */
+    it('leaves the authoritative state identical by reference after resolving every beat', () => {
+        const store = storeAtSynthesis();
+        const before = store.getState();
+        const recordBefore = selectPortableCaseRecord(before);
+
+        for (const phase of CASE_PHASES) {
+            selectDialogueBeats({ ...before, phase });
+            selectDialogueBeats({ ...before, phase });
+        }
+
+        expect(store.getState()).toBe(before);
+        expect(selectPortableCaseRecord(store.getState())).toEqual(recordBefore);
     });
 });

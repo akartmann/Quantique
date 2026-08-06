@@ -61,7 +61,7 @@ tracking_system: file-system
 story_location: "{project-root}/_bmad-output/implementation-artifacts"
 
 development_status:
-  epic-1: in-progress  # reopened by pivot (was: done)
+  epic-1: done  # reopened by pivot (was: done)
   1-1-project-bootstrap-and-verification-harness: done
   1-1b-internationalization-foundation-english-french: done  # new (pivot); BUILD EARLY — right after 1-1, before any scene text
   1-2-minimal-young-case-contract-and-authored-loop: done
@@ -74,7 +74,7 @@ development_status:
   1-9-inclusive-feedback-and-inquiry-recognition: done  # rework:pivot -> in-scene feedback, a11y descoped
   1-10-scene-router-and-adventure-flow: done  # new (pivot)
   1-11-colleague-cast-and-proposal-system: done  # new (pivot)
-  1-12-phaser-dialogue-and-choice-ui: review  # new (pivot)
+  1-12-phaser-dialogue-and-choice-ui: done  # new (pivot)
   epic-1-retrospective: skipped
   epic-2: in-progress
   2-1-young-contextual-record-and-prediction: done  # rework:pivot -> library reading + choice-of-4 prediction

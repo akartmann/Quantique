@@ -10,12 +10,16 @@ const TYPED_CONCLUSION = 'The two recorded configurations support an interferenc
 const TYPED_LIMITATION = 'These observations do not settle every interpretation of light.';
 
 /**
- * The authored conclusion claims, read from the case rather than restated, so the probe below can say
- * precisely what the canvas is allowed to have written into the field.
+ * The authored conclusion proposals, read from the case rather than restated, so the probe below can say
+ * precisely what the canvas is allowed to have written into the two fields.
+ *
+ * Both halves, not just the claim: choosing a proposal writes the claim **and** its stated limitation
+ * together, so carrying the pair is what lets the probe reject a partial write.
  */
-const AUTHORED_CLAIMS: readonly string[] = (JSON.parse(
+const AUTHORED_CONCLUSIONS: readonly Readonly<{ claim: string; limitation: string }>[] = (JSON.parse(
     readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
-) as { conclusionProposals: { claim: { en: string } }[] }).conclusionProposals.map(({ claim }) => claim.en);
+) as { conclusionProposals: { claim: { en: string }; limitation: { en: string } }[] })
+    .conclusionProposals.map(({ claim, limitation }) => ({ claim: claim.en, limitation: limitation.en }));
 
 /** Clicks the laboratory apparatus "increase slit spacing" control on the canvas, in design coordinates. */
 const clickApparatusIncrease = async (page: import('@playwright/test').Page): Promise<void> => {
@@ -85,16 +89,29 @@ test('walks the Young scene sequence, keeping the active scene mirroring the cas
 
     // The same click also lands on whatever the theory board now draws there, and the cards no longer
     // sit at a fixed offset: Story 1.12 puts a dialogue panel above them whose measured height — and so
-    // the top of the first card — follows the beat being read. The coordinate currently falls inside the
-    // third card with two pixels to spare, so pinning "a card was hit" would be pinning a coincidence,
-    // and it would fail as a confusing conclusion-field error the next time a beat is re-worded.
+    // the top of the first card — follows the beat being read. Pinning "a card was hit" would pin a
+    // coincidence and break on the next beat re-wording, so that is not what this asserts; card
+    // hit-testing is `dialogue-advance.spec.ts`' subject, and it probes a *derived* coordinate.
     //
-    // So the assertion is the invariant instead: the field holds either the player's own words or one
-    // authored claim adopted verbatim — never a blend, a partial write, or anything else. That still
-    // catches a real defect, and it is why the 1.11 review objected to the side effect being *silent*
-    // rather than to its particular outcome.
-    // Settled by the awaited assertion above, which already round-tripped to the browser after the click.
-    expect([TYPED_CONCLUSION, ...AUTHORED_CLAIMS]).toContain(await conclusionField.inputValue());
+    // What this asserts is the invariant a stray canvas click must not break: the two fields stay
+    // **consistent** — either both hold the player's own words, or both come from the same authored
+    // proposal. A conclusion adopted without its limitation, a blend, or a partial write all fail here,
+    // which is the class of defect the 1.11 review actually objected to (a silent side effect), and
+    // unlike a bare "the value is one of these" it cannot be satisfied by the click doing nothing *and*
+    // by the click corrupting half the draft.
+    await expect(async () => {
+        const [conclusion, limitation] = await Promise.all([
+            conclusionField.inputValue(),
+            limitationField.inputValue()
+        ]);
+        const typedBoth = conclusion === TYPED_CONCLUSION && limitation === TYPED_LIMITATION;
+        const adoptedOne = AUTHORED_CONCLUSIONS.some((authored) =>
+            authored.claim === conclusion && authored.limitation === limitation);
+
+        expect(typedBoth || adoptedOne,
+            `The draft is neither the player's own words nor one authored proposal adopted whole. Conclusion: ${conclusion} / Limitation: ${limitation}`
+        ).toBe(true);
+    }).toPass();
 
     // Restore the player's own words unconditionally, so the review and debrief below exercise the
     // conclusion they assert on rather than one the canvas happened to write.

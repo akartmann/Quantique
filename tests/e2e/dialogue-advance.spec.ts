@@ -3,7 +3,8 @@ import { expect, test } from '@playwright/test';
 import {
     DIALOGUE_TOP,
     PROPOSAL_SURFACE_LEFT,
-    PROPOSAL_SURFACE_WIDTH
+    PROPOSAL_SURFACE_WIDTH,
+    lastProposalCardProbe
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { dialogueAdvanceControlCentre } from '../../src/adapters/phaser/ui/DialogueBox';
 
@@ -31,10 +32,37 @@ const ADVANCE = dialogueAdvanceControlCentre({
 /** The archival book's own canvas "Close book" control, which covers the whole surface once opened. */
 const BOOK_CLOSE = { x: 512, y: 678 };
 
+/** Inside the last card wherever the band starts. Derived, never a mid-surface guess — see the helper. */
+const CARD = lastProposalCardProbe(768);
+
 const clickDesign = async (page: import('@playwright/test').Page, point: Readonly<{ x: number; y: number }>): Promise<void> => {
     const bounds = await canvas(page).boundingBox();
     if (!bounds) throw new Error('The routed Phaser surface did not render.');
     await page.mouse.click(bounds.x + (point.x / 1024) * bounds.width, bounds.y + (point.y / 768) * bounds.height);
+};
+
+/**
+ * A screenshot of just the dialogue panel's band, not the whole canvas.
+ *
+ * "Some pixel somewhere changed" is satisfied by any nondeterminism on the surface, independently of the
+ * repaint under test — the assertion read stronger than it was (1.12 review). Clipping to the band the
+ * widget owns means only a panel repaint can satisfy it. The band is derived from the widget's own
+ * geometry, and is deliberately generous vertically so it covers the counter, the control, and a beat
+ * body of any wrapped height.
+ */
+const panelShot = async (page: import('@playwright/test').Page): Promise<Buffer> => {
+    const bounds = await canvas(page).boundingBox();
+    if (!bounds) throw new Error('The routed Phaser surface did not render.');
+    const scaleX = bounds.width / 1024;
+    const scaleY = bounds.height / 768;
+    return page.screenshot({
+        clip: {
+            x: bounds.x + (PROPOSAL_SURFACE_LEFT * scaleX),
+            y: bounds.y + (DIALOGUE_TOP * scaleY),
+            width: PROPOSAL_SURFACE_WIDTH * scaleX,
+            height: 120 * scaleY
+        }
+    });
 };
 
 test('advances the authored conversation on the canvas without touching the investigation', async ({ page }) => {
@@ -50,13 +78,17 @@ test('advances the authored conversation on the canvas without touching the inve
 
     const prediction = page.getByLabel('Tentative prediction');
     await expect(prediction).toHaveValue('');
-    const firstBeat = await canvas(page).screenshot();
+    const firstBeat = await panelShot(page);
+
+    // A click that misses the control must not satisfy the repaint assertion below, so prove the shot is
+    // stable when nothing has been advanced. Without this the whole check could pass on canvas noise.
+    expect(Buffer.compare(await panelShot(page), firstBeat)).toBe(0);
 
     await clickDesign(page, ADVANCE);
 
     // The panel repainted: a widget that moved its index without redrawing left this identical.
     await expect(async () => {
-        expect(Buffer.compare(await canvas(page).screenshot(), firstBeat)).not.toBe(0);
+        expect(Buffer.compare(await panelShot(page), firstBeat)).not.toBe(0);
     }).toPass();
     // And advancing is not choosing. The advance control sits above the cards, so a click falling
     // through to one — or a card whose hit area still covered the panel — would adopt a proposal here.
@@ -75,9 +107,10 @@ test('keeps choosing a proposal working after the conversation has moved the car
     // Advance first, so the cards have been re-laid-out at least once before anything is clicked.
     await clickDesign(page, ADVANCE);
 
-    // Mid-height of the surface, which is inside a card whatever the panel's measured height: the cards
-    // divide everything below it. The recorded prediction is the observable proof a card was hit.
-    await clickDesign(page, { x: 512, y: 500 });
+    // Inside the last card, anchored to the canvas floor rather than guessed at mid-surface: the band's
+    // top moves with the beat being read, and the cards have gaps between them. The recorded prediction
+    // is the observable proof a card was hit.
+    await clickDesign(page, CARD);
 
     const prediction = page.getByLabel('Tentative prediction');
     await expect(prediction).not.toHaveValue('');

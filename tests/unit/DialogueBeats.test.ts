@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createInitialAppState } from '../../src/core/store/AppState';
 import { selectDialogueBeats } from '../../src/core/store/selectors';
+import { translate } from '../../src/core/i18n/translate';
 import type { Locale } from '../../src/core/i18n/Locale';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 import type { CasePhase } from '../../src/domain/cases/CaseProgress';
@@ -9,7 +10,7 @@ import type { CasePhase } from '../../src/domain/cases/CaseProgress';
 /**
  * A fixture rather than the shipped case: this is a pure projection, so the interesting inputs are the
  * degraded and empty shapes authored content is validated against ever producing. That the *authored*
- * beats resolve is asserted in `tests/integration/ProposalSelection.test.ts`, against `case.json`.
+ * beats resolve is asserted in `tests/integration/DialogueAndChoice.test.ts`, against `case.json`.
  */
 const caseDefinition = {
     id: 'young-interference',
@@ -96,7 +97,12 @@ describe('selectDialogueBeats', () => {
 
     // Zod rejects this in authored content; the guard is for a degraded cached `case.json`. The
     // two-part template would otherwise print a trailing em dash with nothing after it.
-    it('falls back to the standalone unattributed label when a speaker is not in the cast', () => {
+    //
+    // The label is the *speaker* fallback, not the proposal-card one: "Unattributed proposal" above a
+    // line of spoken prose names the wrong kind of thing, which is what sharing one label for both
+    // surfaces produced until the 1.12 review. Asserted by its rendered text rather than its key,
+    // because a key assertion would pass with the wrong label wired in.
+    it('falls back to the dialogue speaker label, not the proposal label, when a speaker is not in the cast', () => {
         const degraded = {
             ...caseDefinition,
             scenarioScript: {
@@ -107,8 +113,28 @@ describe('selectDialogueBeats', () => {
         } as unknown as CaseDefinition;
 
         expect(selectDialogueBeats({ ...createInitialAppState(degraded), phase: 'prediction' })).toEqual([
-            { id: 'orphan', speaker: 'Unattributed proposal', text: 'A line.' }
+            { id: 'orphan', speaker: 'Unattributed speaker', text: 'A line.' }
         ]);
+        // The two fallbacks must stay distinct in both locales. Sharing one is the defect this exists to
+        // prevent, and it would read as a passing test the moment the speaker slot borrowed the card's.
+        for (const locale of ['en', 'fr'] as const) {
+            expect(translate(locale, 'colleague.unattributedSpeaker'))
+                .not.toBe(translate(locale, 'colleague.unattributed'));
+        }
+    });
+
+    it('resolves the French speaker fallback too', () => {
+        const degraded = {
+            ...caseDefinition,
+            scenarioScript: {
+                scenes: caseDefinition.scenarioScript.scenes.map((scene) => scene.phase === 'prediction'
+                    ? { ...scene, dialogueBeats: [{ id: 'orphan', speakerId: 'arthur-bell', text: { en: 'A line.', fr: 'Une réplique.' } }] }
+                    : scene)
+            }
+        } as unknown as CaseDefinition;
+
+        expect(selectDialogueBeats({ ...createInitialAppState(degraded, 'fr'), phase: 'prediction' })[0].speaker)
+            .toBe('Intervenante ou intervenant non identifié');
     });
 
     // A degraded case can be missing a locale outright. `resolveLocalizedText`'s floor is the English

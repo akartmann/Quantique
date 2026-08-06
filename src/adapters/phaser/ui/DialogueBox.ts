@@ -28,10 +28,10 @@ import type { Translator } from '../../../core/i18n/translate';
 /**
  * One beat, already resolved to the active locale by the caller.
  *
- * `id` is what makes `render` idempotent: the widget keys "same conversation" on the authored beat ids
- * rather than on the resolved prose, so re-rendering in another language would keep the reader's place
- * instead of restarting the conversation. Structurally this is `DialogueBeatProjection`, which is what
- * the owner passes straight through.
+ * Structurally this is `DialogueBeatProjection`, which the owner passes straight through — `id` is
+ * carried for that structural match and for diagnostics, **not** as the idempotence key. What makes
+ * `render` idempotent is the `conversationId` the owner supplies; see {@link DialogueBox.render} for why
+ * deriving it from these ids is unsound.
  */
 export type DialogueBeatView = Readonly<{ id: string; speaker: string; text: string }>;
 
@@ -105,8 +105,11 @@ export class DialogueBox {
     private controlLabel?: Phaser.GameObjects.Text;
 
     private beats: readonly DialogueBeatView[] = [];
-    /** The beat ids of the conversation currently loaded, so `render` can tell "same again" from "new". */
-    private signature = '';
+    /**
+     * Which conversation is loaded, so `render` can tell "same again" from "a new one". Supplied by the
+     * owner; never derived from the beats. See {@link render}.
+     */
+    private conversationId?: string;
     /** The translator of the last `render`, so `advance` can repaint the new beat by itself. */
     private translator?: Translator;
     private index = 0;
@@ -114,8 +117,14 @@ export class DialogueBox {
     private inputEnabled = true;
     /** Measured in `render`, so the owner can lay out beneath the panel instead of guessing. */
     private bottomY: number;
+    /**
+     * The panel's top edge. Starts at `options.y` and can be moved by {@link setTop}, because the owner
+     * measures the chrome above the panel and the panel must not be drawn over it.
+     */
+    private top: number;
 
     public constructor(private readonly scene: Scene, private readonly options: DialogueBoxOptions) {
+        this.top = options.y;
         this.bottomY = options.y;
     }
 
@@ -150,12 +159,19 @@ export class DialogueBox {
      *
      * **Idempotent on unchanged input.** Its owner re-renders on every store notification, so a
      * `render` that reset the index would snap the conversation back to the first line whenever any
-     * unrelated action dispatched. Only a genuinely different set of beats — a new phase, and so a new
-     * scenario-script entry — restarts the conversation.
+     * unrelated action dispatched. Only a genuinely different conversation restarts it.
+     *
+     * `conversationId` is what identifies "the same conversation", and it is the owner's to supply
+     * because only the owner knows which scenario-script entry these beats came from. It must not be
+     * derived from the beats themselves: the case schema **deliberately permits a beat id to repeat
+     * across scenes** (`prediction` and `review` may both open with `intro`), and `TheoryBoard` hosts
+     * both `synthesis` and `review` — `SceneRouter` does not restart a scene whose key is unchanged, so
+     * one widget instance renders both in sequence. Keyed on the ids, two same-length conversations
+     * sharing them would make the second open on its *last* beat, already labelled `dialogue.end`, with
+     * its earlier beats unreachable (1.12 review).
      */
-    public render(beats: readonly DialogueBeatView[], t: Translator): void {
-        // Keyed on the authored beat ids, joined by a space that cannot occur inside a stable id.
-        this.loadBeats(beats, beats.map(({ id }) => id).join(' '));
+    public render(beats: readonly DialogueBeatView[], t: Translator, conversationId: string): void {
+        this.loadBeats(beats, conversationId);
         // Retained so advancing can repaint without the owner having to hand the translator back. The
         // locale cannot change without a `render`, so this is never stale.
         this.translator = t;
@@ -173,17 +189,24 @@ export class DialogueBox {
         if (!visible) {
             // No conversation authored for this scene: the panel takes no vertical space at all, so the
             // owner lays its own content out exactly as it would without a dialogue box.
-            this.bottomY = this.options.y;
+            this.bottomY = this.top;
             return;
         }
 
-        const { x, y, width } = this.options;
+        const { x, width } = this.options;
+        const y = this.top;
         const beat = this.beats[this.index];
         const isLast = this.index >= this.beats.length - 1;
 
         this.speaker?.setText(beat.speaker);
         this.body?.setText(beat.text);
         this.counter?.setText(t('dialogue.counter', { index: this.index + 1, total: this.beats.length }));
+        // The end-state label appears on the last beat, as the story asks — the control keeps its place
+        // and says so rather than vanishing. `completed` is what distinguishes "reading the last line"
+        // from "finished reading it", and it has to be visible in its own right: keyed on `isLast` alone,
+        // a one-beat conversation painted its end state before the reader had clicked anything, and the
+        // click that completed it produced a pixel-identical frame — a live hand cursor over a control
+        // with no response (1.12 review).
         this.controlLabel?.setText(isLast ? t('dialogue.end') : t('dialogue.advance'));
 
         // The top row is as tall as the taller of its two halves, measured rather than assumed: a long
@@ -191,9 +214,10 @@ export class DialogueBox {
         const rowHeight = Math.max(this.speaker?.height ?? 0, CONTROL_HEIGHT);
         const controlLeft = x + width - PADDING_X - CONTROL_WIDTH;
         this.control?.setPosition(controlLeft, y + PADDING_Y);
-        // The end-state control stays present and labelled rather than disappearing, so the reader can
-        // see the conversation has finished. Further clicks are no-ops.
-        this.control?.setFillStyle(isLast ? CONTROL_FILL_ENDED : CONTROL_FILL);
+        // Spent only once the conversation is actually finished, so completing it changes something the
+        // reader can see. Further clicks are no-ops.
+        this.control?.setFillStyle(this.completed ? CONTROL_FILL_ENDED : CONTROL_FILL);
+        this.controlLabel?.setAlpha(this.completed ? 0.65 : 1);
         this.controlLabel?.setPosition(controlLeft + (CONTROL_WIDTH / 2), y + PADDING_Y + (CONTROL_HEIGHT / 2));
         this.counter?.setPosition(controlLeft - COUNTER_GAP, y + PADDING_Y + 4);
 
@@ -209,6 +233,14 @@ export class DialogueBox {
     public setInputEnabled(enabled: boolean): void {
         this.inputEnabled = enabled;
         this.applyInputState();
+    }
+
+    /**
+     * Moves the panel's top edge, for an owner that measures the chrome above it rather than assuming a
+     * constant clears it. Takes effect on the next paint, so the caller renders after setting it.
+     */
+    public setTop(y: number): void {
+        this.top = y;
     }
 
     /** The measured bottom edge of the panel, or its top when no conversation is authored. */
@@ -231,16 +263,16 @@ export class DialogueBox {
         this.control = undefined;
         this.controlLabel = undefined;
         this.beats = [];
-        this.signature = '';
+        this.conversationId = undefined;
         this.translator = undefined;
         this.index = 0;
         this.completed = false;
     }
 
-    private loadBeats(beats: readonly DialogueBeatView[], signature: string): void {
+    private loadBeats(beats: readonly DialogueBeatView[], conversationId: string): void {
         this.beats = beats;
-        if (signature !== this.signature) {
-            this.signature = signature;
+        if (conversationId !== this.conversationId) {
+            this.conversationId = conversationId;
             this.index = 0;
             this.completed = false;
             return;
@@ -282,9 +314,14 @@ export class DialogueBox {
         this.controlLabel?.setVisible(visible);
     }
 
+    /**
+     * The advance control drops its hand cursor once the conversation is finished, which is the other
+     * half of making `completed` observable: a control that still invites a click but cannot do anything
+     * is what the 1.12 review found here.
+     */
     private applyInputState(): void {
         if (!this.control) return;
-        if (this.inputEnabled && this.beats.length > 0) this.control.setInteractive({ useHandCursor: true });
+        if (this.inputEnabled && this.beats.length > 0 && !this.completed) this.control.setInteractive({ useHandCursor: true });
         else this.control.disableInteractive();
     }
 }

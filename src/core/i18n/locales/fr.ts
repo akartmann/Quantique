@@ -111,6 +111,7 @@ export const fr: Record<TranslationKey, string> = {
     'colleague.role.communicator': 'Médiatrice ou médiateur',
     'colleague.attribution': '{name} — {role}',
     'colleague.unattributed': 'Proposition sans autrice ni auteur',
+    'colleague.unattributedSpeaker': 'Intervenante ou intervenant non identifié',
     'colleagues.heading': 'À quoi vous attendez-vous ?',
     'colleagues.guide': 'Vos collègues n’attendent pas la même chose. Choisissez l’hypothèse que vous voulez mettre à l’épreuve — vous pourrez en changer à tout moment.',
     'theoryBoard.heading': 'Quelle conclusion signez-vous ?',

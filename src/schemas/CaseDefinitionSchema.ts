@@ -262,7 +262,14 @@ const ScenarioDialogueBeatSchema = z.object({
 const ScenarioSceneSchema = z.object({
     phase: z.enum(CASE_PHASES),
     sceneKey: z.enum(SCENE_KEYS),
-    dialogueBeats: z.array(ScenarioDialogueBeatSchema).min(1).optional()
+    // No `.min` here either, for the same reason it is absent on `scenes` below. `"dialogueBeats": []`
+    // is the natural way to write "no conversation yet", and as a base-parse failure it reported a
+    // generic too_small *and* skipped the whole top-level superRefine — silencing every authored-content
+    // message at once (unresolved speakerId, encodesPath, duplicate beat ids, and the rules that have
+    // nothing to do with this field), so an author fixed one problem at a time from a message that named
+    // none of them (1.12 review). An empty array and an absent field both mean "no beats", which
+    // `selectDialogueBeats` already treats identically.
+    dialogueBeats: z.array(ScenarioDialogueBeatSchema).optional()
 }).strict();
 
 // No `.min` on `scenes`: Zod skips a superRefine once the base parse has failed, so a length rule

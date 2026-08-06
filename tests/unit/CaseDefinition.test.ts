@@ -340,6 +340,35 @@ describe('CaseDefinitionSchema', () => {
         expect(parsed.error.issues.map(({ message }) => message)).toContain(expectedMessage);
     });
 
+    /**
+     * An empty `dialogueBeats` array is accepted, and it is accepted **so that the cross-field messages
+     * stay reachable**. As a `.min(1)` base-parse failure it reported a generic `too_small` and — because
+     * Zod skips `superRefine` once the base parse fails — silenced every authored-content rule in the
+     * definition at the same time, including the ones with nothing to do with beats (1.12 review). An
+     * author fixing "no conversation yet" the natural way lost every other message they needed.
+     */
+    it('accepts an empty dialogue beat list, which means the same as authoring none', () => {
+        const parsed = CaseDefinitionSchema.safeParse(withBeats([]));
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        expect(parsed.data.scenarioScript.scenes[1].dialogueBeats).toEqual([]);
+    });
+
+    it('still reports the authored cross-field message when another scene authors an empty beat list', () => {
+        const definition = withBeats([{ id: 'intro', speakerId: 'arthur-bell', text: bilingual('A line from outside the cast.') }]);
+        // The empty list must not intercept the real defect above it. This is the exact shape that used
+        // to collapse into a bare `too_small` naming neither problem.
+        (definition.scenarioScript as { scenes: Array<Record<string, unknown>> }).scenes[3].dialogueBeats = [];
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues.map(({ message }) => message))
+            .toContain('Every dialogue beat must be spoken by an authored colleague.');
+    });
+
     it.each([
         ['a missing French translation', (beat: Record<string, unknown>) => { delete (beat.text as Record<string, unknown>).fr; }],
         ['a blank French translation', (beat: Record<string, unknown>) => { (beat.text as Record<string, string>).fr = '   '; }],

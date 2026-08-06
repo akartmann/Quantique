@@ -1,7 +1,8 @@
 import { decimalPlaces, formatMeasurement } from '../i18n/formatNumber';
 import { DEFAULT_LOCALE, type Locale } from '../i18n/Locale';
 import { resolveLocalizedText } from '../i18n/resolveLocalizedText';
-import { createTranslator, translate, translateError, type Translator } from '../i18n/translate';
+import { formatAttribution, type Attribution } from '../i18n/formatAttribution';
+import { createTranslator, translate, translateError } from '../i18n/translate';
 import type { ResultError } from '../errors/Result';
 import type { ContextualArtifact, PrimaryControl } from '../../domain/cases/CaseDefinition';
 import type { Colleague, ConclusionProposal, PredictionProposal } from '../../domain/cases/ColleagueCast';
@@ -195,42 +196,40 @@ export type LocalizedProposalProjection = Readonly<{
     limitation?: string;
 }>;
 
-const projectAttribution = (state: AppState, colleagueId: string): Readonly<{ colleagueName: string; roleLabel: string }> => {
+/**
+ * `unresolvedKey` is required, not defaulted: the label for an attribution that does not resolve is
+ * surface-specific, and getting it wrong is silent. "Unattributed proposal" is right on a proposal card
+ * and wrong in a dialogue speaker slot, where it describes the wrong kind of thing entirely (1.12
+ * review). A default here would have turned choosing correctly into remembering to.
+ */
+const projectAttribution = (
+    state: AppState,
+    colleagueId: string,
+    unresolvedKey: 'colleague.unattributed' | 'colleague.unattributedSpeaker'
+): Attribution => {
     const locale = selectLocale(state);
     const colleague = selectColleagueById(state, colleagueId);
     // Zod guarantees the attribution resolves in authored content; this guards a degraded cached
     // case.json the same way `resolveLocalizedText` does, without printing "undefined" to a player.
     return colleague
         ? { colleagueName: colleague.name, roleLabel: translate(locale, `colleague.role.${colleague.role}`) }
-        : { colleagueName: translate(locale, 'colleague.unattributed'), roleLabel: '' };
+        : { colleagueName: translate(locale, unresolvedKey), roleLabel: '' };
 };
 
 export const selectLocalizedPredictionProposals = (state: AppState): readonly LocalizedProposalProjection[] =>
     selectPredictionProposals(state).map((proposal) => Object.freeze({
         proposalId: proposal.id,
-        ...projectAttribution(state, proposal.colleagueId),
+        ...projectAttribution(state, proposal.colleagueId, 'colleague.unattributed'),
         text: resolveLocalizedText(proposal.text, selectLocale(state))
     }));
 
 export const selectLocalizedConclusionProposals = (state: AppState): readonly LocalizedProposalProjection[] =>
     selectConclusionProposals(state).map((proposal) => Object.freeze({
         proposalId: proposal.id,
-        ...projectAttribution(state, proposal.colleagueId),
+        ...projectAttribution(state, proposal.colleagueId, 'colleague.unattributed'),
         text: resolveLocalizedText(proposal.claim, selectLocale(state)),
         limitation: resolveLocalizedText(proposal.limitation, selectLocale(state))
     }));
-
-/**
- * `'{name} — {role}'`, or the name alone when a degraded cached `case.json` leaves the role empty.
- *
- * Shared rather than reimplemented per surface: the two-part template would otherwise render a
- * trailing em dash with nothing after it, and both the proposal cards and the dialogue speaker line
- * need the same fallback.
- */
-export const formatAttribution = (t: Translator, attribution: Readonly<{ colleagueName: string; roleLabel: string }>): string =>
-    attribution.roleLabel
-        ? t('colleague.attribution', { name: attribution.colleagueName, role: attribution.roleLabel })
-        : attribution.colleagueName;
 
 /** One resolved line of authored dialogue, ready for a widget that knows nothing about the store. */
 export type DialogueBeatProjection = Readonly<{
@@ -258,7 +257,7 @@ export const selectDialogueBeats = (state: AppState): readonly DialogueBeatProje
     const t = createTranslator(locale);
     return beats.map((beat) => Object.freeze({
         id: beat.id,
-        speaker: formatAttribution(t, projectAttribution(state, beat.speakerId)),
+        speaker: formatAttribution(t, projectAttribution(state, beat.speakerId, 'colleague.unattributedSpeaker')),
         text: resolveLocalizedText(beat.text, locale)
     }));
 };

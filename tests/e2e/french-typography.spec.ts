@@ -16,7 +16,10 @@ import {
     dialogueSpeakerWrapWidth
 } from '../../src/adapters/phaser/ui/DialogueBox';
 import {
+    PROPOSAL_ATTRIBUTION_FONT_SIZE,
     PROPOSAL_LIMITATION_FONT_SIZE,
+    PROPOSAL_MARKER_FONT_SIZE,
+    PROPOSAL_MARKER_WRAP,
     PROPOSAL_BODY_FONT_SIZE,
     proposalTextWrapWidth
 } from '../../src/adapters/phaser/ui/ProposalChoice';
@@ -74,11 +77,13 @@ const WRAPPED_SURFACES = [
     // The card bound, which is the tighter of the two places an attribution line is drawn. The dialogue
     // speaker line is measured against its own narrower bound in the authored-beat test below, because
     // this table is keyed by translation key and cannot hold two bounds for one key.
-    { key: 'colleague.attribution', font: UI_FONT_STACK, fontSize: 15, wrapWidth: CARD_TEXT_WRAP_WIDTH },
-    { key: 'colleague.unattributed', font: UI_FONT_STACK, fontSize: 15, wrapWidth: CARD_TEXT_WRAP_WIDTH },
+    { key: 'colleague.attribution', font: UI_FONT_STACK, fontSize: PROPOSAL_ATTRIBUTION_FONT_SIZE, wrapWidth: CARD_TEXT_WRAP_WIDTH },
+    { key: 'colleague.unattributed', font: UI_FONT_STACK, fontSize: PROPOSAL_ATTRIBUTION_FONT_SIZE, wrapWidth: CARD_TEXT_WRAP_WIDTH },
+    // The dialogue speaker slot's own fallback, which is a different string from the card's above.
+    { key: 'colleague.unattributedSpeaker', font: UI_FONT_STACK, fontSize: DIALOGUE_SPEAKER_FONT_SIZE, wrapWidth: DIALOGUE_SPEAKER_WRAP_WIDTH },
     { key: 'proposal.limitation', font: UI_FONT_STACK, fontSize: PROPOSAL_LIMITATION_FONT_SIZE, wrapWidth: CARD_TEXT_WRAP_WIDTH },
-    { key: 'proposal.selected', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 160 },
-    { key: 'proposal.choose', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 160 },
+    { key: 'proposal.selected', font: UI_FONT_STACK, fontSize: PROPOSAL_MARKER_FONT_SIZE, wrapWidth: PROPOSAL_MARKER_WRAP },
+    { key: 'proposal.choose', font: UI_FONT_STACK, fontSize: PROPOSAL_MARKER_FONT_SIZE, wrapWidth: PROPOSAL_MARKER_WRAP },
     // Dialogue widget chrome (Story 1.12). The advance control is a fixed hit target, so its label is
     // bounded by the control rather than by the panel; the counter has its own narrow column.
     { key: 'dialogue.advance', font: UI_FONT_STACK, fontSize: DIALOGUE_CONTROL_FONT_SIZE, wrapWidth: DIALOGUE_CONTROL_LABEL_WRAP },
@@ -102,9 +107,9 @@ const caseDefinition = JSON.parse(
     contextualArtifacts: { displayName: { fr: string } }[];
     apparatus: { primaryControls: { label: { fr: string } }[] };
     colleagues: { name: string }[];
-    predictionProposals: { text: { fr: string } }[];
-    conclusionProposals: { claim: { fr: string }; limitation: { fr: string } }[];
-    scenarioScript: { scenes: { phase: string; dialogueBeats?: { id: string; text: { fr: string } }[] }[] };
+    predictionProposals: { text: { en: string; fr: string } }[];
+    conclusionProposals: { claim: { en: string; fr: string }; limitation: { en: string; fr: string } }[];
+    scenarioScript: { scenes: { phase: string; dialogueBeats?: { id: string; text: { en: string; fr: string } }[] }[] };
 };
 
 /**
@@ -134,17 +139,29 @@ const ROLE_LABEL = longestFrench([
  * widest unbreakable token has no reason to live in the longest string. Sampling by character count
  * let a short proposal carrying one long token through unmeasured.
  */
-const PROPOSAL_TEXTS = caseDefinition.predictionProposals.map(({ text }) => text.fr);
-const CONCLUSION_CLAIMS = caseDefinition.conclusionProposals.map(({ claim }) => claim.fr);
-const CONCLUSION_LIMITATIONS = caseDefinition.conclusionProposals.map(({ limitation }) => limitation.fr);
+const PROPOSAL_TEXTS = caseDefinition.predictionProposals.flatMap(({ text }) => [text.fr, text.en]);
+const CONCLUSION_CLAIMS = caseDefinition.conclusionProposals.flatMap(({ claim }) => [claim.fr, claim.en]);
+const CONCLUSION_LIMITATIONS = caseDefinition.conclusionProposals.flatMap(({ limitation }) => [limitation.fr, limitation.en]);
+/** French only, for the one place a *single* representative string is wanted (see `SAMPLE_PARAMS`). */
+const FRENCH_LIMITATIONS = caseDefinition.conclusionProposals.map(({ limitation }) => limitation.fr);
 
 /**
- * Every authored dialogue beat, flattened across the scenes that author one. Read from `case.json` for
- * the same reason the proposal copy is: the strings most likely to overflow the dialogue panel are the
- * French beats, and they live in the case, not in `fr.ts`.
+ * Every authored dialogue beat, flattened across the scenes that author one, **in both locales**.
+ *
+ * Read from `case.json` for the same reason the proposal copy is: the strings most likely to overflow the
+ * dialogue panel are the authored beats, and they live in the case, not in `fr.ts`.
+ *
+ * English as well as French, which this spec did not do before the 1.12 review. Its whole reason to
+ * exist is French, but the pass condition is *per-token pixel width* and an unbreakable token overflows
+ * whatever language it is written in — a URL, a hyphen-free compound, an instrument name. Measuring only
+ * `text.fr` left every English beat unchecked by the entire suite, since no other spec measures text at
+ * all. Width measurement does not depend on the page locale, so both fit in this one pass.
  */
 const DIALOGUE_BEATS = caseDefinition.scenarioScript.scenes.flatMap(({ phase, dialogueBeats }) =>
-    (dialogueBeats ?? []).map(({ id, text }) => ({ label: `${phase} beat ${id}`, text: text.fr })));
+    (dialogueBeats ?? []).flatMap(({ id, text }) => [
+        { label: `${phase} beat ${id} [fr]`, text: text.fr },
+        { label: `${phase} beat ${id} [en]`, text: text.en }
+    ]));
 const LONGEST_CONVERSATION = Math.max(
     1,
     ...caseDefinition.scenarioScript.scenes.map(({ dialogueBeats }) => dialogueBeats?.length ?? 0)
@@ -165,7 +182,7 @@ const SAMPLE_PARAMS: Readonly<Record<string, Readonly<Record<string, string | nu
     'dialogue.counter': { index: LONGEST_CONVERSATION, total: LONGEST_CONVERSATION },
     // One representative is right here: this sample only fills the interface key's own template, and
     // the per-proposal sweep over every limitation lives in the colleague-card test below.
-    'proposal.limitation': { limitation: longestFrench(CONCLUSION_LIMITATIONS) }
+    'proposal.limitation': { limitation: longestFrench(FRENCH_LIMITATIONS) }
 };
 
 const fillParams = (key: string): string =>
@@ -247,7 +264,7 @@ test('keeps every French string inside the wrap bound of the surface that holds 
     expect(overflowing).toEqual([]);
 });
 
-test('keeps the authored French proposal copy inside the colleague card', async ({ page }) => {
+test('keeps the authored proposal copy inside the colleague card, in both locales', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
 
@@ -270,14 +287,14 @@ test('keeps the authored French proposal copy inside the colleague card', async 
     expect(overflowing).toEqual([]);
 });
 
-test('keeps the authored French dialogue inside the panel that holds it', async ({ page }) => {
+test('keeps the authored dialogue inside the panel that holds it, in both locales', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
 
-    // *Every* beat, not the longest one: the pass condition is per-token width, and the widest
-    // unbreakable token has no reason to live in the longest string. The speaker line is measured at
-    // its own bound, which is narrower than the card's because the counter and the advance control
-    // share its row.
+    // *Every* beat in *both* locales, not the longest French one: the pass condition is per-token width,
+    // the widest unbreakable token has no reason to live in the longest string, and an over-wide token
+    // clips whatever language it is in. The speaker line is measured at its own bound, which is narrower
+    // than the card's because the counter and the advance control share its row.
     const authored = [
         ...DIALOGUE_BEATS.map(({ label, text }) => ({
             label, fontSize: DIALOGUE_BODY_FONT_SIZE, wrapWidth: DIALOGUE_BODY_WRAP_WIDTH, text

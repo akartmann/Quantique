@@ -118,6 +118,10 @@ export const en = {
     'colleague.role.communicator': 'Communicator',
     'colleague.attribution': '{name} — {role}',
     'colleague.unattributed': 'Unattributed proposal',
+    // The same degraded-content fallback, for a spoken line rather than a written proposal. A dialogue
+    // speaker slot cannot borrow the label above it: "Unattributed proposal" over a line of prose
+    // describes the wrong kind of thing (1.12 review).
+    'colleague.unattributedSpeaker': 'Unattributed speaker',
     'colleagues.heading': 'What do you expect to see?',
     'colleagues.guide': 'Your colleagues each expect something different. Choose the one you want to test — you can change it at any time.',
     'theoryBoard.heading': 'Which conclusion will you put your name to?',
