@@ -1,6 +1,10 @@
+---
+baseline_commit: 0757ac98d7eb3f2ba7ba8cc0f4d3cd9a90d28ad8
+---
+
 # Story 2.5: Rival-lab critique and revision
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -47,96 +51,96 @@ so that the stakes feel real while I still get to revise my choice.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Authored content: the rival lab and its critiques (AC1, AC5)**
-  - [ ] Add a top-level `rivalLab` object to `public/cases/young-interference/case.json`: `{ name, accentColor, critiques[] }`. `name` is the canonical proper noun `"Mr. Arthur Bell"` (a proper noun, never translated — follows `colleagues[].name` and `creatorOrOrigin`). `accentColor` is a lower-case `#rrggbb` silhouette accent, distinct from all four colleague accents.
-  - [ ] Author **at least one critique per conclusion proposal** — four minimum. Each is `{ id, proposalId, line: LocalizedText }`. The line names the unsupported claim, the missing evidence, or the overreach; pointed but fair; no score, threat, or lockout language; never supplies the right answer.
-  - [ ] **Do not** add Arthur Bell to `colleagues[]`. He is the rival, not the cast (project-context, Guided-Adventure rules). Nothing may attribute a proposal or dialogue beat to him.
-  - [ ] Bump `case.json` `version` `1.8.0` → `1.9.0`.
-  - [ ] Do **not** touch `dist/` or `.claude/worktrees/**`; `public/cases/…` is the only editable copy.
+- [x] **Task 1 — Authored content: the rival lab and its critiques (AC1, AC5)**
+  - [x] Add a top-level `rivalLab` object to `public/cases/young-interference/case.json`: `{ name, accentColor, critiques[] }`. `name` is the canonical proper noun `"Mr. Arthur Bell"` (a proper noun, never translated — follows `colleagues[].name` and `creatorOrOrigin`). `accentColor` is a lower-case `#rrggbb` silhouette accent, distinct from all four colleague accents.
+  - [x] Author **at least one critique per conclusion proposal** — four minimum. Each is `{ id, proposalId, line: LocalizedText }`. The line names the unsupported claim, the missing evidence, or the overreach; pointed but fair; no score, threat, or lockout language; never supplies the right answer.
+  - [x] **Do not** add Arthur Bell to `colleagues[]`. He is the rival, not the cast (project-context, Guided-Adventure rules). Nothing may attribute a proposal or dialogue beat to him.
+  - [x] Bump `case.json` `version` `1.8.0` → `1.9.0`.
+  - [x] Do **not** touch `dist/` or `.claude/worktrees/**`; `public/cases/…` is the only editable copy.
 
-- [ ] **Task 2 — Case-definition types and schema (AC1, AC5)**
-  - [ ] `src/domain/cases/CaseDefinition.ts`: add `RivalLabCritique` and `RivalLab` types and a required `rivalLab: RivalLab` field. Pure types only — no Zod here.
-  - [ ] `src/schemas/CaseDefinitionSchema.ts`: add `RivalLabCritiqueSchema` / `RivalLabSchema`, both `.strict()`. `critiques: z.array(...).min(1)`.
-  - [ ] Add these refinements in the top-level `superRefine`:
+- [x] **Task 2 — Case-definition types and schema (AC1, AC5)**
+  - [x] `src/domain/cases/CaseDefinition.ts`: add `RivalLabCritique` and `RivalLab` types and a required `rivalLab: RivalLab` field. Pure types only — no Zod here.
+  - [x] `src/schemas/CaseDefinitionSchema.ts`: add `RivalLabCritiqueSchema` / `RivalLabSchema`, both `.strict()`. `critiques: z.array(...).min(1)`.
+  - [x] Add these refinements in the top-level `superRefine`:
     - critique IDs are unique;
     - every `critique.proposalId` names an authored `conclusionProposals` entry;
     - **every conclusion proposal has at least one critique** — this is what makes selection total and removes any need for a generic fallback line;
     - `encodesPath(critique.line)` is rejected (a critique must not name a scene, phase, or route);
     - `accentColor` matches the same lower-case `/^#[0-9a-f]{6}$/` rule the colleague silhouette uses.
-  - [ ] Reuse `LocalizedTextSchema` for `line`. Do **not** use `DetectionPhraseListSchema` — this is display prose, not detection phrases.
+  - [x] Reuse `LocalizedTextSchema` for `line`. Do **not** use `DetectionPhraseListSchema` — this is display prose, not detection phrases.
 
-- [ ] **Task 3 — Pure critique selection (AC1, AC4)**
-  - [ ] New `src/domain/review/rivalLabRules.ts`, pure and dependency-free (no Phaser, no store, no locale, no Zod).
-  - [ ] `selectRivalLabCritique(definition, proposalId): RivalLabCritiqueSelection | undefined` returns `{ critiqueId, proposalId }` for the first authored critique matching the proposal, in authored order. Deterministic; returns `undefined` only for a proposal ID the definition does not carry.
-  - [ ] It carries **stable IDs, never prose**. The presentation resolves the line by ID against the case definition. This is deliberate — see the `peerReviewRules` trap in Dev Notes.
+- [x] **Task 3 — Pure critique selection (AC1, AC4)**
+  - [x] New `src/domain/review/rivalLabRules.ts`, pure and dependency-free (no Phaser, no store, no locale, no Zod).
+  - [x] `selectRivalLabCritique(definition, proposalId): RivalLabCritiqueSelection | undefined` returns `{ critiqueId, proposalId }` for the first authored critique matching the proposal, in authored order. Deterministic; returns `undefined` only for a proposal ID the definition does not carry.
+  - [x] It carries **stable IDs, never prose**. The presentation resolves the line by ID against the case definition. This is deliberate — see the `peerReviewRules` trap in Dev Notes.
 
-- [ ] **Task 4 — Store state, actions, and reducers (AC1, AC2, AC3)**
-  - [ ] `AppState`: add transient `rivalLabCritique?: RivalLabCritiqueSelection` (same lifetime class as `consultation` / `peerReview`) and persisted `critiqueHistory: readonly RivalLabCritiqueEntry[]` where an entry is `{ proposalId, critiqueId, timestamp }`. Declare `RivalLabCritiqueEntry` in `AppState.ts` next to `DecisionHistoryEntry` (it is store state, not domain content); `RivalLabCritiqueSelection` comes from `rivalLabRules.ts`.
-  - [ ] Freeze both in `freezeState` (a `freezeCritique` helper mirroring `freezeDecision`); initialise `critiqueHistory: []` in `createInitialAppState`.
-  - [ ] `CompletionSnapshot` gains `critiqueHistory: readonly RivalLabCritiqueEntry[]`, frozen in `freezeCompletion` and captured in `reduceDebriefComplete` from `state.critiqueHistory` — the snapshot already mirrors `decisionHistory`, and without it a completed record loses its critique record the moment a counterfactual replay clears the live list.
-  - [ ] New action `theory.conclusionSubmitted { timestamp }` (`AppAction.ts` + the `reduceAppState` switch):
+- [x] **Task 4 — Store state, actions, and reducers (AC1, AC2, AC3)**
+  - [x] `AppState`: add transient `rivalLabCritique?: RivalLabCritiqueSelection` (same lifetime class as `consultation` / `peerReview`) and persisted `critiqueHistory: readonly RivalLabCritiqueEntry[]` where an entry is `{ proposalId, critiqueId, timestamp }`. Declare `RivalLabCritiqueEntry` in `AppState.ts` next to `DecisionHistoryEntry` (it is store state, not domain content); `RivalLabCritiqueSelection` comes from `rivalLabRules.ts`.
+  - [x] Freeze both in `freezeState` (a `freezeCritique` helper mirroring `freezeDecision`); initialise `critiqueHistory: []` in `createInitialAppState`.
+  - [x] `CompletionSnapshot` gains `critiqueHistory: readonly RivalLabCritiqueEntry[]`, frozen in `freezeCompletion` and captured in `reduceDebriefComplete` from `state.critiqueHistory` — the snapshot already mirrors `decisionHistory`, and without it a completed record loses its critique record the moment a counterfactual replay clears the live list.
+  - [x] New action `theory.conclusionSubmitted { timestamp }` (`AppAction.ts` + the `reduceAppState` switch):
     - fails `conclusion-submission-unavailable` unless `phase` is `synthesis` or `review` (the two phases the theory board hosts — same gate as `theory.conclusionProposalChosen`);
     - fails `conclusion-choice-required` when `selectedConclusionProposalId` is undefined;
     - validates `timestamp` with the existing `isTimestamp` helper and requires it to be later than the last `critiqueHistory` entry — mirror `reduceRevisionSave`'s timestamp discipline;
     - computes the defensible set with `selectDefensibleConclusionIds(definition, { runs, inspectedSourceIds, comparisonNotes })`;
     - **not defensible** → sets `rivalLabCritique` and appends a `critiqueHistory` entry. **It does not change `phase`.**
     - **defensible** → clears `rivalLabCritique` and changes nothing else. It must **not** advance the phase, save a revision, or complete the case.
-  - [ ] New action `rivalLab.revisionRequested` (no params): fails `rival-lab-critique-unavailable` when no critique is live; otherwise clears `rivalLabCritique` only. `selectedConclusionProposalId` and the theory draft are **preserved** — the player returns to the board with their rejected choice still visible and revisable.
-  - [ ] Clear `rivalLabCritique` everywhere `peerReview` is already cleared, and additionally in `reduceTheoryConclusionProposalChosen`.
-  - [ ] `reduceReplayStart` clears **both** `rivalLabCritique` and `critiqueHistory`, alongside the fields it already clears.
-  - [ ] No score, timer, counter, penalty, lockout, or progress rollback anywhere in this task. Nothing this story adds may make any other action fail.
+  - [x] New action `rivalLab.revisionRequested` (no params): fails `rival-lab-critique-unavailable` when no critique is live; otherwise clears `rivalLabCritique` only. `selectedConclusionProposalId` and the theory draft are **preserved** — the player returns to the board with their rejected choice still visible and revisable.
+  - [x] Clear `rivalLabCritique` everywhere `peerReview` is already cleared, and additionally in `reduceTheoryConclusionProposalChosen`.
+  - [x] `reduceReplayStart` clears **both** `rivalLabCritique` and `critiqueHistory`, alongside the fields it already clears.
+  - [x] No score, timer, counter, penalty, lockout, or progress rollback anywhere in this task. Nothing this story adds may make any other action fail.
 
-- [ ] **Task 5 — Selectors (AC1, AC5)**
-  - [ ] `selectRivalLabCritique(state)` → the raw selection or `undefined`. Note the name collision: `rivalLabRules.ts` exports a `selectRivalLabCritique(definition, proposalId)` too. `selectors.ts` does not need to import the domain one (the reducer calls it), so no alias is required — but if you do import it, alias it, the way the codebase keeps `selectConsultation` distinct between `ConsultationRule.ts` and `selectors.ts`.
-  - [ ] `selectLocalizedRivalLabCritique(state)` → `{ speaker, line, accentColor } | undefined`, where `speaker` is `formatAttribution(t, { colleagueName: definition.rivalLab.name, roleLabel: t('rivalLab.role') })` and `line` is `resolveLocalizedText(critique.line, selectLocale(state))`.
-  - [ ] `selectCritiqueHistory(state)`.
-  - [ ] **The rival-lab projection must never expose the defensible set** — only the critique for the proposal that was already submitted. A surface that could read defensibility could mark the "right" answer (ADR-006; the rule `ColleagueRenderer` and `ProposalChoice` are both built around).
+- [x] **Task 5 — Selectors (AC1, AC5)**
+  - [x] `selectRivalLabCritique(state)` → the raw selection or `undefined`. Note the name collision: `rivalLabRules.ts` exports a `selectRivalLabCritique(definition, proposalId)` too. `selectors.ts` does not need to import the domain one (the reducer calls it), so no alias is required — but if you do import it, alias it, the way the codebase keeps `selectConsultation` distinct between `ConsultationRule.ts` and `selectors.ts`.
+  - [x] `selectLocalizedRivalLabCritique(state)` → `{ speaker, line, accentColor } | undefined`, where `speaker` is `formatAttribution(t, { colleagueName: definition.rivalLab.name, roleLabel: t('rivalLab.role') })` and `line` is `resolveLocalizedText(critique.line, selectLocale(state))`.
+  - [x] `selectCritiqueHistory(state)`.
+  - [x] **The rival-lab projection must never expose the defensible set** — only the critique for the proposal that was already submitted. A surface that could read defensibility could mark the "right" answer (ADR-006; the rule `ColleagueRenderer` and `ProposalChoice` are both built around).
 
-- [ ] **Task 6 — Scene routing (AC1)**
-  - [ ] `src/domain/cases/ScenarioScript.ts`: **leave `SCENE_KEYS` unchanged.** Add `export const RIVAL_LAB_SCENE_KEY = 'RivalLab' as const;`, `export const ROUTABLE_SCENE_KEYS = [...SCENE_KEYS, RIVAL_LAB_SCENE_KEY] as const;` and `export type RoutableSceneKey = typeof ROUTABLE_SCENE_KEYS[number];`.
-  - [ ] `SceneRouter.ts`: type `SceneRouterTarget` and `getActiveSceneKey` on `RoutableSceneKey`. In `route()`, resolve `selectRivalLabCritique(store.getState()) ? RIVAL_LAB_SCENE_KEY : resolveSceneKey(scenarioScript, phase)`. Leave `resolveSceneKey` itself phase-only, and leave the `try/catch`, `isActive`, and `onceCreated` behaviour exactly as it is. The router still never dispatches.
-  - [ ] `src/game/main.ts`: change `Record<SceneKey, Scene>` to `Record<RoutableSceneKey, Scene>`, register the new scene, and iterate `ROUTABLE_SCENE_KEYS`.
-  - [ ] `src/main.ts`: the `onSceneActivated` callback's parameter type widens to `RoutableSceneKey`; `data-active-scene` then reports `RivalLab`. No other change.
+- [x] **Task 6 — Scene routing (AC1)**
+  - [x] `src/domain/cases/ScenarioScript.ts`: **leave `SCENE_KEYS` unchanged.** Add `export const RIVAL_LAB_SCENE_KEY = 'RivalLab' as const;`, `export const ROUTABLE_SCENE_KEYS = [...SCENE_KEYS, RIVAL_LAB_SCENE_KEY] as const;` and `export type RoutableSceneKey = typeof ROUTABLE_SCENE_KEYS[number];`.
+  - [x] `SceneRouter.ts`: type `SceneRouterTarget` and `getActiveSceneKey` on `RoutableSceneKey`. In `route()`, resolve `selectRivalLabCritique(store.getState()) ? RIVAL_LAB_SCENE_KEY : resolveSceneKey(scenarioScript, phase)`. Leave `resolveSceneKey` itself phase-only, and leave the `try/catch`, `isActive`, and `onceCreated` behaviour exactly as it is. The router still never dispatches.
+  - [x] `src/game/main.ts`: change `Record<SceneKey, Scene>` to `Record<RoutableSceneKey, Scene>`, register the new scene, and iterate `ROUTABLE_SCENE_KEYS`.
+  - [x] `src/main.ts`: the `onSceneActivated` callback's parameter type widens to `RoutableSceneKey`; `data-active-scene` then reports `RivalLab`. No other change.
 
-- [ ] **Task 7 — `RivalLabScene` and its renderer (AC1, AC2, AC5)**
-  - [ ] New `src/adapters/phaser/scenes/RivalLabScene.ts`. It must **not** extend `PhasePlaceholderScene` (that is a development marker for unbuilt scenes). Follow `TheoryBoardScene`'s shape: construct the renderer in `create()`, subscribe to the store, render once, and release everything on `shutdown`.
-  - [ ] New `src/adapters/phaser/renderers/RivalLabRenderer.ts` following the renderer contract — `create()` / `render(state)` / `destroy()`, owning every display object it makes.
+- [x] **Task 7 — `RivalLabScene` and its renderer (AC1, AC2, AC5)**
+  - [x] New `src/adapters/phaser/scenes/RivalLabScene.ts`. It must **not** extend `PhasePlaceholderScene` (that is a development marker for unbuilt scenes). Follow `TheoryBoardScene`'s shape: construct the renderer in `create()`, subscribe to the store, render once, and release everything on `shutdown`.
+  - [x] New `src/adapters/phaser/renderers/RivalLabRenderer.ts` following the renderer contract — `create()` / `render(state)` / `destroy()`, owning every display object it makes.
     - Heading, accent stripe, speaker attribution, the critique line, and one interactive "revise" control.
     - **Create every text object empty and write it in `render()`** through `createTranslator(selectLocale(state))` — `create()` runs once and the locale can change.
     - The revise control dispatches `rivalLab.revisionRequested` and surfaces a refused dispatch through `selectLocalizedError`, the way `ColleagueRenderer.chooseProposal` does (an exclusive progress operation legitimately refuses a dispatch; swallowing it leaves the control silently inert).
     - Place the critique body against a measured wrap width and place anything below it under the body's **measured** height — never against a fixed constant. Both prior reviews (1.11, 1.12) found exactly that defect.
     - Export the wrap widths / font sizes the browser tests need, rather than restating them as literals in the spec.
     - No animation. If one is ever added it inherits the `prefers-reduced-motion` obligation.
-  - [ ] `src/game/main.ts`: add `rivalLabScene.setInputEnabled(!visible)` to the `LectureBookScene` overlay-suppression callback alongside the laboratory and the two proposal scenes. The book is reachable in every phase and the critique surface covers the canvas — omitting this reproduces the exact click-through defect 1.12 fixed for the proposal cards.
+  - [x] `src/game/main.ts`: add `rivalLabScene.setInputEnabled(!visible)` to the `LectureBookScene` overlay-suppression callback alongside the laboratory and the two proposal scenes. The book is reachable in every phase and the critique surface covers the canvas — omitting this reproduces the exact click-through defect 1.12 fixed for the proposal cards.
 
-- [ ] **Task 8 — Persistence (AC2)**
-  - [ ] `CaseRecordSchema`: add **optional additive** `critiqueHistory?: z.array(RivalLabCritiqueEntrySchema)` at the top level and inside `completion`. Keep `schemaVersion: 3` and leave `migrateCaseRecord` untouched — this is the same additive precedent as `selectedPredictionProposalId` (a pre-2.5 record simply omits the field).
-  - [ ] Persist **IDs and a timestamp only**. Never persist the critique prose and never recompute-and-string-compare it on load.
-  - [ ] `validateCaseRecordForDefinition`: for each entry, require that `proposalId` names an authored conclusion proposal, that `critiqueId` names an authored critique **whose `proposalId` matches**, and that timestamps strictly increase. Nothing else. Do not extend the recomputation contract.
-  - [ ] Extend the compatibility allowlist with `definition.version === '1.9.0' && ['1.2.0','1.3.0','1.4.0','1.5.0','1.6.0','1.7.0','1.8.0']`. This story changes **no** canonical English `feedback` / `revisionPath` string, so the byte-identity assumption the allowlist rests on still holds — state that in the code comment.
-  - [ ] `createCaseRecordProjection` and `createAppStateFromCaseRecord` carry `critiqueHistory` in both directions.
+- [x] **Task 8 — Persistence (AC2)**
+  - [x] `CaseRecordSchema`: add **optional additive** `critiqueHistory?: z.array(RivalLabCritiqueEntrySchema)` at the top level and inside `completion`. Keep `schemaVersion: 3` and leave `migrateCaseRecord` untouched — this is the same additive precedent as `selectedPredictionProposalId` (a pre-2.5 record simply omits the field).
+  - [x] Persist **IDs and a timestamp only**. Never persist the critique prose and never recompute-and-string-compare it on load.
+  - [x] `validateCaseRecordForDefinition`: for each entry, require that `proposalId` names an authored conclusion proposal, that `critiqueId` names an authored critique **whose `proposalId` matches**, and that timestamps strictly increase. Nothing else. Do not extend the recomputation contract.
+  - [x] Extend the compatibility allowlist with `definition.version === '1.9.0' && ['1.2.0','1.3.0','1.4.0','1.5.0','1.6.0','1.7.0','1.8.0']`. This story changes **no** canonical English `feedback` / `revisionPath` string, so the byte-identity assumption the allowlist rests on still holds — state that in the code comment.
+  - [x] `createCaseRecordProjection` and `createAppStateFromCaseRecord` carry `critiqueHistory` in both directions.
 
-- [ ] **Task 9 — i18n (AC5)**
-  - [ ] Add to **both** `en.ts` and `fr.ts`, in a new `--- Rival lab ---` block near the colleagues block: `rivalLab.role`, `rivalLab.heading`, `rivalLab.guide`, `rivalLab.revise`.
-  - [ ] Add the new error keys: `error.conclusion-submission-unavailable`, `error.conclusion-choice-required`, `error.rival-lab-critique-unavailable`. Every code a reducer can return needs one, or the player sees the dev-facing English fallback.
-  - [ ] `fr` is typed `keyof typeof en`, so a gap is a `tsc` error. Verify with `npm run typecheck`.
-  - [ ] The critique **lines** are content and live in `case.json` as `LocalizedText` — never in `en.ts`.
+- [x] **Task 9 — i18n (AC5)**
+  - [x] Add to **both** `en.ts` and `fr.ts`, in a new `--- Rival lab ---` block near the colleagues block: `rivalLab.role`, `rivalLab.heading`, `rivalLab.guide`, `rivalLab.revise`.
+  - [x] Add the new error keys: `error.conclusion-submission-unavailable`, `error.conclusion-choice-required`, `error.rival-lab-critique-unavailable`. Every code a reducer can return needs one, or the player sees the dev-facing English fallback.
+  - [x] `fr` is typed `keyof typeof en`, so a gap is a `tsc` error. Verify with `npm run typecheck`.
+  - [x] The critique **lines** are content and live in `case.json` as `LocalizedText` — never in `en.ts`.
 
-- [ ] **Task 10 — Tests (AC4, AC5)**
-  - [ ] `tests/unit/RivalLabRules.test.ts` — selection for **each of the four** conclusion proposals; determinism across repeated calls; `undefined` for an unknown proposal ID.
-  - [ ] `tests/unit/CaseDefinition.test.ts` — rejects a missing `rivalLab`, empty `critiques`, a critique naming an unauthored proposal, a conclusion proposal with no critique, duplicate critique IDs, a path-encoding line, a non-`#rrggbb` accent, and an unknown `rivalLab` field. **The existing `'an unknown scene key'` case that mutates a `sceneKey` to `'RivalLab'` must still pass** — under Task 6 `SCENE_KEYS` is unchanged, so `RivalLab` correctly remains un-authorable. If you find yourself editing that case, the design has drifted: re-read Dev Notes §Scene-key vocabulary.
-  - [ ] `tests/unit/CaseRecordSchema.test.ts` — a `critiqueHistory` round-trip; rejection of an unknown `critiqueId`, a mismatched `proposalId`/`critiqueId` pair, and out-of-order timestamps; a pre-2.5 record with no `critiqueHistory` still loads.
-  - [ ] `tests/unit/SceneRouter.test.ts` — routes to `RivalLab` when a critique is live and back to the phase's scene when it clears, through the injected `SceneRouterTarget` slice. No real `Phaser.Game`.
-  - [ ] `tests/integration/RivalLabCritique.test.ts` — the whole choose→submit→critique→revise→proceed flow through **public store actions and selectors only**. Include: the critique appears for an indefensible choice; no state is lost; `critiqueHistory` grows; revising to a defensible proposal clears the critique; a second submit of a defensible proposal produces no critique; `case.replayStarted` clears both fields.
-  - [ ] `tests/integration/ProposalSelection.test.ts` — update the `authored overreach the current rules cannot detect (pending Story 2.5)` block. `conclusion-universal-optics` now draws a critique on submit; keep its peer-review assertions unchanged and rewrite the comment to record that 2.5 landed. **Do not widen `overreachPhrases`** (see Dev Notes §The `peerReviewRules` trap).
-  - [ ] Recognition test (AC3): choose `conclusion-wave-settled` → submit → critique → revise to `conclusion-spacing-varies` → complete → `calibrated-conclusion` is achieved and no item regressed.
-  - [ ] `tests/e2e/rival-lab.spec.ts` — asserts `data-active-scene="RivalLab"` after submitting an unsupported conclusion and the phase scene again after revising. Add an FR case with `test.use({ locale: 'fr-FR' })` importing the expected strings from `src/core/i18n/locales/fr`.
-  - [ ] `tests/e2e/french-typography.spec.ts` — extend to the new surface, deriving bounds from the renderer's exported constants.
-  - [ ] Establish the e2e baseline on `26dcaf9` before attributing any failure to this story — `deferred-work.md` lists specs that already fail there.
+- [x] **Task 10 — Tests (AC4, AC5)**
+  - [x] `tests/unit/RivalLabRules.test.ts` — selection for **each of the four** conclusion proposals; determinism across repeated calls; `undefined` for an unknown proposal ID.
+  - [x] `tests/unit/CaseDefinition.test.ts` — rejects a missing `rivalLab`, empty `critiques`, a critique naming an unauthored proposal, a conclusion proposal with no critique, duplicate critique IDs, a path-encoding line, a non-`#rrggbb` accent, and an unknown `rivalLab` field. **The existing `'an unknown scene key'` case that mutates a `sceneKey` to `'RivalLab'` must still pass** — under Task 6 `SCENE_KEYS` is unchanged, so `RivalLab` correctly remains un-authorable. If you find yourself editing that case, the design has drifted: re-read Dev Notes §Scene-key vocabulary.
+  - [x] `tests/unit/CaseRecordSchema.test.ts` — a `critiqueHistory` round-trip; rejection of an unknown `critiqueId`, a mismatched `proposalId`/`critiqueId` pair, and out-of-order timestamps; a pre-2.5 record with no `critiqueHistory` still loads.
+  - [x] `tests/unit/SceneRouter.test.ts` — routes to `RivalLab` when a critique is live and back to the phase's scene when it clears, through the injected `SceneRouterTarget` slice. No real `Phaser.Game`.
+  - [x] `tests/integration/RivalLabCritique.test.ts` — the whole choose→submit→critique→revise→proceed flow through **public store actions and selectors only**. Include: the critique appears for an indefensible choice; no state is lost; `critiqueHistory` grows; revising to a defensible proposal clears the critique; a second submit of a defensible proposal produces no critique; `case.replayStarted` clears both fields.
+  - [x] `tests/integration/ProposalSelection.test.ts` — update the `authored overreach the current rules cannot detect (pending Story 2.5)` block. `conclusion-universal-optics` now draws a critique on submit; keep its peer-review assertions unchanged and rewrite the comment to record that 2.5 landed. **Do not widen `overreachPhrases`** (see Dev Notes §The `peerReviewRules` trap).
+  - [x] Recognition test (AC3): choose `conclusion-wave-settled` → submit → critique → revise to `conclusion-spacing-varies` → complete → `calibrated-conclusion` is achieved and no item regressed.
+  - [x] `tests/e2e/rival-lab.spec.ts` — asserts `data-active-scene="RivalLab"` after submitting an unsupported conclusion and the phase scene again after revising. Add an FR case with `test.use({ locale: 'fr-FR' })` importing the expected strings from `src/core/i18n/locales/fr`.
+  - [x] `tests/e2e/french-typography.spec.ts` — extend to the new surface, deriving bounds from the renderer's exported constants.
+  - [x] Establish the e2e baseline on `26dcaf9` before attributing any failure to this story — `deferred-work.md` lists specs that already fail there.
 
-- [ ] **Task 11 — Verify (all ACs)**
-  - [ ] `npm run typecheck`, `npm test`, `npm run test:e2e` all green apart from the documented baseline failures. Record the baseline comparison in the Dev Agent Record.
-  - [ ] Manual: at 1280×720, in both EN and FR, submit each of the four conclusions from a thin-evidence state and confirm a critique appears, reads fairly, and returns to the board with the choice intact.
+- [x] **Task 11 — Verify (all ACs)**
+  - [x] `npm run typecheck`, `npm test`, `npm run test:e2e` all green apart from the documented baseline failures. Record the baseline comparison in the Dev Agent Record.
+  - [x] Manual: at 1280×720, in both EN and FR, submit each of the four conclusions from a thin-evidence state and confirm a critique appears, reads fairly, and returns to the board with the choice intact.
 
 ## Dev Notes
 
@@ -297,16 +301,74 @@ Recent commits (`Review 2.4`, `Dev 2.4`, `Story 2.4`, `Review 1.12`, `Dev 1.12`,
 
 ### Agent Model Used
 
-_To be completed by the dev agent._
+Claude Opus 5 (`claude-opus-5[1m]`), via `gds-dev-story`.
 
 ### Debug Log References
 
+- **e2e baseline on `26dcaf9`** (git worktree, chromium): **7 failed / 34 passed**. The failures are exactly the ones `deferred-work.md` records — `accessibility`, `curated-record:179`, `inquiry-recognition`, `offline-reload:72`, `progress-portability`, `theory-board` (all six clicking the retired `Record prepared observation` button) and `young-experiment:12` (the hard-`disabled` "Run experiment" mismatch).
+- **e2e on this branch**: **7 failed / 38 passed** — the *same* seven specs, plus the four new passing cases (three in `rival-lab.spec.ts`, one in `french-typography.spec.ts`). No regression.
+- `npm run typecheck` clean. `npm test` **507 passed / 0 failed** (was 428 before this story).
+- Two test fixtures needed the new required field rather than a behaviour change: `tests/unit/CaseDefinition.test.ts`'s `validYoungCase` gained a `rivalLab`, and `tests/integration/DialogueAndChoice.test.ts`'s exact record/state field lists gained `critiqueHistory` (and `rivalLabCritique` for the state list).
+- `validCritiqueHistory` short-circuits on an absent or empty log. Without that, several partial `CaseDefinition` fixtures that legitimately omit `conclusionProposals` threw on every record validation.
+
 ### Completion Notes List
 
+**What shipped.** The rival lab (Mr. Arthur Bell) as authored content in `case.json` v1.9.0 with one critique per conclusion proposal; pure critique selection in `src/domain/review/rivalLabRules.ts`; `theory.conclusionSubmitted` and `rivalLab.revisionRequested` in the store; a transient `rivalLabCritique` plus a persisted `critiqueHistory`; the router override; `RivalLabScene` + `RivalLabRenderer`; optional-additive persistence; EN+FR for every string; and unit, integration, and browser coverage.
+
+**Deviations and decisions the reviewer should look at:**
+
+1. **A submit control was added to the theory board — beyond the literal task list.** AC1 is written as "when the choice is submitted", and Task 10/11 require an e2e and a manual pass that submit a conclusion, but no task adds an affordance that dispatches `theory.conclusionSubmitted`. Without one the whole feature is unreachable in the running game and AC1 is unverifiable. So `ColleagueRenderer` grows a submit control **on the conclusion board only**, in the heading row (the heading's wrap width narrows to make space) rather than in a band below the cards, which would have taken height out of `cardGeometry`'s already-tight budget. This is the "explicit submit affordance" of **Open Question 3**, implemented the way that question's first reading describes: choosing stays freely revisable and draws nothing; submitting is the deliberate act that invites the challenge. If the reviewer prefers choose-as-submit, this control and `theoryBoard.submit` are what to remove.
+2. **A fourth error code, `invalid-critique-timestamp`.** Task 4 asks for `reduceRevisionSave`'s timestamp discipline but Task 9 lists only three error keys. Since "every code a reducer can return needs one", the fourth was added to both locale bundles.
+3. **`rivalLab` object rather than a flat `rivalLabCritiques[]`** (Open Question 4), as the story directs, so the rival's identity has a home outside `colleagues[]`. `game-architecture.md` §Content Model still describes the flat array; folding this in is a documentation follow-up, not drift.
+4. **AC3 implemented as Open Question 1 describes** — a defensible submit clears the critique and changes nothing else; the existing review → `revision.saved` → `case.debriefCompleted` chain is untouched. Pinned by a test that a defensible submit leaves the phase at `synthesis` and `theory.reviewRequested` then succeeds.
+5. **No fifth recognition item** (Open Question 2). AC3 is met by proof rather than by a new signal: `tests/integration/RivalLabCritique.test.ts` asserts the post-critique completion's `recognition` is **deep-equal** to the same completion with no critique, and that `calibrated-conclusion` is achieved on the revised path.
+6. **The revise control is anchored to the canvas floor**, not measured from the critique body. The body is unbounded by design (truncating the objection is the one thing this surface must not do), so a control trailing it has no ceiling — and a control past y=768 on a fixed `Scale.FIT` surface is a player with no way back, which is precisely the fail state this story exists to avoid. The prose above it is measured-stacked, and the guide is clamped to sit just above the control so a refused dispatch stays legible beside the control that refused it.
+7. **`SCENE_KEYS` is unchanged.** `ROUTABLE_SCENE_KEYS` widens the runtime registry only, and `tests/unit/CaseDefinition.test.ts` now pins `RivalLab`-as-authored-`sceneKey` rejection explicitly as well as through the pre-existing case.
+8. **`peerReviewRules` and `overreachPhrases` untouched**, as directed. `tests/integration/ProposalSelection.test.ts`'s `pending Story 2.5` block was rewritten to record that 2.5 landed, with its peer-review assertions unchanged and one new case for the critique the submit now draws.
+
+**Not done — needs a human:** Task 11's *manual* visual pass at 1280×720 ("confirm a critique appears, reads fairly, and returns to the board with the choice intact"). Everything mechanical about it is automated — `tests/integration/RivalLabCritique.test.ts` submits all four conclusions in both locales from a thin-evidence state and asserts the authored line for that locale plus the absence of punitive vocabulary, and `tests/e2e/rival-lab.spec.ts` walks the canvas route in EN and FR — but "reads fairly" is an editorial judgement, and no automated check substitutes for looking at the rendered surface.
+
 ### File List
+
+**New**
+
+- `src/domain/review/rivalLabRules.ts`
+- `src/adapters/phaser/scenes/RivalLabScene.ts`
+- `src/adapters/phaser/renderers/RivalLabRenderer.ts`
+- `tests/unit/RivalLabRules.test.ts`
+- `tests/integration/RivalLabCritique.test.ts`
+- `tests/e2e/rival-lab.spec.ts`
+
+**Modified**
+
+- `public/cases/young-interference/case.json`
+- `src/domain/cases/CaseDefinition.ts`
+- `src/domain/cases/ScenarioScript.ts`
+- `src/schemas/CaseDefinitionSchema.ts`
+- `src/schemas/CaseRecordSchema.ts`
+- `src/core/store/AppState.ts`
+- `src/core/store/AppAction.ts`
+- `src/core/store/selectors.ts`
+- `src/core/store/CaseRecordProjection.ts`
+- `src/core/i18n/locales/en.ts`
+- `src/core/i18n/locales/fr.ts`
+- `src/adapters/phaser/SceneRouter.ts`
+- `src/adapters/phaser/PhaserStoreAdapter.ts`
+- `src/adapters/phaser/renderers/ColleagueRenderer.ts`
+- `src/game/main.ts`
+- `tests/unit/CaseDefinition.test.ts`
+- `tests/unit/CaseRecordSchema.test.ts`
+- `tests/unit/SceneRouter.test.ts`
+- `tests/integration/ProposalSelection.test.ts`
+- `tests/integration/DialogueAndChoice.test.ts`
+- `tests/e2e/french-typography.spec.ts`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+
+`src/main.ts` needed no edit: its `onSceneActivated` callback and `SceneRouterTarget` literal are inline, so both widened to `RoutableSceneKey` by inference.
 
 ## Change Log
 
 | Date | Version | Description | Author |
 | --- | --- | --- | --- |
 | 2026-08-06 | 1.0 | Story created — comprehensive context for the rival-lab critique and revision loop. | Alexis (via create-story) |
+| 2026-08-06 | 1.1 | Implemented: authored rival lab in case.json 1.9.0, pure critique selection, store actions and critique history, router override and `RivalLabScene`, additive persistence, EN+FR strings, and unit/integration/e2e coverage. Added a theory-board submit control (Open Question 3) so AC1 is reachable. | Amelia (dev agent) |

@@ -12,6 +12,7 @@ import {
     selectLocalizedPredictionProposals,
     selectPortableCaseRecord,
     selectPredictionProposals,
+    selectRivalLabCritique,
     selectSelectedConclusionProposalId,
     selectSelectedPredictionProposalId
 } from '../../src/core/store/selectors';
@@ -356,18 +357,20 @@ const completeWithConclusion = (proposalId: string): AppStore => {
 };
 
 /**
- * `conclusion-universal-optics` is the most unbounded claim in the authored set, and the current rules
- * cannot see it: it contains none of the authored `overreachPhrases`, and its "None is offered: …"
- * limitation is a non-empty string, which is all any limitation gate tests. So it completes the case
- * with zero findings and *earns* `calibrated-conclusion` — "a bounded claim without an overreach
- * finding".
+ * `conclusion-universal-optics` is the most unbounded claim in the authored set, and the peer-review
+ * rules deliberately cannot see it: it contains none of the authored `overreachPhrases`, and its
+ * "None is offered: …" limitation is a non-empty string, which is all any limitation gate tests. So
+ * peer review returns zero findings for it and it *earns* `calibrated-conclusion` — "a bounded claim
+ * without an overreach finding".
  *
- * Reviewed and accepted (1.11 review, decision 1d): Story 2.5's rival-lab critique is the mechanism
- * meant to catch this, and widening the detection phrases now would invalidate saved records — see the
- * argument in `peerReviewRules.ts`. These tests pin the present behaviour so that when 2.5 lands, or a
- * copy edit touches this claim, the change of outcome shows up as a failure instead of a silent shift.
+ * **Story 2.5 landed, and it is what catches this claim** — the mechanism chosen at the 1.11 review
+ * (decision 1d) precisely so the detection phrases would not have to grow. Widening
+ * `overreachPhrases` would invalidate every saved record, because `PeerReviewIssue` persists authored
+ * English prose and `validateCaseRecordForDefinition` recomputes and compares it on every load; see
+ * the argument in `peerReviewRules.ts`. So the peer-review assertions below stay exactly as they were,
+ * and the rival lab is the layer that answers the overreach.
  */
-describe('authored overreach the current rules cannot detect (pending Story 2.5)', () => {
+describe('authored overreach the peer-review rules deliberately cannot detect', () => {
     it('raises no finding for conclusion-universal-optics', () => {
         const store = storeAtReview();
         store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: 'conclusion-universal-optics' });
@@ -388,6 +391,16 @@ describe('authored overreach the current rules cannot detect (pending Story 2.5)
         const store = completeWithConclusion('conclusion-universal-optics');
 
         expect(selectDefensibleConclusionProposalIds(store.getState())).not.toContain('conclusion-universal-optics');
+    });
+
+    /** The behaviour Story 2.5 exists to add: submitting it draws the rival lab, not a review finding. */
+    it('draws a rival-lab critique when it is submitted', () => {
+        const store = storeAtReview();
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: 'conclusion-universal-optics' });
+
+        store.dispatch({ type: 'theory.conclusionSubmitted', timestamp: '2026-08-06T12:05:00.000Z' });
+
+        expect(selectRivalLabCritique(store.getState())).toMatchObject({ proposalId: 'conclusion-universal-optics' });
     });
 });
 

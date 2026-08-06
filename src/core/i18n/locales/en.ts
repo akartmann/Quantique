@@ -133,9 +133,20 @@ export const en = {
     'colleagues.guide': 'Your colleagues each expect something different. Choose the one you want to test — you can change it at any time.',
     'theoryBoard.heading': 'Which conclusion will you put your name to?',
     'theoryBoard.guide': 'Each colleague has drafted a conclusion and the limitation they would state with it. Choose one — you can change it at any time.',
+    // Choosing is revisable and draws nothing; submitting is what puts the claim up for challenge.
+    'theoryBoard.submit': 'Submit this conclusion',
     'proposal.limitation': 'Stated limitation: {limitation}',
     'proposal.selected': '✓ Chosen',
     'proposal.choose': 'Choose this',
+
+    // --- Rival lab --------------------------------------------------------------------------------
+    // Interface chrome only. The critique *lines* are content and live in case.json as `LocalizedText`,
+    // like every other prose a player reads. The rival's name is a canonical proper noun and is
+    // authored there too; only his role is resolved here, the way a colleague's is.
+    'rivalLab.role': 'Rival laboratory',
+    'rivalLab.heading': 'A challenge from across the way',
+    'rivalLab.guide': 'Nothing is lost, and nothing is scored. Go back and put a claim your evidence can carry — or gather what would answer the objection.',
+    'rivalLab.revise': 'Return to your conclusion',
 
     // --- Dialogue ---------------------------------------------------------------------------------
     // Widget chrome only. The beats themselves are `LocalizedText` in case.json, like every other
@@ -223,6 +234,10 @@ export const en = {
     'error.unknown-prediction-proposal': 'That prediction is not one of the proposals on offer.',
     'error.unknown-conclusion-proposal': 'That conclusion is not one of the proposals on offer.',
     'error.conclusion-phase-unavailable': 'Reach the theory board before choosing a conclusion.',
+    'error.conclusion-submission-unavailable': 'Reach the theory board before submitting a conclusion.',
+    'error.conclusion-choice-required': 'Choose a conclusion before submitting it.',
+    'error.invalid-critique-timestamp': 'Provide a valid UTC submission timestamp.',
+    'error.rival-lab-critique-unavailable': 'There is no standing challenge to answer.',
     'error.missing-prediction': 'Record a tentative prediction before continuing to experimentation.',
     'error.unknown-theory-run': 'That observation is unavailable as conclusion support.',
     'error.duplicate-theory-run': 'That observation is already supporting this conclusion.',

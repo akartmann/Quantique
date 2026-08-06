@@ -10,6 +10,8 @@ import { createRunRecord, type RunRecord } from '../../domain/evidence/RunRecord
 import { createTheoryBoardDraft, evaluateConclusionReadiness, type TheoryBoardDraft } from '../../domain/theory/conclusionReadiness';
 import { selectConsultation, type ConsultationProjection } from '../../domain/review/ConsultationRule';
 import { evaluatePeerReview, type PeerReviewProjection } from '../../domain/review/peerReviewRules';
+import { selectRivalLabCritique as selectAuthoredRivalLabCritique, type RivalLabCritiqueSelection } from '../../domain/review/rivalLabRules';
+import { selectDefensibleConclusionIds } from '../../domain/theory/conclusionProposals';
 import { deriveRecognition, type RecognitionState } from '../../domain/recognition/recognitionRules';
 import { validateCaseRecordForDefinition, type CaseRecord } from '../../schemas/CaseRecordSchema';
 import type { AppAction } from './AppAction';
@@ -43,6 +45,22 @@ export type DecisionHistoryEntry = Readonly<{
     timestamp: string;
 }>;
 
+/**
+ * That the rival lab challenged a submitted conclusion, and which challenge it was.
+ *
+ * Store state rather than domain content, so it is declared here beside {@link DecisionHistoryEntry}
+ * — `RivalLabCritiqueSelection` is the domain half, and it carries the same two IDs.
+ *
+ * **IDs and a timestamp only.** The critique's prose stays in `case.json` and is resolved at display
+ * time. Persisting it, and recomputing-and-comparing it on load the way `peerReviewRules` does, would
+ * make every authored copy edit silently invalidate every saved investigation.
+ */
+export type RivalLabCritiqueEntry = Readonly<{
+    proposalId: string;
+    critiqueId: string;
+    timestamp: string;
+}>;
+
 export type CompletionSnapshot = Readonly<{
     completedAt: string;
     finalDecision: DecisionHistoryEntry;
@@ -50,6 +68,12 @@ export type CompletionSnapshot = Readonly<{
     runs: readonly RunRecord[];
     inspectedSourceIds: readonly string[];
     comparison: ComparisonState;
+    /**
+     * Mirrors `decisionHistory`, and for the same reason: a counterfactual replay clears the live
+     * list, so without a snapshot a completed record loses its record of what was ever challenged the
+     * moment the player replays.
+     */
+    critiqueHistory: readonly RivalLabCritiqueEntry[];
     recognition: RecognitionState;
 }>;
 
@@ -81,6 +105,14 @@ export type AppState = Readonly<{
     selectedConclusionProposalId?: string;
     consultation?: ConsultationProjection;
     peerReview?: PeerReviewProjection;
+    /**
+     * The live rival-lab challenge, if one is standing. **Transient**, like `consultation` and
+     * `peerReview`: a reload returns the player to the theory board with their choice intact rather
+     * than stranding them on a critique screen. The critique is a beat; `critiqueHistory` is the fact.
+     */
+    rivalLabCritique?: RivalLabCritiqueSelection;
+    /** Every challenge this investigation has drawn, in order. Persisted. */
+    critiqueHistory: readonly RivalLabCritiqueEntry[];
     decisionHistory: readonly DecisionHistoryEntry[];
     completion?: CompletionSnapshot;
     replay: ReplayState;
@@ -109,6 +141,8 @@ const freezeDecision = (entry: DecisionHistoryEntry): DecisionHistoryEntry => Ob
     feedback: freezePeerReview(entry.feedback)
 });
 
+const freezeCritique = (entry: RivalLabCritiqueEntry): RivalLabCritiqueEntry => Object.freeze({ ...entry });
+
 const freezeRun = (run: RunRecord): RunRecord => Object.freeze({
     id: run.id,
     caseId: run.caseId,
@@ -127,6 +161,7 @@ const freezeCompletion = (completion: CompletionSnapshot | undefined): Completio
     runs: Object.freeze(completion.runs.map(freezeRun)),
     inspectedSourceIds: Object.freeze([...completion.inspectedSourceIds]),
     comparison: freezeComparison(completion.comparison),
+    critiqueHistory: Object.freeze(completion.critiqueHistory.map(freezeCritique)),
     recognition: Object.freeze({
         version: completion.recognition.version,
         items: Object.freeze(completion.recognition.items.map((item) => Object.freeze({ ...item })))
@@ -156,6 +191,8 @@ const freezeState = (state: Omit<AppState, 'recognition'>): AppState => Object.f
         nextStep: state.consultation.nextStep
     }),
     peerReview: state.peerReview && freezePeerReview(state.peerReview),
+    rivalLabCritique: state.rivalLabCritique && Object.freeze({ ...state.rivalLabCritique }),
+    critiqueHistory: Object.freeze(state.critiqueHistory.map(freezeCritique)),
     decisionHistory: Object.freeze(state.decisionHistory.map(freezeDecision)),
     completion: freezeCompletion(state.completion),
     replay: Object.freeze({ isCounterfactual: state.replay.isCounterfactual }),
@@ -176,6 +213,7 @@ export const createInitialAppState = (caseDefinition: CaseDefinition, locale: Lo
     runs: [],
     comparison: { selectedRunIds: [], notes: [] },
     theory: createTheoryBoardDraft(),
+    critiqueHistory: [],
     decisionHistory: [],
     replay: { isCounterfactual: false }
 });
@@ -217,8 +255,13 @@ export const createAppStateFromCaseRecord = (record: CaseRecord, caseDefinition:
             comparison: validated.comparison,
             theory: validated.theory,
             selectedConclusionProposalId: validated.selectedConclusionProposalId,
+            // `?? []` on both: `critiqueHistory` is an optional additive record field, so a record
+            // saved before Story 2.5 simply carries none.
+            critiqueHistory: validated.critiqueHistory ?? [],
             decisionHistory: validated.decisionHistory,
-            completion: validated.completion as CompletionSnapshot | undefined,
+            completion: validated.completion === undefined
+                ? undefined
+                : { ...validated.completion, critiqueHistory: validated.completion.critiqueHistory ?? [] } as CompletionSnapshot,
             replay: validated.replay
         })
     };
@@ -281,7 +324,7 @@ const reduceRecordRun = (state: AppState, record: RunRecord): Result<AppState> =
         return failure('uninspected-linked-evidence', 'Linked evidence must be inspected before recording an observation.');
     }
 
-    return { ok: true, value: freezeState({ ...state, runs: [...state.runs, validated.value], consultation: undefined, peerReview: undefined }) };
+    return { ok: true, value: freezeState({ ...state, runs: [...state.runs, validated.value], consultation: undefined, peerReview: undefined, rivalLabCritique: undefined }) };
 };
 
 const minimumPathRunCount = (state: AppState): number => state.runs.filter((run) =>
@@ -290,7 +333,7 @@ const minimumPathRunCount = (state: AppState): number => state.runs.filter((run)
 
 const reduceWavelengthSet = (state: AppState, wavelengthNm: 450 | 550 | 650): Result<AppState> => {
     if (wavelengthNm === 550) {
-        return { ok: true, value: freezeState({ ...state, selectedWavelengthNm: 550, selectedWavelengthMode: 'minimum', consultation: undefined, peerReview: undefined }) };
+        return { ok: true, value: freezeState({ ...state, selectedWavelengthNm: 550, selectedWavelengthMode: 'minimum', consultation: undefined, peerReview: undefined, rivalLabCritique: undefined }) };
     }
     const choices: readonly number[] = state.caseDefinition.experiment.wavelengthComparison?.advancedChoicesNm ?? [];
     if (!choices.includes(wavelengthNm)) {
@@ -304,7 +347,8 @@ const reduceWavelengthSet = (state: AppState, wavelengthNm: 450 | 550 | 650): Re
         selectedWavelengthNm: wavelengthNm,
         selectedWavelengthMode: 'advanced',
         consultation: undefined,
-        peerReview: undefined
+        peerReview: undefined,
+        rivalLabCritique: undefined
     }) };
 };
 
@@ -405,7 +449,7 @@ const reduceSourceInspection = (state: AppState, sourceId: string): Result<AppSt
         return failure('duplicate-inspected-source', 'That source is already recorded as inspected.');
     }
 
-    return { ok: true, value: freezeState({ ...state, inspectedSourceIds: [...state.inspectedSourceIds, sourceId], consultation: undefined, peerReview: undefined }) };
+    return { ok: true, value: freezeState({ ...state, inspectedSourceIds: [...state.inspectedSourceIds, sourceId], consultation: undefined, peerReview: undefined, rivalLabCritique: undefined }) };
 };
 
 const reducePredictionRecord = (state: AppState, prediction: string): Result<AppState> => {
@@ -432,7 +476,8 @@ const reducePredictionRecord = (state: AppState, prediction: string): Result<App
             prediction: normalized,
             selectedPredictionProposalId: chosen?.text.en === normalized ? state.selectedPredictionProposalId : undefined,
             consultation: undefined,
-            peerReview: undefined
+            peerReview: undefined,
+            rivalLabCritique: undefined
         })
     };
 };
@@ -462,14 +507,15 @@ const reducePredictionProposalChosen = (state: AppState, proposalId: string): Re
             prediction: proposal.text.en,
             selectedPredictionProposalId: proposal.id,
             consultation: undefined,
-            peerReview: undefined
+            peerReview: undefined,
+            rivalLabCritique: undefined
         })
     };
 };
 
 const withTheory = (state: AppState, theory: TheoryBoardDraft): Result<AppState> => ({
     ok: true,
-    value: freezeState({ ...state, theory, consultation: undefined, peerReview: undefined })
+    value: freezeState({ ...state, theory, consultation: undefined, peerReview: undefined, rivalLabCritique: undefined })
 });
 
 /**
@@ -491,7 +537,8 @@ const withHandWrittenTheory = (state: AppState, theory: TheoryBoardDraft): Resul
             theory,
             selectedConclusionProposalId: keepsAttribution ? state.selectedConclusionProposalId : undefined,
             consultation: undefined,
-            peerReview: undefined
+            peerReview: undefined,
+            rivalLabCritique: undefined
         })
     };
 };
@@ -516,7 +563,8 @@ const reduceTheoryConclusionProposalChosen = (state: AppState, proposalId: strin
             theory: { ...state.theory, conclusion: proposal.claim.en, limitation: proposal.limitation.en },
             selectedConclusionProposalId: proposal.id,
             consultation: undefined,
-            peerReview: undefined
+            peerReview: undefined,
+            rivalLabCritique: undefined
         })
     };
 };
@@ -622,7 +670,72 @@ const reduceRevisionSave = (state: AppState, timestamp: string): Result<AppState
         feedback: state.peerReview,
         timestamp
     };
-    return { ok: true, value: freezeState({ ...state, decisionHistory: [...state.decisionHistory, entry], peerReview: undefined }) };
+    return { ok: true, value: freezeState({ ...state, decisionHistory: [...state.decisionHistory, entry], peerReview: undefined, rivalLabCritique: undefined }) };
+};
+
+/**
+ * Submitting the chosen conclusion for the rival lab's scrutiny.
+ *
+ * It evaluates defensibility and **nothing else**: it never advances the phase, saves a revision, or
+ * completes the case. AC3's "the case proceeds to the debrief phase" is read as "the critique stops
+ * blocking progression" — advancing directly from here would bypass `evaluateConclusionReadiness`,
+ * `revision.saved`, and the completion contract `validateCaseRecordForDefinition` enforces on load.
+ *
+ * There is no score, timer, counter, penalty, or lockout, and a critique makes no other action fail.
+ * A challenge is a beat in the fiction; the player's evidence and draft are untouched by it.
+ */
+const reduceTheoryConclusionSubmit = (state: AppState, timestamp: string): Result<AppState> => {
+    // The same two phases the theory board hosts, and the same gate `theory.conclusionProposalChosen`
+    // applies. The store decides when a conclusion can be submitted, not whichever scene is mounted.
+    if (state.phase !== 'synthesis' && state.phase !== 'review') {
+        return failure('conclusion-submission-unavailable', 'Reach the theory board before submitting a conclusion.');
+    }
+    if (state.selectedConclusionProposalId === undefined) {
+        return failure('conclusion-choice-required', 'Choose a conclusion before submitting it.');
+    }
+    if (!isTimestamp(timestamp)) return failure('invalid-critique-timestamp', 'Provide a valid UTC submission timestamp.');
+    // `reduceRevisionSave`'s discipline, for the same reason: the history is ordered, and an entry at
+    // or before the last one would make the order of the record a lie.
+    const previous = state.critiqueHistory[state.critiqueHistory.length - 1];
+    if (previous && new Date(timestamp).getTime() <= new Date(previous.timestamp).getTime()) {
+        return failure('invalid-critique-timestamp', 'Provide a submission timestamp later than the previous challenge.');
+    }
+
+    const defensible = selectDefensibleConclusionIds(state.caseDefinition, {
+        runs: state.runs,
+        inspectedSourceIds: state.inspectedSourceIds,
+        comparisonNotes: state.comparison.notes
+    });
+    if (defensible.includes(state.selectedConclusionProposalId)) {
+        return { ok: true, value: freezeState({ ...state, rivalLabCritique: undefined }) };
+    }
+
+    const critique = selectAuthoredRivalLabCritique(state.caseDefinition, state.selectedConclusionProposalId);
+    // Validation requires a critique for every authored conclusion, so this is a degraded cached
+    // `case.json` rather than a reachable authoring state. It clears rather than failing: a missing
+    // authored line must not turn into a refusal the player has to work around.
+    if (!critique) return { ok: true, value: freezeState({ ...state, rivalLabCritique: undefined }) };
+
+    return {
+        ok: true,
+        value: freezeState({
+            ...state,
+            rivalLabCritique: critique,
+            critiqueHistory: [...state.critiqueHistory, { proposalId: critique.proposalId, critiqueId: critique.critiqueId, timestamp }]
+        })
+    };
+};
+
+/**
+ * Returning to the board to revise. It clears the live critique and nothing else — the chosen
+ * proposal and the theory draft are **preserved**, so the player comes back to their rejected choice
+ * still visible and still revisable. No progress is lost, and none is rolled back.
+ */
+const reduceRivalLabRevisionRequest = (state: AppState): Result<AppState> => {
+    if (!state.rivalLabCritique) {
+        return failure('rival-lab-critique-unavailable', 'There is no standing challenge to answer.');
+    }
+    return { ok: true, value: freezeState({ ...state, rivalLabCritique: undefined }) };
 };
 
 const isTimestamp = (value: string): boolean => {
@@ -653,6 +766,7 @@ const reduceDebriefComplete = (state: AppState, timestamp: string): Result<AppSt
         runs: state.runs,
         inspectedSourceIds: state.inspectedSourceIds,
         comparison: state.comparison,
+        critiqueHistory: state.critiqueHistory,
         recognition: state.recognition
     };
     return { ok: true, value: freezeState({ ...state, phase: transition.value.phase, completion, replay: { isCounterfactual: state.replay.isCounterfactual } }) };
@@ -672,7 +786,11 @@ const reduceReplayStart = (state: AppState): Result<AppState> => {
             selectedWavelengthMode: 'minimum',
             inspectedSourceIds: [], prediction: '', runs: [], comparison: { selectedRunIds: [], notes: [] }, theory: createTheoryBoardDraft(),
             selectedPredictionProposalId: undefined, selectedConclusionProposalId: undefined,
-            consultation: undefined, peerReview: undefined, decisionHistory: [], replay: { isCounterfactual: true }
+            consultation: undefined, peerReview: undefined, decisionHistory: [], replay: { isCounterfactual: true },
+            // Both, because a replay is a fresh investigation: the live challenge and the record of
+            // every challenge the completed run drew are equally not part of it. The completed run
+            // keeps its own copy in `completion.critiqueHistory`.
+            rivalLabCritique: undefined, critiqueHistory: []
         })
     };
 };
@@ -715,6 +833,10 @@ export const reduceAppState = (state: AppState, action: AppAction): Result<AppSt
             return withHandWrittenTheory(state, { ...state.theory, limitation: action.limitation });
         case 'theory.conclusionProposalChosen':
             return reduceTheoryConclusionProposalChosen(state, action.proposalId);
+        case 'theory.conclusionSubmitted':
+            return reduceTheoryConclusionSubmit(state, action.timestamp);
+        case 'rivalLab.revisionRequested':
+            return reduceRivalLabRevisionRequest(state);
         case 'theory.reviewRequested':
             return reduceTheoryReviewRequest(state);
         case 'consultation.requested':

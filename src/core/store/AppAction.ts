@@ -102,6 +102,23 @@ export type TheoryConclusionProposalChosenAction = Readonly<{
     proposalId: string;
 }>;
 
+/**
+ * Putting the chosen conclusion in front of the rival lab (Story 2.5).
+ *
+ * Separate from `theory.conclusionProposalChosen` on purpose: choosing stays freely revisable and
+ * draws no challenge, and submitting is the deliberate act that invites one. It evaluates
+ * defensibility and nothing else — it never advances the phase or completes the case.
+ */
+export type TheoryConclusionSubmittedAction = Readonly<{
+    type: 'theory.conclusionSubmitted';
+    timestamp: string;
+}>;
+
+/** Answering a standing rival-lab challenge by going back to revise. It clears the challenge only. */
+export type RivalLabRevisionRequestedAction = Readonly<{
+    type: 'rivalLab.revisionRequested';
+}>;
+
 export type TheoryReviewRequestAction = Readonly<{
     type: 'theory.reviewRequested';
 }>;
@@ -151,6 +168,8 @@ export type AppAction = ApparatusControlSetAction
     | TheoryConclusionSetAction
     | TheoryLimitationSetAction
     | TheoryConclusionProposalChosenAction
+    | TheoryConclusionSubmittedAction
+    | RivalLabRevisionRequestedAction
     | TheoryReviewRequestAction
     | ConsultationRequestAction
     | PeerReviewRequestAction

@@ -265,6 +265,94 @@ describe('portable case records', () => {
         expect(restored).toMatchObject({ ok: true, value: { recognition: projected.value.recognition } });
     });
 
+    // --- Rival-lab critique history (Story 2.5) -------------------------------------------------
+
+    const rivalDefinition = {
+        ...proposalDefinition,
+        version: '1.9.0',
+        conclusionProposals: [
+            ...(proposalDefinition.conclusionProposals as unknown as Array<Record<string, unknown>>),
+            {
+                id: 'c-2',
+                colleagueId: 'thea-young',
+                claim: { en: 'An unbounded conclusion.', fr: 'Une conclusion sans limite.' },
+                limitation: { en: 'None.', fr: 'Aucune.' },
+                supportPredicate: { kind: 'never' }
+            }
+        ],
+        rivalLab: {
+            name: 'Mr. Arthur Bell',
+            accentColor: '#8c3b3b',
+            critiques: [
+                { id: 'critique-c-1', proposalId: 'c-1', line: { en: 'Thin evidence.', fr: 'Preuves minces.' } },
+                { id: 'critique-c-2', proposalId: 'c-2', line: { en: 'That reaches too far.', fr: 'Cela va trop loin.' } }
+            ]
+        }
+    } as unknown as CaseDefinition;
+
+    it('round-trips a critique history of IDs and timestamps', () => {
+        const critiqueHistory = [
+            { proposalId: 'c-2', critiqueId: 'critique-c-2', timestamp: '2026-08-06T12:00:00.000Z' },
+            { proposalId: 'c-1', critiqueId: 'critique-c-1', timestamp: '2026-08-06T12:05:00.000Z' }
+        ];
+        const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: '1.9.0', critiqueHistory });
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        const validated = validateCaseRecordForDefinition(parsed.data, rivalDefinition);
+
+        expect(validated).toMatchObject({ ok: true });
+        if (!validated.ok) return;
+        expect(validated.value.critiqueHistory).toEqual(critiqueHistory);
+        // Never the prose: only what a rewritten critique cannot invalidate.
+        expect(JSON.stringify(validated.value.critiqueHistory)).not.toMatch(/Thin evidence|Preuves minces/);
+
+        const restored = createAppStateFromCaseRecord(validated.value, rivalDefinition);
+        expect(restored).toMatchObject({ ok: true, value: { critiqueHistory } });
+    });
+
+    it.each([
+        ['an unauthored critique ID', [{ proposalId: 'c-1', critiqueId: 'critique-invented', timestamp: '2026-08-06T12:00:00.000Z' }]],
+        ['a critique answering a different proposal than the entry claims',
+            [{ proposalId: 'c-1', critiqueId: 'critique-c-2', timestamp: '2026-08-06T12:00:00.000Z' }]],
+        ['an unauthored proposal ID', [{ proposalId: 'c-invented', critiqueId: 'critique-c-1', timestamp: '2026-08-06T12:00:00.000Z' }]],
+        ['out-of-order timestamps', [
+            { proposalId: 'c-1', critiqueId: 'critique-c-1', timestamp: '2026-08-06T12:05:00.000Z' },
+            { proposalId: 'c-2', critiqueId: 'critique-c-2', timestamp: '2026-08-06T12:00:00.000Z' }
+        ]],
+        ['repeated timestamps', [
+            { proposalId: 'c-1', critiqueId: 'critique-c-1', timestamp: '2026-08-06T12:00:00.000Z' },
+            { proposalId: 'c-2', critiqueId: 'critique-c-2', timestamp: '2026-08-06T12:00:00.000Z' }
+        ]]
+    ])('rejects a critique history carrying %s', (_description, critiqueHistory) => {
+        const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: '1.9.0', critiqueHistory });
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        expect(validateCaseRecordForDefinition(parsed.data, rivalDefinition))
+            .toMatchObject({ ok: false, error: { code: 'invalid-case-record' } });
+    });
+
+    it('rejects a critique entry carrying the authored prose alongside its IDs', () => {
+        expect(CaseRecordSchema.safeParse({
+            ...validRecord,
+            critiqueHistory: [{ proposalId: 'c-1', critiqueId: 'critique-c-1', timestamp: '2026-08-06T12:00:00.000Z', line: 'Thin evidence.' }]
+        })).toMatchObject({ success: false });
+    });
+
+    // The rival lab is content, and what a 2.5 record persists is optional — so nothing about the
+    // upgrade may cost a player their investigation (NFR12).
+    it.each(['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0'])('accepts a %s record with no critique history against the 1.9.0 definition', (recordVersion) => {
+        const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: recordVersion });
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        expect(parsed.data.critiqueHistory).toBeUndefined();
+        expect(validateCaseRecordForDefinition(parsed.data, rivalDefinition)).toMatchObject({ ok: true });
+        // A pre-2.5 record hydrates to an empty log rather than an absent field.
+        expect(createAppStateFromCaseRecord(parsed.data, rivalDefinition)).toMatchObject({ ok: true, value: { critiqueHistory: [] } });
+    });
+
     it('only replaces store state through record validation and serializes progress operations', () => {
         const store = createStore(createInitialAppState(definition));
         const mismatch = CaseRecordSchema.parse({ ...validRecord, caseDefinitionVersion: '2.0.0' });

@@ -1,6 +1,6 @@
 {
   "id": "young-interference",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "openingDispute": {
     "en": "Does light travel as particles, waves, or something more subtle?",
     "fr": "La lumière se propage-t-elle comme des particules, comme des ondes, ou d’une manière plus subtile ?"
@@ -1199,6 +1199,44 @@
       "supportPredicate": { "kind": "never" }
     }
   ],
+  "rivalLab": {
+    "name": "Mr. Arthur Bell",
+    "accentColor": "#8c3b3b",
+    "critiques": [
+      {
+        "id": "critique-spacing-thin-evidence",
+        "proposalId": "conclusion-spacing-varies",
+        "line": {
+          "en": "You tell me the banding follows the separation of the openings. I count only the readings you happened to take, at settings you never troubled to change. Give me the same separation measured twice over, and a second separation set beside it in writing, and I will listen. Until then the trend belongs to your instrument, not to your account of light.",
+          "fr": "Vous m’assurez que les bandes suivent l’écartement des ouvertures. Je ne compte pourtant que les relevés que vous avez bien voulu prendre, à des réglages que vous n’avez jamais pris la peine de modifier. Donnez-moi le même écartement mesuré deux fois, et un second écartement consigné à côté, et je vous écouterai. D’ici là, la tendance appartient à votre appareil, non à votre explication de la lumière."
+        }
+      },
+      {
+        "id": "critique-both-settings-thin-evidence",
+        "proposalId": "conclusion-both-settings",
+        "line": {
+          "en": "Two settings moved, you say, and both obeyed your wave. Yet I find no record of the distance to the screen altered while the openings were held still, nor of the openings altered while the distance stood fast. One arrangement varied at random is not two causes demonstrated. Write down each in turn, and let another hand repeat it.",
+          "fr": "Deux réglages auraient bougé, dites-vous, et tous deux auraient obéi à votre onde. Or je ne trouve aucun relevé où la distance à l’écran ait varié pendant que l’écartement des fentes restait fixe, ni l’inverse. Un montage modifié au hasard ne démontre pas deux causes. Consignez chacune à son tour, et qu’une autre main puisse la répéter."
+        }
+      },
+      {
+        "id": "critique-wave-settled-overreach",
+        "proposalId": "conclusion-wave-settled",
+        "line": {
+          "en": "Proved, is it? A single bench, a single lamp, one afternoon — and the corpuscular account is to be set aside entire. I have built instruments that agreed with me handsomely until they were carried into another room. State what your bands show and where they stop. A demonstration that answers every objection at once has answered none of them.",
+          "fr": "Prouvé, vraiment ? Une seule paillasse, une seule lampe, un après-midi — et l’on écarterait d’un trait toute l’explication corpusculaire. J’ai construit des instruments qui me donnaient magnifiquement raison, jusqu’à ce qu’on les emporte dans une autre salle. Dites ce que vos bandes montrent et où elles s’arrêtent. Une démonstration qui répond à toutes les objections d’un coup n’en a réfuté aucune."
+        }
+      },
+      {
+        "id": "critique-universal-optics-overreach",
+        "proposalId": "conclusion-universal-optics",
+        "line": {
+          "en": "Every optical effect that will ever be recorded — drawn from two openings and one lamp. I ask you plainly, before witnesses: which of the effects you have never observed does this bench account for? Name the reach of your claim and defend it, or cut it back to the bench you stood at. I will grant you the bench.",
+          "fr": "Tout effet optique que l’on enregistrera jamais — tiré de deux ouvertures et d’une seule lampe. Je vous le demande franchement, devant témoins : lequel des effets que vous n’avez jamais observés cette paillasse explique-t-elle ? Énoncez la portée de votre affirmation et défendez-la, ou ramenez-la à la paillasse devant laquelle vous vous teniez. La paillasse, je vous l’accorde."
+        }
+      }
+    ]
+  },
   "consultationRules": [
     {
       "id": "observe-two-runs",

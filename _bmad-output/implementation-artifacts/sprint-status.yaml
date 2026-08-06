@@ -81,7 +81,7 @@ development_status:
   2-2-young-double-slit-experiment: done  # kept (deterministic model reused)
   2-3-young-synthesis-debrief-and-replay: done  # rework:pivot -> significant-measure gate + colleague conclusion
   2-4-young-learning-and-educator-validation-gate: done  # rework:pivot -> re-baselined 2026-08-06: metrics revised, EN+FR gate added, a11y gate removed. Instrument delivered and reviewed; the release gate itself stays Blocked and cannot be run until 2.5/2.6 ship
-  2-5-rival-lab-critique-and-revision: ready-for-dev  # new (pivot)
+  2-5-rival-lab-critique-and-revision: review  # new (pivot)
   2-6-significant-measure-gate-and-colleague-hints: backlog  # new (pivot)
   epic-2-retrospective: optional
   epic-3: backlog

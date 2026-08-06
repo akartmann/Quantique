@@ -8,7 +8,8 @@ import type { ContextualArtifact, PrimaryControl } from '../../domain/cases/Case
 import type { Colleague, ConclusionProposal, PredictionProposal } from '../../domain/cases/ColleagueCast';
 import { selectDefensibleConclusionIds } from '../../domain/theory/conclusionProposals';
 import type { RunRecord } from '../../domain/evidence/RunRecord';
-import type { AppState, ComparisonNote, CompletionSnapshot, ReplayState } from './AppState';
+import type { AppState, ComparisonNote, CompletionSnapshot, ReplayState, RivalLabCritiqueEntry } from './AppState';
+import type { RivalLabCritiqueSelection } from '../../domain/review/rivalLabRules';
 import type { ConsultationProjection } from '../../domain/review/ConsultationRule';
 import type { PeerReviewProjection } from '../../domain/review/peerReviewRules';
 import type { DecisionHistoryEntry } from './AppState';
@@ -260,6 +261,54 @@ export const selectDialogueBeats = (state: AppState): readonly DialogueBeatProje
         speaker: formatAttribution(t, projectAttribution(state, beat.speakerId, 'colleague.unattributedSpeaker')),
         text: resolveLocalizedText(beat.text, locale)
     }));
+};
+
+// --- Rival lab ----------------------------------------------------------------------------------
+
+/**
+ * The standing challenge, as stable IDs.
+ *
+ * Note the name it shares with `rivalLabRules.selectRivalLabCritique(definition, proposalId)`. The two
+ * do not meet — the reducer calls the domain one, this module does not import it — so no alias is
+ * needed here; the codebase keeps `selectConsultation` distinct between `ConsultationRule.ts` and this
+ * module the same way.
+ */
+export const selectRivalLabCritique = (state: AppState): RivalLabCritiqueSelection | undefined => state.rivalLabCritique;
+
+export const selectCritiqueHistory = (state: AppState): readonly RivalLabCritiqueEntry[] => state.critiqueHistory;
+
+/** What the rival-lab surface needs to render the standing challenge, and nothing more. */
+export type LocalizedRivalLabCritique = Readonly<{
+    speaker: string;
+    line: string;
+    accentColor: string;
+}>;
+
+/**
+ * The standing challenge, resolved for display.
+ *
+ * **It carries no defensibility field, and it never can.** It projects the critique for the proposal
+ * that was already submitted — not the defensible set, and not which of the four would have drawn no
+ * challenge. A surface able to read that could mark the "right" answer, which ADR-006 forbids and
+ * which `ColleagueRenderer` and `ProposalChoice` are both built around.
+ */
+export const selectLocalizedRivalLabCritique = (state: AppState): LocalizedRivalLabCritique | undefined => {
+    const selection = selectRivalLabCritique(state);
+    if (!selection) return undefined;
+    const { rivalLab } = state.caseDefinition;
+    const critique = rivalLab.critiques.find(({ id }) => id === selection.critiqueId);
+    // A degraded cached `case.json` can carry a critique ID this build no longer authors. Rendering an
+    // attributed heading with no line under it is worse than rendering nothing at all.
+    if (!critique) return undefined;
+    const locale = selectLocale(state);
+    const t = createTranslator(locale);
+    return Object.freeze({
+        // The rival's name is canonical — a proper noun, like every `colleagues[].name` — and only his
+        // role resolves through the i18n layer.
+        speaker: formatAttribution(t, { colleagueName: rivalLab.name, roleLabel: t('rivalLab.role') }),
+        line: resolveLocalizedText(critique.line, locale),
+        accentColor: rivalLab.accentColor
+    });
 };
 
 export const selectConsultation = (state: AppState): ConsultationProjection | undefined => state.consultation;

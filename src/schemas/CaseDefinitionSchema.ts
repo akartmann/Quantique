@@ -234,6 +234,28 @@ const ConclusionProposalSchema = z.object({
     supportPredicate: ConclusionSupportPredicateSchema
 }).strict();
 
+/**
+ * One rival-lab critique. `line` is {@link LocalizedTextSchema} and deliberately **not**
+ * {@link DetectionPhraseListSchema}: this is prose the player reads, so both locales carry one
+ * corresponding string, not two independently-sized match lists.
+ */
+const RivalLabCritiqueSchema = z.object({
+    id: stableId,
+    proposalId: stableId,
+    line: LocalizedTextSchema
+}).strict();
+
+const RivalLabSchema = z.object({
+    // Canonical: a proper noun, following the `Colleague.name` and `creatorOrOrigin` precedent.
+    name: z.string().trim().min(1),
+    // The same lower-case #rrggbb rule the colleague silhouette uses: the renderer parses it with
+    // `Number.parseInt(…, 16)`, and one canonical spelling keeps authored accents comparable.
+    accentColor: z.string().regex(/^#[0-9a-f]{6}$/, 'A rival-lab accent must be a lower-case #rrggbb colour.'),
+    // `.min(1)` only. Full coverage of the conclusion proposals is a cross-field rule and lives in the
+    // top-level refinement, where the message can name what is actually missing.
+    critiques: z.array(RivalLabCritiqueSchema).min(1)
+}).strict();
+
 /** Walks an authored predicate tree, including nested `all-of` children. */
 const flattenSupportPredicates = (
     predicate: z.infer<typeof ConclusionSupportPredicateSchema>
@@ -365,6 +387,7 @@ export const CaseDefinitionSchema = z.object({
     // correctly without an authored message.
     predictionProposals: z.array(PredictionProposalSchema).length(4),
     conclusionProposals: z.array(ConclusionProposalSchema).length(4),
+    rivalLab: RivalLabSchema,
     consultationRules: z.array(ConsultationRuleSchema).min(4),
     peerReviewRules: z.array(PeerReviewRuleSchema).min(3),
     flow: z.object({
@@ -501,6 +524,43 @@ export const CaseDefinitionSchema = z.object({
     // one the evaluator can never defend, and no evidence the player gathers would change that.
     if (definition.conclusionProposals.length > 0 && !definition.conclusionProposals.some(({ supportPredicate }) => isSatisfiablePredicate(supportPredicate))) {
         context.addIssue({ code: 'custom', message: 'At least one conclusion proposal must be defensible on some evidence.', path: ['conclusionProposals'] });
+    }
+
+    // --- Rival lab ------------------------------------------------------------------------------
+    //
+    // Here rather than in `RivalLabSchema`'s own refinement: every rule below is about the critiques
+    // *against the conclusion proposals*, which that schema cannot see.
+
+    const critiqueIds = definition.rivalLab.critiques.map(({ id }) => id);
+    if (new Set(critiqueIds).size !== critiqueIds.length) {
+        context.addIssue({ code: 'custom', message: 'Rival-lab critique IDs must be stable and unique.', path: ['rivalLab', 'critiques'] });
+    }
+    const conclusionIds = new Set(definition.conclusionProposals.map(({ id }) => id));
+    definition.rivalLab.critiques.forEach((critique, index) => {
+        if (!conclusionIds.has(critique.proposalId)) {
+            context.addIssue({
+                code: 'custom',
+                message: 'Every rival-lab critique must answer an authored conclusion proposal.',
+                path: ['rivalLab', 'critiques', index, 'proposalId']
+            });
+        }
+        if (encodesPath(critique.line)) {
+            context.addIssue({
+                code: 'custom',
+                message: 'Rival-lab copy must not encode a scene, route, or phase path.',
+                path: ['rivalLab', 'critiques', index, 'line']
+            });
+        }
+    });
+    // Total coverage is what makes critique selection total, and it is why no generic fallback line
+    // exists: a conclusion the rival has nothing to say about would submit into silence.
+    const critiquedProposalIds = new Set(definition.rivalLab.critiques.map(({ proposalId }) => proposalId));
+    if (definition.conclusionProposals.some(({ id }) => !critiquedProposalIds.has(id))) {
+        context.addIssue({
+            code: 'custom',
+            message: 'Every conclusion proposal must carry at least one rival-lab critique.',
+            path: ['rivalLab', 'critiques']
+        });
     }
 
     // --- Scenario dialogue beats ----------------------------------------------------------------

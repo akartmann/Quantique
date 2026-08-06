@@ -109,6 +109,16 @@ const validYoungCase: CaseDefinition = {
             supportPredicate: { kind: 'never' }
         }
     ],
+    rivalLab: {
+        name: 'Mr. Arthur Bell',
+        accentColor: '#8c3b3b',
+        critiques: [
+            { id: 'critique-c-1', proposalId: 'c-1', line: bilingual('You measured one setting twice and call it a trend.') },
+            { id: 'critique-c-2', proposalId: 'c-2', line: bilingual('I see no record of either setting varied on its own.') },
+            { id: 'critique-c-3', proposalId: 'c-3', line: bilingual('One bench, one lamp, and the matter is settled? State where your bands stop.') },
+            { id: 'critique-c-4', proposalId: 'c-4', line: bilingual('Which effect you never observed does this bench account for?') }
+        ]
+    },
     consultationRules: [
         { id: 'missing-run', predicate: { kind: 'missing-run' }, layers: { observation: bilingual('Fewer than two observations are recorded.'), plainLanguage: bilingual('Record another observation.'), technicalDetail: bilingual('Use another bounded setting.') }, nextStep: bilingual('Record an observation.') },
         { id: 'missing-source', predicate: { kind: 'missing-source', sourceId: 'young-lecture-1801' }, layers: { observation: bilingual('A source is not inspected.'), plainLanguage: bilingual('Inspect the source.'), technicalDetail: bilingual('Check its provenance.') }, nextStep: bilingual('Inspect the lecture record.') },
@@ -785,6 +795,83 @@ describe('CaseDefinitionSchema', () => {
     ])('rejects %s', (_description, mutate) => {
         const definition = cloneValidCase() as unknown as Record<string, unknown>;
         mutate(definition);
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
+
+    // --- Rival lab (Story 2.5) -------------------------------------------------------------------
+
+    it('parses the authored rival lab and its critiques', () => {
+        const parsed = CaseDefinitionSchema.safeParse(validYoungCase);
+
+        expect(parsed).toMatchObject({
+            success: true,
+            data: { rivalLab: { name: 'Mr. Arthur Bell', accentColor: '#8c3b3b' } }
+        });
+    });
+
+    /**
+     * `RivalLab` is routable but not *authorable*: it is not a phase, so a scenario script must not be
+     * able to map one to it. This is the same case as the `'an unknown scene key'` mutation above, kept
+     * explicit — Story 2.5 widened the runtime registry (`ROUTABLE_SCENE_KEYS`) and deliberately left
+     * `SCENE_KEYS`, the content vocabulary, exactly as it was.
+     */
+    it('still rejects RivalLab as an authored scene key', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        ((definition.scenarioScript as { scenes: Array<{ sceneKey: string }> }).scenes[3]).sceneKey = 'RivalLab';
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
+
+    it.each([
+        ['a missing rival lab', (definition: Record<string, unknown>) => { delete definition.rivalLab; }],
+        ['an empty critique list', (definition: Record<string, unknown>) => {
+            (definition.rivalLab as { critiques: unknown[] }).critiques = [];
+        }],
+        ['a critique answering an unauthored proposal', (definition: Record<string, unknown>) => {
+            ((definition.rivalLab as { critiques: Array<{ proposalId: string }> }).critiques[0]).proposalId = 'c-99';
+        }],
+        ['a conclusion proposal with no critique', (definition: Record<string, unknown>) => {
+            const rival = definition.rivalLab as { critiques: Array<{ proposalId: string }> };
+            rival.critiques = rival.critiques.filter(({ proposalId }) => proposalId !== 'c-3');
+        }],
+        ['duplicate critique IDs', (definition: Record<string, unknown>) => {
+            const critiques = (definition.rivalLab as { critiques: Array<{ id: string }> }).critiques;
+            critiques[1].id = critiques[0].id;
+        }],
+        ['an English path encoded in a critique line', (definition: Record<string, unknown>) => {
+            ((definition.rivalLab as { critiques: Array<{ line: LocalizedText }> }).critiques[0]).line =
+                bilingual('Go back to the theory board scene and try again.');
+        }],
+        ['a French route encoded in words in a critique line', (definition: Record<string, unknown>) => {
+            ((definition.rivalLab as { critiques: Array<{ line: LocalizedText }> }).critiques[0]).line =
+                { en: 'Come back with another measurement.', fr: 'Retournez à la scène du tableau et recommencez.' };
+        }],
+        ['an arrow encoding a path in a critique line', (definition: Record<string, unknown>) => {
+            ((definition.rivalLab as { critiques: Array<{ line: LocalizedText }> }).critiques[0]).line =
+                bilingual('Board → bench → board again.');
+        }],
+        ['a critique line missing its French', (definition: Record<string, unknown>) => {
+            ((definition.rivalLab as { critiques: Array<Record<string, unknown>> }).critiques[0]).line = { en: 'One locale only.' };
+        }],
+        ['an upper-case rival accent', (definition: Record<string, unknown>) => {
+            (definition.rivalLab as { accentColor: string }).accentColor = '#8C3B3B';
+        }],
+        ['a three-digit rival accent', (definition: Record<string, unknown>) => {
+            (definition.rivalLab as { accentColor: string }).accentColor = '#8b3';
+        }],
+        ['a blank rival name', (definition: Record<string, unknown>) => {
+            (definition.rivalLab as { name: string }).name = '   ';
+        }],
+        ['an unknown rival lab field', (definition: Record<string, unknown>) => {
+            (definition.rivalLab as Record<string, unknown>).colleagueId = 'arthur-bell';
+        }],
+        ['an unknown critique field', (definition: Record<string, unknown>) => {
+            ((definition.rivalLab as { critiques: Array<Record<string, unknown>> }).critiques[0]).severity = 'high';
+        }]
+    ])('rejects %s', (_description, mutate) => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        mutate(definition);
+
         expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
     });
 });

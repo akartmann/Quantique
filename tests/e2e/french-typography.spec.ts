@@ -4,7 +4,21 @@ import { expect, test } from '@playwright/test';
 
 import { fr } from '../../src/core/i18n/locales/fr';
 import { BOOK_FONT_STACK, FRENCH_GLYPH_SAMPLE, UI_FONT_STACK } from '../../src/adapters/phaser/textStyles';
-import { PROPOSAL_SURFACE_WIDTH } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import {
+    CONCLUSION_HEADING_WRAP,
+    PROPOSAL_SURFACE_WIDTH,
+    SUBMIT_CONTROL_FONT_SIZE,
+    SUBMIT_CONTROL_LABEL_WRAP
+} from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import {
+    RIVAL_LAB_BODY_FONT_SIZE,
+    RIVAL_LAB_CONTROL_FONT_SIZE,
+    RIVAL_LAB_CONTROL_LABEL_WRAP,
+    RIVAL_LAB_GUIDE_FONT_SIZE,
+    RIVAL_LAB_HEADING_FONT_SIZE,
+    RIVAL_LAB_SPEAKER_FONT_SIZE,
+    rivalLabTextWrapWidth
+} from '../../src/adapters/phaser/renderers/RivalLabRenderer';
 import {
     DIALOGUE_CONTROL_FONT_SIZE,
     DIALOGUE_CONTROL_LABEL_WRAP,
@@ -47,6 +61,7 @@ const FRENCH_GLYPHS = [...'éèêëàâçîïôûùÿœŒÉÈÊÀÂÇÎÏÔÛÙ�
 const CARD_TEXT_WRAP_WIDTH = proposalTextWrapWidth(PROPOSAL_SURFACE_WIDTH);
 const DIALOGUE_BODY_WRAP_WIDTH = dialogueBodyWrapWidth(PROPOSAL_SURFACE_WIDTH);
 const DIALOGUE_SPEAKER_WRAP_WIDTH = dialogueSpeakerWrapWidth(PROPOSAL_SURFACE_WIDTH);
+const RIVAL_LAB_TEXT_WRAP_WIDTH = rivalLabTextWrapWidth();
 
 /**
  * Each wrapped Phaser `Text` that holds authored French copy, with the wrap bound and font size
@@ -72,8 +87,17 @@ const WRAPPED_SURFACES = [
     // marker at its own narrow right-hand column.
     { key: 'colleagues.heading', font: UI_FONT_STACK, fontSize: 25, wrapWidth: PROPOSAL_SURFACE_WIDTH },
     { key: 'colleagues.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: PROPOSAL_SURFACE_WIDTH },
-    { key: 'theoryBoard.heading', font: UI_FONT_STACK, fontSize: 25, wrapWidth: PROPOSAL_SURFACE_WIDTH },
+    // Narrower than its prediction counterpart: Story 2.5 gave the conclusion heading's row to the
+    // submit control, so the bound is derived from the renderer rather than shared with the guide.
+    { key: 'theoryBoard.heading', font: UI_FONT_STACK, fontSize: 25, wrapWidth: CONCLUSION_HEADING_WRAP },
     { key: 'theoryBoard.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: PROPOSAL_SURFACE_WIDTH },
+    { key: 'theoryBoard.submit', font: UI_FONT_STACK, fontSize: SUBMIT_CONTROL_FONT_SIZE, wrapWidth: SUBMIT_CONTROL_LABEL_WRAP },
+    // Rival lab (Story 2.5). The prose wraps against the surface less the accent column; the revise
+    // control is a fixed hit target, so its label is bounded by the control rather than by the surface.
+    { key: 'rivalLab.heading', font: UI_FONT_STACK, fontSize: RIVAL_LAB_HEADING_FONT_SIZE, wrapWidth: RIVAL_LAB_TEXT_WRAP_WIDTH },
+    { key: 'rivalLab.guide', font: UI_FONT_STACK, fontSize: RIVAL_LAB_GUIDE_FONT_SIZE, wrapWidth: RIVAL_LAB_TEXT_WRAP_WIDTH },
+    { key: 'rivalLab.role', font: UI_FONT_STACK, fontSize: RIVAL_LAB_SPEAKER_FONT_SIZE, wrapWidth: RIVAL_LAB_TEXT_WRAP_WIDTH },
+    { key: 'rivalLab.revise', font: UI_FONT_STACK, fontSize: RIVAL_LAB_CONTROL_FONT_SIZE, wrapWidth: RIVAL_LAB_CONTROL_LABEL_WRAP },
     // The card bound, which is the tighter of the two places an attribution line is drawn. The dialogue
     // speaker line is measured against its own narrower bound in the authored-beat test below, because
     // this table is keyed by translation key and cannot hold two bounds for one key.
@@ -107,6 +131,7 @@ const caseDefinition = JSON.parse(
     contextualArtifacts: { displayName: { fr: string } }[];
     apparatus: { primaryControls: { label: { fr: string } }[] };
     colleagues: { name: string }[];
+    rivalLab: { name: string; critiques: { id: string; line: { en: string; fr: string } }[] };
     predictionProposals: { text: { en: string; fr: string } }[];
     conclusionProposals: { claim: { en: string; fr: string }; limitation: { en: string; fr: string } }[];
     scenarioScript: { scenes: { phase: string; dialogueBeats?: { id: string; text: { en: string; fr: string } }[] }[] };
@@ -162,6 +187,16 @@ const DIALOGUE_BEATS = caseDefinition.scenarioScript.scenes.flatMap(({ phase, di
         { label: `${phase} beat ${id} [fr]`, text: text.fr },
         { label: `${phase} beat ${id} [en]`, text: text.en }
     ]));
+/**
+ * Every authored rival-lab critique, in both locales, for the same reason the dialogue beats are swept
+ * that way: the pass condition is per-token pixel width, and an unbreakable token overflows in whatever
+ * language it was written. These are the longest single runs of prose on any surface in the game.
+ */
+const RIVAL_LAB_CRITIQUES = caseDefinition.rivalLab.critiques.flatMap(({ id, line }) => [
+    { label: `rival-lab critique ${id} [fr]`, text: line.fr },
+    { label: `rival-lab critique ${id} [en]`, text: line.en }
+]);
+
 const LONGEST_CONVERSATION = Math.max(
     1,
     ...caseDefinition.scenarioScript.scenes.map(({ dialogueBeats }) => dialogueBeats?.length ?? 0)
@@ -319,6 +354,37 @@ test('keeps the authored dialogue inside the panel that holds it, in both locale
     // A guard on the sweep itself: an empty list would make the assertion above vacuous, which is how
     // a spec starts passing because the content it measures stopped being found.
     expect(DIALOGUE_BEATS.length).toBeGreaterThan(0);
+});
+
+test('keeps the authored rival-lab critiques inside the surface that holds them, in both locales', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
+
+    // The critique body has no `maxLines` — truncating the objection is the one thing that surface must
+    // not do — so what can still go wrong is a single token wider than the wrap bound, which Phaser
+    // cannot break. The speaker line is measured at its own size against the same bound.
+    const authored = [
+        ...RIVAL_LAB_CRITIQUES.map(({ label, text }) => ({ label, fontSize: RIVAL_LAB_BODY_FONT_SIZE, text })),
+        {
+            label: 'rival-lab speaker',
+            fontSize: RIVAL_LAB_SPEAKER_FONT_SIZE,
+            text: fr['colleague.attribution']
+                .replaceAll('{name}', caseDefinition.rivalLab.name)
+                .replaceAll('{role}', fr['rivalLab.role'])
+        }
+    ];
+    const samples = authored.flatMap(({ label, fontSize, text }) =>
+        text.split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({ label, font: UI_FONT_STACK, fontSize, text: token })));
+    const widths = await measure(page, samples);
+
+    const overflowing = samples
+        .map((sample, index) => ({ ...sample, width: widths[index] }))
+        .filter(({ width }) => width > RIVAL_LAB_TEXT_WRAP_WIDTH)
+        .map(({ label, text, width }) => `${label}: "${text}" (${Math.round(width)}px > ${RIVAL_LAB_TEXT_WRAP_WIDTH}px)`);
+
+    expect(overflowing).toEqual([]);
+    // A guard on the sweep: an empty list would make the assertion above vacuously true.
+    expect(RIVAL_LAB_CRITIQUES.length).toBeGreaterThan(0);
 });
 
 test('fits every French book control inside its fixed button width', async ({ page }) => {

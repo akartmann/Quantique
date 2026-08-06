@@ -1,26 +1,26 @@
 import type { AppStore } from '../../core/store/createStore';
-import { selectCasePhase } from '../../core/store/selectors';
+import { selectCasePhase, selectRivalLabCritique } from '../../core/store/selectors';
 import type { CasePhase } from '../../domain/cases/CaseProgress';
-import type { ScenarioScript, SceneKey } from '../../domain/cases/ScenarioScript';
+import { RIVAL_LAB_SCENE_KEY, type RoutableSceneKey, type ScenarioScript, type SceneKey } from '../../domain/cases/ScenarioScript';
 
 /**
  * The slice of Phaser's scene manager the router drives, declared structurally so it can be
  * injected — a real Phaser.Game needs a canvas that the Vitest environment does not provide.
  */
 export type SceneRouterTarget = Readonly<{
-    start: (sceneKey: SceneKey) => unknown;
-    stop: (sceneKey: SceneKey) => unknown;
-    isActive: (sceneKey: SceneKey) => boolean | null;
+    start: (sceneKey: RoutableSceneKey) => unknown;
+    stop: (sceneKey: RoutableSceneKey) => unknown;
+    isActive: (sceneKey: RoutableSceneKey) => boolean | null;
     /**
      * Registers a one-shot listener for the scene having actually run `create`. The router reports an
      * activation only from this, never from its own intent: `start` is a request Phaser can decline
      * (an unregistered key only warns), so an intent-based signal can claim a scene that never ran.
      */
-    onceCreated: (sceneKey: SceneKey, listener: () => void) => void;
+    onceCreated: (sceneKey: RoutableSceneKey, listener: () => void) => void;
 }>;
 
 export type SceneRouter = Readonly<{
-    getActiveSceneKey: () => SceneKey | undefined;
+    getActiveSceneKey: () => RoutableSceneKey | undefined;
     dispose: () => void;
 }>;
 
@@ -48,12 +48,18 @@ export const createSceneRouter = (
     scenes: SceneRouterTarget,
     store: AppStore,
     scenarioScript: ScenarioScript,
-    onSceneActivated?: (sceneKey: SceneKey) => void
+    onSceneActivated?: (sceneKey: RoutableSceneKey) => void
 ): SceneRouter => {
-    let activeSceneKey: SceneKey | undefined;
+    let activeSceneKey: RoutableSceneKey | undefined;
 
     const route = (): void => {
-        const nextSceneKey = resolveSceneKey(scenarioScript, selectCasePhase(store.getState()));
+        const state = store.getState();
+        // A standing rival-lab challenge overrides the phase's scene without moving the phase — which
+        // is exactly why `RivalLab` is not in the content vocabulary and `resolveSceneKey` stays a pure
+        // phase lookup. The router still only *reads*: the store owns when the challenge stands.
+        const nextSceneKey: RoutableSceneKey = selectRivalLabCritique(state)
+            ? RIVAL_LAB_SCENE_KEY
+            : resolveSceneKey(scenarioScript, selectCasePhase(state));
         // The store notifies on every transition, and one scene can host several phases.
         if (nextSceneKey === activeSceneKey) return;
 

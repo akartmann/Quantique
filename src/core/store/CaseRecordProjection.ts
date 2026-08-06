@@ -19,6 +19,7 @@ export const createCaseRecordProjection = (state: AppState): Result<CaseRecord> 
         comparison: state.comparison,
         theory: state.theory,
         selectedConclusionProposalId: state.selectedConclusionProposalId,
+        critiqueHistory: state.critiqueHistory,
         decisionHistory: state.decisionHistory,
         completion: state.completion,
         replay: state.replay,

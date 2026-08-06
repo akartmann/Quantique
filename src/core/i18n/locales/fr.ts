@@ -121,9 +121,16 @@ export const fr: Record<TranslationKey, string> = {
     'colleagues.guide': 'Vos collègues n’attendent pas la même chose. Choisissez l’hypothèse que vous voulez mettre à l’épreuve — vous pourrez en changer à tout moment.',
     'theoryBoard.heading': 'Quelle conclusion signez-vous ?',
     'theoryBoard.guide': 'Chaque collègue a rédigé une conclusion et la limite qu’il ou elle énoncerait avec. Choisissez-en une — vous pourrez en changer à tout moment.',
+    'theoryBoard.submit': 'Soumettre cette conclusion',
     'proposal.limitation': 'Limite énoncée : {limitation}',
     'proposal.selected': '✓ Retenue',
     'proposal.choose': 'Retenir celle-ci',
+
+    // --- Rival lab --------------------------------------------------------------------------------
+    'rivalLab.role': 'Laboratoire rival',
+    'rivalLab.heading': 'Une objection venue d’en face',
+    'rivalLab.guide': 'Rien n’est perdu, et rien n’est noté. Revenez énoncer une affirmation que vos preuves peuvent porter — ou réunissez de quoi répondre à l’objection.',
+    'rivalLab.revise': 'Revenir à votre conclusion',
 
     // --- Dialogue ---------------------------------------------------------------------------------
     'dialogue.advance': 'Continuer',
@@ -205,6 +212,10 @@ export const fr: Record<TranslationKey, string> = {
     'error.unknown-prediction-proposal': 'Cette prédiction ne fait pas partie des propositions offertes.',
     'error.unknown-conclusion-proposal': 'Cette conclusion ne fait pas partie des propositions offertes.',
     'error.conclusion-phase-unavailable': 'Rejoignez le tableau de théorie avant de choisir une conclusion.',
+    'error.conclusion-submission-unavailable': 'Rejoignez le tableau de théorie avant de soumettre une conclusion.',
+    'error.conclusion-choice-required': 'Choisissez une conclusion avant de la soumettre.',
+    'error.invalid-critique-timestamp': 'Fournissez un horodatage UTC de soumission valide.',
+    'error.rival-lab-critique-unavailable': 'Aucune objection n’est en attente de réponse.',
     'error.missing-prediction': 'Enregistrez une prédiction provisoire avant de passer à l’expérimentation.',
     'error.unknown-theory-run': 'Cette observation est indisponible comme appui de la conclusion.',
     'error.duplicate-theory-run': 'Cette observation appuie déjà cette conclusion.',

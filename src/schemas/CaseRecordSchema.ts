@@ -64,6 +64,21 @@ const DecisionHistoryEntrySchema = z.object({
     timestamp
 }).strict();
 
+/**
+ * A rival-lab challenge, as **IDs and a timestamp only**.
+ *
+ * The critique's prose is deliberately absent. `PeerReviewIssue` persists authored English feedback
+ * into `DecisionHistoryEntry`, and `validateCaseRecordForDefinition` recomputes it and
+ * `JSON.stringify`-compares it on every load — so one copy edit to an authored feedback string
+ * silently invalidates every record ever saved. Nothing here inherits that: the line is resolved from
+ * `case.json` at display time, and an author may rewrite a critique freely.
+ */
+const RivalLabCritiqueEntrySchema = z.object({
+    proposalId: text,
+    critiqueId: text,
+    timestamp
+}).strict();
+
 const recognitionDefinitionById = new Map(recognitionDefinitions().map((item) => [item.id, item]));
 const RecognitionItemSchema = z.object({
     id: z.enum(RECOGNITION_IDS),
@@ -115,6 +130,9 @@ export const CaseRecordSchema = z.object({
         notes: z.array(z.object({ runIds: z.tuple([text, text]), text }).strict())
     }).strict(),
     theory: z.object({ selectedRunIds: z.array(text), selectedSourceIds: z.array(text), conclusion: z.string(), limitation: z.string() }).strict(),
+    // Optional additive again, so `schemaVersion` stays 3 and `migrateCaseRecord` is untouched: a
+    // pre-2.5 record simply omits it, exactly as a pre-1.11 one omits the proposal IDs above.
+    critiqueHistory: z.array(RivalLabCritiqueEntrySchema).optional(),
     decisionHistory: z.array(DecisionHistoryEntrySchema),
     completion: z.object({
         completedAt: timestamp,
@@ -126,6 +144,7 @@ export const CaseRecordSchema = z.object({
             selectedRunIds: z.array(text).max(2),
             notes: z.array(z.object({ runIds: z.tuple([text, text]), text }).strict())
         }).strict(),
+        critiqueHistory: z.array(RivalLabCritiqueEntrySchema).optional(),
         recognition: RecognitionSchema
     }).strict().optional(),
     replay: z.object({ isCounterfactual: z.boolean() }).strict(),
@@ -141,6 +160,33 @@ const failure = (code: 'invalid-import' | 'invalid-case-record' | 'incompatible-
 
 const validIds = (values: readonly string[], available: ReadonlySet<string>): boolean => unique(values) && values.every((value) => available.has(value));
 
+/**
+ * Checks a persisted challenge log by **lookup only**: the proposal is authored, the critique is
+ * authored *and answers that proposal*, and the log is in order.
+ *
+ * That is the whole contract, and the restraint is the point. Recomputing which conclusions were
+ * defensible at the moment of each submission would need evidence this record no longer distinguishes
+ * by time, and recomputing-and-comparing the authored prose is precisely the `peerReviewRules` trap
+ * that makes a copy edit reject every saved investigation.
+ */
+const validCritiqueHistory = (
+    entries: readonly { proposalId: string; critiqueId: string; timestamp: string }[] | undefined,
+    definition: CaseDefinition
+): boolean => {
+    // An absent or empty log needs no authored content consulted at all, which is also what keeps this
+    // off the hot path of every ordinary load.
+    if (!entries || entries.length === 0) return true;
+    const conclusionIds = new Set(definition.conclusionProposals.map(({ id }) => id));
+    const critiques = new Map(definition.rivalLab.critiques.map((critique) => [critique.id, critique]));
+    let previousTimestamp = '';
+    return entries.every((entry) => {
+        const critique = critiques.get(entry.critiqueId);
+        const ordered = !previousTimestamp || entry.timestamp > previousTimestamp;
+        previousTimestamp = entry.timestamp;
+        return conclusionIds.has(entry.proposalId) && critique?.proposalId === entry.proposalId && ordered;
+    });
+};
+
 /** Revalidates untrusted progress against the immutable definition already loaded by the app. */
 export const validateCaseRecordForDefinition = (record: CaseRecord, definition: CaseDefinition): Result<CaseRecord> => {
     // Case-definition versions whose *progress-bearing* contract is unchanged, so a record saved
@@ -154,7 +200,13 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         || (definition.version === '1.2.0' && ['1.0.0', '1.1.0'].includes(record.caseDefinitionVersion))
         || (definition.version === '1.6.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0'].includes(record.caseDefinitionVersion))
         || (definition.version === '1.7.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0'].includes(record.caseDefinitionVersion))
-        || (definition.version === '1.8.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0'].includes(record.caseDefinitionVersion));
+        || (definition.version === '1.8.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0'].includes(record.caseDefinitionVersion))
+        // 1.9.0 added the rival lab and its critiques. The allowlist rests on the assumption that the
+        // canonical English strings a record *recomputes and compares* are byte-identical across the
+        // listed versions — `feedback` and `revisionPath` from `peerReviewRules`, and the proposal
+        // claims and limitations. Story 2.5 changed none of them: it only added content, and what
+        // `critiqueHistory` persists is IDs, which are checked by lookup rather than by comparison.
+        || (definition.version === '1.9.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }
@@ -260,6 +312,10 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
     }
 
+    if (!validCritiqueHistory(record.critiqueHistory, definition)) {
+        return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+    }
+
     let previousTimestamp = '';
     let previousConclusion = '';
     for (let index = 0; index < record.decisionHistory.length; index += 1) {
@@ -303,6 +359,7 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
             || JSON.stringify(completion.finalDecision) !== JSON.stringify(completion.decisionHistory[completion.decisionHistory.length - 1])
             || !validIds(completion.inspectedSourceIds, new Set(sources.keys()))
             || !completion.inspectedSourceIds.every((sourceId) => isSourceEligibleForInspection(sources.get(sourceId)!))
+            || !validCritiqueHistory(completion.critiqueHistory, definition)
             || completion.recognition.version !== 1) {
             return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
         }

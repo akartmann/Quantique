@@ -132,6 +132,35 @@ export type PeerReviewRule = Readonly<{
     revisionPath: LocalizedText;
 }>;
 
+/**
+ * One authored rival-lab line, addressed to one conclusion proposal.
+ *
+ * `line` is display prose — `LocalizedText`, never a detection phrase list — and it is resolved from
+ * the definition at display time. What a record persists is the `id`, so an author may rewrite a
+ * critique without invalidating a single saved investigation. See `peerReviewRules.ts` for the
+ * persisted-prose trap this deliberately avoids.
+ */
+export type RivalLabCritique = Readonly<{
+    id: string;
+    proposalId: string;
+    line: LocalizedText;
+}>;
+
+/**
+ * The rival lab's identity and its authored critiques.
+ *
+ * Grouped under one object rather than a flat `rivalLabCritiques[]` because the rival's name and
+ * accent have to live somewhere and he is deliberately **not** a member of `colleagues[]` — he is the
+ * challenger, not the cast, and nothing may attribute a proposal or a dialogue beat to him.
+ *
+ * `name` is canonical: a proper noun, following `Colleague.name` and `creatorOrOrigin`.
+ */
+export type RivalLab = Readonly<{
+    name: string;
+    accentColor: string;
+    critiques: readonly RivalLabCritique[];
+}>;
+
 export type CaseDefinition = Readonly<{
     id: 'young-interference';
     version: string;
@@ -155,6 +184,8 @@ export type CaseDefinition = Readonly<{
     predictionProposals: readonly PredictionProposal[];
     /** Exactly four, likewise. Defensibility is the evaluator's business, never a scene's. */
     conclusionProposals: readonly ConclusionProposal[];
+    /** The rival lab and its critiques. Validation guarantees every conclusion proposal draws one. */
+    rivalLab: RivalLab;
     consultationRules: readonly ConsultationRule[];
     peerReviewRules: readonly PeerReviewRule[];
     flow: Readonly<{

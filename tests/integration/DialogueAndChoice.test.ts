@@ -224,17 +224,20 @@ describe('beat position is never persisted', () => {
      * lists fail on *any* field arriving, whatever it is called — which is the property the decision
      * actually needs, since the cost being guarded against is a record field plus a migration.
      */
+    // `critiqueHistory` joined both lists in Story 2.5. It is the record of which rival-lab challenges
+    // an investigation drew — a fact about the investigation, not a reading position — and it carries
+    // IDs and a timestamp only.
     const RECORD_FIELDS = [
         'activeControlValues', 'caseDefinitionVersion', 'caseId', 'comparison', 'completion',
-        'decisionHistory', 'inspectedSourceIds', 'phase', 'prediction', 'recognition', 'replay', 'runs',
-        'schemaVersion', 'selectedConclusionProposalId', 'selectedPredictionProposalId',
+        'critiqueHistory', 'decisionHistory', 'inspectedSourceIds', 'phase', 'prediction', 'recognition',
+        'replay', 'runs', 'schemaVersion', 'selectedConclusionProposalId', 'selectedPredictionProposalId',
         'selectedWavelengthMode', 'selectedWavelengthNm', 'theory'
     ];
     const STATE_FIELDS = [
         'activeControlValues', 'caseDefinition', 'comparison', 'completion', 'consultation',
-        'decisionHistory', 'inspectedSourceIds', 'locale', 'peerReview', 'phase', 'prediction',
-        'recognition', 'replay', 'runs', 'selectedConclusionProposalId', 'selectedPredictionProposalId',
-        'selectedWavelengthMode', 'selectedWavelengthNm', 'theory'
+        'critiqueHistory', 'decisionHistory', 'inspectedSourceIds', 'locale', 'peerReview', 'phase',
+        'prediction', 'recognition', 'replay', 'rivalLabCritique', 'runs', 'selectedConclusionProposalId',
+        'selectedPredictionProposalId', 'selectedWavelengthMode', 'selectedWavelengthNm', 'theory'
     ];
 
     it('carries exactly the authored record fields, so no beat position could have been added', () => {

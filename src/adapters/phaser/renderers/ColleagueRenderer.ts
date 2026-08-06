@@ -48,6 +48,39 @@ const CARD_WIDTH = PROPOSAL_SURFACE_WIDTH;
 
 const HEADING_Y = 30;
 const GUIDE_Y = 68;
+
+/**
+ * The submit control, on the conclusion board only (Story 2.5).
+ *
+ * Choosing and submitting are deliberately separate acts: choosing stays freely revisable and draws no
+ * challenge, and submitting is what puts the claim in front of the rival lab. Without this the
+ * `theory.conclusionSubmitted` action would have no way in, and AC1's "when the choice is submitted"
+ * would be unreachable in the running game.
+ *
+ * It sits in the heading row rather than under the cards, and the heading's wrap width narrows to make
+ * room. The alternative — a band below the cards — would take height out of `cardGeometry`'s budget,
+ * which the 1.12 review already found to be the tightest thing on this surface.
+ */
+const SUBMIT_WIDTH = 232;
+const SUBMIT_HEIGHT = 34;
+const SUBMIT_GAP = 16;
+const SUBMIT_LABEL_PADDING = 10;
+const SUBMIT_FILL = 0x1d4451;
+
+export const SUBMIT_CONTROL_FONT_SIZE = 15;
+export const SUBMIT_CONTROL_LABEL_WRAP = SUBMIT_WIDTH - (2 * SUBMIT_LABEL_PADDING);
+/** The conclusion heading shares its row with the submit control, so it wraps against what is left. */
+export const CONCLUSION_HEADING_WRAP = PROPOSAL_SURFACE_WIDTH - SUBMIT_WIDTH - SUBMIT_GAP;
+
+/**
+ * The design-space centre of the submit control, so a browser test can click it without restating the
+ * heading row's gutters. Fixed, unlike the cards: it is anchored to the top of the surface, which
+ * nothing measured pushes around.
+ */
+export const submitConclusionControlCentre = (): Readonly<{ x: number; y: number }> => ({
+    x: PROPOSAL_SURFACE_LEFT + PROPOSAL_SURFACE_WIDTH - (SUBMIT_WIDTH / 2),
+    y: HEADING_Y + (SUBMIT_HEIGHT / 2)
+});
 /**
  * Where the dialogue panel sits when the guide above it has not been measured yet — `create()` builds
  * the panel before the first `render` writes any copy into the guide, so there is nothing to measure.
@@ -120,6 +153,9 @@ export class ColleagueRenderer {
     private heading?: Phaser.GameObjects.Text;
     private guide?: Phaser.GameObjects.Text;
     private dialogueBox?: DialogueBox;
+    /** Conclusion board only: choosing is revisable, submitting is what invites the rival lab. */
+    private submitControl?: Phaser.GameObjects.Rectangle;
+    private submitLabel?: Phaser.GameObjects.Text;
     private inputEnabled = true;
     /** Shown in place of the guide line until the next render, so a refused click is not silent. */
     private transientError?: string;
@@ -146,9 +182,22 @@ export class ColleagueRenderer {
         const state = this.storeAdapter.getState();
         // Text is authored empty here and populated by render(): create() runs once, but the
         // language can change at any time, so every string comes from the store subscription.
-        this.heading = this.scene.add.text(CARD_LEFT, HEADING_Y, '', uiTextStyle({ color: '#f7f4ef', fontSize: '25px', wordWrap: { width: CARD_WIDTH } }));
+        // The conclusion board gives its heading row to the submit control, so the heading wraps
+        // against the space that is actually left rather than running underneath it.
+        const headingWrap = this.kind === 'conclusion' ? CONCLUSION_HEADING_WRAP : CARD_WIDTH;
+        this.heading = this.scene.add.text(CARD_LEFT, HEADING_Y, '', uiTextStyle({ color: '#f7f4ef', fontSize: '25px', wordWrap: { width: headingWrap } }));
         this.guide = this.scene.add.text(CARD_LEFT, GUIDE_Y, '', uiTextStyle({ color: '#c7d7d9', fontSize: '15px', wordWrap: { width: CARD_WIDTH } }));
         this.objects.push(this.heading, this.guide);
+
+        if (this.kind === 'conclusion') {
+            const { x, y } = submitConclusionControlCentre();
+            this.submitControl = this.scene.add.rectangle(x, y, SUBMIT_WIDTH, SUBMIT_HEIGHT, SUBMIT_FILL).setOrigin(0.5, 0.5);
+            this.submitLabel = this.scene.add.text(x, y, '', uiTextStyle({
+                color: '#f7f4ef', fontSize: `${SUBMIT_CONTROL_FONT_SIZE}px`, align: 'center', wordWrap: { width: SUBMIT_CONTROL_LABEL_WRAP }
+            })).setOrigin(0.5, 0.5);
+            this.submitControl.on('pointerup', () => this.submitConclusion());
+            this.objects.push(this.submitControl, this.submitLabel);
+        }
 
         this.dialogueBox = new DialogueBox(this.scene, {
             x: CARD_LEFT,
@@ -195,6 +244,7 @@ export class ColleagueRenderer {
         this.heading?.setText(t(this.kind === 'prediction' ? 'colleagues.heading' : 'theoryBoard.heading'));
         this.guide?.setText(this.transientError ?? t(this.kind === 'prediction' ? 'colleagues.guide' : 'theoryBoard.guide'));
         this.guide?.setColor(this.transientError ? '#f4d35e' : '#c7d7d9');
+        this.submitLabel?.setText(t('theoryBoard.submit'));
         // Cleared after drawing, so a refused click stays legible until the next real state change
         // replaces it rather than vanishing on the same frame.
         this.transientError = undefined;
@@ -219,6 +269,8 @@ export class ColleagueRenderer {
         this.dialogueBox = undefined;
         this.heading = undefined;
         this.guide = undefined;
+        this.submitControl = undefined;
+        this.submitLabel = undefined;
         this.transientError = undefined;
     }
 
@@ -228,6 +280,20 @@ export class ColleagueRenderer {
             ? state.caseDefinition.predictionProposals.find(({ id }) => id === proposalId)
             : state.caseDefinition.conclusionProposals.find(({ id }) => id === proposalId);
         return accentOf(state.caseDefinition.colleagues.find(({ id }) => id === authored?.colleagueId));
+    }
+
+    /**
+     * Puts the chosen conclusion in front of the rival lab. It surfaces a refusal for the same reason
+     * {@link chooseProposal} does — "choose a conclusion first" is a message the player needs, not a
+     * dispatch to swallow — and it never decides anything itself: whether a challenge follows is the
+     * evaluator's and the store's business.
+     */
+    private submitConclusion(): void {
+        const result = this.storeAdapter.submitConclusion();
+        if (result.ok) return;
+        const current = this.storeAdapter.getState();
+        this.transientError = selectLocalizedError(current, result.error);
+        this.render(current);
     }
 
     private chooseProposal(proposalId: string): void {
@@ -302,5 +368,7 @@ export class ColleagueRenderer {
     private applyInputState(): void {
         this.cards.forEach(({ choice }) => choice.setInputEnabled(this.inputEnabled));
         this.dialogueBox?.setInputEnabled(this.inputEnabled);
+        if (this.inputEnabled) this.submitControl?.setInteractive({ useHandCursor: true });
+        else this.submitControl?.disableInteractive();
     }
 }
