@@ -6,7 +6,7 @@ pivot_reference: 'planning-artifacts/sprint-change-proposal-2026-08-05.md §2.3,
 
 # Story 2.4: Young learning and educator validation gate
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -32,48 +32,48 @@ so that later cases build on demonstrated learning, bilingual completeness, and 
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Re-baseline the facilitator materials for the pivot** (AC: 1, 2, 3, 6)
-  - [ ] `docs/validation/young-observation-rubric.md` — rewrite **both** binary fields. They currently encode the retired player-authored-conclusion model.
+- [x] **Task 1 — Re-baseline the facilitator materials for the pivot** (AC: 1, 2, 3, 6)
+  - [x] `docs/validation/young-observation-rubric.md` — rewrite **both** binary fields. They currently encode the retired player-authored-conclusion model.
     - Field A (was "Recorded-evidence explanation"): the conclusion is now **1 of 4 authored colleague proposals**, so "cites a recorded observation" is trivially satisfiable by reading the proposal card aloud. Redefine: **Yes** only when the participant, unprompted and in their own words, names a *specific measurement or apparatus setting from their own run* as the reason that proposal beat the others. **No** when they restate the proposal's text, cite a colleague's authority, cite the source reading alone, or give a general impression. Add both as explicit non-credit examples — this is the single distinction the gate now rests on.
     - Field B ("Beyond-minimum variable test"): the minimum path is no longer "2 runs" but "**≥2 significant measures** per the case's significance rule" (Story 2.6). Redefine "beyond-minimum" as any apparatus variation the participant initiates that was **not needed to unlock the conclusion** — a further run after unlock, varying the second primary control, or the optional advanced wavelength comparison (`experiment.wavelengthComparison.advancedChoicesNm`, currently `[450, 650]`). Do not define it by run count.
     - Add a **per-session locale field** (`en` / `fr`) and state that the aggregate reports each measure both overall and split by locale.
-  - [ ] `docs/validation/young-validation-plan.md` — add the locale protocol (how a facilitator runs an FR session: the locale comes from the browser's language preferences, **there is no in-product language selector**, so the facilitator configures the browser before the session). Remove the accessibility gate from the workflow's step list; keep an "accessibility findings — recorded, non-blocking, post-MVP" step. Add the 2.5/2.6 prerequisite from AC6: **no moderated session may be scheduled until the rival-lab critique and the significant-measure gate have shipped**, because both revised metrics are undefined without them.
-  - [ ] `docs/validation/young-validation-aggregate-template.md` — add locale columns/rows and the split-by-locale calculation; keep totals-only (no names, no raw conclusions).
-  - [ ] `docs/validation/young-release-decision-template.md` — restructure the gate table:
+  - [x] `docs/validation/young-validation-plan.md` — add the locale protocol (how a facilitator runs an FR session: the locale comes from the browser's language preferences, **there is no in-product language selector**, so the facilitator configures the browser before the session). Remove the accessibility gate from the workflow's step list; keep an "accessibility findings — recorded, non-blocking, post-MVP" step. Add the 2.5/2.6 prerequisite from AC6: **no moderated session may be scheduled until the rival-lab critique and the significant-measure gate have shipped**, because both revised metrics are undefined without them.
+  - [x] `docs/validation/young-validation-aggregate-template.md` — add locale columns/rows and the split-by-locale calculation; keep totals-only (no names, no raw conclusions).
+  - [x] `docs/validation/young-release-decision-template.md` — restructure the gate table:
     - **Remove** "Manual accessibility acceptance" from the blocking rows.
     - **Add** blocking rows: `Stories 2.5 and 2.6 shipped` (prerequisite), `EN+FR content completeness across every Young surface`, `Reduced-motion / no-flashing check on the Phaser scenes`, `Moderated sample includes ≥1 EN and ≥1 FR session`.
     - **Add** a clearly separated non-blocking section for recorded accessibility findings with a named post-MVP carry-forward owner.
     - Keep: no waiver field, no override path, no partial approval; decision defaults to **Blocked**.
-  - [ ] `docs/validation/young-accessibility-findings-template.md` — retitle/reframe as **recorded, non-blocking, post-MVP** (ADR-008). Do **not** delete it, and do not delete the existing a11y specs. **Move** the reduced-motion and no-flashing/photosensitivity rows out into a new `docs/validation/young-motion-safety-template.md` as a **blocking** check — that guard survives the a11y de-scope and is the one motion rule the project still enforces.
-  - [ ] Add `docs/validation/young-bilingual-completeness-template.md`: one row per surface named in AC5, each with reviewer, evidence reference, Pass/Blocked, remediation owner, follow-up date. This is the project's most-repeated defect class — enumerate the surfaces rather than writing "all content".
-  - [ ] `docs/validation/young-technical-evidence.md` — **the recorded 2026-08-05 all-Pass table is stale** (12 stories have landed since; baseline is now `87f0ab5`). Reset every row to unrecorded, restamp against the current commit, and add a line naming the **known baseline-failing e2e specs** from `implementation-artifacts/deferred-work.md` so a pre-existing failure is never recorded as a Pass or attributed to this story.
+  - [x] `docs/validation/young-accessibility-findings-template.md` — retitle/reframe as **recorded, non-blocking, post-MVP** (ADR-008). Do **not** delete it, and do not delete the existing a11y specs. **Move** the reduced-motion and no-flashing/photosensitivity rows out into a new `docs/validation/young-motion-safety-template.md` as a **blocking** check — that guard survives the a11y de-scope and is the one motion rule the project still enforces.
+  - [x] Add `docs/validation/young-bilingual-completeness-template.md`: one row per surface named in AC5, each with reviewer, evidence reference, Pass/Blocked, remediation owner, follow-up date. This is the project's most-repeated defect class — enumerate the surfaces rather than writing "all content".
+  - [x] `docs/validation/young-technical-evidence.md` — **the recorded 2026-08-05 all-Pass table is stale** (12 stories have landed since; baseline is now `87f0ab5`). Reset every row to unrecorded, restamp against the current commit, and add a line naming the **known baseline-failing e2e specs** from `implementation-artifacts/deferred-work.md` so a pre-existing failure is never recorded as a Pass or attributed to this story.
 
-- [ ] **Task 2 — Localize the validation disclosure (live NFR19 defect)** (AC: 4, 5)
-  - [ ] `src/ui/ValidationSessionDisclosure.ts` hardcodes four English strings including its `aria-label`. Change the signature to `mountValidationSessionDisclosure(root: HTMLElement, locale: Locale)` — **required parameter, no `DEFAULT_LOCALE` fallback** (project-context: a silent default turns a forgotten call site from a `tsc` error into a French player silently reading English).
-  - [ ] Resolve every string through `createTranslator(locale)`. Add keys to `src/core/i18n/locales/en.ts` **and** `fr.ts` in a new `// --- Validation session ---` group: `validation.session.title`, `validation.session.facilitatorHeld`, `validation.session.noCollection`. `fr.ts` is typed as `keyof typeof en`, so a missing FR key is a `tsc` failure and `tests/unit/I18n.test.ts` already asserts key parity — no new completeness test is needed.
-  - [ ] Follow `docs/i18n-authoring.md` for key placement, FR typography (`«  »` guillemets with non-breaking spaces, `’` apostrophe), and the app-text-vs-case-content split. This disclosure is **app-owned interface text**, so it belongs in the locale files, not in `case.json`.
-  - [ ] `src/main.ts:80` — pass the already-resolved `locale` into the mount call.
-  - [ ] FR copy must stay calm and non-evaluative: no score, correctness, grading, or speed language, and no implication that the product is assessing the learner.
-  - [ ] Keep the existing `.validation-session-disclosure` class contract in `public/style.css` and the `#validation-session-disclosure` root in `index.html` unchanged — FR copy is longer than EN, so verify it does not overflow or clip at 1280×720.
+- [x] **Task 2 — Localize the validation disclosure (live NFR19 defect)** (AC: 4, 5)
+  - [x] `src/ui/ValidationSessionDisclosure.ts` hardcodes four English strings including its `aria-label`. Change the signature to `mountValidationSessionDisclosure(root: HTMLElement, locale: Locale)` — **required parameter, no `DEFAULT_LOCALE` fallback** (project-context: a silent default turns a forgotten call site from a `tsc` error into a French player silently reading English).
+  - [x] Resolve every string through `createTranslator(locale)`. Add keys to `src/core/i18n/locales/en.ts` **and** `fr.ts` in a new `// --- Validation session ---` group: `validation.session.title`, `validation.session.facilitatorHeld`, `validation.session.noCollection`. `fr.ts` is typed as `keyof typeof en`, so a missing FR key is a `tsc` failure and `tests/unit/I18n.test.ts` already asserts key parity — no new completeness test is needed.
+  - [x] Follow `docs/i18n-authoring.md` for key placement, FR typography (`«  »` guillemets with non-breaking spaces, `’` apostrophe), and the app-text-vs-case-content split. This disclosure is **app-owned interface text**, so it belongs in the locale files, not in `case.json`.
+  - [x] `src/main.ts:80` — pass the already-resolved `locale` into the mount call.
+  - [x] FR copy must stay calm and non-evaluative: no score, correctness, grading, or speed language, and no implication that the product is assessing the learner.
+  - [x] Keep the existing `.validation-session-disclosure` class contract in `public/style.css` and the `#validation-session-disclosure` root in `index.html` unchanged — FR copy is longer than EN, so verify it does not overflow or clip at 1280×720.
 
-- [ ] **Task 3 — Keep the validation route's product isolation intact** (AC: 4)
-  - [ ] Verify (do not rebuild) the existing `?mode=validation` behaviour in `src/main.ts:26,63-80`: mode is read **before** any repository exists; the route builds a fresh `createInitialAppState`, never calls `CaseRecordRepository.load`, and gates `mountCaseProgressPanel` + `mountCaseRecordPrintView` behind `if (repository)`. That ordering is the whole isolation guarantee — do not move the flag read after the `await`, and do not add an `else` branch that constructs a repository.
-  - [ ] Validation mode must still write nothing to IndexedDB, `localStorage`, the network, console, analytics, or error telemetry, and must create no `CaseRecord`.
-  - [ ] Add **no** validation/consent/educator/session fields to `CaseDefinition`, `AppState`, `CaseRecordProjection`, `CaseRecordSchema`, exports, imports, migrations, or the print view. Do not mutate `public/cases/young-interference/case.json` (currently `1.8.0`) for process evidence.
-  - [ ] Do not invent campaign state, later-case routes, or generic routing. The product ships one case; AC4's "does not unlock, relock, or expose later cases" is satisfied by the absence of that machinery, not by building locks to leave alone.
+- [x] **Task 3 — Keep the validation route's product isolation intact** (AC: 4)
+  - [x] Verify (do not rebuild) the existing `?mode=validation` behaviour in `src/main.ts:26,63-80`: mode is read **before** any repository exists; the route builds a fresh `createInitialAppState`, never calls `CaseRecordRepository.load`, and gates `mountCaseProgressPanel` + `mountCaseRecordPrintView` behind `if (repository)`. That ordering is the whole isolation guarantee — do not move the flag read after the `await`, and do not add an `else` branch that constructs a repository.
+  - [x] Validation mode must still write nothing to IndexedDB, `localStorage`, the network, console, analytics, or error telemetry, and must create no `CaseRecord`.
+  - [x] Add **no** validation/consent/educator/session fields to `CaseDefinition`, `AppState`, `CaseRecordProjection`, `CaseRecordSchema`, exports, imports, migrations, or the print view. Do not mutate `public/cases/young-interference/case.json` (currently `1.8.0`) for process evidence.
+  - [x] Do not invent campaign state, later-case routes, or generic routing. The product ships one case; AC4's "does not unlock, relock, or expose later cases" is satisfied by the absence of that machinery, not by building locks to leave alone.
 
-- [ ] **Task 4 — Re-point the validation e2e coverage at the Phaser-era contract** (AC: 4, 5)
-  - [ ] `tests/e2e/validation-route.spec.ts` currently asserts through retired DOM panels — `region "Curated Record"`, `region "Save, export, import, and print"`, `"Inspection recorded"`. Per `deferred-work.md`, several specs in this family already fail on baseline. Rewrite the isolation assertions against surfaces that are current: `#game-container[data-active-scene]` (see `tests/e2e/scene-router.spec.ts` for the reference helper), the retained `data-testid="enter-laboratory"` / `#boot-status` boot contract, and the **absence** of the progress region and the printable-record article.
-  - [ ] Keep the cross-route isolation proof, which is the test's real value: seed a saved record on the normal route, visit `/?mode=validation`, interact, return to `/`, and assert the saved record is byte-for-byte untouched.
-  - [ ] Keep the later-case leak assertions for AC4 — no link and no body text matching `/Morley|Hafele|Delft/i` on the validation route.
-  - [ ] Add an FR case with `test.use({ locale: 'fr-FR' })` (the pattern in `tests/e2e/french-typography.spec.ts:37`) asserting the disclosure renders the FR strings, imported from `src/core/i18n/locales/fr` rather than restated as literals.
-  - [ ] `tests/e2e/accessibility.spec.ts:56-64` — keep the existing validation-disclosure spec (de-scoped, not wrong). Add no new a11y-parity assertions. Its axe result is **supporting evidence only** and must not be recorded as a gate.
-  - [ ] `tests/e2e/offline-reload.spec.ts:137-149` — keep cached validation-route startup; update any assertion that reaches through a retired panel.
-  - [ ] Run `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`, `npm run test:e2e:offline`, `npm run test:e2e:cross-browser`, and `npm run test:e2e:a11y`. **Capture the baseline result on `87f0ab5` first**, then compare — record pre-existing failures as pre-existing, name unavailable browsers, and never fabricate a pass.
+- [x] **Task 4 — Re-point the validation e2e coverage at the Phaser-era contract** (AC: 4, 5)
+  - [x] `tests/e2e/validation-route.spec.ts` currently asserts through retired DOM panels — `region "Curated Record"`, `region "Save, export, import, and print"`, `"Inspection recorded"`. Per `deferred-work.md`, several specs in this family already fail on baseline. Rewrite the isolation assertions against surfaces that are current: `#game-container[data-active-scene]` (see `tests/e2e/scene-router.spec.ts` for the reference helper), the retained `data-testid="enter-laboratory"` / `#boot-status` boot contract, and the **absence** of the progress region and the printable-record article.
+  - [x] Keep the cross-route isolation proof, which is the test's real value: seed a saved record on the normal route, visit `/?mode=validation`, interact, return to `/`, and assert the saved record is byte-for-byte untouched.
+  - [x] Keep the later-case leak assertions for AC4 — no link and no body text matching `/Morley|Hafele|Delft/i` on the validation route.
+  - [x] Add an FR case with `test.use({ locale: 'fr-FR' })` (the pattern in `tests/e2e/french-typography.spec.ts:37`) asserting the disclosure renders the FR strings, imported from `src/core/i18n/locales/fr` rather than restated as literals.
+  - [x] `tests/e2e/accessibility.spec.ts:56-64` — keep the existing validation-disclosure spec (de-scoped, not wrong). Add no new a11y-parity assertions. Its axe result is **supporting evidence only** and must not be recorded as a gate.
+  - [x] `tests/e2e/offline-reload.spec.ts:137-149` — keep cached validation-route startup; update any assertion that reaches through a retired panel.
+  - [x] Run `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`, `npm run test:e2e:offline`, `npm run test:e2e:cross-browser`, and `npm run test:e2e:a11y`. **Capture the baseline result on `87f0ab5` first**, then compare — record pre-existing failures as pre-existing, name unavailable browsers, and never fabricate a pass.
 
-- [ ] **Task 5 — Leave the human gates honestly open** (AC: 1, 2, 3, 5, 6)
-  - [ ] Every facilitator- and reviewer-owned row stays **unrecorded and Blocked**. This story delivers the *instrument*; it cannot deliver the 15–30 sessions, five educator responses, source/rights review, bilingual review, motion-safety check, low-end-laptop 60-FPS loop, or human offline acceptance.
-  - [ ] No automated test, rendered FPS estimate, or axe run may be presented as any of those. State in the completion notes that release remains blocked and which named owners must supply what.
+- [x] **Task 5 — Leave the human gates honestly open** (AC: 1, 2, 3, 5, 6)
+  - [x] Every facilitator- and reviewer-owned row stays **unrecorded and Blocked**. This story delivers the *instrument*; it cannot deliver the 15–30 sessions, five educator responses, source/rights review, bilingual review, motion-safety check, low-end-laptop 60-FPS loop, or human offline acceptance.
+  - [x] No automated test, rendered FPS estimate, or axe run may be presented as any of those. State in the completion notes that release remains blocked and which named owners must supply what.
 
 ## Dev Notes
 
@@ -172,14 +172,172 @@ Extracted from `_bmad-output/project-context.md` (revision 2.0) — the rules th
 
 ### Agent Model Used
 
-_To be recorded by the dev agent._
+Claude Opus 5 (`claude-opus-5[1m]`) via Claude Code.
 
 ### Debug Log References
 
+**Baseline captured first, on `87f0ab5`.** `HEAD` at the start of work was `b9d077f`, whose only
+contents are this story file and `sprint-status.yaml` — `git diff 87f0ab5 HEAD --stat` shows no code or
+test change — so the working tree baseline *is* the `87f0ab5` baseline.
+
+| Suite | Baseline (`87f0ab5`) | After this story | Delta |
+| --- | --- | --- | --- |
+| `npm run typecheck` | Pass | Pass | — |
+| `npm test` | Pass — 34 files, 424 tests | Pass — 35 files, 428 tests | +1 file, +4 tests (the new disclosure unit test) |
+| `npm run build` | Pass | Pass | — |
+| `npm run test:e2e` (chromium) | 7 failed, 33 passed | 7 failed, **34 passed** | +1 passing (new FR disclosure case). **Identical failure set.** |
+| `npm run test:e2e:offline` (chromium) | 1 failed, 4 passed | 1 failed, 4 passed | Identical |
+| `npm run test:e2e:a11y` (chromium) | 1 failed, 1 passed | 1 failed, 1 passed | Identical |
+| `npm run test:e2e:cross-browser` | 31 failed, 89 passed | 31 failed, **92 passed** | +3 passing (new FR case × 3 browsers). Failure set diffed spec-by-spec and browser-by-browser: **identical**. |
+
+All three browser projects (chromium, firefox, webkit) were available; none was skipped or unavailable.
+`tests/e2e/validation-route.spec.ts` was additionally re-run against all three after the final edit:
+**6 passed**.
+
+**The 7 chromium failures are pre-existing on baseline and are not attributable to this story.** Six are
+the stale `Record prepared observation` notebook button tracked in `deferred-work.md`
+(`accessibility.spec.ts`, `curated-record.spec.ts:179`, `inquiry-recognition.spec.ts:4`,
+`offline-reload.spec.ts:72`, `progress-portability.spec.ts:4`, `theory-board.spec.ts:3`); the seventh is
+the `young-experiment.spec.ts:12` `aria-disabled`-vs-hard-`disabled` mismatch, also tracked there.
+`accessibility.spec.ts:4` moved to `:6` because this story added an import line to that file; it is the
+same pre-existing test and the same pre-existing failure.
+
+**Found while establishing the cross-browser baseline, and not previously tracked anywhere:** six specs
+fail on baseline in firefox and/or webkit only — `accessible-control.spec.ts:56`,
+`dialogue-advance.spec.ts:68`, `dialogue-advance.spec.ts:98`, `scene-router.spec.ts:31` (both browsers),
+plus `offline-reload.spec.ts:17` (French offline reload) and `offline-reload.spec.ts:137` (cached
+validation route) in webkit only. `deferred-work.md` does not list them and they have no owner. They are
+recorded in `docs/validation/young-technical-evidence.md` so the cross-browser row cannot be signed
+without seeing them, but assigning them is outside this story's scope — flagging for the reviewer to
+carry into `deferred-work.md`.
+
+**Isolation verified rather than rebuilt (Task 3).** `?mode=validation` is still read at
+`src/main.ts:26`, before `loadCaseDefinition` and before any repository exists; the route still builds a
+fresh `createInitialAppState` and never reaches `CaseRecordRepository.load`, which stays inside
+`if (!validationMode)`; `mountCaseProgressPanel` and `mountCaseRecordPrintView` stay behind
+`if (repository)` and no `else` branch was added. Audited for side effects: no `localStorage` or
+`sessionStorage` anywhere in `src/`; IndexedDB is reachable only through
+`adapters/persistence/IndexedDbRepository`, whose only importers are `caseRecordRepository` and
+`CaseProgressPanel` — both unreachable on the validation route; the single `fetch` in `src/` is the
+static case-content load; the one i18n `console.warn` is gated on `import.meta.env.DEV` and
+tree-shaken from production. `git diff --stat` confirms `src/main.ts` changed by exactly one argument
+and that `case.json`, `index.html`, `public/style.css`, `CaseDefinition`, `AppState`,
+`CaseRecordProjection`, `CaseRecordSchema`, the export/import/migration paths, and the print view are
+untouched.
+
 ### Completion Notes List
+
+**This story delivered the instrument. The gate itself remains Blocked, and nothing here changes that.**
+
+- **Task 1 — facilitator materials re-baselined.** Both rubric fields were rewritten for the
+  authored-conclusion model. Field A now credits a **Yes** only when the participant, unprompted and in
+  their own words, names a specific measurement or apparatus setting **from their own run** as the reason
+  that proposal beat the others; the four non-credit responses (restating the card, colleague authority,
+  the source reading alone, a general impression) are spelled out with examples, because the old wording
+  was satisfiable by reading a proposal card aloud. Field B is defined against the **≥2 significant
+  measures** unlock rather than a run count, and names the three qualifying variations (a further run
+  after unlock, the second primary control, the optional advanced wavelength comparison
+  `[450, 650]` against `fixedMinimumPathNm: 550`). A per-session locale field was added, and the
+  aggregate now reports both measures overall **and** split by locale.
+- **Task 1 — gate structure.** `young-release-decision-template.md` lost "Manual accessibility
+  acceptance" from the blocking rows and gained four: `Stories 2.5 and 2.6 shipped`, `EN + FR content
+  completeness`, `Reduced-motion / no-flashing`, and `sample includes ≥1 en and ≥1 fr session`. Recorded
+  accessibility findings moved to a clearly separated non-blocking section with a **required** post-MVP
+  carry-forward owner. No waiver field, no override path, no partial approval; the decision still
+  defaults to **Blocked**.
+- **Task 1 — two new templates.** `young-motion-safety-template.md` carries reduced motion and
+  no-flashing/photosensitivity as **blocking** checks against the Phaser scenes, so the a11y de-scope
+  cannot quietly take the one motion rule the project still enforces.
+  `young-bilingual-completeness-template.md` enumerates **13 player-facing surfaces** from AC5 plus two
+  locale-formatting checks, one signed row each — the project's most-repeated defect class does not get a
+  single "all content translated" line. Its rows 7 and 8 (hint text, rival-lab critique) stay **Blocked**
+  rather than "N/A", because those surfaces do not exist until 2.6 and 2.5 ship.
+  `young-accessibility-findings-template.md` was reframed as recorded/non-blocking/post-MVP and uses
+  **Met / Gap / Not assessed** instead of Pass / Blocked, so a Gap cannot be misread as a release stop. It
+  was not deleted, and no a11y spec was deleted.
+- **Task 1 — stale evidence reset.** `young-technical-evidence.md`'s 2026-08-05 all-Pass table was reset
+  to unrecorded and restamped against baseline `87f0ab5`, with the measured baseline totals and the
+  named baseline-failing specs recorded so a pre-existing failure can never be signed as a Pass or
+  charged to a candidate change.
+- **Task 2 — the one real code defect is fixed.** `ValidationSessionDisclosure.ts` no longer hardcodes
+  four English strings. `mountValidationSessionDisclosure(root, locale)` takes `locale` as a **required**
+  parameter with **no `DEFAULT_LOCALE` fallback**, so a forgotten call site is a `tsc` error rather than a
+  French session silently reading English. Three keys were added to a new `// --- Validation session ---`
+  group in **both** `en.ts` and `fr.ts`; the heading and the `aria-label` share
+  `validation.session.title`. `src/main.ts` passes the already-resolved `locale`. The disclosure stayed in
+  the boot shell (static facilitator chrome, mirrors no Phaser gesture) and the
+  `.validation-session-disclosure` / `#validation-session-disclosure` contract is unchanged — FR length is
+  verified by measurement at 1280×720, not by a snapshot.
+- **Task 4 — e2e re-pointed.** `validation-route.spec.ts` now asserts the retained boot contract
+  (`data-testid="enter-laboratory"`, `#boot-status`), the routed canvas
+  (`#game-container[data-active-scene]`: `Library` → `Colleagues`), and the absence of both the progress
+  region and the printable-record article. The cross-route isolation proof was strengthened: the saved
+  record is read **straight out of IndexedDB and JSON-serialised**, so "untouched" is a literal
+  byte-for-byte string comparison that survives the retiring panel's deletion, and it is compared once
+  rather than retried so an in-flight write cannot be stepped over. Later-case leak assertions kept. A new
+  FR case (`test.use({ locale: 'fr-FR' })`) asserts the disclosure against strings imported from
+  `locales/fr` and that no English disclosure string survives in a French session.
+  `accessibility.spec.ts` kept its validation-disclosure spec with no new a11y assertions — its literals
+  were swapped for the `en` imports so it cannot pass against text the app no longer renders, and a
+  comment records that its axe result is supporting evidence only.
+  `offline-reload.spec.ts:137` kept the cached validation-route startup and gained the retained
+  print-view absence assertion, which still means something once the retired panel is gone.
+- **Task 5 — the human gates are honestly open.** Every facilitator- and reviewer-owned row is
+  **unrecorded and Blocked**. This story could not and did not deliver: the 15–30 moderated sessions
+  (including the ≥1 `en` / ≥1 `fr` requirement), either 60% measure, the five educator responses, the
+  scholarly source/rights review, the EN + FR completeness review, the motion-safety check, the
+  10-minute 1280×720 low-end-laptop 60-FPS loop, or the human cached-offline acceptance. No automated
+  test, rendered FPS estimate, or axe run was presented as any of them. **Release remains blocked.**
+- **The gate cannot be run yet, by its own terms.** Stories 2.5 (rival-lab critique) and 2.6
+  (significant-measure gate + colleague hints) are still `backlog`, and neither exists in `src/` — there is
+  no `RivalLabScene`, and `case.json` still carries only `requirements.minimumRuns: 2` with no
+  significance rule. Both revised AC2 metrics are undefined without them, so AC6's prerequisite row and
+  the validation plan both block scheduling any session until they land.
+- **Owners still to be named before a decision can be recorded:** learning-validation lead / session
+  owner, educator-review lead, bilingual reviewer, scholarly-and-rights reviewer, QA / release lead,
+  release owner, and the post-MVP accessibility carry-forward owner.
 
 ### File List
 
+**New**
+
+- `docs/validation/young-bilingual-completeness-template.md`
+- `docs/validation/young-motion-safety-template.md`
+- `tests/unit/ValidationSessionDisclosure.test.ts`
+
+**Modified**
+
+- `docs/validation/young-observation-rubric.md`
+- `docs/validation/young-validation-plan.md`
+- `docs/validation/young-validation-aggregate-template.md`
+- `docs/validation/young-release-decision-template.md`
+- `docs/validation/young-accessibility-findings-template.md`
+- `docs/validation/young-technical-evidence.md`
+- `src/core/i18n/locales/en.ts`
+- `src/core/i18n/locales/fr.ts`
+- `src/ui/ValidationSessionDisclosure.ts`
+- `src/main.ts`
+- `tests/e2e/validation-route.spec.ts`
+- `tests/e2e/accessibility.spec.ts`
+- `tests/e2e/offline-reload.spec.ts`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+- `_bmad-output/implementation-artifacts/2-4-young-learning-and-educator-validation-gate.md`
+
+**Deleted** — none.
+
 ## Change Log
 
+- 2026-08-06: Implemented. Facilitator materials re-baselined for the authored-conclusion and
+  significant-measure model (both rubric fields rewritten, per-session locale added, aggregate split by
+  locale); release-decision gate table restructured — manual accessibility acceptance removed as
+  blocking, and `Stories 2.5/2.6 shipped`, `EN + FR completeness`, `reduced-motion / no-flashing`, and
+  `≥1 en + ≥1 fr session` added as blocking, with recorded a11y findings moved to a separated
+  non-blocking section under a named post-MVP owner. Added `young-motion-safety-template.md` (blocking)
+  and `young-bilingual-completeness-template.md` (13 enumerated surfaces). Reset the stale 2026-08-05
+  all-Pass technical-evidence table to unrecorded and restamped it against baseline `87f0ab5` with the
+  named baseline-failing specs. Fixed the live NFR19 defect: the validation disclosure is now localized
+  EN + FR through a required `locale` parameter with no default. Re-pointed the validation e2e at the
+  Phaser-era contract, with the cross-route isolation proof now read byte-for-byte from IndexedDB, plus a
+  new FR disclosure case. All facilitator- and reviewer-owned gates remain unrecorded and **Blocked**;
+  the gate cannot be run until Stories 2.5 and 2.6 ship.
 - 2026-08-06: Re-baselined for the Phaser guided-adventure pivot. AC2 metric revised to the authored-conclusion model; AC5 added for EN+FR completeness; manual accessibility acceptance removed as a blocking gate (ADR-008) with reduced-motion/no-flashing retained as blocking; Stories 2.5/2.6 recorded as a prerequisite gate; the English-only validation disclosure and the stale technical-evidence table identified as the story's live defects. Supersedes the 2026-08-05 pre-pivot version, whose completion claims no longer hold.

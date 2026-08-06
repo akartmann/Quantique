@@ -135,18 +135,23 @@ test('restores saved progress and decision history after an offline reload', asy
 });
 
 test('loads the cached validation route after an online warm-up without progress controls', async ({ page, context }) => {
+    const disclosure = page.getByRole('region', { name: en['validation.session.title'] });
+
     await page.goto('/?mode=validation');
-    await expect(page.getByRole('button', { name: 'Enter laboratory' })).toBeVisible();
+    await expect(page.getByTestId('enter-laboratory')).toBeVisible();
     await page.waitForFunction(() => navigator.serviceWorker.ready);
     await page.reload();
     // The worker caches as it fetches, so let the warm-up finish loading the case content
     // (case.json and asset-manifest.json) before the network is cut.
-    await expect(page.getByRole('region', { name: 'Young validation session' })).toBeVisible();
+    await expect(disclosure).toBeVisible();
 
     await context.setOffline(true);
     await page.reload();
 
-    await expect(page.getByRole('region', { name: 'Young validation session' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Enter laboratory' })).toBeVisible();
+    await expect(disclosure).toBeVisible();
+    await expect(page.getByTestId('enter-laboratory')).toBeVisible();
+    // Both progress surfaces stay unmounted offline, the retiring panel and the retained print view —
+    // the print-view assertion is the one that still means something once the panel is deleted.
     await expect(page.getByRole('region', { name: 'Save, export, import, and print' })).toHaveCount(0);
+    await expect(page.getByRole('article', { name: en['print.ariaLabel'] })).toHaveCount(0);
 });

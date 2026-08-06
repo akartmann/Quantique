@@ -21,6 +21,13 @@ export const en = {
     'boot.status.savedProgressUnusable': 'Saved progress could not be used. A fresh investigation is ready.',
     'boot.status.savedProgressUnavailable': 'Saved progress is unavailable right now. The investigation is ready to continue.',
 
+    // --- Validation session -----------------------------------------------------------------------
+    // Facilitator-facing chrome on the moderated `?mode=validation` route. App-owned interface text,
+    // not case content, so it lives here rather than in `case.json`.
+    'validation.session.title': 'Young validation session',
+    'validation.session.facilitatorHeld': 'Observations are held by the facilitator and de-identified outside this application.',
+    'validation.session.noCollection': 'The application does not collect session responses.',
+
     // --- Laboratory surface ---------------------------------------------------------------------
     'lab.title': 'Young interference — visual laboratory surface',
     'lab.guide': 'Use the semantic laboratory controls or these matching visual step controls.',

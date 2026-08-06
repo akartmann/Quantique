@@ -19,6 +19,11 @@ export const fr: Record<TranslationKey, string> = {
     'boot.status.savedProgressUnusable': 'La progression enregistrée n’a pas pu être utilisée. Une nouvelle enquête est prête.',
     'boot.status.savedProgressUnavailable': 'La progression enregistrée est indisponible pour le moment. L’enquête peut se poursuivre.',
 
+    // --- Validation session -----------------------------------------------------------------------
+    'validation.session.title': 'Séance de validation de Young',
+    'validation.session.facilitatorHeld': 'Les observations sont conservées par la personne qui anime la séance et anonymisées en dehors de cette application.',
+    'validation.session.noCollection': 'L’application ne recueille aucune réponse de séance.',
+
     // --- Laboratory surface ---------------------------------------------------------------------
     'lab.title': 'Interférences de Young — surface visuelle du laboratoire',
     'lab.guide': 'Utilisez les commandes sémantiques du laboratoire ou ces commandes visuelles équivalentes.',

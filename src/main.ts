@@ -77,7 +77,7 @@ const initializeLaboratory = async (): Promise<void> => {
         }
     }
     const store = createStore(initialState);
-    if (validationMode) mountValidationSessionDisclosure(validationDisclosureRoot);
+    if (validationMode) mountValidationSessionDisclosure(validationDisclosureRoot, locale);
     let lectureBookController: LectureBookController | undefined;
     let pendingLectureBookPresentation: LectureBookPresentation | undefined;
     const projectLectureBook = (presentation: LectureBookPresentation | undefined): void => {

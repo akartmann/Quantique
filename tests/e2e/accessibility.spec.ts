@@ -1,6 +1,8 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
+import { en } from '../../src/core/i18n/locales/en';
+
 test('has no automated accessibility violations in the boot shell, Curated Record, notebook comparison, or exposed Theory Board', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('button', { name: 'Enter laboratory' })).toBeVisible();
@@ -53,13 +55,22 @@ test('has no automated accessibility violations in the boot shell, Curated Recor
     expect(portabilityResults.violations).toEqual([]);
 });
 
+/**
+ * Retained as-is under ADR-008: accessibility acceptance is no longer a release gate, so this axe run
+ * is **supporting evidence only** and must never be recorded as a gate in
+ * `docs/validation/young-technical-evidence.md`. Kept rather than deleted, and given no new
+ * a11y-parity assertions.
+ *
+ * The expected strings are imported rather than restated: the disclosure now resolves them through the
+ * i18n layer, and a literal copy here would keep passing against text the app no longer renders.
+ */
 test('exposes the validation disclosure through semantic text without automated accessibility violations', async ({ page }) => {
     await page.goto('/?mode=validation');
 
-    const disclosure = page.getByRole('region', { name: 'Young validation session' });
-    await expect(disclosure.getByRole('heading', { name: 'Young validation session' })).toBeVisible();
-    await expect(disclosure).toContainText('Observations are held by the facilitator and de-identified outside this application.');
-    await expect(disclosure).toContainText('The application does not collect session responses.');
+    const disclosure = page.getByRole('region', { name: en['validation.session.title'] });
+    await expect(disclosure.getByRole('heading', { name: en['validation.session.title'] })).toBeVisible();
+    await expect(disclosure).toContainText(en['validation.session.facilitatorHeld']);
+    await expect(disclosure).toContainText(en['validation.session.noCollection']);
 
     const results = await new AxeBuilder({ page }).include('.validation-session-disclosure').analyze();
     expect(results.violations).toEqual([]);
