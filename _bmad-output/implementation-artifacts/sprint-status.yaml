@@ -1,5 +1,5 @@
 # generated: 2026-08-04T18:18:39+0200
-# last_updated: 2026-08-06  # sprint change: playable Phaser surface (Epic 2 reopened, 2.7-2.12 added)
+# last_updated: 2026-08-06  # story 2.7 contexted (ready-for-dev)
 # project: Quantique
 # project_key: NOKEY
 # tracking_system: file-system
@@ -67,7 +67,7 @@
 # ============================================================================
 
 generated: 2026-08-04T18:18:39+0200
-last_updated: 2026-08-06  # sprint change: playable Phaser surface (Epic 2 reopened, 2.7-2.12 added)
+last_updated: 2026-08-06  # story 2.7 contexted (ready-for-dev)
 project: Quantique
 project_key: NOKEY
 tracking_system: file-system
@@ -98,7 +98,7 @@ development_status:
   2-6-significant-measure-gate-and-colleague-hints: done  # new (pivot); implemented + reviewed 2026-08-06 — gate + hints shipped at case.json 1.11.0; its ad-hoc advance control is consolidated into 2.7
   # ---- Added 2026-08-06 (playable-Phaser-surface correction). Build 2.7 FIRST: it
   # ---- delivers the reusable advance affordance 2.8/2.10/2.11 consume. 2.12 STRICTLY LAST.
-  2-7-in-scene-phase-transitions: backlog  # new; unblocks every story below; effort M / risk Low
+  2-7-in-scene-phase-transitions: ready-for-dev  # new; unblocks every story below; effort M / risk Low
   2-8-library-reading-room-and-reference-book: backlog  # new; retires LectureBookScene overlay + scene reach-in; effort L / risk Med
   2-9-colleague-and-rival-lab-characters: backlog  # new; coded vector silhouettes, no art assets; effort M / risk Low
   2-10-physical-apparatus-and-player-started-light: backlog  # new; knob drag + start-the-light; effort L / risk Med
