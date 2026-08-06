@@ -272,12 +272,28 @@ export const selectDialogueBeats = (state: AppState): readonly DialogueBeatProje
  *
  * Derived on call rather than stored: the count is a pure function of `runs`, which only ever grows,
  * so there is nothing to keep in sync, nothing to clear on a phase move or a replay, and nothing to
- * persist. Cheap by construction — `flow.maximumExperimentCycles` caps the notebook at four.
+ * persist. It is one `Set` build over `runs`, and it is not on a render path.
+ *
+ * An earlier version of this comment justified the cost with "`flow.maximumExperimentCycles` caps the
+ * notebook at four". It does not: that field is declared in the type, the schema, and `case.json`, and
+ * no reducer reads it — `reduceExperimentRun` applies no cap (review, 2026-08-06). The absence of a
+ * cap is what keeps the gate honest, so this is not a bug to fix here: a player below the bar can
+ * always record another run, which is precisely why a refusal is a nudge rather than a dead end.
  */
 export const selectSignificantMeasureCount = (state: AppState): number =>
     countSignificantMeasures(state.caseDefinition.significanceRule, state.runs);
 
-/** The gate as a count against the authored bar, so a surface can explain it rather than just obey it. */
+/**
+ * The gate as a count against the authored bar.
+ *
+ * The laboratory reads only `isMet`, to colour the advance control. `count` and `required` are
+ * carried for tests and for the debrief, and deliberately reach no in-play surface: "1 of 2" on the
+ * bench would be a progress score, and the design forbids scores. The colleague's line is how the
+ * player learns where they stand, in fiction and without a number.
+ *
+ * An earlier version of this comment said the shape existed "so a surface can explain it rather than
+ * just obey it", which promised a surface that does not exist and should not (review, 2026-08-06).
+ */
 export type SignificantMeasureGate = Readonly<{ count: number; required: number; isMet: boolean }>;
 
 export const selectSignificantMeasureGate = (state: AppState): SignificantMeasureGate => {

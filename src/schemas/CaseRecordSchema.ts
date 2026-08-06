@@ -221,7 +221,19 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // Story 2.6. Rejecting those records instead would discard saved investigations (NFR12), and
         // gating the conclusion choice to "fix" them would strand the player with no route back to
         // the apparatus — the phase machine is one-way.
-        || (definition.version === '1.10.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0'].includes(record.caseDefinitionVersion));
+        || (definition.version === '1.10.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0'].includes(record.caseDefinitionVersion))
+        // 1.11.0 reworked the significance rule in review: `minimumResultDelta` was removed because it
+        // made the count depend on recording order, and `criticalModelInputIds` was added so a
+        // wavelength change counts as the distinguishing measurement it physically is. Additive on the
+        // same terms — no run, decision, or recognition value moved, and the canonical English strings
+        // this function recomputes and compares are byte-identical to 1.10.0.
+        //
+        // The gate is *stricter* under 1.11.0 than under 1.10.0 for exactly one shape of evidence: two
+        // runs at one arrangement but different wavelengths used to count 1 and now count 2, which is
+        // looser, not stricter — nothing that counted before counts for less. So no saved record can
+        // be retroactively short of a bar it already cleared, and the 1.10.0 note above continues to
+        // hold unchanged for everything at or past `synthesis`.
+        || (definition.version === '1.11.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }

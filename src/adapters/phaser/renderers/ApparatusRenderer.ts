@@ -20,21 +20,24 @@ import {
     ADVANCE_CONTROL_FONT_SIZE,
     ADVANCE_CONTROL_HEIGHT,
     ADVANCE_CONTROL_LABEL_WRAP,
+    CENTRE_Y,
     HINT_BOTTOM_MARGIN,
     HINT_LINE_FONT_SIZE,
     HINT_PADDING,
     HINT_SPEAKER_FONT_SIZE,
     HINT_SPEAKER_GAP,
     HINT_TEXT_WRAP,
+    SCREEN_HALF_HEIGHT,
+    SCREEN_LABEL_Y,
     SIDE_COLUMN_LEFT,
     SIDE_COLUMN_WIDTH,
-    advanceToSynthesisControlCentre
+    advanceToSynthesisControlCentre,
+    screenXForDistance
 } from './apparatusGeometry';
+import { resolveSideColumnView } from './sideColumnView';
 
 const SOURCE_X = 92;
 const BARRIER_X = 260;
-const CENTRE_Y = 200;
-const SCREEN_HALF_HEIGHT = 108;
 const FRINGE_STRIP_HALF_WIDTH = 9;
 const FRINGE_ROW_STEP = 2;
 const WAVEFRONT_RINGS = 6;
@@ -299,13 +302,13 @@ export class ApparatusRenderer {
         const slitSpacing = state.activeControlValues.slitSpacingMm;
         const screenDistance = state.activeControlValues.screenDistanceM;
         const slitGapPx = 28 + ((slitSpacing - 0.1) / 0.4) * 92;
-        this.screenX = 480 + ((screenDistance - 1) / 3) * 220;
+        this.screenX = screenXForDistance(screenDistance);
         this.slitTopY = CENTRE_Y - (slitGapPx / 2);
         this.slitBottomY = CENTRE_Y + (slitGapPx / 2);
         this.slitTop?.setY(this.slitTopY);
         this.slitBottom?.setY(this.slitBottomY);
         this.screen?.setX(this.screenX);
-        this.screenLabel?.setPosition(this.screenX - 31, 322);
+        this.screenLabel?.setPosition(this.screenX - 31, SCREEN_LABEL_Y);
         this.currentWavelengthNm = state.selectedWavelengthNm;
         this.wavelengthColor = rgbToInt(wavelengthToRgb(state.selectedWavelengthNm));
         this.sourceGlow?.setFillStyle(this.wavelengthColor, 0.35);
@@ -454,20 +457,23 @@ export class ApparatusRenderer {
      * returns `undefined` as soon as the gate is met.
      */
     private renderSideColumn(state: AppState, t: Translator): void {
-        const gate = selectSignificantMeasureGate(state);
+        // What to show is decided in `sideColumnView`, which is Phaser-free and therefore testable;
+        // this method only paints the answer. See that module for why the split exists.
+        const view = resolveSideColumnView({
+            isGateMet: selectSignificantMeasureGate(state).isMet,
+            hint: selectLocalizedColleagueHint(state),
+            transientError: this.transientError,
+            advanceRefused: this.advanceRefused
+        });
+        this.advanceRefused = view.advanceRefused;
+        this.transientError = undefined;
+        const { lineText, speakerText } = view;
+
         this.advanceLabel?.setText(t('lab.advance'));
         // The one thing the control says about the evidence is whether the way on is open, which is a
         // fact about the player's own notebook rather than a judgement about a conclusion. It never
         // marks a proposal, and nothing here can reach the defensible set.
-        this.advanceControl?.setFillStyle(gate.isMet ? ADVANCE_FILL_READY : ADVANCE_FILL);
-
-        const hint = selectLocalizedColleagueHint(state);
-        // A hint that no longer applies takes the refusal with it: the player answered it.
-        if (!hint) this.advanceRefused = false;
-
-        const speakerText = this.transientError ? '' : this.advanceRefused ? (hint?.speaker ?? '') : '';
-        const lineText = this.transientError ?? (this.advanceRefused ? hint?.line ?? '' : '');
-        this.transientError = undefined;
+        this.advanceControl?.setFillStyle(view.isAdvanceReady ? ADVANCE_FILL_READY : ADVANCE_FILL);
 
         this.hintLine?.setText(lineText);
         this.hintSpeaker?.setText(speakerText);

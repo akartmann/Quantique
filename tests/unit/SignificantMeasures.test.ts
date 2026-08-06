@@ -51,7 +51,23 @@ const run = (id: string, slitSpacingMm: number, screenDistanceM: number, value?:
     linkedEvidenceIds: Object.freeze([])
 });
 
-const RULE: SignificanceRule = { criticalControlIds: ['slitSpacingMm', 'screenDistanceM'], minimumResultDelta: 0.05 };
+/** A physical run, which is the only shape that carries a wavelength. */
+const runAtWavelength = (
+    id: string,
+    slitSpacingMm: number,
+    screenDistanceM: number,
+    wavelengthNm: 450 | 550 | 650
+): RunRecord => Object.freeze({
+    ...run(id, slitSpacingMm, screenDistanceM),
+    modelInputs: Object.freeze({
+        slitSpacingMm,
+        screenDistanceM,
+        wavelengthNm,
+        wavelengthMode: wavelengthNm === 550 ? 'minimum' as const : 'advanced' as const
+    })
+});
+
+const RULE: SignificanceRule = { criticalControlIds: ['slitSpacingMm', 'screenDistanceM'] };
 
 describe('countSignificantMeasures', () => {
     it('counts nothing when nothing is recorded', () => {
@@ -78,9 +94,22 @@ describe('countSignificantMeasures', () => {
         expect(countSignificantMeasures(RULE, [run('a', 0.2, 2), run('b', 0.3, 2), run('c', 0.2, 2)])).toBe(2);
     });
 
-    it('is order-independent in its total', () => {
-        const runs = [run('a', 0.2, 2), run('b', 0.3, 2), run('c', 0.2, 2)];
-        expect(countSignificantMeasures(RULE, [...runs].reverse())).toBe(countSignificantMeasures(RULE, runs));
+    it('is order-independent in its total, over every permutation', () => {
+        // Asserts an independently-known number, not the implementation's own answer to a second
+        // question. The earlier version compared `count(reversed)` to `count(runs)` — it would have
+        // passed against an implementation returning a constant, and it did pass against the
+        // order-dependent greedy pass this rule replaced (review, 2026-08-06).
+        const runs = [run('a', 0.2, 2), run('b', 0.3, 2), run('c', 0.2, 2), run('d', 0.2, 3)];
+        const permute = <T>(items: readonly T[]): T[][] => items.length <= 1
+            ? [[...items]]
+            : items.flatMap((item, index) => permute([...items.slice(0, index), ...items.slice(index + 1)])
+                .map((rest) => [item, ...rest]));
+
+        const counts = permute(runs).map((ordering) => countSignificantMeasures(RULE, ordering));
+
+        expect(counts).toHaveLength(24);
+        // Three distinct configurations: (0.2, 2) twice, (0.3, 2), (0.2, 3).
+        expect(new Set(counts)).toStrictEqual(new Set([3]));
     });
 
     it('counts a run that carries no modelInputs, reading the configuration from controls', () => {
@@ -96,16 +125,38 @@ describe('countSignificantMeasures', () => {
         expect(countSignificantMeasures(RULE, [run('a', 0.2, 2), run('b', 0.2, 3)])).toBe(2);
     });
 
-    it('rejects a distinct configuration whose reading is inside minimumResultDelta', () => {
-        // Hand-set values rather than modelled ones: this is the delta rule in isolation.
-        const coarse: SignificanceRule = { criticalControlIds: ['slitSpacingMm'], minimumResultDelta: 0.5 };
-        expect(countSignificantMeasures(coarse, [run('a', 0.2, 2, 3.0), run('b', 0.25, 2, 3.2)])).toBe(1);
-        expect(countSignificantMeasures(coarse, [run('a', 0.2, 2, 3.0), run('b', 0.25, 2, 3.9)])).toBe(2);
+    it('counts on configuration alone, never on how close the two readings land', () => {
+        // Two distinct configurations that happen to produce the same number are two distinguishing
+        // measurements, not one. The model is deterministic, so a coincidence of readings is a fact
+        // about the physics worth recording rather than a duplicate worth discarding — and any rule
+        // that discarded it by comparing against the runs already counted would make the total depend
+        // on recording order. That rule existed (`minimumResultDelta`) and was removed in review.
+        const spacingOnly: SignificanceRule = { criticalControlIds: ['slitSpacingMm'] };
+        expect(countSignificantMeasures(spacingOnly, [run('a', 0.2, 2, 3.0), run('b', 0.25, 2, 3.0)])).toBe(2);
     });
 
-    it('treats an absent minimumResultDelta as no delta requirement at all', () => {
-        const noDelta: SignificanceRule = { criticalControlIds: ['slitSpacingMm'] };
-        expect(countSignificantMeasures(noDelta, [run('a', 0.2, 2, 3.0), run('b', 0.25, 2, 3.0)])).toBe(2);
+    it('counts a wavelength change at one arrangement as a distinguishing measurement', () => {
+        // The reachable scenario the review found: two runs at (0.25, 2) unlock the advanced
+        // wavelength, then a third at the same slit separation and throw on a different colour. It
+        // moves the fringe spacing 4.4 → 3.6 mm, so calling it a repetition would be false.
+        const withWavelength: SignificanceRule = { ...RULE, criticalModelInputIds: ['wavelengthNm'] };
+        const runs = [runAtWavelength('a', 0.25, 2, 550), runAtWavelength('b', 0.25, 2, 450)];
+
+        expect(countSignificantMeasures(withWavelength, runs)).toBe(2);
+        // And without the rule naming it, the same two runs are one configuration — which is what
+        // makes the authored `criticalModelInputIds` the thing doing the work here.
+        expect(countSignificantMeasures(RULE, runs)).toBe(1);
+    });
+
+    it('gives a run with no modelInputs its own slot rather than colliding with a recorded wavelength', () => {
+        const withWavelength: SignificanceRule = { ...RULE, criticalModelInputIds: ['wavelengthNm'] };
+        const bare = run('a', 0.25, 2);
+        expect(bare.modelInputs).toBeUndefined();
+
+        // A fixture run's wavelength is unknown, not equal to 550. Counting them as one would let an
+        // unknown silently satisfy the gate against a recorded value it may not match.
+        expect(countSignificantMeasures(withWavelength, [bare, runAtWavelength('b', 0.25, 2, 550)])).toBe(2);
+        expect(countSignificantMeasures(withWavelength, [bare, run('c', 0.25, 2)])).toBe(1);
     });
 
     it('returns the same count on repeated calls over the same runs', () => {
@@ -117,15 +168,20 @@ describe('countSignificantMeasures', () => {
     });
 });
 
-describe("Young's authored minimumResultDelta", () => {
+describe("Young's authored control space", () => {
     /**
-     * The authored delta is 0.05 mm and the smallest single-step change anywhere inside the authored
-     * control bounds moves the fringe spacing by ≈0.122 mm, so rule 2 never binds for Young: every
-     * distinct configuration is also a distinct reading. That is a claim the story makes, so it is a
-     * claim a test has to hold — if an author retunes the bounds or the delta so that two adjacent
-     * settings stop being distinguishable, this fails and says why.
+     * Every adjacent pair of authored settings produces a visibly different reading — the smallest
+     * single-step change anywhere inside the bounds moves the fringe spacing by ≈0.122 mm.
+     *
+     * This is what makes the colleague hints honest advice rather than a guess: "widen the openings
+     * and measure again" only means something if the number the player writes down actually moves. If
+     * an author retunes the bounds or the step so two adjacent settings stop being distinguishable,
+     * this fails and says why.
+     *
+     * It previously existed to prove the authored `minimumResultDelta` never bound. That field was
+     * removed in review (2026-08-06); the sweep is kept because the property it measures outlived it.
      */
-    it('is smaller than the smallest single-step change in the authored control space', () => {
+    it('separates every adjacent pair of settings by a visible margin', () => {
         const [slit, screen] = definition.apparatus.primaryControls;
         const spacings: number[] = [];
         for (let d = slit.min; d <= slit.max + 1e-9; d += slit.step) spacings.push(Number(d.toFixed(4)));
@@ -148,7 +204,6 @@ describe("Young's authored minimumResultDelta", () => {
             }
         }
 
-        expect(smallestStep).toBeGreaterThan(definition.significanceRule.minimumResultDelta ?? 0);
         expect(smallestStep).toBeCloseTo(0.122, 3);
     });
 });
@@ -171,6 +226,16 @@ describe('isSignificantMeasureGateMet', () => {
     });
 
     it('reads the required count from the authored requirements rather than a literal', () => {
-        expect(definition.requirements.minimumSignificantRuns).toBe(2);
+        // The earlier version of this test asserted `definition.requirements.minimumSignificantRuns`
+        // and never called the function it was filed under, so a hard-coded `count >= 2` — the exact
+        // defect the title claims to prevent — passed it (review, 2026-08-06). Moving the authored bar
+        // and watching the verdict follow is the only assertion that can tell the two apart.
+        const twoConfigurations = [run('a', 0.2, 2), run('b', 0.2, 3)];
+        const raised = { ...definition, requirements: { ...definition.requirements, minimumSignificantRuns: 3 } } as CaseDefinition;
+        const lowered = { ...definition, requirements: { ...definition.requirements, minimumSignificantRuns: 1 } } as CaseDefinition;
+
+        expect(isSignificantMeasureGateMet(definition, twoConfigurations)).toBe(true);
+        expect(isSignificantMeasureGateMet(raised, twoConfigurations)).toBe(false);
+        expect(isSignificantMeasureGateMet(lowered, [run('a', 0.2, 2)])).toBe(true);
     });
 });

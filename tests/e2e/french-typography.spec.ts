@@ -14,7 +14,10 @@ import {
 // (`BlendModes`), Phaser touches `window` at import time, and these specs run in Node.
 import {
     ADVANCE_CONTROL_FONT_SIZE,
-    ADVANCE_CONTROL_LABEL_WRAP
+    ADVANCE_CONTROL_LABEL_WRAP,
+    HINT_LINE_FONT_SIZE,
+    HINT_SPEAKER_FONT_SIZE,
+    HINT_TEXT_WRAP
 } from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import {
     RIVAL_LAB_BODY_FONT_SIZE,
@@ -202,6 +205,18 @@ const DIALOGUE_BEATS = caseDefinition.scenarioScript.scenes.flatMap(({ phase, di
 const RIVAL_LAB_CRITIQUES = caseDefinition.rivalLab.critiques.flatMap(({ id, line }) => [
     { label: `rival-lab critique ${id} [fr]`, text: line.fr },
     { label: `rival-lab critique ${id} [en]`, text: line.en }
+]);
+/**
+ * Every authored colleague hint, in both locales (Story 2.6).
+ *
+ * Added in review: the hints shipped as the sixth authored-prose surface and the first to skip this
+ * sweep, though `HINT_TEXT_WRAP` is the *narrowest* prose bound in the game — narrower than the
+ * proposal cards, the dialogue panel, and the rival lab. Each of those joined the sweep with the
+ * story that introduced it, and each joined it because a review found the gap.
+ */
+const COLLEAGUE_HINTS = caseDefinition.colleagueHints.flatMap(({ id, line }) => [
+    { label: `colleague hint ${id} [fr]`, text: line.fr },
+    { label: `colleague hint ${id} [en]`, text: line.en }
 ]);
 
 const LONGEST_CONVERSATION = Math.max(
@@ -392,6 +407,69 @@ test('keeps the authored rival-lab critiques inside the surface that holds them,
     expect(overflowing).toEqual([]);
     // A guard on the sweep: an empty list would make the assertion above vacuously true.
     expect(RIVAL_LAB_CRITIQUES.length).toBeGreaterThan(0);
+});
+
+test('keeps the authored colleague hints inside the laboratory hint panel, in both locales', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
+
+    // The hint panel grows upward from the canvas floor and has no `maxLines`, so height is handled.
+    // What is not is a single token wider than `HINT_TEXT_WRAP`, which Phaser cannot break and which
+    // would run out of the panel's right edge. The attributed speaker line shares the bound at its
+    // own smaller size.
+    const authored = [
+        ...COLLEAGUE_HINTS.map(({ label, text }) => ({ label, fontSize: HINT_LINE_FONT_SIZE, text })),
+        ...caseDefinition.colleagues.map(({ id, name, role }) => ({
+            label: `hint speaker ${id}`,
+            fontSize: HINT_SPEAKER_FONT_SIZE,
+            text: fr['colleague.attribution']
+                .replaceAll('{name}', name)
+                .replaceAll('{role}', fr[`colleague.role.${role}`])
+        }))
+    ];
+    const samples = authored.flatMap(({ label, fontSize, text }) =>
+        text.split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({ label, font: UI_FONT_STACK, fontSize, text: token })));
+    const widths = await measure(page, samples);
+
+    const overflowing = samples
+        .map((sample, index) => ({ ...sample, width: widths[index] }))
+        .filter(({ width }) => width > HINT_TEXT_WRAP)
+        .map(({ label, text, width }) => `${label}: "${text}" (${Math.round(width)}px > ${HINT_TEXT_WRAP}px)`);
+
+    expect(overflowing).toEqual([]);
+    expect(COLLEAGUE_HINTS.length).toBeGreaterThan(0);
+});
+
+test('fits every French fixed-height control label on one line', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
+
+    // The per-token sweep above cannot catch this. Its pass condition is "no single token is wider
+    // than the wrap bound", which a 37-character two-word label satisfies comfortably — and then wraps
+    // to two lines inside a 40px-high rectangle and clips. Completion Note 10 claimed the token sweep
+    // pinned `lab.advance` against exactly that; it does not (review, 2026-08-06).
+    //
+    // These controls are a fixed height by design — they are hit targets, not prose — so the label has
+    // to fit on one line at its authored size. That is a whole-string measurement, and it is the same
+    // gap `deferred-work.md` already tracks for `theoryBoard.submit` and `rivalLab.revise`, now closed
+    // for all three rather than for the newest one only.
+    const FIXED_HEIGHT_CONTROLS = [
+        { key: 'lab.advance', fontSize: ADVANCE_CONTROL_FONT_SIZE, bound: ADVANCE_CONTROL_LABEL_WRAP },
+        { key: 'theoryBoard.submit', fontSize: SUBMIT_CONTROL_FONT_SIZE, bound: SUBMIT_CONTROL_LABEL_WRAP },
+        { key: 'rivalLab.revise', fontSize: RIVAL_LAB_CONTROL_FONT_SIZE, bound: RIVAL_LAB_CONTROL_LABEL_WRAP },
+        { key: 'dialogue.advance', fontSize: DIALOGUE_CONTROL_FONT_SIZE, bound: DIALOGUE_CONTROL_LABEL_WRAP }
+    ] as const;
+
+    const widths = await measure(page, FIXED_HEIGHT_CONTROLS.map(({ key, fontSize }) => ({
+        font: UI_FONT_STACK, fontSize, text: fr[key]
+    })));
+
+    const wrapping = FIXED_HEIGHT_CONTROLS
+        .map((control, index) => ({ ...control, width: widths[index]! }))
+        .filter(({ width, bound }) => width > bound)
+        .map(({ key, width, bound }) => `${key}: "${fr[key]}" (${Math.round(width)}px > ${bound}px)`);
+
+    expect(wrapping).toEqual([]);
 });
 
 test('fits every French book control inside its fixed button width', async ({ page }) => {

@@ -87,6 +87,33 @@ describe('the significant-measure gate (AC1)', () => {
         expect(selectCasePhase(store.getState())).toBe('synthesis');
     });
 
+    it('opens when the third observation changes only the wavelength, at one arrangement', () => {
+        // The scenario the review found unreachable (2026-08-06). Two identical 550 nm runs unlock the
+        // optional wavelength comparison; a third at the *same* slit separation and throw on a
+        // different colour moves the fringe spacing by a wide margin, so calling it a repetition was
+        // false — and the `repeated-configuration` hint then told the player they had written the same
+        // arrangement down twice when they had just changed the light.
+        //
+        // Driven entirely through public actions, so it also proves the recorded `modelInputs` carry
+        // the wavelength the rule reads.
+        const store = storeInLaboratory();
+        store.dispatch({ type: 'experiment.run', id: 'run-1', timestamp: '2026-08-06T12:00:00.000Z' });
+        store.dispatch({ type: 'experiment.run', id: 'run-2', timestamp: '2026-08-06T12:01:00.000Z' });
+
+        // Two runs at one arrangement is still one measurement, and the gate still refuses.
+        expect(selectSignificantMeasureCount(store.getState())).toBe(1);
+        expect(advance(store).ok).toBe(false);
+
+        const switched = store.dispatch({ type: 'apparatus.wavelengthSet', wavelengthNm: 450 });
+        expect(switched.ok).toBe(true);
+        store.dispatch({ type: 'experiment.run', id: 'run-3', timestamp: '2026-08-06T12:02:00.000Z' });
+
+        expect(selectSignificantMeasureCount(store.getState())).toBe(2);
+        expect(selectLocalizedColleagueHint(store.getState())).toBeUndefined();
+        expect(advance(store).ok).toBe(true);
+        expect(selectCasePhase(store.getState())).toBe('synthesis');
+    });
+
     it('reports the gate as a count against the authored requirement, not a bare boolean', () => {
         const store = storeInLaboratory();
         expect(selectSignificantMeasureGate(store.getState())).toStrictEqual({ count: 0, required: 2, isMet: false });

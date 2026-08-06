@@ -1,5 +1,5 @@
 # generated: 2026-08-04T18:18:39+0200
-# last_updated: 2026-08-06  # story 2.6 review
+# last_updated: 2026-08-06  # sprint change: playable Phaser surface (Epic 2 reopened, 2.7-2.12 added)
 # project: Quantique
 # project_key: NOKEY
 # tracking_system: file-system
@@ -52,9 +52,22 @@
 #   even though their epic titles changed; "# rework:pivot" marks the drift.
 #   These need re-baselining via gds-create-story before dev.
 # ============================================================================
+# SPRINT CHANGE (approved 2026-08-06): Playable Phaser surface.
+# See planning-artifacts/sprint-change-proposal-2026-08-06.md
+# - Epic 2 reopened: Stories 2.7-2.12 added. No story rolled back.
+# - Cause: nine of fourteen player intents were dispatchable only from the
+#   retired src/ui/* DOM panels, and LibraryScene/DebriefScene were still
+#   PhasePlaceholderScene while their owning stories were marked done.
+#   New NFR20 (canvas intent completeness) and ADR-011 prevent recurrence.
+# - Decisions: coded vector silhouettes for the cast (no art assets); knob drag
+#   plus discrete steps; full scope including Debrief and panel retirement.
+# - Story 2.4's release gate stays Blocked until 2.12 ships.
+# - A story marked done before 2026-08-06 may have met its acceptance criteria
+#   without delivering a canvas surface. Check before building on it.
+# ============================================================================
 
 generated: 2026-08-04T18:18:39+0200
-last_updated: 2026-08-06  # story 2.6 review
+last_updated: 2026-08-06  # sprint change: playable Phaser surface (Epic 2 reopened, 2.7-2.12 added)
 project: Quantique
 project_key: NOKEY
 tracking_system: file-system
@@ -67,7 +80,7 @@ development_status:
   1-2-minimal-young-case-contract-and-authored-loop: done
   1-3-accessible-dual-surface-laboratory-controls: done  # rework:pivot -> "Phaser laboratory controls"
   1-4-measurement-notebook-and-run-comparison: done  # rework:pivot -> in-scene notebook
-  1-5-curated-record-and-source-labels: done  # rework:pivot -> LibraryScene (reuse LectureBookRenderer)
+  1-5-curated-record-and-source-labels: done  # rework:pivot -> LibraryScene (reuse LectureBookRenderer); superseded-impl: delivered via DOM CuratedRecord, LibraryScene stayed a placeholder -> see 2.8
   1-6-evidence-to-conclusion-theory-board: done  # rework:pivot -> choose 1-of-4 colleague conclusion
   1-7-consultations-peer-review-and-revision-history: done  # rework:pivot -> colleague hints + rival-lab critique
   1-8-offline-progress-export-import-and-print: done  # kept (print/export retained)
@@ -76,13 +89,21 @@ development_status:
   1-11-colleague-cast-and-proposal-system: done  # new (pivot)
   1-12-phaser-dialogue-and-choice-ui: done  # new (pivot)
   epic-1-retrospective: skipped
-  epic-2: in-progress
-  2-1-young-contextual-record-and-prediction: done  # rework:pivot -> library reading + choice-of-4 prediction
+  epic-2: in-progress  # reopened 2026-08-06 by sprint-change-proposal-2026-08-06.md
+  2-1-young-contextual-record-and-prediction: done  # rework:pivot -> library reading + choice-of-4 prediction; superseded-impl: delivered via DOM CuratedRecord + LectureBookScene overlay, not LibraryScene -> see 2.7/2.8
   2-2-young-double-slit-experiment: done  # kept (deterministic model reused)
-  2-3-young-synthesis-debrief-and-replay: done  # rework:pivot -> significant-measure gate + colleague conclusion
+  2-3-young-synthesis-debrief-and-replay: done  # rework:pivot -> significant-measure gate + colleague conclusion; superseded-impl: debrief/replay delivered via DOM HistoricalDebriefPanel, DebriefScene still a placeholder -> see 2.11
   2-4-young-learning-and-educator-validation-gate: done  # rework:pivot -> re-baselined 2026-08-06: metrics revised, EN+FR gate added, a11y gate removed. Instrument delivered and reviewed; the release gate itself stays Blocked and cannot be run until 2.5/2.6 ship
   2-5-rival-lab-critique-and-revision: done  # new (pivot); reviewed 2026-08-06: 7 patches applied, 4 decisions resolved, 7 items deferred
-  2-6-significant-measure-gate-and-colleague-hints: review  # new (pivot); implemented 2026-08-06 — gate + hints shipped; unblocks the 2.4 release gate
+  2-6-significant-measure-gate-and-colleague-hints: done  # new (pivot); implemented + reviewed 2026-08-06 — gate + hints shipped at case.json 1.11.0; its ad-hoc advance control is consolidated into 2.7
+  # ---- Added 2026-08-06 (playable-Phaser-surface correction). Build 2.7 FIRST: it
+  # ---- delivers the reusable advance affordance 2.8/2.10/2.11 consume. 2.12 STRICTLY LAST.
+  2-7-in-scene-phase-transitions: backlog  # new; unblocks every story below; effort M / risk Low
+  2-8-library-reading-room-and-reference-book: backlog  # new; retires LectureBookScene overlay + scene reach-in; effort L / risk Med
+  2-9-colleague-and-rival-lab-characters: backlog  # new; coded vector silhouettes, no art assets; effort M / risk Low
+  2-10-physical-apparatus-and-player-started-light: backlog  # new; knob drag + start-the-light; effort L / risk Med
+  2-11-debrief-scene-and-replay: backlog  # new; retires the last PhasePlaceholderScene; effort M / risk Low
+  2-12-retire-dom-presentation-panels: backlog  # new; LAST — requires 2.7-2.11 done; effort M / risk HIGH
   epic-2-retrospective: optional
   epic-3: backlog
   3-1-incremental-reusable-case-contract-hardening: backlog  # extend:pivot -> proposals, significance rule, colleague hints

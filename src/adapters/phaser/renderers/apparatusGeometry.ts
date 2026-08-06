@@ -11,15 +11,51 @@
  * refactor of the whole renderer.
  *
  * A column rather than a band, because the laboratory has no spare horizontal strip: `lab.title` and
- * `lab.guide` wrap to x=940 across the top, the painted apparatus runs to the screen at x≈612,
- * `resultReadout` and `visualGuidance` both wrap 620px from x=40 and end at 660, and the two control
- * rows occupy x=40–560 from y≈578 down. x≥680 below the guide is what is left.
+ * `lab.guide` wrap to x=940 across the top, `resultReadout` and `visualGuidance` both wrap 620px from
+ * x=40 and end at 660, and the two control rows occupy x=40–560 from y≈578 down. x≥680 is what is
+ * left — but only *below* the apparatus, which is the correction below.
  */
+
+/** The painted apparatus, in the same design space, so the column can be placed clear of it. */
+export const CENTRE_Y = 200;
+export const SCREEN_HALF_HEIGHT = 108;
+export const SCREEN_BAR_HALF_WIDTH = 7;
+/** The interference screen's baseline label, drawn under the bar. */
+export const SCREEN_LABEL_Y = 322;
+export const SCREEN_LABEL_HEIGHT = 20;
+
+/**
+ * Where the interference screen stands for a given throw.
+ *
+ * Here rather than in the renderer because the column's placement depends on it and a browser test
+ * has to be able to check that they do not collide. It is pure arithmetic over an authored control
+ * value; nothing about it needs Phaser.
+ */
+export const screenXForDistance = (screenDistanceM: number): number => 480 + ((screenDistanceM - 1) / 3) * 220;
 
 export const SIDE_COLUMN_LEFT = 680;
 export const SIDE_COLUMN_WIDTH = 304;
 
-export const ADVANCE_CONTROL_Y = 130;
+/**
+ * Below the apparatus, not beside it.
+ *
+ * This was 130 and it was wrong (review, 2026-08-06). The screen slides right with the throw —
+ * `screenXForDistance(4) = 700`, so at the two longest authored distances the bar occupies x 693–707
+ * and its label reaches y≈342, both inside a column that starts at x=680. An opaque control at y=130
+ * painted a 40px band straight across the interference pattern the player is there to measure, and
+ * swallowed pointer events over it into a phase advance. `createSideColumn()` runs after
+ * `createRichPattern()`, so it was unambiguously on top. Reachable in normal play: the authored hints
+ * ask the player to slide the screen back.
+ *
+ * 360 clears the screen bar (y≤308) and its label (y≤342) with room to spare, at every authored
+ * distance. `apparatusGeometry.test.ts` pins the invariant rather than trusting this comment.
+ *
+ * Still a constant rather than a measurement, but now with a rationale that survives inspection: the
+ * only thing above it in this column is `lab.guide` at y=62, and at 15px it would need roughly
+ * fifteen wrapped lines to reach here. The *hint* below is the piece that genuinely moves, and it is
+ * measured and grows upward from the floor.
+ */
+export const ADVANCE_CONTROL_Y = 360;
 export const ADVANCE_CONTROL_HEIGHT = 40;
 export const ADVANCE_CONTROL_PADDING = 12;
 export const ADVANCE_CONTROL_FONT_SIZE = 15;
@@ -37,9 +73,6 @@ export const HINT_TEXT_WRAP = SIDE_COLUMN_WIDTH - (2 * HINT_PADDING);
 /**
  * The design-space centre of the control that leaves the laboratory, so a browser test can click it
  * without restating the column's gutters.
- *
- * Fixed rather than measured: it is anchored to the top of the side column, which nothing measured
- * pushes around. The hint below it is the piece that moves, and it grows *upward* from the floor.
  */
 export const advanceToSynthesisControlCentre = (): Readonly<{ x: number; y: number }> => ({
     x: SIDE_COLUMN_LEFT + (SIDE_COLUMN_WIDTH / 2),

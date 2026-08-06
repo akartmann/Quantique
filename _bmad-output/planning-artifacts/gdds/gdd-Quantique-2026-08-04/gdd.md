@@ -4,8 +4,11 @@ game_type: "narrative-adventure / puzzle"
 platforms:
   - "Desktop web browsers"
 created: "2026-08-04"
-updated: "2026-08-05"
+updated: "2026-08-06"
 status: "revised-pivot"
+change_log:
+  - "2026-08-05 — pivot to Phaser guided adventure (sprint-change-proposal-2026-08-05.md)"
+  - "2026-08-06 — playable Phaser surface: physical instruments, player-started light, in-scene transitions, art-free cast (sprint-change-proposal-2026-08-06.md)"
 ---
 
 # Fracture of Certainty: Cases from the Quantum Age — Game Design Document
@@ -95,7 +98,9 @@ The case plays as a scripted sequence of Phaser scenes over the preserved gated 
 ### Controls and Input
 
 - Desktop mouse and keyboard are the primary inputs, handled by the Phaser scenes. Touch/pointer support is a secondary goal for tablet readiness.
-- Interactive controls live in the Phaser scene; each exposes its current value and units on-screen so the setting is always legible.
+- Interactive controls live in the Phaser scene as physical instruments — knobs, dials, and sliders the player grasps and moves directly — and each exposes its current value and units on-screen so the setting is always legible. Instrument travel is bounded by the authored range and snaps to the authored step, so direct manipulation never produces a value the case did not author.
+- The experiment does not run unattended. The apparatus sits unlit and idle until the player starts the light; starting the light is the act of running the experiment, and the measurement resolves from the deterministic model rather than from anything the animation computes.
+- Every step of the scenario is advanced from within the scene the player is standing in. No transition between steps lives outside the Phaser surface.
 - The apparatus field, controls, readouts, and the conclusion choice are presented in-scene through Phaser.
 - A semantic CSS print/export record is retained as the only non-Phaser surface, purely for portability of the player's case record.
 
@@ -204,7 +209,8 @@ Quiet tactile audio marks adjustment, measurement, and archival discovery. Music
 
 ### Asset Requirements
 
-- One reusable case framework; the GDD specifies player-facing behavior, not a data/schema implementation. Each case now also authors a **colleague cast**, a **scenario script** (scene order and dialogue beats), **four prediction proposals**, **four conclusion proposals** (each with a support rule), a **significance rule**, and **rival-lab critique lines**.
+- One reusable case framework; the GDD specifies player-facing behavior, not a data/schema implementation. Each case now also authors a **colleague cast**, a **scenario script** (scene order, per-scene cast presence, and dialogue beats), **four prediction proposals**, **four conclusion proposals** (each with a support rule), a **significance rule**, and **rival-lab critique lines**.
+- The cast ships **without commissioned art**. A colleague is staged as a vector silhouette drawn from an authored accent colour, so the cast carries no image asset, no loader budget, and no rights-ledger entry. Painted portrait art is a possible later enhancement, not a requirement for a case to ship.
 - Each case requires a sourced artifact ledger with named primary and secondary sources, scholarly reviewer, educator context sheet, and a rights/replacement plan.
 - Phaser feasibility is a Young-slice gate: the scenarized scene flow (library → colleagues → lab → theory board → debrief) must run at target performance and deliver the guided experience before the engine constraint is considered validated.
 - Avoid 3D navigation, WebGPU/ray-tracing requirements, multiplayer, cloud saves, UGC, LLM dialogue, and external critical-play dependencies.
@@ -235,7 +241,7 @@ The build sequence and detailed high-level stories are in [epics.md](epics.md). 
 
 - Freeform physics sandbox, broad historical archive, full optics course, or unrestricted 3D exploration.
 - Multiplayer, chat, accounts, cloud saves, UGC, adaptive assessment, LLM dialogue, telemetry, advertisements, in-game purchases, and premium learning gates.
-- Native mobile laboratory controls, localization **beyond English and French**, relativity/entanglement implementation in the first validation release, and high-fidelity full animation.
+- Native mobile laboratory controls, localization **beyond English and French**, relativity/entanglement implementation in the first validation release, and high-fidelity full animation — meaning cinematic cutscenes, full character animation rigs, and frame-by-frame art. It does **not** exclude direct-manipulation instrument controls, a player-started light source, or restrained character staging and reaction, all of which are required (see Controls and Input, and Art Style).
 - **Deferred post-MVP (pivot 2026-08-05):** accessibility as a release gate — keyboard-only completion, screen-reader support, non-colour-only scientific encoding, and a semantic-HTML-authoritative interface. The store/domain boundary is preserved so this can be reintroduced later without re-architecture.
 
 ## Assumptions and Dependencies

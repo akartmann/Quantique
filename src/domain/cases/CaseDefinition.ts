@@ -168,16 +168,35 @@ export type RivalLab = Readonly<{
  * Authored per case, because "the critical path" is a claim about this apparatus: for Young it is
  * the slit separation and the throw to the screen, and a later case will name its own.
  *
- * `minimumResultDelta` is optional and, for Young, provably never binding — the smallest single-step
- * change anywhere inside the authored control bounds moves the fringe spacing by ≈0.122 mm, well
- * clear of the authored 0.05 mm. It is carried because the rule is the reusable half of the contract
- * Story 3.1 hardens, and `tests/unit/SignificantMeasures.test.ts` pins that it does not bite here.
+ * The rule is **purely configurational**: a run's configuration is its tuple of critical values, and
+ * the count is the number of distinct tuples. Nothing here looks at the *reading*. An earlier draft
+ * carried a `minimumResultDelta` that discounted runs whose results landed close together; it was
+ * removed in review (2026-08-06) because comparing each run against the incrementally-built counted
+ * set made the total depend on the order the player happened to record in — the same evidence could
+ * open or refuse the gate. A distinct-configuration count has no such seam, and the reading is a
+ * *consequence* of the configuration anyway: the model is deterministic, so two distinct
+ * configurations that produce the same number are a fact about the physics worth recording, not a
+ * duplicate worth discarding. If Story 3.1 needs a reading-distance rule, it needs an
+ * order-independent one, and it should design it deliberately rather than inherit this.
  */
 export type SignificanceRule = Readonly<{
-    /** Non-empty; every entry is an authored primary control. Their values form a run's configuration. */
+    /** Non-empty; every entry is an authored primary control. Their values form part of a run's configuration. */
     criticalControlIds: readonly PrimaryControl['id'][];
-    /** A run whose result is within this of an already-counted run's is a replication, not a variation. */
-    minimumResultDelta?: number;
+    /**
+     * Optional model inputs that also distinguish a configuration, for a case whose critical path is
+     * not fully described by the apparatus controls.
+     *
+     * Young needs this: changing the wavelength at a fixed slit separation and throw is a genuinely
+     * distinguishing measurement (550 → 450 nm moves the fringe spacing 4.4 → 3.6 mm), but the
+     * wavelength is **not** a `PrimaryControl` — `RunControls` is `Record<PrimaryControl['id'], number>`
+     * and `validateControls` snapshots only the two apparatus controls. Widening `RunControls` to
+     * carry it would change a persisted, schema-validated shape and demand a `schemaVersion`
+     * migration, which would fail every saved record on load and let autosave overwrite it — a silent
+     * progress wipe against NFR12. So the wavelength is read from the optional `modelInputs` instead,
+     * and a run without `modelInputs` (a fixture run) occupies its own slot rather than colliding
+     * with a recorded one.
+     */
+    criticalModelInputIds?: readonly 'wavelengthNm'[];
 }>;
 
 export type CaseDefinition = Readonly<{

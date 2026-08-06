@@ -1,9 +1,9 @@
 ---
 title: 'Game Architecture'
 project: 'Quantique'
-date: '2026-08-05'
+date: '2026-08-06'
 author: 'Alexis'
-version: '1.1'
+version: '1.2'
 stepsCompleted: [1, 2, 3, 4, 5, 6, 7, 8, 9]
 status: 'complete'
 engine: 'Phaser 4.2.1'
@@ -22,6 +22,8 @@ brief: '/Users/akartmann/Documents/Projects/Quantique/_bmad-output/planning-arti
 **Fracture of Certainty: Cases from the Quantum Age** is a desktop-web historical-science **guided narrative adventure** built with Phaser 4.2.1, TypeScript, and Vite. Phaser scenes are the sole presentation surface (library, colleagues, lab, theory board, debrief); a lightweight TypeScript store and pure domain layer remain authoritative for evidence, conclusions, and local progress.
 
 > **Pivot note (v1.1, 2026-08-05):** This document was revised for the pivot to a Phaser guided adventure. The store/domain boundary is unchanged; the previously dual-surface (semantic-HTML-authoritative) presentation layer is now a **single Phaser surface**, and accessibility is de-scoped from the MVP. See ADR-001 and the User Interface & Rendering Boundary section.
+>
+> **Correction note (v1.2, 2026-08-06):** ADR-001 v1.1 made Phaser the sole surface but stated no *completeness* obligation, so nine of fourteen player intents shipped dispatchable only from the retired DOM panels. **ADR-011** closes that gap; **ADR-012** adds direct-manipulation instruments and a player-started light. No layer below presentation changes. See `planning-artifacts/sprint-change-proposal-2026-08-06.md`.
 
 **Key Architectural Decisions:**
 
@@ -160,14 +162,14 @@ npm create @phaserjs/game@latest
 | UI/render boundary | Store-mediated typed adapters | Project-owned | Phaser scenes render store projections and dispatch typed intents; they never mutate state directly |
 | Persistence | IndexedDB through `idb` | 8.0.3 | Offline-first structured local records with explicit migrations |
 | Content validation | JSON case definitions validated by Zod | 4.4.3 | Reusable, inspectable cases with safe loading and authoring errors |
-| UI | Phaser scenes + renderer factories | Phaser 4.2.1 | Library, colleagues, lab, theory-board, and debrief scenes are the sole interactive surface; a CSS print view is the only DOM surface (record export) |
+| UI | Phaser scenes + renderer factories | Phaser 4.2.1 | Library, colleagues, lab, theory-board, and debrief scenes are the sole **and sufficient** interactive surface — every player intent is dispatchable from the canvas (ADR-011); a CSS print view is the only DOM surface (record export) |
 | Asset loading | Boot shell then case-scoped bundles | Phaser Loader | Fast first interaction and clean campaign-scale boundaries |
 | Experiment model | Deterministic authored calculations | Project-owned | Scientific behavior is inspectable and reproducible; no runtime physics required |
 | Dialogue and peer review | Data-driven rules and predicates | Project-owned | Evidence-responsive but historically convergent content |
 | Export/import | Versioned JSON plus CSS print view | Platform APIs | Offline backup, classroom printing, and no account requirement |
 | Networking | None | N/A | No multiplayer, cloud dependency, or critical-play network requirement |
 | Audio | Phaser native audio | Phaser 4.2.1 | Sufficient for restrained music and tactile feedback |
-| Physics | None by default | N/A | The apparatus is a visual/interaction model, not a physics sandbox |
+| Physics | None by default | N/A | The apparatus is a visual/interaction model, not a physics sandbox. Direct-manipulation drag input (ADR-012) is an input mapping, not a physics body |
 
 ### State Management
 
@@ -194,6 +196,13 @@ A case definition owns its apparatus controls, allowed values, deterministic exp
 - `rivalLabCritiques[]` — dramatic, non-punitive critique lines shown when the player selects an unsupported conclusion.
 - `scenarioScript` — the ordered scene flow (library → colleagues → lab → theory board → debrief) and its dialogue beats.
 
+**Added v1.2 (2026-08-06).** Two optional authoring fields let a case stage its own characters and instruments:
+
+- `scenarioScript.scenes[].cast?` — the colleague IDs present in that scene, defaulting to the full cast. Lets a case stage who is in the room without scene code.
+- `apparatus.primaryControls[].affordance?` — `knob` | `dial` | `slider`, defaulting to `knob`. Selects the instrument the scene draws; the authored range, step, and validation are unchanged.
+
+Both are optional and additive, so existing case content parses unchanged. Adding them bumps `CaseDefinition.version`, and the record-compatibility allowlist is extended only across versions whose canonical strings are verified byte-identical.
+
 Runtime state stores only player decisions and generated observations; it never mutates the shipped case definition.
 
 **Internationalization (EN + FR, v1.1).** The game ships bilingual. All player-facing strings — UI/scene chrome and every authored case string (dialogue beats, colleague names/roles, the prediction and conclusion proposals with their limitations, colleague hints, rival-lab critiques, source labels, and debrief) — resolve through an i18n layer with `en` and `fr` locale resources; no display string is hard-coded in scenes, widgets, or the print view. Localizable case strings carry both locales, and Zod validates locale completeness at load. The active locale lives in the store (persisted in player settings); a missing key falls back to English with a dev-only `i18n.missingKey` warning. Phaser fonts must include the full French glyph set/diacritics. Recorded scientific run values stay canonical regardless of locale.
@@ -203,6 +212,10 @@ Runtime state stores only player decisions and generated observations; it never 
 Phaser scenes are the sole interactive surface. Each phase of the case is a scene — library (reference reading), colleagues (prediction choice), laboratory (apparatus + measurement), theory board (conclusion choice + rival-lab critique), and debrief — presented in the scripted `scenarioScript` order. Scenes render controls, measured values, instructions, source records, and the conclusion choice in-canvas; they read store projections and dispatch typed intents.
 
 The TypeScript store and pure domain layer remain authoritative: scenes never mutate state directly, and the domain never imports Phaser. A single **SceneRouter** maps the authoritative case phase to the active scene (a scene transition mirrors the phase; it never defines it). The only non-Phaser surface is the semantic CSS print/export view, retained purely so a player's case record stays portable. Accessibility parity (keyboard-only completion, screen-reader support, non-colour-only encoding) is de-scoped from the MVP; the preserved store/domain boundary keeps a future accessible surface feasible without re-architecture.
+
+**Surface completeness (v1.2).** Being the sole surface is not the same as being a sufficient one. Every player intent required to reach a case conclusion must be dispatchable from the canvas. A feature whose only dispatcher is a non-Phaser surface is incomplete regardless of how well its store contract is tested — the store may be correct while the game is unplayable. The retained CSS print/export view is the one exemption and dispatches nothing. See ADR-011.
+
+**Interaction fidelity (v1.2).** Apparatus controls are direct-manipulation instruments, and the experiment is player-initiated: the light source is dark and no propagation loop runs until the player starts it. See ADR-012.
 
 ### Asset Management
 
@@ -230,6 +243,8 @@ Export a validated, versioned JSON case record. Import validates against the cur
 - **ADR-008 — Accessibility de-scoped from MVP (new v1.1):** Keyboard-only completion, screen-reader support, and non-colour-only encoding are not MVP release gates. The preserved store/domain boundary keeps a future accessible surface feasible without re-architecture.
 - **ADR-009 — Scene-router adventure flow (new v1.1):** A single SceneRouter maps the authoritative case phase to the active Phaser scene per the case's `scenarioScript`; scenes mirror phase, never define it.
 - **ADR-010 — Bilingual (EN + FR) i18n foundation (new v1.1):** All player-facing text resolves through an i18n layer with `en`/`fr` resources; case strings carry both locales (Zod-validated), locale lives in the store and persists in settings, and Phaser fonts include the French glyph set. This is an early foundation concern built before scene text work; localization beyond EN/FR is out of scope.
+- **ADR-011 — Canvas intent completeness (new v1.2):** Every player intent required to complete a case must be dispatchable from the Phaser canvas; no non-Phaser surface may be the sole dispatcher of any intent. ADR-001 v1.1 established Phaser as the sole *presentation* surface but stated no completeness obligation, which allowed six stories to be verified complete while nine of fourteen player intents remained reachable only through DOM panels the pivot had retired. A story that introduces or gates an intent is not done until the canvas can issue it. The CSS print/export view (ADR-007) is the sole exemption and dispatches nothing.
+- **ADR-012 — Direct-manipulation instruments over stepper controls (new v1.2):** Apparatus controls are drawn as physical instruments the player grasps and moves; drag input is converted to a value that snaps to the authored step before dispatch, so no off-step value ever reaches the store. This is an **input mapping, not physics** — ADR-004 stands unchanged and no Arcade or Matter body is introduced. Discrete step affordances and keyboard stepping remain alongside the drag so that pointer and keyboard produce identical run records. Corollary: the experiment run is player-initiated; the light source is dark and no propagation loop runs until the player starts it, which also removes a continuous idle animation cost from the NFR1 baseline.
 
 ## Cross-cutting Concerns
 

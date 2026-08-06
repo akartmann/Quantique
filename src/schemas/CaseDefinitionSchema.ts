@@ -180,14 +180,16 @@ const PeerReviewRuleSchema = z.object({
  * When a run counts as a distinguishing measurement (Story 2.6).
  *
  * `criticalControlIds` is `.min(1)` and its entries are checked against the authored controls in the
- * top-level refinement, where the message can name the offending ID. `minimumResultDelta` is
- * optional and must be positive — a zero or negative delta would be satisfied by every pair and is
- * therefore an author asking for a rule that does nothing, which is worth failing on rather than
- * silently accepting.
+ * top-level refinement, where the message can name the offending ID. `criticalModelInputIds` is
+ * `.min(1)` when present for the same reason an empty control list is rejected: an empty list is an
+ * author writing a field that does nothing, which is worth failing on rather than silently accepting.
+ *
+ * There is no reading-distance field. One existed (`minimumResultDelta`) and was removed in review
+ * (2026-08-06) because it made the count depend on recording order; see {@link SignificanceRule}.
  */
 const SignificanceRuleSchema = z.object({
     criticalControlIds: z.array(z.enum(['slitSpacingMm', 'screenDistanceM'])).min(1),
-    minimumResultDelta: z.number().positive().optional()
+    criticalModelInputIds: z.array(z.enum(['wavelengthNm'])).min(1).optional()
 }).strict();
 
 const ColleagueHintPredicateSchema = z.discriminatedUnion('kind', [
@@ -613,6 +615,14 @@ export const CaseDefinitionSchema = z.object({
             path: ['significanceRule', 'criticalControlIds']
         });
     }
+    const criticalModelInputIds = definition.significanceRule.criticalModelInputIds ?? [];
+    if (new Set(criticalModelInputIds).size !== criticalModelInputIds.length) {
+        context.addIssue({
+            code: 'custom',
+            message: 'The significance rule must not name the same model input twice.',
+            path: ['significanceRule', 'criticalModelInputIds']
+        });
+    }
 
     const hintIds = definition.colleagueHints.map(({ id }) => id);
     if (new Set(hintIds).size !== hintIds.length) {
@@ -635,6 +645,19 @@ export const CaseDefinitionSchema = z.object({
                 path: ['colleagueHints', index, 'predicate', 'controlId']
             });
         }
+        // Naming a control the significance rule does not consider critical produces advice that
+        // cannot work: the player varies exactly what they were told to, the configuration key never
+        // changes, the count never moves, and the gate refuses again with the same hint. A colleague
+        // must not send someone to do something that provably cannot open the way on.
+        if (hint.predicate.kind === 'unvaried-control'
+            && controlIds.has(hint.predicate.controlId)
+            && !new Set<string>(definition.significanceRule.criticalControlIds).has(hint.predicate.controlId)) {
+            context.addIssue({
+                code: 'custom',
+                message: 'A colleague hint may only ask the player to vary a control the significance rule treats as critical.',
+                path: ['colleagueHints', index, 'predicate', 'controlId']
+            });
+        }
         if (encodesPath(hint.line)) {
             context.addIssue({
                 code: 'custom',
@@ -644,15 +667,31 @@ export const CaseDefinitionSchema = z.object({
         }
     });
 
-    // The floor that makes the gate honest. `no-recorded-runs` and `below-significant-measures` are
-    // the two predicates that hold with an empty notebook; without at least one of them the gate can
-    // refuse the advance and then have nothing to say, which is a silent dead end rather than a
-    // nudge — precisely the hard fail AC2 forbids.
-    if (!definition.colleagueHints.some(({ predicate }) => predicate.kind === 'no-recorded-runs' || predicate.kind === 'below-significant-measures')) {
+    // The floor that makes the gate honest, and the two things that have to be true about it.
+    //
+    // Only `below-significant-measures` actually delivers the guarantee. An earlier version of this
+    // rule accepted `no-recorded-runs` as an alternative (review, 2026-08-06), but that predicate
+    // holds *only* with an empty notebook: a case authoring it alone passes validation and then goes
+    // silent the instant the player records their first run — the advance refused, nothing said, no
+    // way to learn what would help. That is the silent dead end AC2 forbids, reached through a rule
+    // written to prevent it.
+    const floorIndex = definition.colleagueHints.findIndex(({ predicate }) => predicate.kind === 'below-significant-measures');
+    if (floorIndex === -1) {
         context.addIssue({
             code: 'custom',
-            message: 'At least one colleague hint must apply when no runs are recorded, so the gate always has something to say.',
+            message: 'Colleague hints must include a below-significant-measures hint, so the gate always has something to say.',
             path: ['colleagueHints']
+        });
+    } else if (floorIndex !== definition.colleagueHints.length - 1) {
+        // Selection is first-match in authored order and this predicate is unconditionally true, so
+        // anywhere but last it shadows every hint after it: the escalation ladder silently collapses
+        // to one generic line at every stage, and the specific hints become unreachable content that
+        // no test and no validation would otherwise notice. Authoring more than one is caught here
+        // too, because the earlier of them cannot be last.
+        context.addIssue({
+            code: 'custom',
+            message: 'The below-significant-measures hint must be the last authored hint, or it shadows every hint after it.',
+            path: ['colleagueHints', floorIndex]
         });
     }
 

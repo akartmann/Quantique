@@ -2,13 +2,14 @@
 project_name: 'Quantique'
 user_name: 'Alexis'
 date: '2026-08-06'
-revision: '2.0 — Phaser guided adventure'
-supersedes: '1.0 (2026-08-04, dual-surface accessibility-first)'
+revision: '2.1 — playable Phaser surface'
+supersedes: '2.0 (2026-08-05, Phaser guided adventure); 1.0 (2026-08-04, dual-surface accessibility-first)'
 pivot_reference: 'planning-artifacts/sprint-change-proposal-2026-08-05.md'
+correction_reference: 'planning-artifacts/sprint-change-proposal-2026-08-06.md'
 sections_completed: ['technology_stack', 'engine_specific_rules', 'guided_adventure_rules', 'i18n_rules', 'performance_rules', 'organization_rules', 'testing_rules', 'platform_build_rules', 'critical_dont_miss_rules']
 existing_patterns_found: 14
 status: 'complete'
-rule_count: 64
+rule_count: 73
 optimized_for_llm: true
 ---
 
@@ -16,7 +17,9 @@ optimized_for_llm: true
 
 _Critical rules and patterns AI agents must follow when implementing game code here. Focus is on unobvious details agents would otherwise miss._
 
-> **Read this before trusting any artifact dated before 2026-08-05.** The project pivoted from an accessibility-first dual-surface investigation tool to a **Phaser-only guided adventure**. Older GDD/UX/story text still asserts the retired contract (semantic HTML authority, DOM parity, a11y gates). This file and `game-architecture.md` v1.1 are current.
+> **Read this before trusting any artifact dated before 2026-08-05.** The project pivoted from an accessibility-first dual-surface investigation tool to a **Phaser-only guided adventure**. Older GDD/UX/story text still asserts the retired contract (semantic HTML authority, DOM parity, a11y gates). This file and `game-architecture.md` v1.2 are current.
+>
+> **Correction of 2026-08-06 (revision 2.1).** The pivot's stories were verified against store contracts, not against canvas reachability, so nine of fourteen player intents shipped dispatchable **only** from the retired `src/ui/*` panels — and `LibraryScene` / `DebriefScene` remained placeholders while their owning stories were marked done. Epic 2 reopened with Stories 2.7–2.12. **ADR-011** (canvas intent completeness) and **ADR-012** (direct-manipulation instruments, player-started light) are the durable rules; both are stated in full below. Any story marked `done` before this date may have satisfied its acceptance criteria without delivering a canvas surface — check before building on it.
 
 ---
 
@@ -36,8 +39,10 @@ _Critical rules and patterns AI agents must follow when implementing game code h
 
 - Phaser scenes own all interactive presentation. The **only** non-Phaser surface is the portable record: `src/ui/print/CaseRecordPrintView.ts` + `src/adapters/export/` (ADR-007).
 - **Never add a semantic HTML control to mirror a Phaser gesture.** The DOM-parity requirement was retired 2026-08-05.
-- `src/ui/*` interactive panels are **retired but still mounted** by `src/main.ts`. Do not extend, restyle, or add to them — build the feature as a scene/renderer and let the panel be superseded. `CaseRecordPrintView` is the exception and stays.
+- **Canvas completeness (ADR-011): a feature is not done until the canvas can dispatch its intent.** Before marking any story complete, grep for every dispatcher of every action it touches. If the only dispatcher is under `src/ui/`, the story is unfinished no matter how green its unit tests are — this is exactly how nine of fourteen player intents ended up reachable only from retired panels (correction of 2026-08-06). The one exemption is `CaseRecordPrintView`, which dispatches nothing.
+- `src/ui/*` interactive panels are **retired and being deleted** by Story 2.12. Do not extend, restyle, or add to them, and **do not treat one as a working fallback** — until 2.12 lands they are the sole dispatcher for several intents, which is the defect, not the design. `CaseRecordPrintView` is the exception and stays.
 - `src/game/scenes/{Boot,Game,GameOver,MainMenu,Preloader}.ts` are **orphaned Phaser-template leftovers referenced nowhere**. They are not the scene layer. Do not wire, extend, or imitate them. Real scenes live in `src/adapters/phaser/scenes/`.
+- **Never introduce a scene as a `PhasePlaceholderScene` subclass without a story in the same epic that replaces it.** `LibraryScene` and `DebriefScene` sat as placeholders across two epics while their owning stories were marked done. Stories 2.8 and 2.11 replace both, after which the base class is deleted.
 - The store is authoritative: scenes read through selectors and write only typed actions through `dispatch`. No direct state mutation, and **no scene→scene reach-in**. (The existing `LectureBookScene`→`LaboratoryScene` coupling is a story-owned deferral, not a pattern to copy.)
 - **SceneRouter (ADR-009):** the case's `scenarioScript` owns the phase→scene map; the router only obeys it. Scenes **mirror** phase `context → prediction → experiment → synthesis → review → debrief` and must never define, infer, or advance it. The router is read-only over the store and never dispatches.
 - A routing failure must never escape the store subscriber. The router runs inside `notify` inside `dispatch`, and Phaser starts scenes synchronously — an escaping throw would advance the phase, skip later subscribers, and break `dispatch`'s `Result` contract.
@@ -45,7 +50,10 @@ _Critical rules and patterns AI agents must follow when implementing game code h
 - **Never author player-facing copy in `create()`.** It runs once and the locale can change. Create text empty, populate in `render(state)` through `createTranslator(locale)`.
 - **Sticky canvas:** refresh `this.scale.updateBounds()` from a *passive* `window` scroll listener registered and removed by the scene lifecycle — Phaser caches bounds in document coordinates. Browser tests must scroll before exercising in-canvas controls.
 - **Honour `prefers-reduced-motion`** in every animated renderer: subscribe to the media query, register no update loop when `reduce` is set, and have `render()` paint a static frame. This is the retained no-flashing / photosensitivity guard, and it survives the a11y de-scope.
-- No Arcade or Matter physics for scientific results — deterministic, versioned domain calculation only (ADR-004).
+- **The apparatus is unlit until the player starts it (ADR-012).** No animation loop may register from `create()` for the experiment's light. `syncAnimationLoop`-style gating gates on a player-initiated run, not on scene lifecycle. Idle animation that nobody asked for is both a design defect and an NFR1 cost.
+- **Drag input snaps to the authored step before dispatch (ADR-012).** Convert pointer travel to a stepped value in a Phaser-free module and unit-test it at both range ends and across every step. Never dispatch a raw drag value and let the domain normalize it — that makes the normalization rule visible as the value jumping under the cursor. Every draggable instrument also keeps a discrete step affordance and keyboard stepping, and the two paths must produce identical run records.
+- **Character staging must not be able to read the defensible set.** A staging renderer gets the cast, the speaker, and the accent colour. Nothing more. Same rule as `ColleagueRenderer`, and for the same reason (ADR-006).
+- No Arcade or Matter physics for scientific results — deterministic, versioned domain calculation only (ADR-004). Direct-manipulation drag is an input mapping, not a physics body.
 - Archival book: one leaf is one authored printed page from the same pure source-page pagination; fit body type once on redraw rather than splitting a source page. Reading, paging, and closing stay ephemeral — they never inspect evidence or alter progression.
 
 ### Guided-Adventure & Gating Rules
@@ -60,7 +68,9 @@ _Critical rules and patterns AI agents must follow when implementing game code h
 - The rival lab (Mr. Arthur Bell) critiques an unsupported claim and routes back to revision. He is **narrative dressing, never a fail state** — no score, game-over, or penalty — and he is **not** a member of `colleagues[]`.
 - Consultations and hints point at missing evidence, a source, an observable, or a test. They never supply the answer.
 - No hard-fail states, irreversible wrong choices, speed rewards, or rewards for overclaiming.
-- Authored copy must not name a scene, phase, or route (the `encodesPath` check).
+- **Every forward transition has an in-scene affordance.** The scenario advances from the scene the player is standing in. A transition reachable only from outside the canvas does not exist. Complete set: `context → prediction`, `prediction → experiment`, `experiment → synthesis`, `synthesis → review`, `review → debrief`, and post-debrief replay.
+- Authored copy must not name a scene, phase, or route (the `encodesPath` check) — including an advance affordance's label, which names what the player is moving *toward in fiction*.
+- **A refused action always says why, and the message survives until a real state change replaces it.** A gate the player can act on is answered by the authored colleague hint; anything else by the localized error. Never a raw error, never silence, never erased by an unrelated redraw.
 
 ### Internationalization Rules (ADR-010, NFR19)
 
@@ -123,6 +133,9 @@ _Quick index of the highest-cost mistakes. Each is stated in full in the section
 
 | Never | Why it is costly | Section |
 |---|---|---|
+| Ship a feature whose only dispatcher is under `src/ui/` | The store is correct and the game is unplayable — this caused the 2026-08-06 correction | Engine |
+| Register an animation loop for the experiment's light in `create()` | The light runs unattended and costs NFR1 budget for nothing | Engine |
+| Leave a transition reachable only from outside the canvas | The player reaches a phase they cannot leave | Guided-Adventure |
 | Add semantic HTML to reach parity with a Phaser control | Rebuilds the contract retired 2026-08-05 | Engine |
 | Extend `src/ui/*` panels, or treat `src/game/scenes/*` as the scene layer | Work lands in retired or orphaned code | Engine |
 | Let a scene define, infer, or advance the phase, or reach into another scene | Breaks the single source of truth for progression | Engine |
@@ -139,8 +152,8 @@ _Quick index of the highest-cost mistakes. Each is stated in full in the section
 
 ## Usage Guidelines
 
-**For AI Agents:** Read this file before implementing game code. Follow all rules; when guidance conflicts or is incomplete, choose the more restrictive option and update this file when a durable new pattern is agreed. Where an older artifact contradicts this file, this file and `game-architecture.md` v1.1 win.
+**For AI Agents:** Read this file before implementing game code. Follow all rules; when guidance conflicts or is incomplete, choose the more restrictive option and update this file when a durable new pattern is agreed. Where an older artifact contradicts this file, this file and `game-architecture.md` v1.2 win.
 
 **For Humans:** Keep this focused on project-specific agent guidance. Update it when the stack or architectural rules change; remove rules that become obvious or obsolete.
 
-**Last Updated:** 2026-08-06 (revision 2.0 — Phaser guided-adventure pivot)
+**Last Updated:** 2026-08-06 (revision 2.1 — playable Phaser surface; ADR-011 canvas intent completeness, ADR-012 direct-manipulation instruments)

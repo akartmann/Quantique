@@ -21,45 +21,37 @@ import type { RunRecord } from './RunRecord';
  * realized decomposition is finer.
  */
 
-/** A run's position in the space the rule calls critical. Stable for a given rule and run. */
-const configurationKey = (rule: SignificanceRule, run: RunRecord): string =>
-    rule.criticalControlIds.map((controlId) => `${controlId}=${run.controls[controlId]}`).join('|');
+/**
+ * The slot a run without `modelInputs` occupies for a critical model input.
+ *
+ * A fixture run carries `controls` but no `modelInputs` (Task 3 requires it still count), so its
+ * wavelength is genuinely unknown rather than equal to any recorded one. Giving it its own slot keeps
+ * "unknown" from silently colliding with an authored value.
+ */
+const UNRECORDED_INPUT = '∅';
 
 /**
- * Whether this run's reading is far enough from every already-counted one to be a distinct
- * measurement rather than the same number reached another way.
+ * A run's position in the space the rule calls critical — its *configuration*.
  *
- * An absent `minimumResultDelta` means the rule makes no claim about readings, so every distinct
- * configuration counts on configuration alone.
+ * Exported because `colleagueHints.ts`'s `repeated-configuration` predicate asks the same question
+ * and must ask it directly rather than inferring a repetition from a count shortfall.
  */
-const isDistinguishableReading = (
-    rule: SignificanceRule,
-    run: RunRecord,
-    counted: readonly RunRecord[]
-): boolean => rule.minimumResultDelta === undefined
-    || counted.every((other) => Math.abs(run.result.value - other.result.value) >= rule.minimumResultDelta!);
+export const configurationKey = (rule: SignificanceRule, run: RunRecord): string => [
+    ...rule.criticalControlIds.map((controlId) => `${controlId}=${run.controls[controlId]}`),
+    ...(rule.criticalModelInputIds ?? []).map((inputId) => `${inputId}=${run.modelInputs?.[inputId] ?? UNRECORDED_INPUT}`)
+].join('|');
 
 /**
- * The number of significant measurements in `runs`.
+ * The number of significant measurements in `runs` — that is, the number of distinct critical
+ * configurations recorded.
  *
- * A run counts when its critical configuration has not been counted before **and** its reading is
- * distinguishable from every run already counted. Runs are walked in recorded order; the total is
- * order-independent, because both conditions are symmetric over the counted set.
+ * **Order-independent by construction**, not by argument: it is the cardinality of a set, so no
+ * walk order can change it. This replaced a greedy pass whose `minimumResultDelta` check compared
+ * each run against the runs already counted; that made the total depend on recording order, and the
+ * docstring claiming otherwise was wrong (review, 2026-08-06). See {@link SignificanceRule}.
  */
-export const countSignificantMeasures = (rule: SignificanceRule, runs: readonly RunRecord[]): number => {
-    const seenConfigurations = new Set<string>();
-    const counted: RunRecord[] = [];
-
-    for (const run of runs) {
-        const key = configurationKey(rule, run);
-        if (seenConfigurations.has(key)) continue;
-        if (!isDistinguishableReading(rule, run, counted)) continue;
-        seenConfigurations.add(key);
-        counted.push(run);
-    }
-
-    return counted.length;
-};
+export const countSignificantMeasures = (rule: SignificanceRule, runs: readonly RunRecord[]): number =>
+    new Set(runs.map((run) => configurationKey(rule, run))).size;
 
 /**
  * Whether the recorded evidence clears the authored bar for unlocking the conclusion.

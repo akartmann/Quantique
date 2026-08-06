@@ -86,6 +86,22 @@ describe('portable case records', () => {
         }
     );
 
+    // 1.11.0 reworked the rule in review: `minimumResultDelta` removed (it made the count depend on
+    // recording order) and `criticalModelInputIds` added (a wavelength change is a distinguishing
+    // measurement). Still content, still not progress — and the rule only ever got *looser*, so no
+    // saved record can fall short of a bar it already cleared.
+    it.each(['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0'])(
+        'accepts a %s record against the 1.11.0 gated definition',
+        (recordVersion) => {
+            const gated = { ...definition, version: '1.11.0' } as CaseDefinition;
+            const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: recordVersion });
+
+            expect(parsed.success).toBe(true);
+            if (!parsed.success) return;
+            expect(validateCaseRecordForDefinition(parsed.data, gated)).toMatchObject({ ok: true });
+        }
+    );
+
     /**
      * The one question this bump raises that the earlier ones did not.
      *

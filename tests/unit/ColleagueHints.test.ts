@@ -71,11 +71,20 @@ describe('selectColleagueHint', () => {
         expect(selection?.line.fr.length).toBeGreaterThan(0);
     });
 
-    it('attributes the hint to an authored colleague, never to the rival lab', () => {
-        const selection = selectColleagueHint(definition, [run('a', 0.2, 2)]);
+    it('attributes every authored hint to a member of the cast, never to the rival lab', () => {
+        // The earlier version compared `selection.colleagueId` against `rivalLab.name` — a kebab-case
+        // ID against "Mr. Arthur Bell". `rivalLab` has no `id` field at all, so the two are drawn from
+        // disjoint value spaces and the assertion could not fail even if a hint were deliberately put
+        // in the challenger's voice (review, 2026-08-06). Comparing the resolved *name* is the check
+        // that means something, and it runs over every authored hint rather than one selection.
+        expect(definition.colleagueHints.length).toBeGreaterThan(0);
 
-        expect(definition.colleagues.some(({ id }) => id === selection?.colleagueId)).toBe(true);
-        expect(selection?.colleagueId).not.toBe(definition.rivalLab.name);
+        definition.colleagueHints.forEach(({ id, colleagueId }) => {
+            const speaker = definition.colleagues.find((colleague) => colleague.id === colleagueId);
+
+            expect(speaker, `${id} is attributed to nobody in the cast`).toBeDefined();
+            expect(speaker?.name, `${id} speaks in the rival lab's voice`).not.toBe(definition.rivalLab.name);
+        });
     });
 
     it('never carries a defensibility field or a conclusion claim', () => {
@@ -105,12 +114,24 @@ describe('selectColleagueHint', () => {
         });
 
         it('matches unvaried-control only while every run shares that control value', () => {
-            const single = withHints([hint('spacing', { kind: 'unvaried-control', controlId: 'slitSpacingMm' })]);
+            // A rule naming one critical control and a bar of three, deliberately. Under the shipped
+            // rule this predicate's *false* branch is unreachable: both controls are critical, so any
+            // variation opens the gate and `selectColleagueHint` short-circuits before the predicate
+            // runs. `distinctValues` could have returned a constant 1 and every assertion here would
+            // still have passed (review, 2026-08-06). Separating the bar from the variation is what
+            // lets the predicate itself decide the outcome.
+            const spacingOnly = {
+                ...definition,
+                requirements: { ...definition.requirements, minimumSignificantRuns: 3 },
+                significanceRule: { criticalControlIds: ['slitSpacingMm'] },
+                colleagueHints: [hint('spacing', { kind: 'unvaried-control', controlId: 'slitSpacingMm' })]
+            } as CaseDefinition;
 
-            // Two runs, same spacing, different throw: the gate is met, so no hint at all.
-            expect(selectColleagueHint(single, [run('a', 0.2, 2), run('b', 0.2, 3)])).toBeUndefined();
-            // One run: spacing is trivially unvaried and the gate is unmet.
-            expect(selectColleagueHint(single, [run('a', 0.2, 2)])?.hintId).toBe('spacing');
+            // Gate unmet, spacing unvaried: true branch.
+            expect(selectColleagueHint(spacingOnly, [run('a', 0.2, 2), run('b', 0.2, 3)])?.hintId).toBe('spacing');
+            // Gate still unmet — two distinct spacings against a bar of three — but the spacing now
+            // varies, so only the predicate can be producing this `undefined`.
+            expect(selectColleagueHint(spacingOnly, [run('a', 0.2, 2), run('b', 0.3, 2)])).toBeUndefined();
         });
 
         it('matches below-significant-measures for every unmet-gate shape, as the catch-all floor', () => {
@@ -152,6 +173,59 @@ describe('selectColleagueHint', () => {
 });
 
 describe('the authored Young hints', () => {
+    /**
+     * Every evidence shape a Young player can actually stand in while the gate is unmet.
+     *
+     * The gate is unmet exactly when the recorded runs occupy fewer than two distinct critical
+     * configurations — and the rule's critical dimensions cover both apparatus controls and the
+     * wavelength. So an unmet gate means *every* run shares one arrangement, and the only degrees of
+     * freedom left are how many runs there are.
+     */
+    const reachableUnmetShapes: readonly (readonly RunRecord[])[] = [
+        [],
+        [run('a', 0.2, 2)],
+        [run('a', 0.2, 2), run('b', 0.2, 2)],
+        [run('a', 0.2, 2), run('b', 0.2, 2), run('c', 0.2, 2)]
+    ];
+
+    it('has no unreachable escalation rung — every authored hint but the floor can fire', () => {
+        // The defect this exists to catch (review, 2026-08-06): the case shipped five hints, two of
+        // which no player could ever see. `unvaried-control: screenDistanceM` was shadowed in every
+        // state by `unvaried-control: slitSpacingMm`, because an unmet gate leaves *both* controls
+        // unvaried and selection is first-match. Two authored, translated, reviewed lines were dead.
+        //
+        // Reachability is not something a reader can see by looking at the array — it is a joint
+        // property of the predicates, the authored order, and the significance rule. So it gets a test.
+        const fired = new Set(reachableUnmetShapes
+            .map((runs) => selectColleagueHint(definition, runs)?.hintId)
+            .filter((hintId): hintId is string => hintId !== undefined));
+
+        const floorIds = definition.colleagueHints
+            .filter(({ predicate }) => predicate.kind === 'below-significant-measures')
+            .map(({ id }) => id);
+        const escalationIds = definition.colleagueHints
+            .filter(({ predicate }) => predicate.kind !== 'below-significant-measures')
+            .map(({ id }) => id);
+
+        expect([...fired].sort()).toStrictEqual([...escalationIds].sort());
+        // And the floor is the one deliberate exception: it cannot fire for Young precisely because
+        // the rungs above it partition every reachable unmet state. It is authored, and required by
+        // validation, so that a *future* case cannot author its way into a silent refusal.
+        expect(floorIds).toHaveLength(1);
+        expect(fired.has(floorIds[0]!)).toBe(false);
+    });
+
+    it('answers every reachable unmet shape with an attributed line in both locales', () => {
+        reachableUnmetShapes.forEach((runs) => {
+            const selection = selectColleagueHint(definition, runs);
+
+            expect(selection, `${runs.length} run(s) left the gate with nothing to say`).toBeDefined();
+            expect(selection!.line.en.length).toBeGreaterThan(0);
+            expect(selection!.line.fr.length).toBeGreaterThan(0);
+            expect(definition.colleagues.some(({ id }) => id === selection!.colleagueId)).toBe(true);
+        });
+    });
+
     it('name a measurement or a variable rather than a conclusion', () => {
         // Not a style check: a hint that supplies the answer breaks AC2 and the project rule that
         // hints "point at missing evidence, a source, an observable, or a test — never the answer".

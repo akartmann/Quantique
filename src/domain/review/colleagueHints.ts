@@ -1,7 +1,7 @@
 import type { CaseDefinition } from '../cases/CaseDefinition';
 import type { ColleagueHint, ColleagueHintPredicate } from '../cases/ColleagueCast';
 import type { RunRecord } from '../evidence/RunRecord';
-import { countSignificantMeasures } from '../evidence/significantMeasures';
+import { configurationKey, countSignificantMeasures } from '../evidence/significantMeasures';
 
 /**
  * Which authored colleague hint answers a player whose evidence has not yet cleared the
@@ -43,9 +43,16 @@ const applies = (
     switch (predicate.kind) {
         case 'no-recorded-runs':
             return runs.length === 0;
-        case 'repeated-configuration':
-            // More runs than the rule counts as distinguishing means at least one is a replication.
-            return runs.length > countSignificantMeasures(definition.significanceRule, runs);
+        case 'repeated-configuration': {
+            // Asked directly of the configurations, not inferred from a count shortfall. The two
+            // happen to agree now that the count is purely configurational, but the predicate's
+            // contract is "at least two runs share one critical configuration" and it should say so
+            // itself — an earlier draft compared `runs.length` against the count and would have
+            // claimed a repetition for any run the count discarded for some other reason (review,
+            // 2026-08-06).
+            const keys = runs.map((run) => configurationKey(definition.significanceRule, run));
+            return new Set(keys).size < keys.length;
+        }
         case 'unvaried-control':
             // `runs.length > 0` on purpose: with an empty notebook every control is trivially
             // unvaried, and "you never changed the screen distance" is the wrong first thing to say
@@ -53,7 +60,15 @@ const applies = (
             return runs.length > 0 && distinctValues(runs, predicate.controlId) < 2;
         case 'below-significant-measures':
             // The catch-all floor. The caller has already established the gate is unmet, so this is
-            // unconditionally true — which is exactly what makes it a safe last authored entry.
+            // unconditionally true — which is exactly what makes it a safe last authored entry, and
+            // why validation requires it to be authored *and* to be last.
+            //
+            // For Young it never fires, and that is correct rather than dead content: the rule's
+            // critical dimensions cover every control a hint can name, so any variation at all opens
+            // the gate and the three specific predicates above already partition every reachable
+            // unmet state (nothing recorded / a repeat / a single arrangement). The floor is the
+            // guarantee that a *future* case cannot author its way into a refusal with nothing to
+            // say. A safety net that never catches anything is a working safety net.
             return true;
     }
 };

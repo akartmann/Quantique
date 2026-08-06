@@ -23,9 +23,9 @@ FR2: Deliver Young as the first fully playable validation slice while retaining 
 FR3: Run every case through the Apparatus → Anomaly → Revision loop: dispute, artifacts/prediction, bounded lab, experiment/measurement, comparison/consultation/replication, theory-board conclusion, and debrief.
 FR4: Require two contextual artifacts or sources and a prediction before the first substantive test.
 FR5: Distinguish primary artifacts, contemporary disagreement, later consensus, interpretation, reconstruction, and fiction in the Curated Record.
-FR6: Provide authored, bounded apparatus controls, never a freeform physics sandbox.
+FR6: Provide authored, bounded apparatus controls, never a freeform physics sandbox. Controls are operated by direct manipulation of a physical instrument in-scene (see FR30); bounds, steps, and validation remain authored and deterministic.
 FR7: Young uses 0.10–0.50 mm slit spacing in 0.05 mm steps, 1.0–4.0 m screen distance in 0.25 m steps, fixed 550 nm initially, and optional advanced wavelength comparison.
-FR8: Run the apparatus and present visual output; Young resolves within three seconds and resets immediately.
+FR8: Run the apparatus on an explicit player action that starts the light source, and present visual output; Young resolves within three seconds and resets immediately. The apparatus is visibly unlit and idle before the player starts a run.
 FR9: Save settings, timestamp/order, observed fringe spacing, comparison notes, and linked evidence in a measurement notebook.
 FR10: Retain at least two observations and compare any two saved runs.
 FR11: Provide export or print of a case/observation record.
@@ -47,6 +47,7 @@ FR26: Maintain a sourced artifact ledger with named primary/secondary sources, s
 FR27: Label claims/assets with provenance and rights status; replace or link ambiguous-permission assets.
 FR28: Provide quiet adjustment, measurement, and archival-discovery audio with captions and independent volume controls; no essential sound-only information.
 FR29: Keep progression as knowledge/confidence without currency, energy, inventory, stats, premium gates, ads, or randomized rewards.
+FR30: **[new — 2026-08-06]** Apparatus controls are direct-manipulation physical instruments — a knob, dial, or slider the player grasps and moves — whose travel is bounded by the authored range and whose value snaps to the authored step. The experiment does not run unattended: the light source is dark until the player starts it, the run animation plays through, and the measurement resolves from the deterministic model. Starting the light is the same act as running the experiment.
 
 ### NonFunctional Requirements
 
@@ -69,6 +70,7 @@ NFR16: No freeform physics sandbox, multiplayer, UGC, LLM dialogue, or external 
 NFR17: The framework must allow a second case to be authored without duplicating core behavior.
 NFR18: Learner-entered conclusions are not exposed through raw errors or default logging.
 NFR19: **[new — pivot]** The game ships bilingual (English and French) from the first release; all player-facing text (UI, Phaser scene text, case content, print view) is localized, and the Young slice includes complete EN and FR content. Localization beyond EN/FR remains out of scope.
+NFR20: **[new — 2026-08-06]** Every player intent required to reach a case conclusion must be dispatchable from the Phaser canvas. No non-Phaser surface may be the sole dispatcher of any player intent. A story that introduces or gates an intent is not complete until the canvas can issue it; the retained CSS print/export view is the sole exemption, and it dispatches nothing.
 
 ### Additional Requirements
 
@@ -130,6 +132,10 @@ FR26: Epic 3 Story 3.3 — ledger fields: named primary/secondary sources, schol
 FR27: Epic 1 Story 1.5; Epic 3 Story 3.3.
 FR28: Epic 1 Story 1.10.
 FR29: Epic 1 Story 1.9.
+FR30: Epic 2 Story 2.10.
+NFR20: Epic 2 Stories 2.7–2.12 (all six); enforced thereafter by `project-context.md` and ADR-011.
+
+_Note: this map carries pre-existing stale entries (FR11, FR17, FR28, and a reference to a then-nonexistent Story 1.10), tracked in `implementation-artifacts/deferred-work.md` for a dedicated traceability pass. The 2026-08-06 change adds the two rows above and does not widen that debt._
 
 ## Epic List
 
@@ -141,9 +147,9 @@ Players can move through a scripted Phaser scene flow — reading the reference 
 
 ### Epic 2: Young validation slice
 
-Players can complete a 20–30 minute double-slit investigation: inspect context, make a prediction, run experiments, compare measurements, issue a bounded conclusion, and receive a historical debrief.
+Players can complete a 20–30 minute double-slit investigation **entirely within the Phaser scenes**: read the reference in the library, debate and choose a prediction with characters who are present on-screen, operate physical instruments and start the light to run experiments, compare measurements, issue a bounded conclusion, answer the rival lab, and receive a historical debrief. Every transition between steps is reachable from the canvas, and no DOM panel remains in the play path.
 
-**FRs covered:** FR1, FR2, FR4, FR7, FR8, FR10, FR13, FR16–FR18, FR24, FR25.
+**FRs covered:** FR1, FR2, FR4, FR7, FR8, FR10, FR13, FR16–FR18, FR24, FR25, FR30 (+ NFR20).
 
 ### Epic 3: Reusable case authoring and provenance
 
@@ -344,6 +350,8 @@ I want to read contextual sources with clear provenance labels in the library sc
 So that I can distinguish evidence from reconstruction, interpretation, and fiction before choosing a conclusion.
 
 _Implementation note: the LibraryScene reuses the existing `LectureBookRenderer` / Opticks archive book._
+
+> **Superseded-implementation note (2026-08-06):** these acceptance criteria were satisfied by the DOM `CuratedRecord` panel plus a session-persistent `LectureBookScene` overlay, not by `LibraryScene`, which remained a `PhasePlaceholderScene`. Story 2.8 delivers the canvas library and retires both. The criteria above were met; do not read `done` as "delivered on the canvas". See `sprint-change-proposal-2026-08-06.md`.
 
 **Acceptance Criteria:**
 
@@ -605,13 +613,17 @@ So that I can follow the story and make decisions without leaving the Phaser sur
 
 ## Epic 2: Young validation slice
 
-Players can complete a 20–30 minute double-slit investigation: inspect context, make a prediction, run experiments, compare measurements, issue a bounded conclusion, and receive a historical debrief.
+Players can complete a 20–30 minute double-slit investigation **entirely within the Phaser scenes**: read the reference in the library, debate and choose a prediction with characters who are present on-screen, operate physical instruments and start the light to run experiments, compare measurements, issue a bounded conclusion, answer the rival lab, and receive a historical debrief. Every transition between steps is reachable from the canvas, and no DOM panel remains in the play path.
+
+> **Reopened 2026-08-06** by `sprint-change-proposal-2026-08-06.md`. Stories 2.1–2.6 remain done — they satisfied their acceptance criteria. Stories 2.7–2.12 close the gap between "the store contracts are correct" and "the game is playable in Phaser": nine of fourteen player intents were dispatchable only from the retired `src/ui/*` DOM panels. New NFR20 and ADR-011 prevent recurrence.
 
 ### Story 2.1: Young library reading and prediction choice [reworked — pivot]
 
 As a player,
 I want to read the Young reference in the library and choose a prediction with my colleagues,
 So that my later conclusion choice begins with a testable expectation.
+
+> **Superseded-implementation note (2026-08-06):** the reading half of this story was satisfied by the DOM `CuratedRecord` panel and the `LectureBookScene` overlay; `LibraryScene` remained a placeholder, and `source.inspected` — which context readiness depends on — had no canvas dispatcher, leaving the prediction cards permanently refusing on `missing-contextual-sources` on a canvas-only path. Story 2.8 closes both. See `sprint-change-proposal-2026-08-06.md`.
 
 **Acceptance Criteria:**
 
@@ -663,6 +675,8 @@ So that I can test how each variable affects the interference pattern.
 As a player,
 I want to compare Young runs, choose a colleague conclusion, and read a sourced debrief,
 So that I understand both what interference evidence supports and its limits.
+
+> **Superseded-implementation note (2026-08-06):** the debrief and replay criteria were satisfied by the DOM `HistoricalDebriefPanel`; `DebriefScene` remained a `PhasePlaceholderScene`, and neither `case.debriefCompleted` nor `case.replayStarted` had a canvas dispatcher. Story 2.11 delivers the canvas debrief. See `sprint-change-proposal-2026-08-06.md`.
 
 **Acceptance Criteria:**
 
@@ -770,6 +784,291 @@ So that I reach the conclusion having actually generated distinguishing evidence
 **Then** unit tests cover significant vs. non-significant run combinations and hint selection,
 **And** an integration test verifies the gate through public store actions.
 
+### Story 2.7: In-scene phase transitions and the adventure's forward path [new — 2026-08-06]
+
+As a player,
+I want to move to the next step of the investigation from the scene I am standing in,
+So that the adventure flows without me leaving the Phaser view.
+
+_Build this first: it delivers the reusable advance affordance that Stories 2.8, 2.10, and 2.11 all consume, and it consolidates Story 2.6's ad-hoc control into it._
+
+**Acceptance Criteria:**
+
+**Given** the case is at any phase with a forward transition,
+**When** the scene mirroring that phase renders,
+**Then** a reusable Phaser advance affordance is present in-scene, labelled in the active locale with what the player is moving *toward* in fiction (never a scene, phase, or route name — the `encodesPath` rule),
+**And** it dispatches only the typed action for that transition and never infers or advances the phase itself.
+
+**Given** the full Young flow,
+**When** the player walks it from a cold boot using the canvas alone,
+**Then** `context → prediction`, `prediction → experiment`, `experiment → synthesis`, `synthesis → review`, `review → debrief`, and a post-debrief replay are each reachable,
+**And** no DOM panel is touched at any point.
+
+**Given** Story 2.6's `advanceToSynthesis` control in `ApparatusRenderer`,
+**When** this story lands,
+**Then** it is replaced by the reusable affordance with no loss of the significant-measure gate behavior or the colleague hint that answers a refusal,
+**And** the hint and the transient error keep the *measured*, floor-anchored layout they have now.
+
+**Given** a transition the store refuses,
+**When** the refusal is a gate the player can act on (missing sources, missing significant measures),
+**Then** the answer is the authored in-fiction colleague line for that gate, in the active locale,
+**And** when it is anything else (for example the store short-circuiting during a progress export), the answer is the localized error — never a raw error string, and never silence.
+
+**Given** a transient refusal message,
+**When** any later render occurs,
+**Then** the message survives until a real state change replaces it,
+**And** the same explicit lifetime applies in `ColleagueRenderer` and `ApparatusRenderer`, so the two renderers do not disagree.
+
+**Given** the advance affordance,
+**When** tests run,
+**Then** unit tests cover the affordance's enabled/refused view resolution as a Phaser-free module in the `sideColumnView` pattern,
+**And** an integration test drives every transition through public store actions,
+**And** an E2E test completes the Young case using canvas clicks only,
+**And** `french-typography.spec.ts` asserts the whole French label fits the control at its authored width — as a whole string, not token-by-token.
+
+### Story 2.8: Library scene — the reading room and the reference book [new — 2026-08-06]
+
+As a player,
+I want to enter a library, find the reference on the shelf, and pick it up to read it,
+So that the case opens as a place I am in rather than a list of source cards.
+
+**Acceptance Criteria:**
+
+**Given** the `context` phase,
+**When** `LibraryScene` activates,
+**Then** it renders an authored reading room — shelving, a reading surface, and the case's contextual artifacts as physical objects the player can approach — and no placeholder marker,
+**And** `PhasePlaceholderScene` is no longer its base class.
+
+**Given** a contextual artifact present in the room,
+**When** the player picks it up,
+**Then** the reference book opens on the existing `LectureBookRenderer` pagination without change to its authored-page contract,
+**And** the scene dispatches `source.inspected` for that artifact through the store adapter,
+**And** re-opening an already-inspected artifact is a no-op success, never an error the surface must explain away.
+
+**Given** each artifact in the room,
+**When** the player inspects it,
+**Then** its title, creator or originating context, source type, provenance category, rights status, and case relationship are readable in-scene as text,
+**And** an artifact whose rights are unreviewed or whose rendition is missing gives a neutral in-scene explanation and is never presented as verified evidence.
+
+**Given** the case's required reading is incomplete,
+**When** the player tries to leave the library,
+**Then** a colleague names the missing artifact in-fiction in the active locale,
+**And** all valid work is preserved with no hard fail.
+
+**Given** the required reading is complete,
+**When** the player leaves,
+**Then** the Story 2.7 affordance dispatches `context → prediction`,
+**And** the prediction cards in `ColleaguesScene` are live rather than refusing on `missing-contextual-sources`.
+
+**Given** the reference book is now owned by `LibraryScene`,
+**When** this story lands,
+**Then** the session-persistent `LectureBookScene` overlay and its `(visible) => laboratoryScene.setApparatusInputEnabled(!visible)` scene-to-scene reach-in are retired in favour of store-mediated presentation,
+**And** the session-wide `scroll` → `scale.updateBounds()` listener it owns is relocated to a scene that always runs, or the sticky-canvas bounds go stale in every phase,
+**And** the book stays reachable from the laboratory for re-reading during `experiment`.
+
+**Given** the book's control geometry,
+**When** this story lands,
+**Then** the button width, the label shrink bound, and every test assertion read one exported constant,
+**And** the `768` / `1024` design dimensions are read from `scene.scale`, not restated.
+
+**Given** the library scene,
+**When** tests run,
+**Then** unit tests cover artifact-to-object placement geometry as a Phaser-free module,
+**And** an integration test proves the pickup path records `source.inspected` and satisfies context readiness through public actions,
+**And** an E2E test reads both required Young artifacts and leaves the library using canvas clicks only,
+**And** every new player-facing string is asserted present in English **and** French.
+
+### Story 2.9: Colleague and rival-lab characters on stage [new — 2026-08-06]
+
+As a player,
+I want to see the colleagues and the rival lab as characters in the room,
+So that the investigation feels like a conversation with people rather than a wall of text.
+
+**Acceptance Criteria:**
+
+**Given** a case's `colleagues[]` with `portrait: { kind: 'silhouette', accentColor }`,
+**When** a scene hosting dialogue renders,
+**Then** a reusable staging renderer draws each present colleague as a vector silhouette figure built from Phaser `Graphics` and the authored accent colour — **no image asset, no loader entry, no rights-ledger entry**,
+**And** each figure carries its colleague's name and role in the active locale.
+
+**Given** a dialogue beat attributed to a `speakerId`,
+**When** the beat is shown,
+**Then** that colleague's figure is visibly foregrounded and the others recede,
+**And** the speaker is identified by position, scale, and label together — not by colour alone,
+**And** the dialogue panel keeps its measured, unbounded-body layout so no beat can truncate.
+
+**Given** the prediction and conclusion boards,
+**When** the four proposals render,
+**Then** each proposal is visually connected to its proposing colleague's figure,
+**And** nothing in the staging can distinguish a defensible proposal from an indefensible one — the renderer must not read the defensible set (ADR-006).
+
+**Given** the rival lab,
+**When** `RivalLabScene` presents a critique,
+**Then** Mr. Arthur Bell is staged as a character with his authored accent, visually distinct from the colleague cast,
+**And** he is never rendered as a member of `colleagues[]`,
+**And** the critique carries no score, timer, setback, or failure treatment.
+
+**Given** authored story beats,
+**When** a character enters, is addressed, or reacts,
+**Then** the movement is restrained and short, and scientific legibility takes priority over the motion,
+**And** under `prefers-reduced-motion: reduce` no update loop registers and `render()` paints a static staged frame.
+
+**Given** the staging renderer,
+**When** it is destroyed,
+**Then** every figure, tween, timer, and listener it created is released — including tweens whose target is the renderer itself.
+
+**Given** character staging,
+**When** tests run,
+**Then** unit tests cover the stage-position and speaker-emphasis resolution as a Phaser-free module,
+**And** an integration test proves a beat change re-stages the speaker,
+**And** a test asserts the staging renderer cannot reach the defensible-conclusion set,
+**And** the reduced-motion static frame is asserted.
+
+### Story 2.10: Physical apparatus instruments and the player-started light [new — 2026-08-06]
+
+As a player,
+I want to turn a real knob and then press to start the light,
+So that setting up and running the experiment feels like operating an instrument.
+
+**Acceptance Criteria:**
+
+**Given** an authored `primaryControl` with a label, unit, range, and step,
+**When** `LaboratoryScene` renders,
+**Then** it draws a physical instrument — a knob or dial with a body, an indicator, and a travel arc bounded by the authored range — with its current value and unit legible beside it,
+**And** the `+` / `−` text buttons are replaced.
+
+**Given** the player drags the knob,
+**When** the drag moves,
+**Then** the indicator follows the pointer within the bounded travel,
+**And** the dispatched value snaps to the authored `step`, so an off-step value is never dispatched and the domain normalization rule stays invisible,
+**And** the value is dispatched through `apparatus.controlSet`; the renderer never mutates state.
+
+**Given** the same control,
+**When** the player uses the discrete step affordances or arrow keys with the knob focused,
+**Then** the value moves exactly one authored step,
+**And** a pointer drag and a keyboard step to the same value produce an identical run record.
+
+**Given** the apparatus at rest,
+**When** no run has been started,
+**Then** the source is **dark**, no wavefronts propagate, and no screen pattern is painted beyond a static unlit screen,
+**And** an in-scene line invites the player to start the light.
+
+**Given** the player presses the start-the-light control,
+**When** the run begins,
+**Then** the source ignites, light propagates from source to slits to screen, the interference pattern resolves on the screen, and the run completes within three seconds,
+**And** the scene dispatches `experiment.run` and the run is recorded through `run.record`,
+**And** the recorded value comes from the deterministic model — never from anything the animation computes.
+
+**Given** a completed run,
+**When** the player changes a control,
+**Then** the readout marks the recorded result as stale against the new setup,
+**And** the light returns to its unlit idle state until the player starts it again.
+
+**Given** the optional advanced wavelength comparison,
+**When** the player selects an authored wavelength in-scene,
+**Then** `apparatus.wavelengthSet` is dispatched from the canvas,
+**And** wavelength remains optional and cannot alter the fixed 550 nm minimum-path history.
+
+**Given** the notebook,
+**When** the player reviews or compares runs,
+**Then** settings, values with units, timestamp/order, and observed result are readable in-scene, and any two saved runs can be compared with a note saved,
+**And** no saved run is ever recalculated against a newer model version.
+
+**Given** `prefers-reduced-motion: reduce`,
+**When** the player starts a run,
+**Then** the result appears immediately as a static resolved frame with no propagation animation,
+**And** the run is recorded identically.
+
+**Given** the apparatus,
+**When** tests run,
+**Then** unit tests cover drag-angle → stepped-value conversion as a Phaser-free module, at both range ends and across every step,
+**And** unit tests assert the run value is model-derived and independent of animation state,
+**And** an integration test proves start-the-light records a run through public actions,
+**And** an E2E test records two significant Young measurements from the canvas alone,
+**And** NFR1 is re-profiled at 1280×720 over a 10-minute lab loop with drag, staging, and propagation all active.
+
+### Story 2.11: Debrief scene — historical comparison, recognition, and replay [new — 2026-08-06]
+
+As a player,
+I want to read how my bounded conclusion compares with the historical record and choose to replay,
+So that the case closes with understanding rather than a placeholder.
+
+**Acceptance Criteria:**
+
+**Given** the `debrief` phase,
+**When** `DebriefScene` activates,
+**Then** it renders the authored sourced historical comparison and the optional deeper-theory layer in-scene in the active locale, and no placeholder marker,
+**And** `PhasePlaceholderScene` is no longer its base class — and, with `LibraryScene` converted in 2.8, the class itself is removed.
+
+**Given** the debrief,
+**When** it is read,
+**Then** it never rewrites the historical outcome around the player's choice,
+**And** provenance labels distinguish primary artifact, reconstruction, interpretation, and fiction.
+
+**Given** the player's decision history including any rival-lab critique,
+**When** the debrief renders,
+**Then** the retained `critiqueHistory` is presented as inquiry rather than failure,
+**And** recognition reflects replication, source checking, optional-variable testing, and bounded claims — never speed, score, or perfect play, and it never gates completion.
+
+**Given** the debrief is complete,
+**When** the player chooses to finish or replay,
+**Then** `case.debriefCompleted` and `case.replayStarted` are both dispatchable from the canvas,
+**And** a replay preserves the completed historical record and campaign unlock state,
+**And** counterfactual exploration is explicitly labelled distinct from the recorded historical result.
+
+**Given** the debrief scene,
+**When** tests run,
+**Then** integration tests cover completion and replay through public store actions,
+**And** an E2E test reaches the debrief and replays using canvas clicks only,
+**And** every new player-facing string is asserted present in English and French.
+
+### Story 2.12: Retire the DOM presentation panels [new — 2026-08-06]
+
+As a developer,
+I want the retired DOM panels deleted,
+So that one surface answers each player action and the pivot is actually complete.
+
+_Sequenced strictly last: it requires Stories 2.7–2.11 to be done._
+
+**Acceptance Criteria:**
+
+**Given** Stories 2.7 – 2.11 are done,
+**When** every player intent is dispatchable from the canvas,
+**Then** `src/ui/` retains only `print/CaseRecordPrintView.ts` (ADR-007), `BootShell.ts`, and `ValidationSessionDisclosure.ts`,
+**And** all thirteen other panel modules and their `index.html` roots are deleted,
+**And** `npm run typecheck` proves no reachable code imports a deleted module.
+
+**Given** the deletion,
+**When** `src/main.ts` boots,
+**Then** its boot guard requires only the roots that still exist,
+**And** a missing required root **fails loudly** — a visible boot message and a dev-log line — rather than silently leaving the page on static markup.
+
+**Given** the pre-pivot free-text paths,
+**When** the panels are deleted,
+**Then** `prediction.recorded`, `theory.conclusionSet`, and `theory.limitationSet` are removed rather than ported, since the 1-of-4 choices supersede them and leaving both live is the "free text must clear the proposal ID" hazard,
+**And** `CaseDefinition.version` is bumped and the record-compatibility allowlist is extended only across versions whose canonical strings are verified byte-identical.
+
+**Given** the E2E suite,
+**When** the panels are gone,
+**Then** every spec driving a deleted panel is rewritten against the canvas — including the specs clicking the nonexistent `Record prepared observation` button and the run-experiment disabled-state mismatch, both already failing on baseline,
+**And** the validation-isolation spec keeps a real precondition: a non-panel progress-seeding path replaces its reliance on `CaseProgressPanel`'s "Save progress" button,
+**And** its assertions do not become trivially true on every route once the panel is absent,
+**And** its IndexedDB probe reads the database name, version, and store name from exported adapter constants rather than restating them.
+
+**Given** the retired theory-board panel is gone,
+**When** the significant-measure gate refuses,
+**Then** exactly one surface answers, in the active locale, through `error.significant-measures-required`.
+
+**Given** narrow viewports,
+**When** the advance affordance is suppressed below 768px,
+**Then** the suppression is re-decided now that no DOM fallback exists — either the affordance stays available or the narrow viewport is explicitly declared unsupported with a visible message.
+
+**Given** the retirement,
+**When** verification runs,
+**Then** `npm run typecheck`, `npm test`, and `npm run test:e2e` pass,
+**And** the six known firefox/webkit baseline failures are either fixed or explicitly re-recorded as owned, since Story 7.3 cannot mean anything until they are,
+**And** offline reload still restores locally saved progress with no network.
+
 ## Epic 3: Reusable case authoring and provenance
 
 Content authors and reviewers can create fact-bound, auditable cases with authored scientific rules, sources, rights records, assets, feedback, and debrief material without rebuilding the core loop.
@@ -850,6 +1149,13 @@ So that new cases become guided adventures without touching engine code.
 **When** documentation is produced,
 **Then** `docs/content-authoring/` describes how to author scenarios, proposals, significance rules, and rival-lab lines,
 **And** an example fixture demonstrates a minimal valid scenario.
+
+**Given** a case authoring its cast and instruments, _[added 2026-08-06]_
+**When** the scenario contract is defined,
+**Then** `scenarioScript.scenes[]` may declare an optional `cast` — the colleague IDs present in that scene — defaulting to the full cast when absent,
+**And** an authored apparatus control may declare an optional affordance descriptor (`knob`, `dial`, `slider`) defaulting to `knob`,
+**And** both are additive and optional so existing content parses unchanged,
+**And** a case authors its characters and instruments without editing scene code.
 
 ## Epic 4: Morley–Miller tutorial case
 

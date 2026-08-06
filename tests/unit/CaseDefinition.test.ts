@@ -52,7 +52,7 @@ const validYoungCase: CaseDefinition = {
         resetPath: { recoveryRoute: 'replication', description: bilingual('Repeat the observation after aligning the screen.') }
     },
     requirements: { minimumRuns: 2, minimumSources: 2, minimumSignificantRuns: 2 },
-    significanceRule: { criticalControlIds: ['slitSpacingMm', 'screenDistanceM'], minimumResultDelta: 0.05 },
+    significanceRule: { criticalControlIds: ['slitSpacingMm', 'screenDistanceM'], criticalModelInputIds: ['wavelengthNm'] },
     colleagueHints: [
         { id: 'h-1', colleagueId: 'elias-wren', predicate: { kind: 'no-recorded-runs' }, line: bilingual('Take a reading and write it down.') },
         { id: 'h-2', colleagueId: 'marianne-cole', predicate: { kind: 'below-significant-measures' }, line: bilingual('Change a setting and record it beside the first.') }
@@ -553,13 +553,60 @@ describe('CaseDefinitionSchema', () => {
             }
         ],
         [
-            'a hint set that says nothing when no runs are recorded',
-            'At least one colleague hint must apply when no runs are recorded, so the gate always has something to say.',
+            'a hint set with no catch-all floor',
+            'Colleague hints must include a below-significant-measures hint, so the gate always has something to say.',
             // The floor that keeps the gate from refusing in silence. With only `unvaried-control`
             // hints authored, a player at zero runs is refused and told nothing — a dead end.
             (definition: Record<string, unknown>) => {
                 (definition.colleagueHints as Array<{ predicate: unknown }>)
                     .forEach((hint) => { hint.predicate = { kind: 'unvaried-control', controlId: 'slitSpacingMm' }; });
+            }
+        ],
+        [
+            'a hint set whose only zero-run answer is no-recorded-runs',
+            'Colleague hints must include a below-significant-measures hint, so the gate always has something to say.',
+            // The review case (2026-08-06). `no-recorded-runs` *does* answer an empty notebook, so an
+            // earlier version of this rule accepted it as the floor — but it holds only there. Record
+            // one run and the gate refuses with nothing to say, which is the dead end the rule exists
+            // to prevent, reached through the rule itself.
+            (definition: Record<string, unknown>) => {
+                (definition.colleagueHints as Array<{ predicate: unknown }>)
+                    .forEach((hint) => { hint.predicate = { kind: 'no-recorded-runs' }; });
+            }
+        ],
+        [
+            'a catch-all floor authored before the hints it would shadow',
+            'The below-significant-measures hint must be the last authored hint, or it shadows every hint after it.',
+            // Selection is first-match and this predicate is unconditionally true, so anywhere but
+            // last it silently collapses the escalation ladder to one generic line and turns every
+            // hint after it into unreachable content.
+            (definition: Record<string, unknown>) => {
+                const hints = definition.colleagueHints as unknown[];
+                hints.reverse();
+            }
+        ],
+        [
+            'a hint asking the player to vary a control the significance rule ignores',
+            'A colleague hint may only ask the player to vary a control the significance rule treats as critical.',
+            // The advice cannot work: the player varies exactly what they were told to, the
+            // configuration key never moves, and the gate refuses again with the same line.
+            (definition: Record<string, unknown>) => {
+                (definition.significanceRule as { criticalControlIds: string[] }).criticalControlIds = ['slitSpacingMm'];
+                (definition.colleagueHints as Array<{ predicate: unknown }>)[0].predicate = { kind: 'unvaried-control', controlId: 'screenDistanceM' };
+            }
+        ],
+        [
+            'a significance rule naming no critical control at all',
+            'Too small: expected array to have >=1 items',
+            (definition: Record<string, unknown>) => {
+                (definition.significanceRule as { criticalControlIds: string[] }).criticalControlIds = [];
+            }
+        ],
+        [
+            'a significance rule naming the same model input twice',
+            'The significance rule must not name the same model input twice.',
+            (definition: Record<string, unknown>) => {
+                (definition.significanceRule as { criticalModelInputIds: string[] }).criticalModelInputIds = ['wavelengthNm', 'wavelengthNm'];
             }
         ],
         [
@@ -704,7 +751,12 @@ describe('CaseDefinitionSchema', () => {
             const rendition = localLectureRendition() as unknown as { citation: { reuseStatement: Record<string, unknown> } };
             delete rendition.citation.reuseStatement.fr;
             (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].textualRendition = rendition;
-        }]
+        }],
+        // AC4 names this check by hand: "Zod rejects a hint missing either locale at the content
+        // boundary". Both directions, because a surface shipped English-only is the project's
+        // most-repeated defect and the French-only case is the one nobody thinks to try.
+        ['a colleague hint line', (definition: Record<string, unknown>) => { delete (definition.colleagueHints as Array<{ line: Record<string, unknown> }>)[0].line.fr; }],
+        ['a colleague hint line missing its English', (definition: Record<string, unknown>) => { delete (definition.colleagueHints as Array<{ line: Record<string, unknown> }>)[1].line.en; }]
     ])('rejects a case missing the French locale on %s', (_description, mutate) => {
         const definition = cloneValidCase() as unknown as Record<string, unknown>;
         mutate(definition);
