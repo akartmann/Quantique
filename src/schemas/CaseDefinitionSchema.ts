@@ -239,10 +239,28 @@ const ConclusionProposalSchema = z.object({
  * {@link DetectionPhraseListSchema}: this is prose the player reads, so both locales carry one
  * corresponding string, not two independently-sized match lists.
  */
+/**
+ * The bound on an authored objection, in characters, per locale.
+ *
+ * `RivalLabRenderer` anchors its revise control to the canvas floor so the way back always exists, and
+ * clamps the guide just above it — but the body itself is deliberately unclamped, because truncating
+ * the objection is the one thing that surface must not do. That leaves the prose as the only thing that
+ * can overrun: past roughly 3000 characters it reaches the guide and then runs off a non-scrolling
+ * 1024×768 `Scale.FIT` surface, where nobody can read it and no author can see that it happened.
+ *
+ * So the bound is enforced here, at case load, where a failure names the critique and an author can act
+ * on it. It sits well under the geometric ceiling on purpose: it is an editorial bound, not a last line
+ * of defence. The longest authored line today is 404 characters (2.5 review).
+ */
+const MAX_CRITIQUE_LINE_LENGTH = 700;
+
 const RivalLabCritiqueSchema = z.object({
     id: stableId,
     proposalId: stableId,
-    line: LocalizedTextSchema
+    line: LocalizedTextSchema.refine(
+        ({ en, fr }) => en.length <= MAX_CRITIQUE_LINE_LENGTH && fr.length <= MAX_CRITIQUE_LINE_LENGTH,
+        `A rival-lab critique must be at most ${MAX_CRITIQUE_LINE_LENGTH} characters in each locale.`
+    )
 }).strict();
 
 const RivalLabSchema = z.object({

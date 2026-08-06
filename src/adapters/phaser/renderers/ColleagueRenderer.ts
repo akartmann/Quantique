@@ -13,6 +13,7 @@ import {
     selectLocalizedConclusionProposals,
     selectLocalizedPredictionProposals,
     selectLocalizedError,
+    selectRivalLabCritique,
     selectSelectedConclusionProposalId,
     selectSelectedPredictionProposalId,
     type LocalizedProposalProjection
@@ -48,6 +49,8 @@ const CARD_WIDTH = PROPOSAL_SURFACE_WIDTH;
 
 const HEADING_Y = 30;
 const GUIDE_Y = 68;
+/** Between the heading's measured bottom and the guide line, when the heading grows past its slot. */
+const HEADING_GAP = 6;
 
 /**
  * The submit control, on the conclusion board only (Story 2.5).
@@ -159,6 +162,13 @@ export class ColleagueRenderer {
     private inputEnabled = true;
     /** Shown in place of the guide line until the next render, so a refused click is not silent. */
     private transientError?: string;
+    /**
+     * The same slot, for the opposite case: a submission that draws no challenge. It is deliberately
+     * presentation-only — the defensible branch of `theory.conclusionSubmitted` changes nothing in the
+     * store, and AC3 pins that it must not, so acknowledging it here is what keeps the control's success
+     * path from reading as a dead button without moving the phase (2.5 review).
+     */
+    private transientNotice?: string;
 
     public constructor(
         private readonly scene: Scene,
@@ -242,12 +252,20 @@ export class ColleagueRenderer {
     public render(state: AppState): void {
         const t = createTranslator(selectLocale(state));
         this.heading?.setText(t(this.kind === 'prediction' ? 'colleagues.heading' : 'theoryBoard.heading'));
-        this.guide?.setText(this.transientError ?? t(this.kind === 'prediction' ? 'colleagues.guide' : 'theoryBoard.guide'));
-        this.guide?.setColor(this.transientError ? '#f4d35e' : '#c7d7d9');
+        this.guide?.setText(this.transientError ?? this.transientNotice ?? t(this.kind === 'prediction' ? 'colleagues.guide' : 'theoryBoard.guide'));
+        this.guide?.setColor(this.transientError ? '#f4d35e' : this.transientNotice ? '#f7f4ef' : '#c7d7d9');
         this.submitLabel?.setText(t('theoryBoard.submit'));
         // Cleared after drawing, so a refused click stays legible until the next real state change
         // replaces it rather than vanishing on the same frame.
         this.transientError = undefined;
+        this.transientNotice = undefined;
+
+        // Placed against the heading's *measured* bottom, not the constant. Giving the conclusion
+        // heading's row to the submit control narrowed its wrap to `CONCLUSION_HEADING_WRAP`, which
+        // strictly increases the chance it wraps — and a 25px heading at a constant `HEADING_Y` has only
+        // 38px before `GUIDE_Y`. The floor keeps this a safety net: today's EN and FR headings both fit
+        // one line and do not move, so the derived click targets stay where they are (2.5 review).
+        this.guide?.setY(Math.max(GUIDE_Y, HEADING_Y + (this.heading?.height ?? 0) + HEADING_GAP));
 
         // Set before rendering the panel, because the guide's height is only known once its copy is in.
         this.dialogueBox?.setTop(this.dialogueTop());
@@ -272,6 +290,7 @@ export class ColleagueRenderer {
         this.submitControl = undefined;
         this.submitLabel = undefined;
         this.transientError = undefined;
+        this.transientNotice = undefined;
     }
 
     /** The accent is the one thing the localized projection does not carry, because it is not text. */
@@ -290,9 +309,18 @@ export class ColleagueRenderer {
      */
     private submitConclusion(): void {
         const result = this.storeAdapter.submitConclusion();
-        if (result.ok) return;
         const current = this.storeAdapter.getState();
-        this.transientError = selectLocalizedError(current, result.error);
+        if (!result.ok) {
+            this.transientError = selectLocalizedError(current, result.error);
+            this.render(current);
+            return;
+        }
+        // A submission that drew a challenge needs nothing from here — the router is already taking the
+        // player to the rival lab, and a notice written into a surface about to be left would only
+        // flash. A submission that drew none changes no state at all, so this is the only signal there
+        // is that the click did anything.
+        if (selectRivalLabCritique(current)) return;
+        this.transientNotice = createTranslator(selectLocale(current))('theoryBoard.submitAcknowledged');
         this.render(current);
     }
 

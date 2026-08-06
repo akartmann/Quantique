@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { createInitialAppState } from '../../src/core/store/AppState';
+import type { AppAction } from '../../src/core/store/AppAction';
+import type { Result } from '../../src/core/errors/Result';
 import { createStore, type AppStore } from '../../src/core/store/createStore';
 import {
     selectCasePhase,
@@ -114,7 +116,10 @@ describe('every authored conclusion draws a critique from a thin-evidence state'
     /** No score, timer, attempt count, penalty, or lockout language in either locale (AC2). */
     it.each(proposalIds)('says nothing punitive in %s', (proposalId) => {
         const critique = definition.rivalLab.critiques.find((candidate) => candidate.proposalId === proposalId);
-        const punitive = /\b(score|scored|penalt\w*|locked|failure|failed|attempt\w*|timer)\b|\b(score|pénalit\w*|verrouill\w*|échec|tentative\w*|chronom\w*)\b/i;
+        // The `u` flag is load-bearing, not decoration. Without it `\b` is defined against ASCII `\w`,
+        // so `\béchec` demands a word character before `é` and can never match a space-delimited
+        // "échec" — the most obvious French term in the list was silently unmatchable (2.5 review).
+        const punitive = /\b(score|scored|penalt\w*|locked|failure|failed|attempt\w*|timer)\b|(?<![\p{L}\p{N}_])(pénalit|verrouill|échec|tentative|chronom|sanction|perdu)[\p{L}\p{N}]*(?![\p{L}\p{N}_])/iu;
 
         expect(critique?.line.en).not.toMatch(punitive);
         expect(critique?.line.fr).not.toMatch(punitive);
@@ -261,6 +266,59 @@ describe('rival-lab critique', () => {
         expect(store.getState().completion?.critiqueHistory).toHaveLength(1);
     });
 
+    /**
+     * `SceneRouter` treats a standing critique as an unconditional override, so a critique that outlives
+     * a phase change would pin the rival lab over a phase whose own scene never runs — and it is
+     * reachable, because the retired-but-mounted DOM panels sit outside canvas input suppression. The
+     * history is untouched either way: what the phase clears is the transient beat, not the record of it.
+     */
+    it('clears a standing critique when the phase advances', () => {
+        const store = storeAtSynthesis();
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: DEFENSIBLE });
+        store.dispatch({ type: 'theory.conclusionSubmitted', timestamp: '2026-08-06T12:09:00.000Z' });
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: INDEFENSIBLE });
+        store.dispatch({ type: 'theory.conclusionSubmitted', timestamp: '2026-08-06T12:10:00.000Z' });
+        expect(selectRivalLabCritique(store.getState())).toBeDefined();
+
+        // The choice has to be defensible again for the readiness gate to let the phase move; the
+        // critique from the rejected one is what must not survive it.
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: DEFENSIBLE });
+        store.dispatch({ type: 'theory.conclusionSubmitted', timestamp: '2026-08-06T12:11:00.000Z' });
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: INDEFENSIBLE });
+        store.dispatch({ type: 'theory.conclusionSubmitted', timestamp: '2026-08-06T12:12:00.000Z' });
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: DEFENSIBLE });
+        expect(store.dispatch({ type: 'theory.reviewRequested' })).toEqual({ ok: true, value: undefined });
+
+        expect(selectCasePhase(store.getState())).toBe('review');
+        expect(selectRivalLabCritique(store.getState())).toBeUndefined();
+        expect(selectCritiqueHistory(store.getState())).toHaveLength(2);
+    });
+
+    it('clears a standing critique when the case completes', () => {
+        // The indefensible conclusion is chosen *before* the revision is saved, and never re-chosen
+        // after: choosing writes the proposal's canonical text into the draft, and `case.debriefCompleted`
+        // requires the draft to still match the saved decision. Defensibility gates nothing here —
+        // completion is the peer review's business — so an unsupported claim can legitimately be carried
+        // all the way in, which is exactly the case where a stale critique would strand the player.
+        const store = storeAtSynthesis();
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: INDEFENSIBLE });
+        store.dispatch({ type: 'theory.reviewRequested' });
+        store.dispatch({ type: 'peerReview.requested' });
+        store.dispatch({ type: 'revision.saved', timestamp: '2026-08-06T12:20:00.000Z' });
+        // `review` is the second phase the theory board hosts, so a challenge can still be raised here —
+        // after the reviewed revision the completion contract needs, and before the debrief opens.
+        store.dispatch({ type: 'theory.conclusionSubmitted', timestamp: '2026-08-06T12:20:40.000Z' });
+        expect(selectRivalLabCritique(store.getState())).toBeDefined();
+
+        expect(store.dispatch({ type: 'case.debriefCompleted', timestamp: '2026-08-06T12:21:00.000Z' }))
+            .toEqual({ ok: true, value: undefined });
+
+        expect(selectCasePhase(store.getState())).toBe('debrief');
+        expect(selectRivalLabCritique(store.getState())).toBeUndefined();
+        // The snapshot still carries what was drawn: clearing the beat never clears the record.
+        expect(store.getState().completion?.critiqueHistory).toHaveLength(1);
+    });
+
     it('carries the critique history into the portable record as IDs only', () => {
         const store = storeAtSynthesis();
         store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: INDEFENSIBLE });
@@ -328,8 +386,10 @@ describe('rival-lab critique', () => {
             store.dispatch({ type: 'theory.conclusionSubmitted', timestamp: '2026-08-06T12:10:00.000Z' });
             store.dispatch({ type: 'rivalLab.revisionRequested' });
 
+            // A distinct code from the malformed-timestamp case above: different refusal, different
+            // remedy, and the player supplies neither timestamp (2.5 review).
             expect(store.dispatch({ type: 'theory.conclusionSubmitted', timestamp: '2026-08-06T12:10:00.000Z' }))
-                .toMatchObject({ ok: false, error: { code: 'invalid-critique-timestamp' } });
+                .toMatchObject({ ok: false, error: { code: 'critique-timestamp-not-later' } });
         });
 
         it('refuses a revision request with no challenge standing', () => {
@@ -340,15 +400,45 @@ describe('rival-lab critique', () => {
         /**
          * The critique blocks nothing. Whatever else the player does while it stands has to keep
          * working — a challenge that could make another action fail would be a setback in disguise.
+         *
+         * Stated as an equality rather than a success, which is what the claim actually is: a standing
+         * challenge must not change what any other action does. A bare `.ok` assertion would pin
+         * whichever outcome an action happens to have in this fixture — `consultation.requested` may
+         * legitimately have no authored rule left to fire once the evidence is this complete — and would
+         * fail for a reason that has nothing to do with the critique.
+         *
+         * The previous form proved neither: `expect(result.ok || true).toBe(true)` is unconditionally
+         * true and would have passed with the consultation feature deleted, and every assertion after
+         * the first ran with no challenge standing, because the evidence-touching reducers clear
+         * `rivalLabCritique` (2.5 review).
          */
         it('makes no other action fail while a challenge stands', () => {
-            const store = storeAtSynthesis();
-            store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: INDEFENSIBLE });
-            store.dispatch({ type: 'theory.conclusionSubmitted', timestamp: '2026-08-06T12:10:00.000Z' });
+            const outcomeOf = (action: AppAction, challenged: boolean): Result<void> => {
+                const store = storeAtSynthesis();
+                store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: INDEFENSIBLE });
+                if (challenged) {
+                    store.dispatch({ type: 'theory.conclusionSubmitted', timestamp: '2026-08-06T12:10:00.000Z' });
+                    expect(selectRivalLabCritique(store.getState())).toBeDefined();
+                }
+                return store.dispatch(action);
+            };
 
-            expect(store.dispatch({ type: 'theory.supportRunUnselected', runId: 'run-1' })).toEqual({ ok: true, value: undefined });
-            expect(store.dispatch({ type: 'theory.supportRunSelected', runId: 'run-1' })).toEqual({ ok: true, value: undefined });
-            expect(store.dispatch({ type: 'consultation.requested' }).ok || true).toBe(true);
+            const unaffected: readonly AppAction[] = [
+                { type: 'theory.supportRunUnselected', runId: 'run-1' },
+                { type: 'theory.supportSourceUnselected', sourceId: definition.contextualArtifacts[0]!.id },
+                { type: 'consultation.requested' },
+                { type: 'theory.conclusionProposalChosen', proposalId: DEFENSIBLE },
+                { type: 'theory.reviewRequested' }
+            ];
+
+            unaffected.forEach((action) => {
+                expect(outcomeOf(action, true)).toEqual(outcomeOf(action, false));
+            });
+
+            // And at least one of them demonstrably succeeds, so the equality above is an equality
+            // between two successes rather than between two identical refusals.
+            expect(outcomeOf({ type: 'theory.supportRunUnselected', runId: 'run-1' }, true))
+                .toEqual({ ok: true, value: undefined });
         });
     });
 

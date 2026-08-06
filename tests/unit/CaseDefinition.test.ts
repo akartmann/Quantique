@@ -867,6 +867,17 @@ describe('CaseDefinitionSchema', () => {
         }],
         ['an unknown critique field', (definition: Record<string, unknown>) => {
             ((definition.rivalLab as { critiques: Array<Record<string, unknown>> }).critiques[0]).severity = 'high';
+        }],
+        // The body is deliberately unclamped in the renderer — truncating the objection is the one thing
+        // that surface must not do — so an over-long line runs off a non-scrolling canvas at runtime.
+        // Caught here instead, where the failure names the critique and an author can act on it.
+        ['an over-long English critique line', (definition: Record<string, unknown>) => {
+            ((definition.rivalLab as { critiques: Array<{ line: LocalizedText }> }).critiques[0]).line =
+                bilingual(`He objects at length. ${'Again and again. '.repeat(50)}`);
+        }],
+        ['an over-long French critique line', (definition: Record<string, unknown>) => {
+            ((definition.rivalLab as { critiques: Array<{ line: LocalizedText }> }).critiques[0]).line =
+                { en: 'Come back with another measurement.', fr: `Il objecte longuement. ${'Encore et encore. '.repeat(50)}` };
         }]
     ])('rejects %s', (_description, mutate) => {
         const definition = cloneValidCase() as unknown as Record<string, unknown>;

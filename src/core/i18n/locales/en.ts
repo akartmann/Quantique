@@ -132,9 +132,14 @@ export const en = {
     'colleagues.heading': 'What do you expect to see?',
     'colleagues.guide': 'Your colleagues each expect something different. Choose the one you want to test — you can change it at any time.',
     'theoryBoard.heading': 'Which conclusion will you put your name to?',
-    'theoryBoard.guide': 'Each colleague has drafted a conclusion and the limitation they would state with it. Choose one — you can change it at any time.',
+    // Names the submit control, because the two acts are separate and nothing else tells the player so:
+    // without this the challenge the whole rival lab exists for may never be invited (2.5 review).
+    'theoryBoard.guide': 'Each colleague has drafted a conclusion and the limitation they would state with it. Choose one — you can change it at any time — then submit it to put your name to it.',
     // Choosing is revisable and draws nothing; submitting is what puts the claim up for challenge.
     'theoryBoard.submit': 'Submit this conclusion',
+    // A submission that draws no challenge changes nothing any surface reads, so without this the
+    // control's success path is indistinguishable from a dead button (2.5 review).
+    'theoryBoard.submitAcknowledged': 'Submitted. Your evidence supports this conclusion — carry on to review when you are ready.',
     'proposal.limitation': 'Stated limitation: {limitation}',
     'proposal.selected': '✓ Chosen',
     'proposal.choose': 'Choose this',
@@ -237,6 +242,9 @@ export const en = {
     'error.conclusion-submission-unavailable': 'Reach the theory board before submitting a conclusion.',
     'error.conclusion-choice-required': 'Choose a conclusion before submitting it.',
     'error.invalid-critique-timestamp': 'Provide a valid UTC submission timestamp.',
+    // Reachable without any player error: the submission is stamped from the device clock, so a clock
+    // that has moved backwards refuses until it catches up. The copy says what happened, not what to type.
+    'error.critique-timestamp-not-later': 'This submission is stamped earlier than the last challenge. Check the device clock, then submit again.',
     'error.rival-lab-critique-unavailable': 'There is no standing challenge to answer.',
     'error.missing-prediction': 'Record a tentative prediction before continuing to experimentation.',
     'error.unknown-theory-run': 'That observation is unavailable as conclusion support.',

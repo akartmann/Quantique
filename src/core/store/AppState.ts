@@ -611,7 +611,11 @@ const reduceCasePhaseAdvance = (state: AppState, nextPhase: CasePhase): Result<A
         && evaluatePredictionReadiness(state.caseDefinition, state.prediction).status === 'incomplete') {
         return failure('missing-prediction', 'Record a tentative prediction before continuing to experimentation.');
     }
-    return { ok: true, value: freezeState({ ...state, phase: transition.value.phase }) };
+    // A standing challenge is cleared by the phase moving, because `SceneRouter` treats it as an
+    // unconditional override: left set, it would pin the rival lab over a phase whose own scene never
+    // runs. The retired-but-mounted DOM panels sit outside canvas input suppression, so advancing while
+    // a critique stands is reachable, not theoretical.
+    return { ok: true, value: freezeState({ ...state, phase: transition.value.phase, rivalLabCritique: undefined }) };
 };
 
 const reduceTheoryReviewRequest = (state: AppState): Result<AppState> => {
@@ -698,7 +702,10 @@ const reduceTheoryConclusionSubmit = (state: AppState, timestamp: string): Resul
     // or before the last one would make the order of the record a lie.
     const previous = state.critiqueHistory[state.critiqueHistory.length - 1];
     if (previous && new Date(timestamp).getTime() <= new Date(previous.timestamp).getTime()) {
-        return failure('invalid-critique-timestamp', 'Provide a submission timestamp later than the previous challenge.');
+        // A distinct code from the malformed case above. They are different refusals with different
+        // remedies, and the player supplies neither timestamp — telling someone to "provide a valid UTC
+        // timestamp" for a control that takes no input is a message they cannot act on.
+        return failure('critique-timestamp-not-later', 'Provide a submission timestamp later than the previous challenge.');
     }
 
     const defensible = selectDefensibleConclusionIds(state.caseDefinition, {
@@ -769,7 +776,10 @@ const reduceDebriefComplete = (state: AppState, timestamp: string): Result<AppSt
         critiqueHistory: state.critiqueHistory,
         recognition: state.recognition
     };
-    return { ok: true, value: freezeState({ ...state, phase: transition.value.phase, completion, replay: { isCounterfactual: state.replay.isCounterfactual } }) };
+    // Same reason as `reduceCasePhaseAdvance`: completing with a challenge still standing would leave
+    // the finished player pinned on the rival lab instead of the debrief. The snapshot above already
+    // captured `critiqueHistory`, so clearing the transient selection loses nothing.
+    return { ok: true, value: freezeState({ ...state, phase: transition.value.phase, completion, rivalLabCritique: undefined, replay: { isCounterfactual: state.replay.isCounterfactual } }) };
 };
 
 const reduceReplayStart = (state: AppState): Result<AppState> => {
