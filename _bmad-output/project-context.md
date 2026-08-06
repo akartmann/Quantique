@@ -1,105 +1,146 @@
 ---
 project_name: 'Quantique'
 user_name: 'Alexis'
-date: '2026-08-04'
-sections_completed: ['technology_stack', 'engine_specific_rules', 'performance_rules', 'organization_rules', 'testing_rules', 'platform_build_rules', 'critical_dont_miss_rules']
-existing_patterns_found: 10
+date: '2026-08-06'
+revision: '2.0 — Phaser guided adventure'
+supersedes: '1.0 (2026-08-04, dual-surface accessibility-first)'
+pivot_reference: 'planning-artifacts/sprint-change-proposal-2026-08-05.md'
+sections_completed: ['technology_stack', 'engine_specific_rules', 'guided_adventure_rules', 'i18n_rules', 'performance_rules', 'organization_rules', 'testing_rules', 'platform_build_rules', 'critical_dont_miss_rules']
+existing_patterns_found: 14
 status: 'complete'
-rule_count: 45
+rule_count: 64
 optimized_for_llm: true
 ---
 
 # Project Context for AI Agents
 
-_This file contains critical rules and patterns that AI agents must follow when implementing game code in this project. Focus on unobvious details that agents might otherwise miss._
+_Critical rules and patterns AI agents must follow when implementing game code here. Focus is on unobvious details agents would otherwise miss._
+
+> **Read this before trusting any artifact dated before 2026-08-05.** The project pivoted from an accessibility-first dual-surface investigation tool to a **Phaser-only guided adventure**. Older GDD/UX/story text still asserts the retired contract (semantic HTML authority, DOM parity, a11y gates). This file and `game-architecture.md` v1.1 are current.
 
 ---
 
 ## Technology Stack & Versions
 
-- **Engine:** Phaser 4.2.1
-- **Language:** TypeScript
-- **Build tool:** Vite 8.1.x; commit the generator-produced lockfile to pin the exact patch.
-- **Local persistence:** `idb` 8.0.3 over IndexedDB.
-- **Schema validation:** Zod 4.4.3.
-- **Unit tests:** Vitest 4.1.10.
-- **Browser E2E tests:** Playwright 1.61.1.
-- **Automated accessibility checks:** `@axe-core/playwright` 4.12.1.
-- **AI documentation tooling:** `@upstash/context7-mcp`; Node.js 20.18.1+ required.
+- **Engine:** Phaser 4.2.1 — the **sole interactive presentation surface**.
+- **Language:** TypeScript ~5.7.2. **Build:** Vite 8.1.5 (`vite/config.dev.mjs`, `vite/config.prod.mjs`). Node.js 20.18.1+; the lockfile is committed to pin exact patches.
+- **Entry point:** `src/main.ts` (boot shell + store wiring), which starts Phaser via `src/game/main.ts`.
+- **Local persistence:** `idb` 8.0.3 over IndexedDB. **Validation:** Zod 4.4.3.
+- **Tests:** Vitest 4.1.10, Playwright 1.61.1.
+- `@axe-core/playwright` 4.12.1 is still installed but is **no longer a release gate** (ADR-008).
+- **No webfont, deliberately** — see i18n rules.
 
 ## Critical Implementation Rules
 
-### Engine-Specific Rules
+### Engine-Specific Rules (Phaser is the surface — ADR-001 v1.1)
 
-- Phaser is the visual laboratory renderer, not the authoritative application state or accessibility UI.
-- Semantic HTML owns all essential controls, values, instructions, notebook work, theory board, source inspection, conclusion entry, focus behavior, and announcements.
-- Every essential Phaser gesture needs an equivalent semantic HTML control that dispatches the same typed action.
-- Phaser scenes only mirror case phase: `context → prediction → experiment → synthesis → review → debrief`. Scenes must not define or infer progression.
-- Domain code must never import Phaser classes. Phaser objects are created, updated, and destroyed only by renderer factories under `src/adapters/phaser/`.
-- Use Phaser scene lifecycle for assets/rendering; clean up scene subscriptions and display objects on shutdown.
-- For an archival record, render a local immutable `textualRendition` through the semantic reader and Phaser book from the same pure source-page pagination. A book leaf represents one authored printed page; fit its body type once when redrawn rather than splitting its source page. Reading, paging, and closing remain ephemeral and never inspect evidence or alter progression.
-- The Phaser archival book uses one direct Scene `Zone` as its visual input surface; keep semantic controls equivalent. When the canvas is sticky, refresh `this.scale.updateBounds()` from a passive `window` scroll listener registered and removed by the scene lifecycle, because Phaser caches bounds in document coordinates. Browser tests must scroll before exercising Phaser page and close controls.
-- Do not use Arcade or Matter physics for scientific results. Experiments use deterministic, versioned domain calculations.
+- Phaser scenes own all interactive presentation. The **only** non-Phaser surface is the portable record: `src/ui/print/CaseRecordPrintView.ts` + `src/adapters/export/` (ADR-007).
+- **Never add a semantic HTML control to mirror a Phaser gesture.** The DOM-parity requirement was retired 2026-08-05.
+- `src/ui/*` interactive panels are **retired but still mounted** by `src/main.ts`. Do not extend, restyle, or add to them — build the feature as a scene/renderer and let the panel be superseded. `CaseRecordPrintView` is the exception and stays.
+- `src/game/scenes/{Boot,Game,GameOver,MainMenu,Preloader}.ts` are **orphaned Phaser-template leftovers referenced nowhere**. They are not the scene layer. Do not wire, extend, or imitate them. Real scenes live in `src/adapters/phaser/scenes/`.
+- The store is authoritative: scenes read through selectors and write only typed actions through `dispatch`. No direct state mutation, and **no scene→scene reach-in**. (The existing `LectureBookScene`→`LaboratoryScene` coupling is a story-owned deferral, not a pattern to copy.)
+- **SceneRouter (ADR-009):** the case's `scenarioScript` owns the phase→scene map; the router only obeys it. Scenes **mirror** phase `context → prediction → experiment → synthesis → review → debrief` and must never define, infer, or advance it. The router is read-only over the store and never dispatches.
+- A routing failure must never escape the store subscriber. The router runs inside `notify` inside `dispatch`, and Phaser starts scenes synchronously — an escaping throw would advance the phase, skip later subscribers, and break `dispatch`'s `Result` contract.
+- **Renderer contract:** classes in `src/adapters/phaser/renderers/` exposing `create()` / `render(state)` / `destroy()`. The renderer owns every display object, tween, timer, and listener it creates, and `destroy()` releases all of them — including tweens whose target is the renderer itself.
+- **Never author player-facing copy in `create()`.** It runs once and the locale can change. Create text empty, populate in `render(state)` through `createTranslator(locale)`.
+- **Sticky canvas:** refresh `this.scale.updateBounds()` from a *passive* `window` scroll listener registered and removed by the scene lifecycle — Phaser caches bounds in document coordinates. Browser tests must scroll before exercising in-canvas controls.
+- **Honour `prefers-reduced-motion`** in every animated renderer: subscribe to the media query, register no update loop when `reduce` is set, and have `render()` paint a static frame. This is the retained no-flashing / photosensitivity guard, and it survives the a11y de-scope.
+- No Arcade or Matter physics for scientific results — deterministic, versioned domain calculation only (ADR-004).
+- Archival book: one leaf is one authored printed page from the same pure source-page pagination; fit body type once on redraw rather than splitting a source page. Reading, paging, and closing stay ephemeral — they never inspect evidence or alter progression.
+
+### Guided-Adventure & Gating Rules
+
+- **Everything is authored; nothing is freeform.** Scene order, dialogue beats, apparatus bounds, valid values, confounds, and outcomes all come from case data.
+- Prediction **and** conclusion are each a choice of **1 of 4 colleague proposals**. Schemas use `.length(4)`, not `.min(4)` — the count is the design.
+- Choices are revisable: re-choosing must never fail on "already chosen".
+- Choosing a proposal sets **both** the proposal ID and the canonical text; any free-text path must **clear** the ID. Record validation enforces that a present ID matches its proposal's text.
+- **Defensibility is evaluator/critique-only.** Never expose a proposal as "correct" up front, and never leak a defensibility field into a display projection.
+- The evidence evaluator is the **sole completion authority**; it also reports which conclusion proposals are defensible and the significant-measure count. Never hard-code completion in a scene or dialogue branch.
+- The conclusion unlocks on **≥2 significant measures**; otherwise a colleague delivers hints in-fiction.
+- The rival lab (Mr. Arthur Bell) critiques an unsupported claim and routes back to revision. He is **narrative dressing, never a fail state** — no score, game-over, or penalty — and he is **not** a member of `colleagues[]`.
+- Consultations and hints point at missing evidence, a source, an observable, or a test. They never supply the answer.
+- No hard-fail states, irreversible wrong choices, speed rewards, or rewards for overclaiming.
+- Authored copy must not name a scene, phase, or route (the `encodesPath` check).
+
+### Internationalization Rules (ADR-010, NFR19)
+
+- **EN + FR from launch.** Locale is detected from the browser (`resolveBrowserLocale`), held in the store, and persisted in settings. **There is no player-facing language selector.**
+- **Every new content surface inherits the EN+FR requirement as part of its own acceptance criteria — not as follow-up i18n work.** This is the project's most-repeated defect: chrome gets localized and content does not. Surfaces to check each time: UI chrome, curated records, book content, reference summaries, colleague dialogue, proposal text, hint text, rival-lab critiques, sources, debrief.
+- Prose the player reads is `LocalizedText`, resolved with `resolveLocalizedText`. Interface strings go through `translate` / `createTranslator`. Proper nouns stay plain strings.
+- Zod validates locale completeness at case load; English fallback logs an `i18n.missingKey` dev warning.
+- Scientific run values are **canonical across locales**; localize only for display, via `formatNumber` / `formatMeasurement` / `formatRecordedValue`.
+- **Do not add a webfont.** `UI_FONT_STACK`, `BOOK_FONT_STACK`, and `MONO_FONT_STACK` end in a generic family and already resolve to fonts covering the French repertoire (Latin-1 accents, `œ`/`Œ`, `«`/`»`). A download would cost NFR2's cached five-second first interaction and add an offline-gate asset for coverage the platform already provides.
+- **Never give `locale` an optional parameter with a `DEFAULT_LOCALE` fallback.** It converts a forgotten call site from a `tsc` error into a French player silently reading English.
 
 ### Performance Rules
 
-- Target 60 FPS at 1280×720 on a representative low-end school laptop; profile the Young lab before adding visual polish.
-- Keep `update()` minimal. Prefer store subscriptions, Phaser events, and timers over per-frame domain work.
-- Do not log, parse JSON, access IndexedDB, manipulate the DOM, or allocate transient collections in render/update hot paths.
-- Load a minimal boot shell first; load the complete selected case bundle before laboratory play. Do not stream critical in-lab assets.
-- Pool only after profiling proves allocation pressure. Renderer factories own any pooled Phaser objects.
-- Prefer atlases and pre-rendered assets over regenerating `Graphics` geometry every frame.
-- Scientific calculation must be pure and deterministic; it is not run each frame unless a visual preview explicitly needs it.
+- Target 60 FPS at 1280×720 on a representative low-end school laptop; profile the Young lab before adding polish.
+- Keep `update()` minimal — prefer store subscriptions, Phaser events, and timers over per-frame work.
+- No logging, JSON parsing, IndexedDB access, DOM manipulation, or transient allocation in render/update hot paths.
+- Animate on elapsed time so motion is frame-rate independent; never on frame counters.
+- Load a minimal boot shell, then the complete selected case bundle before laboratory play. Do not stream critical in-lab assets.
+- Pool only after profiling proves allocation pressure. Prefer atlases and pre-rendered assets over regenerating `Graphics` geometry each frame.
+- Cap text resolution at `min(devicePixelRatio, 2)`; beyond that texture cost outweighs any visible gain.
+- Scientific calculation is pure and deterministic, and is not run per frame.
 
 ### Code Organization Rules
 
-- Follow the domain-driven hybrid structure in `game-architecture.md`; do not add a generic `services/`, `managers/`, or `helpers/` catch-all.
-- `src/domain/` is pure TypeScript: no Phaser, DOM, `fetch`, IndexedDB, or browser API imports.
-- `src/adapters/` owns all side effects. It may depend on `core/` and `domain/`; dependency direction never reverses.
-- `src/ui/` and `src/adapters/phaser/` use selectors and typed actions only. They never mutate each other or store state directly.
-- Only repositories fetch and validate case JSON. Only persistence adapters access IndexedDB.
-- Case definitions and shared assets are immutable under `public/cases/` and `public/assets/`; player progress belongs only in IndexedDB.
-- Use `PascalCase` for classes/components and their files, `camelCase` for non-class modules/functions/properties, `UPPER_SNAKE_CASE` for constants, and `kebab-case` for case IDs/assets.
-- Domain event names use `noun.verb`; JSON fields use `camelCase`.
+- Follow the domain-driven hybrid structure in `game-architecture.md`. Do not add a generic `services/`, `managers/`, or `helpers/` catch-all.
+- `src/domain/` is pure TypeScript: no Phaser, DOM, `fetch`, IndexedDB, browser APIs — **and no Zod**. Phaser objects exist only under `src/adapters/phaser/`. `src/core/` holds the store, i18n, errors, and `Result`. `src/schemas/` owns every Zod schema. `src/adapters/` owns all side effects. The dependency direction never reverses.
+- Only repositories fetch and validate case JSON; only persistence adapters touch IndexedDB.
+- Case definitions and shared assets are immutable under `public/cases/` and `public/assets/`; player progress lives only in IndexedDB. **Edit only `public/cases/…`** — `dist/` is build output and `.claude/worktrees/**` is a stale copy.
+- Bump `CaseDefinition.version` on any contract change, and keep the record-compatibility allowlist honest rather than widening it on the assumption that canonical strings are byte-identical.
+- **Never recalculate a saved historical run against a newer experiment model.** Every run record preserves its controls, calculated output, timestamp, and model version.
+- Case content carries the provenance and rights status of every historical asset and claim. Do not add an unreviewed one.
+- Every Zod object is `.strict()`.
+- Fallible operations return `Result<T, ResultError>` rather than throwing; error codes resolve to localized copy.
+- Naming: `PascalCase` for classes/components and their files, `camelCase` for non-class modules/functions/properties, `UPPER_SNAKE_CASE` for constants, `kebab-case` for case IDs and assets. Domain events are `noun.verb`; typed actions are `domain.verbPastTense` (`prediction.proposalChosen`); JSON fields are `camelCase`.
 
 ### Testing Rules
 
-- Unit-test all pure domain calculators, reducers, validators, migrations, readiness evaluators, and peer-review rules with Vitest.
-- Use fixtures for case definitions and player records; never require Phaser or a browser to test scientific logic.
-- Test the same apparatus action through both DOM and Phaser intent paths, then assert identical authoritative state.
-- Use Playwright for the Young completion path, import/export, offline reload, and Chromium/Firefox/WebKit acceptance flows.
-- Run axe checks in Playwright, but do not treat them as sufficient accessibility proof: manually verify keyboard-only flow, announcements, focus recovery, non-colour scientific encoding, and screen-reader usability.
-- Test invalid case content/imports as expected `Result` failures; valid local progress must survive a failed import or save.
-- Tests assert public actions, selectors, and semantic roles/labels—not Phaser private fields or incidental pixels.
+- Unit-test all pure domain logic with Vitest: calculators, reducers, validators, migrations, readiness and defensibility evaluation, significance rules, peer-review rules, proposal support predicates. Use fixtures for case definitions and records — **never require Phaser or a browser to test scientific logic**.
+- To test Phaser-adjacent logic, inject the structural slice you need rather than a real `Phaser.Game` — Vitest has no canvas. `SceneRouterTarget` is the reference pattern.
+- Layout is `tests/unit`, `tests/integration`, `tests/e2e`. Playwright runs with `PLAYWRIGHT_BROWSERS_PATH=0`.
+- Release-relevant e2e coverage: the Young completion path, import/export, offline reload, and cross-browser.
+- axe and manual accessibility acceptance are **no longer gates** (ADR-008). Keep the reduced-motion / no-flashing check. Do not add new a11y-parity assertions — and do not delete the existing a11y specs either; they are de-scoped, not wrong.
+- **Some e2e specs still drive retired DOM panels and fail on baseline** (see `implementation-artifacts/deferred-work.md`). Check the baseline before attributing a failure to your change.
+- Invalid case content and imports must surface as expected `Result` failures; valid local progress must survive a failed import or save.
+- Assert public actions, selectors, and rendered text — not Phaser private fields or incidental pixels.
+- Never assert a magic number that a test shares with source unless both read one exported constant.
 
 ### Platform & Build Rules
 
-- Target current desktop Chrome, Firefox, Safari, and Edge first. Tablet support requires equivalent pointer, touch, and keyboard outcomes; phones remain reading-only until lab usability is proven.
-- Release as a static hosted web application. No account, analytics, cloud save, remote configuration, or network request may block core play.
-- Treat offline reload as a release gate: locally saved case progress must restore without a network connection after a prior successful load.
-- Use the Vite production build and cache-versioned static assets. Do not introduce a backend for MVP gameplay.
-- Semantic HTML controls must expose labels, value, units, keyboard adjustment, and state announcements. Colour or sound must never be the sole carrier of scientific information.
-- Export/import remains versioned JSON; print uses the semantic CSS print view. Do not generate a separate, inaccessible canvas-only record.
+- Ship as a static hosted web application targeting current desktop Chrome, Firefox, Safari, and Edge. No account, analytics, cloud save, remote configuration, or network request may block core play.
+- **Offline reload is a release gate:** locally saved case progress must restore with no network after a prior successful load.
+- Use the Vite production build with cache-versioned static assets. No backend for MVP gameplay.
+- Export/import stays versioned JSON; print uses the semantic CSS print view — the retained portable record. Do not replace it with a canvas-only capture.
+- Never expose a raw error to the player, and never log learner-entered conclusions by default.
+- Verify with `npm run typecheck`, `npm test`, and `npm run test:e2e`.
 
-### Critical Don’t-Miss Rules
+### Critical Don't-Miss Rules
 
-- Do not build a freeform physics sandbox. Apparatus controls, valid values, confounds, and experiment outcomes are authored and bounded by case data.
-- Do not make canvas interaction the only way to calibrate, measure, inspect sources, or conclude. HTML controls are first-class, not a fallback.
-- Do not hard-code completion in a scene or dialogue branch. The evidence-to-conclusion evaluator is the sole completion authority.
-- Do not recalculate saved historical runs against a newer experiment model. Preserve controls, calculated output, timestamp, and model version in every run record.
-- Do not mutate shipped case definitions or mix them with player progress.
-- Do not let consultations provide the final answer. They point to missing evidence, a source, an observable, or a test.
-- Do not create hard-fail states, irreversible wrong choices, speed rewards, or rewards for overclaiming.
-- Do not expose raw errors or log learner-entered conclusions by default.
-- Do not add unreviewed historical assets or claims. Keep provenance and rights status in case content.
-- Do not optimize with pooling, streaming, or new middleware before profiling identifies a real need.
+_Quick index of the highest-cost mistakes. Each is stated in full in the section named._
+
+| Never | Why it is costly | Section |
+|---|---|---|
+| Add semantic HTML to reach parity with a Phaser control | Rebuilds the contract retired 2026-08-05 | Engine |
+| Extend `src/ui/*` panels, or treat `src/game/scenes/*` as the scene layer | Work lands in retired or orphaned code | Engine |
+| Let a scene define, infer, or advance the phase, or reach into another scene | Breaks the single source of truth for progression | Engine |
+| Author player-facing copy in `create()` | Silently ignores a locale change | Engine |
+| Leave tweens, listeners, or display objects alive after `destroy()` | Writes to torn-down objects | Engine |
+| Hard-code completion, or mark a proposal "correct" outside the evaluator | Bypasses the sole completion authority | Guided-Adventure |
+| Create a hard fail, irreversible choice, score, or speed reward | Contradicts the design — the rival lab included | Guided-Adventure |
+| Ship a content surface in English only | The project's most-repeated defect | i18n |
+| Add a webfont, or a silently-defaulted `locale` | Costs the boot budget / hides a missing locale | i18n |
+| Mutate shipped case definitions, or mix them with player progress | Corrupts immutable content | Organization |
+| Optimize with pooling, streaming, or middleware before profiling | Complexity for an unproven need | Performance |
 
 ---
 
 ## Usage Guidelines
 
-**For AI Agents:** Read this file before implementing game code. Follow all rules; when guidance conflicts or is incomplete, choose the more restrictive option and update this file when a durable new pattern is agreed.
+**For AI Agents:** Read this file before implementing game code. Follow all rules; when guidance conflicts or is incomplete, choose the more restrictive option and update this file when a durable new pattern is agreed. Where an older artifact contradicts this file, this file and `game-architecture.md` v1.1 win.
 
 **For Humans:** Keep this focused on project-specific agent guidance. Update it when the stack or architectural rules change; remove rules that become obvious or obsolete.
 
-**Last Updated:** 2026-08-04
+**Last Updated:** 2026-08-06 (revision 2.0 — Phaser guided-adventure pivot)
