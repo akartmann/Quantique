@@ -1,5 +1,5 @@
 # generated: 2026-08-04T18:18:39+0200
-# last_updated: 2026-08-07  # story 2.7 reviewed, 12 patches applied, done
+# last_updated: 2026-08-07  # story 2.8 context created, ready-for-dev
 # project: Quantique
 # project_key: NOKEY
 # tracking_system: file-system
@@ -67,7 +67,7 @@
 # ============================================================================
 
 generated: 2026-08-04T18:18:39+0200
-last_updated: 2026-08-07  # story 2.7 reviewed, 12 patches applied, done
+last_updated: 2026-08-07  # story 2.8 context created, ready-for-dev
 project: Quantique
 project_key: NOKEY
 tracking_system: file-system
@@ -99,7 +99,7 @@ development_status:
   # ---- Added 2026-08-06 (playable-Phaser-surface correction). Build 2.7 FIRST: it
   # ---- delivers the reusable advance affordance 2.8/2.10/2.11 consume. 2.12 STRICTLY LAST.
   2-7-in-scene-phase-transitions: done  # new; unblocks every story below; implemented 2026-08-07 — all six transitions canvas-dispatchable; two intents in the review→debrief chain still unowned (see deferred-work.md) and block 2.12
-  2-8-library-reading-room-and-reference-book: backlog  # new; retires LectureBookScene overlay + scene reach-in; effort L / risk Med
+  2-8-library-reading-room-and-reference-book: ready-for-dev  # new; retires LectureBookScene overlay + scene reach-in; effort L / risk Med; case.json contract change (readingGateHints) bumps 1.11.0 -> 1.12.0
   2-9-colleague-and-rival-lab-characters: backlog  # new; coded vector silhouettes, no art assets; effort M / risk Low
   2-10-physical-apparatus-and-player-started-light: backlog  # new; knob drag + start-the-light; effort L / risk Med
   2-11-debrief-scene-and-replay: backlog  # new; retires the last PhasePlaceholderScene; effort M / risk Low
