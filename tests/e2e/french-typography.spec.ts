@@ -95,10 +95,14 @@ const ROLE_LABEL = longestFrench([
  * The authored copy the proposal cards actually hold. Measuring only the interface keys would miss
  * the strings most likely to overflow — a French conclusion claim is the longest run of text on the
  * theory board, and it lives in `case.json`, not in `fr.ts`.
+ *
+ * *Every* proposal, not the longest one per set: the pass condition below is per-token width, and the
+ * widest unbreakable token has no reason to live in the longest string. Sampling by character count
+ * let a short proposal carrying one long token through unmeasured.
  */
-const PROPOSAL_TEXT = longestFrench(caseDefinition.predictionProposals.map(({ text }) => text.fr));
-const CONCLUSION_CLAIM = longestFrench(caseDefinition.conclusionProposals.map(({ claim }) => claim.fr));
-const CONCLUSION_LIMITATION = longestFrench(caseDefinition.conclusionProposals.map(({ limitation }) => limitation.fr));
+const PROPOSAL_TEXTS = caseDefinition.predictionProposals.map(({ text }) => text.fr);
+const CONCLUSION_CLAIMS = caseDefinition.conclusionProposals.map(({ claim }) => claim.fr);
+const CONCLUSION_LIMITATIONS = caseDefinition.conclusionProposals.map(({ limitation }) => limitation.fr);
 
 const SAMPLE_PARAMS: Readonly<Record<string, Readonly<Record<string, string | number>>>> = {
     'lab.result.recorded': { value: SPACING, wavelength: 550, mode: fr['lab.wavelengthMode.minimum'] },
@@ -111,7 +115,9 @@ const SAMPLE_PARAMS: Readonly<Record<string, Readonly<Record<string, string | nu
     'book.sourcePage.many': { pages: '138, 139' },
     'book.printedPage': { pages: '138, 139' },
     'colleague.attribution': { name: COLLEAGUE_NAME, role: ROLE_LABEL },
-    'proposal.limitation': { limitation: CONCLUSION_LIMITATION }
+    // One representative is right here: this sample only fills the interface key's own template, and
+    // the per-proposal sweep over every limitation lives in the colleague-card test below.
+    'proposal.limitation': { limitation: longestFrench(CONCLUSION_LIMITATIONS) }
 };
 
 const fillParams = (key: string): string =>
@@ -201,9 +207,9 @@ test('keeps the authored French proposal copy inside the colleague card', async 
     // sizes, so each authored string is measured at the size the card actually uses for it.
     const CARD_TEXT_WRAP_WIDTH = 744;
     const authored = [
-        { label: 'prediction text', fontSize: 16, text: PROPOSAL_TEXT },
-        { label: 'conclusion claim', fontSize: 16, text: CONCLUSION_CLAIM },
-        { label: 'conclusion limitation', fontSize: 13, text: CONCLUSION_LIMITATION }
+        ...PROPOSAL_TEXTS.map((text, index) => ({ label: `prediction text ${index + 1}`, fontSize: 16, text })),
+        ...CONCLUSION_CLAIMS.map((text, index) => ({ label: `conclusion claim ${index + 1}`, fontSize: 16, text })),
+        ...CONCLUSION_LIMITATIONS.map((text, index) => ({ label: `conclusion limitation ${index + 1}`, fontSize: 13, text }))
     ];
     const samples = authored.flatMap(({ label, fontSize, text }) =>
         text.split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({ label, font: UI_FONT_STACK, fontSize, text: token })));

@@ -119,6 +119,20 @@ describe('prediction proposal selection', () => {
         expect(selectSelectedPredictionProposalId(store.getState())).toBeUndefined();
         expect(store.getState().prediction).toBe('A hand-written prediction.');
     });
+
+    // The DOM panel offers the chosen proposal's canonical text straight back in its textarea, so
+    // "Record a prediction" is one click away from re-recording it byte-for-byte. Clearing there made
+    // the surface silently un-choose a proposal without a single character changing.
+    it('keeps the proposal ID when the recorded text is the proposal’s own, unchanged', () => {
+        const store = storeAtPrediction();
+        const [first] = definition.predictionProposals;
+        store.dispatch({ type: 'prediction.proposalChosen', proposalId: first.id });
+
+        expect(store.dispatch({ type: 'prediction.recorded', prediction: first.text.en })).toEqual({ ok: true, value: undefined });
+
+        expect(selectSelectedPredictionProposalId(store.getState())).toBe(first.id);
+        expect(store.getState().prediction).toBe(first.text.en);
+    });
 });
 
 describe('conclusion proposal selection', () => {
@@ -171,6 +185,33 @@ describe('conclusion proposal selection', () => {
 
         expect(selectSelectedConclusionProposalId(store.getState())).toBeUndefined();
     });
+
+    // Setting the same text back — which typing a character into the textarea and deleting it again
+    // does — must not cost the attribution.
+    it.each([
+        ['theory.conclusionSet', 'claim' as const],
+        ['theory.limitationSet', 'limitation' as const]
+    ])('keeps the proposal ID when %s rewrites the proposal’s own text unchanged', (actionType, field) => {
+        const store = storeAtReview();
+        const [first] = definition.conclusionProposals;
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: first.id });
+
+        store.dispatch(actionType === 'theory.conclusionSet'
+            ? { type: 'theory.conclusionSet', conclusion: first[field].en }
+            : { type: 'theory.limitationSet', limitation: first[field].en });
+
+        expect(selectSelectedConclusionProposalId(store.getState())).toBe(first.id);
+    });
+
+    // The store is the authority on when a conclusion can be chosen, not whichever scene is mounted.
+    it('refuses a conclusion choice before the theory board is reached', () => {
+        const store = storeAtPrediction();
+        const before = store.getState();
+
+        expect(store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: definition.conclusionProposals[0].id }))
+            .toMatchObject({ ok: false, error: { code: 'conclusion-phase-unavailable' } });
+        expect(store.getState()).toBe(before);
+    });
 });
 
 describe('proposal projections', () => {
@@ -205,8 +246,17 @@ describe('proposal projections', () => {
         const [projected] = selectLocalizedConclusionProposals(storeAtReview().getState());
         const [authored] = definition.conclusionProposals;
 
-        expect(projected).toMatchObject({ proposalId: authored.id, text: authored.claim.en, limitation: authored.limitation.en });
-        expect(Object.keys(projected)).not.toContain('isDefensible');
+        // Exact equality, not `toMatchObject`: AC3 turns on the projection carrying *no* defensibility
+        // signal, and a matcher that ignores extra keys paired with a one-name blacklist would pass
+        // just as happily if `supportPredicate` or `isCorrect` were added to it.
+        const speaker = definition.colleagues.find(({ id }) => id === authored.colleagueId);
+        expect(projected).toEqual({
+            proposalId: authored.id,
+            colleagueName: speaker?.name,
+            roleLabel: 'Analyst',
+            text: authored.claim.en,
+            limitation: authored.limitation.en
+        });
     });
 
     it('keeps the defensible set on the evaluator side, matching the recorded evidence', () => {
@@ -291,5 +341,99 @@ describe('authored overreach interaction', () => {
         store.dispatch({ type: 'peerReview.requested' });
 
         expect(store.getState().peerReview).toMatchObject({ status: 'reviewed', issues: [] });
+    });
+});
+
+/** Drives one chosen conclusion all the way to a completed debrief. */
+const completeWithConclusion = (proposalId: string): AppStore => {
+    const store = storeAtReview();
+    store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId });
+    store.dispatch({ type: 'theory.reviewRequested' });
+    store.dispatch({ type: 'peerReview.requested' });
+    store.dispatch({ type: 'revision.saved', timestamp: '2026-08-06T12:10:00.000Z' });
+    store.dispatch({ type: 'case.debriefCompleted', timestamp: '2026-08-06T12:11:00.000Z' });
+    return store;
+};
+
+/**
+ * `conclusion-universal-optics` is the most unbounded claim in the authored set, and the current rules
+ * cannot see it: it contains none of the authored `overreachPhrases`, and its "None is offered: …"
+ * limitation is a non-empty string, which is all any limitation gate tests. So it completes the case
+ * with zero findings and *earns* `calibrated-conclusion` — "a bounded claim without an overreach
+ * finding".
+ *
+ * Reviewed and accepted (1.11 review, decision 1d): Story 2.5's rival-lab critique is the mechanism
+ * meant to catch this, and widening the detection phrases now would invalidate saved records — see the
+ * argument in `peerReviewRules.ts`. These tests pin the present behaviour so that when 2.5 lands, or a
+ * copy edit touches this claim, the change of outcome shows up as a failure instead of a silent shift.
+ */
+describe('authored overreach the current rules cannot detect (pending Story 2.5)', () => {
+    it('raises no finding for conclusion-universal-optics', () => {
+        const store = storeAtReview();
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: 'conclusion-universal-optics' });
+        store.dispatch({ type: 'theory.reviewRequested' });
+
+        store.dispatch({ type: 'peerReview.requested' });
+
+        expect(store.getState().peerReview).toMatchObject({ status: 'reviewed', issues: [] });
+    });
+
+    it('and therefore still awards calibrated-conclusion for it', () => {
+        const store = completeWithConclusion('conclusion-universal-optics');
+
+        expect(store.getState().recognition.items.find(({ id }) => id === 'calibrated-conclusion')?.achieved).toBe(true);
+    });
+
+    it('is never in the defensible set, whatever the evidence', () => {
+        const store = completeWithConclusion('conclusion-universal-optics');
+
+        expect(selectDefensibleConclusionProposalIds(store.getState())).not.toContain('conclusion-universal-optics');
+    });
+});
+
+/**
+ * Provenance has to outlive the live selection: `case.replayStarted` clears
+ * `selectedConclusionProposalId`, so without an ID on the saved revision a completed investigation
+ * kept a colleague's verbatim claim with nothing recording who said it, and the debrief and print
+ * view presented their words as the player's own.
+ */
+describe('conclusion attribution in the saved revision', () => {
+    it('records which proposal a revision adopted', () => {
+        const store = completeWithConclusion('conclusion-spacing-varies');
+
+        expect(store.getState().decisionHistory[0]).toMatchObject({ conclusionProposalId: 'conclusion-spacing-varies' });
+    });
+
+    it('leaves it absent for a hand-written conclusion', () => {
+        const store = storeAtReview();
+        store.dispatch({ type: 'theory.conclusionSet', conclusion: 'A hand-written conclusion, bounded to this bench.' });
+        store.dispatch({ type: 'theory.limitationSet', limitation: 'It covers only the settings recorded here.' });
+        store.dispatch({ type: 'theory.reviewRequested' });
+        store.dispatch({ type: 'peerReview.requested' });
+        store.dispatch({ type: 'revision.saved', timestamp: '2026-08-06T12:10:00.000Z' });
+
+        expect(store.getState().decisionHistory[0].conclusionProposalId).toBeUndefined();
+    });
+
+    it('survives a counterfactual replay, which clears the live selection', () => {
+        const store = completeWithConclusion('conclusion-spacing-varies');
+
+        store.dispatch({ type: 'case.replayStarted' });
+
+        expect(selectSelectedConclusionProposalId(store.getState())).toBeUndefined();
+        expect(store.getState().completion?.finalDecision.conclusionProposalId).toBe('conclusion-spacing-varies');
+    });
+
+    it('round-trips through a saved record', () => {
+        const store = completeWithConclusion('conclusion-spacing-varies');
+        const record = selectPortableCaseRecord(store.getState());
+
+        expect(record.ok).toBe(true);
+        if (!record.ok) return;
+        const restored = createAppStateFromCaseRecord(record.value, definition);
+
+        expect(restored.ok).toBe(true);
+        if (!restored.ok) return;
+        expect(restored.value.decisionHistory[0].conclusionProposalId).toBe('conclusion-spacing-varies');
     });
 });

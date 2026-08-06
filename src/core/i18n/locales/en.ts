@@ -202,6 +202,7 @@ export const en = {
     'error.invalid-prediction': 'Enter a tentative prediction before recording it.',
     'error.unknown-prediction-proposal': 'That prediction is not one of the proposals on offer.',
     'error.unknown-conclusion-proposal': 'That conclusion is not one of the proposals on offer.',
+    'error.conclusion-phase-unavailable': 'Reach the theory board before choosing a conclusion.',
     'error.missing-prediction': 'Record a tentative prediction before continuing to experimentation.',
     'error.unknown-theory-run': 'That observation is unavailable as conclusion support.',
     'error.duplicate-theory-run': 'That observation is already supporting this conclusion.',

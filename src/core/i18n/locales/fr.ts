@@ -193,6 +193,7 @@ export const fr: Record<TranslationKey, string> = {
     'error.invalid-prediction': 'Saisissez une prédiction provisoire avant de l’enregistrer.',
     'error.unknown-prediction-proposal': 'Cette prédiction ne fait pas partie des propositions offertes.',
     'error.unknown-conclusion-proposal': 'Cette conclusion ne fait pas partie des propositions offertes.',
+    'error.conclusion-phase-unavailable': 'Rejoignez le tableau de théorie avant de choisir une conclusion.',
     'error.missing-prediction': 'Enregistrez une prédiction provisoire avant de passer à l’expérimentation.',
     'error.unknown-theory-run': 'Cette observation est indisponible comme appui de la conclusion.',
     'error.duplicate-theory-run': 'Cette observation appuie déjà cette conclusion.',

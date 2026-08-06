@@ -4,6 +4,9 @@ const expectActiveScene = async (page: import('@playwright/test').Page, sceneKey
     await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', sceneKey);
 };
 
+const TYPED_CONCLUSION = 'The two recorded configurations support an interference inference.';
+const TYPED_LIMITATION = 'These observations do not settle every interpretation of light.';
+
 /** Clicks the laboratory apparatus "increase slit spacing" control on the canvas, in design coordinates. */
 const clickApparatusIncrease = async (page: import('@playwright/test').Page): Promise<void> => {
     const bounds = await page.locator('#game-container canvas').boundingBox();
@@ -54,8 +57,10 @@ test('walks the Young scene sequence, keeping the active scene mirroring the cas
     await board.getByRole('checkbox', { name: 'Select Observation 2 as conclusion support' }).check();
     await board.getByRole('checkbox', { name: 'Select Thomas Young’s 1801 lecture record as conclusion support' }).check();
     await board.getByRole('checkbox', { name: 'Select Opticks reference as conclusion support' }).check();
-    await board.getByLabel('Conclusion', { exact: true }).fill('The two recorded configurations support an interference inference.');
-    await board.getByLabel('Limitation or alternative explanation').fill('These observations do not settle every interpretation of light.');
+    const conclusionField = board.getByLabel('Conclusion', { exact: true });
+    const limitationField = board.getByLabel('Limitation or alternative explanation');
+    await conclusionField.fill(TYPED_CONCLUSION);
+    await limitationField.fill(TYPED_LIMITATION);
 
     // synthesis and review share the authored theory-board scene
     await board.getByRole('button', { name: 'Continue investigation to synthesis' }).click();
@@ -66,6 +71,17 @@ test('walks the Young scene sequence, keeping the active scene mirroring the cas
     const slitSpacingBeforeClick = await slitSpacing.inputValue();
     await clickApparatusIncrease(page);
     await expect(slitSpacing).toHaveValue(slitSpacingBeforeClick);
+
+    // That coordinate now also sits inside the theory board's third proposal card, so the same click
+    // lands on the *new* surface and adopts an authored conclusion. Asserted rather than ignored: the
+    // 1.11 review found this probe had quietly stopped measuring the flow it was written for, because
+    // the rest of the spec then reviewed a conclusion nobody typed.
+    await expect(conclusionField).not.toHaveValue(TYPED_CONCLUSION);
+
+    // Restore the player's own words, so the review and debrief below exercise what they assert.
+    await conclusionField.fill(TYPED_CONCLUSION);
+    await limitationField.fill(TYPED_LIMITATION);
+    await expect(conclusionField).toHaveValue(TYPED_CONCLUSION);
 
     await board.getByRole('button', { name: 'Request review' }).click();
     await expectActiveScene(page, 'TheoryBoard');

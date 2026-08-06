@@ -1166,7 +1166,9 @@
         "predicates": [
           { "kind": "minimum-runs", "count": 2 },
           { "kind": "varied-control", "controlId": "slitSpacingMm" },
-          { "kind": "varied-control", "controlId": "screenDistanceM" }
+          { "kind": "varied-control", "controlId": "screenDistanceM" },
+          { "kind": "inspected-source", "sourceId": "young-lecture-1801" },
+          { "kind": "inspected-source", "sourceId": "newton-opticks" }
         ]
       }
     },

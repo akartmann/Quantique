@@ -53,6 +53,11 @@ const DecisionHistoryEntrySchema = z.object({
     priorConclusion: z.string(),
     conclusion: z.string(),
     limitation: z.string(),
+    // Optional additive, so `schemaVersion` stays 3: a pre-1.11 revision simply omits it. It is
+    // deliberately *not* revalidated against the current authored claim — a history entry is a
+    // historical snapshot, and demanding it still match today's copy would recreate the very
+    // brittleness the sanitization below removes.
+    conclusionProposalId: text.optional(),
     selectedRunIds: z.array(text),
     selectedSourceIds: z.array(text),
     feedback: PeerReviewSchema,
@@ -166,22 +171,34 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
     }
 
-    // A proposal ID is a claim about where the text came from, so the text has to still match it.
-    // Without this, a record could name proposal `conclusion-spacing-varies` while carrying a
-    // hand-edited conclusion, and the surface would attribute someone else's words to a colleague.
-    const predictionProposal = record.selectedPredictionProposalId !== undefined
-        && definition.predictionProposals.find(({ id }) => id === record.selectedPredictionProposalId);
-    if (record.selectedPredictionProposalId !== undefined
-        && (!predictionProposal || predictionProposal.text.en !== record.prediction)) {
-        return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+    // A proposal ID is a claim about where the text came from, so it must not outlive the text it
+    // describes: a record naming `conclusion-spacing-varies` while carrying a hand-edited conclusion
+    // would attribute someone else's words to a colleague.
+    //
+    // But the repair is to drop the claim, not to discard the investigation. The ordinary cause of a
+    // mismatch is an authored copy edit, and the compatibility allowlist above exists precisely so
+    // authors can change display text without costing players their work (NFR12) — while
+    // `CaseProgressPanel` autosaves on the first dispatch of the recovered session, so a rejection
+    // here does not merely refuse the record, it overwrites it. An ID naming a proposal that does not
+    // exist at all is a different matter: that record describes content this build cannot render.
+    let sanitized = record;
+    if (record.selectedPredictionProposalId !== undefined) {
+        const proposal = definition.predictionProposals.find(({ id }) => id === record.selectedPredictionProposalId);
+        if (!proposal) {
+            return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+        }
+        if (proposal.text.en !== record.prediction) {
+            sanitized = { ...sanitized, selectedPredictionProposalId: undefined };
+        }
     }
-    const conclusionProposal = record.selectedConclusionProposalId !== undefined
-        && definition.conclusionProposals.find(({ id }) => id === record.selectedConclusionProposalId);
-    if (record.selectedConclusionProposalId !== undefined
-        && (!conclusionProposal
-            || conclusionProposal.claim.en !== record.theory.conclusion
-            || conclusionProposal.limitation.en !== record.theory.limitation)) {
-        return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+    if (record.selectedConclusionProposalId !== undefined) {
+        const proposal = definition.conclusionProposals.find(({ id }) => id === record.selectedConclusionProposalId);
+        if (!proposal) {
+            return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+        }
+        if (proposal.claim.en !== record.theory.conclusion || proposal.limitation.en !== record.theory.limitation) {
+            sanitized = { ...sanitized, selectedConclusionProposalId: undefined };
+        }
     }
 
     if (record.phase !== 'context' && evaluateContextReadiness(definition, record.inspectedSourceIds).status !== 'ready') {
@@ -343,7 +360,9 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
     }
 
-    return { ok: true, value: record };
+    // `sanitized`, not `record`: a stale proposal ID was dropped above rather than costing the player
+    // the whole investigation.
+    return { ok: true, value: sanitized };
 };
 
 const isTimestampAfterHistory = (completedAt: string, history: readonly { timestamp: string }[]): boolean => !history.length || completedAt >= history[history.length - 1]!.timestamp;

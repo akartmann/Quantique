@@ -109,18 +109,13 @@ describe('portable case records', () => {
         expect(validateCaseRecordForDefinition(parsed.data, proposalDefinition)).toMatchObject({ ok: true });
     });
 
+    // An ID naming a proposal that does not exist describes content this build cannot render, so the
+    // record is refused. A *text* mismatch is different — an authored copy edit is the ordinary cause
+    // — and refusing there would destroy the investigation, because `CaseProgressPanel` autosaves over
+    // the same key on the first dispatch of the recovered session.
     it.each([
         ['an unauthored prediction proposal ID', { selectedPredictionProposalId: 'p-invented', prediction: 'Bands will appear.' }],
-        ['a prediction whose text no longer matches its proposal', { selectedPredictionProposalId: 'p-1', prediction: 'Hand-edited afterwards.' }],
-        ['an unauthored conclusion proposal ID', { selectedConclusionProposalId: 'c-invented' }],
-        ['a conclusion whose claim no longer matches its proposal', {
-            selectedConclusionProposalId: 'c-1',
-            theory: { ...validRecord.theory, conclusion: 'Hand-edited afterwards.' }
-        }],
-        ['a conclusion whose limitation no longer matches its proposal', {
-            selectedConclusionProposalId: 'c-1',
-            theory: { ...validRecord.theory, limitation: 'Hand-edited afterwards.' }
-        }]
+        ['an unauthored conclusion proposal ID', { selectedConclusionProposalId: 'c-invented' }]
     ])('rejects a record carrying %s', (_description, overrides) => {
         const parsed = CaseRecordSchema.safeParse({ ...validRecord, ...overrides });
 
@@ -128,6 +123,50 @@ describe('portable case records', () => {
         if (!parsed.success) return;
         expect(validateCaseRecordForDefinition(parsed.data, proposalDefinition))
             .toMatchObject({ ok: false, error: { code: 'invalid-case-record' } });
+    });
+
+    it.each([
+        ['a prediction whose text no longer matches its proposal',
+            { selectedPredictionProposalId: 'p-1', prediction: 'Hand-edited afterwards.' },
+            'selectedPredictionProposalId' as const],
+        ['a conclusion whose claim no longer matches its proposal',
+            { selectedConclusionProposalId: 'c-1', theory: { ...validRecord.theory, conclusion: 'Hand-edited afterwards.' } },
+            'selectedConclusionProposalId' as const],
+        ['a conclusion whose limitation no longer matches its proposal',
+            { selectedConclusionProposalId: 'c-1', theory: { ...validRecord.theory, limitation: 'Hand-edited afterwards.' } },
+            'selectedConclusionProposalId' as const]
+    ])('keeps a record carrying %s, dropping only the stale attribution', (_description, overrides, staleField) => {
+        const parsed = CaseRecordSchema.safeParse({ ...validRecord, ...overrides });
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        const validated = validateCaseRecordForDefinition(parsed.data, proposalDefinition);
+
+        expect(validated.ok).toBe(true);
+        if (!validated.ok) return;
+        // The investigation survives; only the claim about who authored the text is dropped.
+        expect(validated.value[staleField]).toBeUndefined();
+        expect(validated.value.runs).toEqual(parsed.data.runs);
+        expect(validated.value.prediction).toBe(parsed.data.prediction);
+        expect(validated.value.theory).toEqual(parsed.data.theory);
+    });
+
+    it('carries the sanitized record into app state rather than the raw argument', () => {
+        const parsed = CaseRecordSchema.safeParse({
+            ...validRecord,
+            selectedPredictionProposalId: 'p-1',
+            prediction: 'Hand-edited afterwards.'
+        });
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        const state = createAppStateFromCaseRecord(parsed.data, proposalDefinition);
+
+        expect(state.ok).toBe(true);
+        if (!state.ok) return;
+        // Reading the argument again here would put the stale ID straight back into the next save.
+        expect(state.value.selectedPredictionProposalId).toBeUndefined();
+        expect(state.value.prediction).toBe('Hand-edited afterwards.');
     });
 
     it('still rejects a record from an unrelated definition version', () => {

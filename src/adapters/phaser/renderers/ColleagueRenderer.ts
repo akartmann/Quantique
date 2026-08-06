@@ -8,6 +8,7 @@ import {
     selectLocale,
     selectLocalizedConclusionProposals,
     selectLocalizedPredictionProposals,
+    selectLocalizedError,
     selectSelectedConclusionProposalId,
     selectSelectedPredictionProposalId,
     type LocalizedProposalProjection
@@ -38,6 +39,15 @@ const TEXT_LEFT = CARD_LEFT + 26;
 const TEXT_WRAP_WIDTH = CARD_WIDTH - 200;
 const CARDS_TOP = 132;
 const CARD_GAP = 10;
+/**
+ * The claim and the limitation share one card, so both are line-bounded and the limitation is placed
+ * under the claim's *measured* height at render time. Bottom-anchoring the limitation instead left
+ * roughly three pixels of slack against today's French copy — one extra wrapped line, from a copy
+ * edit or a longer future translation, drew the two strings on top of each other.
+ */
+const BODY_MAX_LINES = 3;
+const LIMITATION_MAX_LINES = 2;
+const LIMITATION_TOP_GAP = 6;
 
 /** A colleague with no silhouette accent of their own still gets a legible, neutral stripe. */
 const NEUTRAL_ACCENT = 0x6f8f99;
@@ -64,6 +74,9 @@ export class ColleagueRenderer {
     private readonly cards: ProposalCard[] = [];
     private heading?: Phaser.GameObjects.Text;
     private guide?: Phaser.GameObjects.Text;
+    private inputEnabled = true;
+    /** Shown in place of the guide line until the next render, so a refused click is not silent. */
+    private transientError?: string;
 
     public constructor(
         private readonly scene: Scene,
@@ -101,6 +114,28 @@ export class ColleagueRenderer {
             const top = CARDS_TOP + (index * (cardHeight + CARD_GAP));
             this.cards.push(this.createCard(state, proposal, top, cardHeight));
         });
+        // Cards are made interactive here rather than at construction, so a scene that starts
+        // underneath an open reference book can suppress input before the first pointer event.
+        this.applyInputState();
+    }
+
+    /**
+     * Lets the overlaying reference book suppress proposal input while it is open — the same contract
+     * `ApparatusRenderer.setInputEnabled` provides. Without it, a click meant for the book's page
+     * controls fell through to the card underneath and rewrote the player's prediction or conclusion:
+     * the book's own full-canvas surface is disabled for the whole of its open, turn, and fade
+     * animations while the overlay is still painted.
+     */
+    public setInputEnabled(enabled: boolean): void {
+        this.inputEnabled = enabled;
+        this.applyInputState();
+    }
+
+    private applyInputState(): void {
+        this.cards.forEach(({ background }) => {
+            if (this.inputEnabled) background.setInteractive({ useHandCursor: true });
+            else background.disableInteractive();
+        });
     }
 
     private createCard(state: AppState, proposal: LocalizedProposalProjection, top: number, height: number): ProposalCard {
@@ -112,23 +147,30 @@ export class ColleagueRenderer {
         const colleague = state.caseDefinition.colleagues.find(({ id }) => id === authored?.colleagueId);
 
         const background = this.scene.add.rectangle(CARD_LEFT, top, CARD_WIDTH, height, 0x16323b)
-            .setOrigin(0, 0)
-            .setInteractive({ useHandCursor: true });
+            .setOrigin(0, 0);
         background.on('pointerup', () => {
-            // A rejected choice is a no-op the surface does not need to explain: the only reachable
-            // failure here is an unauthored id, which authored content cannot produce.
-            this.storeAdapter.chooseProposal(this.kind, proposal.proposalId);
+            const result = this.storeAdapter.chooseProposal(this.kind, proposal.proposalId);
+            // Not unreachable. `createStore` short-circuits every dispatch while an exclusive progress
+            // operation is in flight, so a click during a progress export or import legitimately
+            // fails — and swallowing that left the card silently inert with no way to tell "refused"
+            // from "not clickable".
+            if (!result.ok) {
+                const current = this.storeAdapter.getState();
+                this.transientError = selectLocalizedError(current, result.error);
+                this.render(current);
+            }
         });
 
         const accent = this.scene.add.rectangle(CARD_LEFT, top, ACCENT_WIDTH, height, accentOf(colleague)).setOrigin(0, 0);
         const attribution = this.scene.add.text(TEXT_LEFT, top + 12, '', uiTextStyle({ color: '#f4d35e', fontSize: '15px', wordWrap: { width: TEXT_WRAP_WIDTH } }));
-        const body = this.scene.add.text(TEXT_LEFT, top + 36, '', uiTextStyle({ color: '#f7f4ef', fontSize: '16px', wordWrap: { width: TEXT_WRAP_WIDTH } }));
+        const body = this.scene.add.text(TEXT_LEFT, top + 36, '', uiTextStyle({ color: '#f7f4ef', fontSize: '16px', wordWrap: { width: TEXT_WRAP_WIDTH }, maxLines: BODY_MAX_LINES }));
         // The choice marker is a label, never colour alone.
         const marker = this.scene.add.text(CARD_LEFT + CARD_WIDTH - 16, top + 12, '', uiTextStyle({ color: '#c7d7d9', fontSize: '15px', align: 'right', wordWrap: { width: 160 } }))
             .setOrigin(1, 0);
+        // Placed under the body's measured height in `render`, not anchored to the card's bottom edge.
         const limitation = proposal.limitation === undefined
             ? undefined
-            : this.scene.add.text(TEXT_LEFT, top + height - 34, '', uiTextStyle({ color: '#a9c3ca', fontSize: '13px', wordWrap: { width: TEXT_WRAP_WIDTH } })).setOrigin(0, 1);
+            : this.scene.add.text(TEXT_LEFT, top + 36, '', uiTextStyle({ color: '#a9c3ca', fontSize: '13px', wordWrap: { width: TEXT_WRAP_WIDTH }, maxLines: LIMITATION_MAX_LINES })).setOrigin(0, 0);
 
         const card: ProposalCard = { proposalId: proposal.proposalId, background, accent, attribution, body, limitation, marker };
         this.objects.push(background, accent, attribution, body, marker);
@@ -139,7 +181,11 @@ export class ColleagueRenderer {
     public render(state: AppState): void {
         const t = createTranslator(selectLocale(state));
         this.heading?.setText(t(this.kind === 'prediction' ? 'colleagues.heading' : 'theoryBoard.heading'));
-        this.guide?.setText(t(this.kind === 'prediction' ? 'colleagues.guide' : 'theoryBoard.guide'));
+        this.guide?.setText(this.transientError ?? t(this.kind === 'prediction' ? 'colleagues.guide' : 'theoryBoard.guide'));
+        this.guide?.setColor(this.transientError ? '#f4d35e' : '#c7d7d9');
+        // Cleared after drawing, so a refused click stays legible until the next real state change
+        // replaces it rather than vanishing on the same frame.
+        this.transientError = undefined;
 
         const projections = new Map(this.project(state).map((proposal) => [proposal.proposalId, proposal]));
         const selectedId = this.selectedId(state);
@@ -148,9 +194,17 @@ export class ColleagueRenderer {
             const proposal = projections.get(card.proposalId);
             if (!proposal) return;
             const isSelected = card.proposalId === selectedId;
-            card.attribution.setText(t('colleague.attribution', { name: proposal.colleagueName, role: proposal.roleLabel }));
+            // A degraded cached `case.json` can leave a proposal unattributed. The two-part template
+            // would then render a trailing em dash with nothing after it, so the standalone label is
+            // used on its own instead.
+            card.attribution.setText(proposal.roleLabel
+                ? t('colleague.attribution', { name: proposal.colleagueName, role: proposal.roleLabel })
+                : proposal.colleagueName);
             card.body.setText(proposal.text);
-            card.limitation?.setText(proposal.limitation === undefined ? '' : t('proposal.limitation', { limitation: proposal.limitation }));
+            if (card.limitation) {
+                card.limitation.setText(proposal.limitation === undefined ? '' : t('proposal.limitation', { limitation: proposal.limitation }));
+                card.limitation.setY(card.body.y + card.body.height + LIMITATION_TOP_GAP);
+            }
             card.marker.setText(isSelected ? t('proposal.selected') : t('proposal.choose'));
             // The marker carries the state; the tint and the border are reinforcement, not the signal.
             card.marker.setColor(isSelected ? '#f4d35e' : '#8fb3bd');
@@ -165,5 +219,6 @@ export class ColleagueRenderer {
         this.cards.length = 0;
         this.heading = undefined;
         this.guide = undefined;
+        this.transientError = undefined;
     }
 }

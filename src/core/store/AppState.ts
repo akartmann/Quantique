@@ -29,6 +29,14 @@ export type DecisionHistoryEntry = Readonly<{
     priorConclusion: string;
     conclusion: string;
     limitation: string;
+    /**
+     * Which colleague's conclusion this revision adopted, when the player chose one rather than
+     * writing their own. Provenance has to live here: `case.replayStarted` clears
+     * `selectedConclusionProposalId`, so without it a completed investigation kept a colleague's
+     * verbatim claim with nothing recording who said it, and the debrief and print view presented
+     * their words as the player's own. Absent means hand-written, which is the pre-1.11 default.
+     */
+    conclusionProposalId?: string;
     selectedRunIds: readonly string[];
     selectedSourceIds: readonly string[];
     feedback: PeerReviewProjection;
@@ -181,9 +189,13 @@ export const createInitialAppState = (caseDefinition: CaseDefinition, locale: Lo
 export const createAppStateFromCaseRecord = (record: CaseRecord, caseDefinition: CaseDefinition, locale: Locale = DEFAULT_LOCALE): Result<AppState> => {
     const compatible = validateCaseRecordForDefinition(record, caseDefinition);
     if (!compatible.ok) return compatible;
+    // The *validated* record from here on, never the argument: validation sanitizes a proposal ID
+    // whose authored text has since been edited, and reading `record` again would put the stale ID
+    // straight back into state and then back into the next save.
+    const validated = compatible.value;
 
     const runs: RunRecord[] = [];
-    for (const recordRun of record.runs) {
+    for (const recordRun of validated.runs) {
         const snapshot = createRunRecord(recordRun, runs.map(({ id }) => id));
         if (!snapshot.ok) return { ok: false, error: snapshot.error };
         runs.push(snapshot.value);
@@ -194,20 +206,20 @@ export const createAppStateFromCaseRecord = (record: CaseRecord, caseDefinition:
         value: freezeState({
             caseDefinition,
             locale,
-            phase: record.phase,
-            activeControlValues: record.activeControlValues,
-            selectedWavelengthNm: record.selectedWavelengthNm ?? 550,
-            selectedWavelengthMode: record.selectedWavelengthMode ?? 'minimum',
-            inspectedSourceIds: record.inspectedSourceIds,
-            prediction: record.prediction,
-            selectedPredictionProposalId: record.selectedPredictionProposalId,
+            phase: validated.phase,
+            activeControlValues: validated.activeControlValues,
+            selectedWavelengthNm: validated.selectedWavelengthNm ?? 550,
+            selectedWavelengthMode: validated.selectedWavelengthMode ?? 'minimum',
+            inspectedSourceIds: validated.inspectedSourceIds,
+            prediction: validated.prediction,
+            selectedPredictionProposalId: validated.selectedPredictionProposalId,
             runs,
-            comparison: record.comparison,
-            theory: record.theory,
-            selectedConclusionProposalId: record.selectedConclusionProposalId,
-            decisionHistory: record.decisionHistory,
-            completion: record.completion as CompletionSnapshot | undefined,
-            replay: record.replay
+            comparison: validated.comparison,
+            theory: validated.theory,
+            selectedConclusionProposalId: validated.selectedConclusionProposalId,
+            decisionHistory: validated.decisionHistory,
+            completion: validated.completion as CompletionSnapshot | undefined,
+            replay: validated.replay
         })
     };
 };
@@ -403,11 +415,25 @@ const reducePredictionRecord = (state: AppState, prediction: string): Result<App
     }
     const normalized = prediction.trim();
     if (!normalized) return failure('invalid-prediction', 'Enter a tentative prediction before recording it.');
+    // The attribution survives exactly as long as it stays true. Editing a proposal's words drops it
+    // — otherwise the record would claim a colleague wrote text they did not, and the consistency
+    // check would reject it on load. Re-recording them *unchanged* keeps it: the DOM panel offers the
+    // chosen proposal's canonical text straight back in the textarea, so clearing unconditionally let
+    // "Record a prediction" silently un-choose a proposal without changing a single byte.
+    // Short-circuits on the ID: with nothing chosen there is no attribution to preserve, and the
+    // authored sets need never be consulted.
+    const chosen = state.selectedPredictionProposalId === undefined
+        ? undefined
+        : state.caseDefinition.predictionProposals.find(({ id }) => id === state.selectedPredictionProposalId);
     return {
         ok: true,
-        // The proposal ID is cleared: a hand-typed prediction that kept claiming to be proposal
-        // `prediction-two-patches` would carry text the record consistency check then rejects.
-        value: freezeState({ ...state, prediction: normalized, selectedPredictionProposalId: undefined, consultation: undefined, peerReview: undefined })
+        value: freezeState({
+            ...state,
+            prediction: normalized,
+            selectedPredictionProposalId: chosen?.text.en === normalized ? state.selectedPredictionProposalId : undefined,
+            consultation: undefined,
+            peerReview: undefined
+        })
     };
 };
 
@@ -446,11 +472,29 @@ const withTheory = (state: AppState, theory: TheoryBoardDraft): Result<AppState>
     value: freezeState({ ...state, theory, consultation: undefined, peerReview: undefined })
 });
 
-/** The free-text counterpart of {@link reducePredictionRecord}'s clearing rule, for the conclusion. */
-const withHandWrittenTheory = (state: AppState, theory: TheoryBoardDraft): Result<AppState> => ({
-    ok: true,
-    value: freezeState({ ...state, theory, selectedConclusionProposalId: undefined, consultation: undefined, peerReview: undefined })
-});
+/**
+ * The free-text counterpart of {@link reducePredictionRecord}'s clearing rule, for the conclusion —
+ * and, the same way, it only clears when the text has actually stopped matching the chosen proposal.
+ * Typing a character into the textarea and deleting it again must not cost the attribution.
+ */
+const withHandWrittenTheory = (state: AppState, theory: TheoryBoardDraft): Result<AppState> => {
+    const chosen = state.selectedConclusionProposalId === undefined
+        ? undefined
+        : state.caseDefinition.conclusionProposals.find(({ id }) => id === state.selectedConclusionProposalId);
+    const keepsAttribution = chosen !== undefined
+        && chosen.claim.en === theory.conclusion
+        && chosen.limitation.en === theory.limitation;
+    return {
+        ok: true,
+        value: freezeState({
+            ...state,
+            theory,
+            selectedConclusionProposalId: keepsAttribution ? state.selectedConclusionProposalId : undefined,
+            consultation: undefined,
+            peerReview: undefined
+        })
+    };
+};
 
 /**
  * Records the choice, and only the choice. It deliberately does not advance the phase, evaluate
@@ -459,6 +503,12 @@ const withHandWrittenTheory = (state: AppState, theory: TheoryBoardDraft): Resul
 const reduceTheoryConclusionProposalChosen = (state: AppState, proposalId: string): Result<AppState> => {
     const proposal = state.caseDefinition.conclusionProposals.find(({ id }) => id === proposalId);
     if (!proposal) return failure('unknown-conclusion-proposal', 'That conclusion is not one of the proposals on offer.');
+    // The store decides when a conclusion can be chosen, not whichever scene happens to be mounted.
+    // `synthesis` and `review` are the two phases the theory board hosts. This checks the phase and
+    // nothing else: the *evidence* gate stays with Stories 2.3/2.6, exactly as the story directs.
+    if (state.phase !== 'synthesis' && state.phase !== 'review') {
+        return failure('conclusion-phase-unavailable', 'Reach the theory board before choosing a conclusion.');
+    }
     return {
         ok: true,
         value: freezeState({
@@ -565,6 +615,8 @@ const reduceRevisionSave = (state: AppState, timestamp: string): Result<AppState
         priorConclusion: previous?.conclusion ?? '',
         conclusion: state.theory.conclusion,
         limitation: state.theory.limitation,
+        // Captured at save time, because the live selection does not survive a counterfactual replay.
+        conclusionProposalId: state.selectedConclusionProposalId,
         selectedRunIds: state.theory.selectedRunIds,
         selectedSourceIds: state.theory.selectedSourceIds,
         feedback: state.peerReview,

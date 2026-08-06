@@ -14,16 +14,20 @@ export type { LectureBookController, LectureBookPresentation } from '../adapters
 export { LECTURE_BOOK_SCENE_KEY } from '../adapters/phaser/scenes/LectureBookScene';
 
 const StartGame = (parent: string, store: AppStore, onLectureBookReady?: (controller: LectureBookController) => void): Game => {
-    // Assigned below: the laboratory reads the book's live visibility, and the book is built after it.
+    // Assigned below: every scene with its own canvas input reads the book's live visibility, and the
+    // book is built after them.
     let lectureBookScene: LectureBookScene | undefined;
-    const laboratoryScene = new LaboratoryScene(store, () => lectureBookScene?.isOverlayVisible() ?? false);
+    const isOverlayVisible = (): boolean => lectureBookScene?.isOverlayVisible() ?? false;
+    const laboratoryScene = new LaboratoryScene(store, isOverlayVisible);
+    const colleaguesScene = new ColleaguesScene(store, isOverlayVisible);
+    const theoryBoardScene = new TheoryBoardScene(store, isOverlayVisible);
     // A Record, not an array of pairs: this is the one place that has to be exhaustive over SceneKey,
     // and only the index signature makes the compiler reject a key the content contract can route to.
     const phaseScenes: Record<SceneKey, Scene> = {
         Library: new LibraryScene(store),
-        Colleagues: new ColleaguesScene(store),
+        Colleagues: colleaguesScene,
         Laboratory: laboratoryScene,
-        TheoryBoard: new TheoryBoardScene(store),
+        TheoryBoard: theoryBoardScene,
         Debrief: new DebriefScene(store)
     };
 
@@ -51,7 +55,13 @@ const StartGame = (parent: string, store: AppStore, onLectureBookReady?: (contro
     // in every phase — including the phases whose scene has no book of its own yet.
     lectureBookScene = new LectureBookScene(
         store,
-        (visible) => laboratoryScene.setApparatusInputEnabled(!visible),
+        // Every routed scene that owns canvas input, not just the laboratory: the book is reachable in
+        // every phase, and the proposal cards cover almost the whole canvas.
+        (visible) => {
+            laboratoryScene.setApparatusInputEnabled(!visible);
+            colleaguesScene.setProposalInputEnabled(!visible);
+            theoryBoardScene.setProposalInputEnabled(!visible);
+        },
         onLectureBookReady
     );
     game.scene.add(LECTURE_BOOK_SCENE_KEY, lectureBookScene, true);

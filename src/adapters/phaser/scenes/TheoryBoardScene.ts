@@ -14,7 +14,13 @@ export class TheoryBoardScene extends Scene {
     private unsubscribe?: () => void;
     private colleagueRenderer?: ColleagueRenderer;
 
-    public constructor(private readonly store: AppStore) {
+    /**
+     * @param isOverlayVisible Reads the reference book's live visibility, for the same reason
+     * {@link LaboratoryScene} does. The book is reachable from the curated record in every phase, so
+     * without this a page-turn click at the theory board fell through to the card underneath and
+     * replaced the player's conclusion and limitation with an authored proposal's.
+     */
+    public constructor(private readonly store: AppStore, private readonly isOverlayVisible: () => boolean = () => false) {
         super('TheoryBoard');
     }
 
@@ -22,11 +28,17 @@ export class TheoryBoardScene extends Scene {
         this.cameras.main.setBackgroundColor(0x10252c);
         this.colleagueRenderer = new ColleagueRenderer(this, createPhaserStoreAdapter(this.store), 'conclusion');
         this.colleagueRenderer.create();
+        this.colleagueRenderer.setInputEnabled(!this.isOverlayVisible());
 
         this.unsubscribe = this.store.subscribe(() => this.colleagueRenderer?.render(this.store.getState()));
         this.colleagueRenderer.render(this.store.getState());
 
         this.events.once('shutdown', this.shutdown, this);
+    }
+
+    /** Lets the overlaying reference book suppress proposal input while it is open. */
+    public setProposalInputEnabled(enabled: boolean): void {
+        this.colleagueRenderer?.setInputEnabled(enabled);
     }
 
     private shutdown(): void {
