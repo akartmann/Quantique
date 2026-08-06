@@ -3,10 +3,16 @@ import { readFile } from 'node:fs/promises';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { ADVANCE_TRANSITION_IDS, createPhaserStoreAdapter } from '../../src/adapters/phaser/PhaserStoreAdapter';
-import { advanceTransitionForPhase } from '../../src/adapters/phaser/renderers/advanceView';
+import { advanceRefusalRegister, advanceTransitionForPhase, resolveAdvanceRefusal } from '../../src/adapters/phaser/renderers/advanceView';
 import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore, type AppStore } from '../../src/core/store/createStore';
-import { selectCasePhase, selectCompletionSnapshot, selectLocalizedError } from '../../src/core/store/selectors';
+import {
+    selectCasePhase,
+    selectCompletionSnapshot,
+    selectLocalizedError,
+    selectNotebookObservations,
+    selectReplayState
+} from '../../src/core/store/selectors';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 import { CASE_PHASES } from '../../src/domain/cases/CaseProgress';
 import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
@@ -87,14 +93,22 @@ describe('the six forward transitions, taken through the adapter', () => {
         saveReviewedRevision(store);
         expect(advance(store).ok).toBe(true);
         expect(selectCasePhase(store.getState())).toBe('debrief');
-        expect(selectCompletionSnapshot(store.getState())).toBeDefined();
+        // The snapshot the transition produces, checked for what it carries rather than for merely
+        // existing: the adapter stamps `completedAt` (a reducer that read the clock would not be a pure
+        // function of its arguments), and the two runs recorded above have to survive into it, because
+        // the replay below clears the live ones.
+        const snapshot = selectCompletionSnapshot(store.getState());
+        expect(snapshot?.completedAt).toMatch(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/u);
+        expect(snapshot?.runs.map(({ id }) => id)).toEqual(['run-1', 'run-2']);
 
         // The replay is a forward move like the others, and it takes the player back to the library
         // with a fresh investigation rather than to a finished one.
         expect(advance(store).ok).toBe(true);
         expect(selectCasePhase(store.getState())).toBe('context');
-        expect(store.getState().runs).toEqual([]);
-        expect(store.getState().replay.isCounterfactual).toBe(true);
+        expect(selectNotebookObservations(store.getState())).toEqual([]);
+        expect(selectReplayState(store.getState()).isCounterfactual).toBe(true);
+        // Cleared live, kept in the snapshot — which is the whole reason the snapshot exists.
+        expect(selectCompletionSnapshot(store.getState())?.runs.map(({ id }) => id)).toEqual(['run-1', 'run-2']);
     });
 
     it('reaches every phase the case machine has, so no phase is skipped by the walk above', () => {
@@ -118,7 +132,7 @@ describe('the six forward transitions, taken through the adapter', () => {
         expect(visited).toEqual([...CASE_PHASES]);
     });
 
-    it('uses a distinct transition for each step, covering the whole set exactly once', () => {
+    it('takes the six transitions in the authored order, and each of them exactly once', () => {
         const store = createStore(createInitialAppState(definition));
         const taken: string[] = [];
         const step = (): void => {
@@ -138,6 +152,19 @@ describe('the six forward transitions, taken through the adapter', () => {
         step();
         step();
 
+        // Against a written-out sequence rather than against `ADVANCE_TRANSITION_IDS` alone: `taken` is
+        // built by the same `advanceTransitionForPhase` call the subject makes, so comparing it to the
+        // set the subject also derives would be the mapping agreeing with itself. The order is the
+        // independent fact — it is the sequence a player actually walks, and it is what would change if
+        // a phase were mapped to another phase's move.
+        expect(taken).toEqual([
+            'context-to-prediction',
+            'prediction-to-experiment',
+            'experiment-to-synthesis',
+            'synthesis-to-review',
+            'review-to-debrief',
+            'debrief-replay'
+        ]);
         expect([...taken].sort()).toEqual([...ADVANCE_TRANSITION_IDS].sort());
     });
 });
@@ -215,6 +242,16 @@ describe('the two registers a refusal is answered in (AC4)', () => {
         const refused = advance(store);
 
         expect(refused.ok === false && refused.error.code).toBe('significant-measures-required');
+        // The link the unit tests cannot make. `AdvanceView.test.ts` asserts the register against its
+        // own copy of this string, and the reducer emits it from a copy of its own — so a rename would
+        // leave both green while `advanceRefusalRegister` silently answered `'error'` forever and the
+        // authored colleague line stopped appearing. This is the assertion that fails instead.
+        expect(refused.ok === false && advanceRefusalRegister(refused.error.code)).toBe('gate');
+        expect(refused.ok === false && resolveAdvanceRefusal({
+            code: refused.error.code,
+            localizedError: selectLocalizedError(store.getState(), refused.error),
+            colleagueAnswers: true
+        }).register).toBe('gate');
     });
 
     it('answers a refusal during a progress operation with a localized error instead', () => {
@@ -230,6 +267,14 @@ describe('the two registers a refusal is answered in (AC4)', () => {
 
         expect(refused.ok).toBe(false);
         expect(refused.ok === false && refused.error.code).toBe('progress-operation-active');
+        // …and it reaches the surface in the *other* register, even on the one host that can speak a
+        // colleague's line: a colleague must not appear to have explained a progress export.
+        expect(refused.ok === false && advanceRefusalRegister(refused.error.code)).toBe('error');
+        expect(refused.ok === false && resolveAdvanceRefusal({
+            code: refused.error.code,
+            localizedError: selectLocalizedError(store.getState(), refused.error),
+            colleagueAnswers: true
+        }).message).toBe(refused.ok === false ? selectLocalizedError(store.getState(), refused.error) : '');
         expect(refused.ok === false && selectLocalizedError(store.getState(), refused.error))
             .not.toBe(refused.ok === false ? refused.error.code : '');
         expect(selectCasePhase(store.getState())).toBe('context');

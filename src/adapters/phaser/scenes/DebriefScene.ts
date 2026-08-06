@@ -9,7 +9,7 @@ import { PhasePlaceholderScene } from './PhasePlaceholderScene';
  * without it a finished player has nowhere to go on the canvas at all.
  */
 export class DebriefScene extends PhasePlaceholderScene {
-    public constructor(store: AppStore, isOverlayVisible: () => boolean = () => false) {
+    public constructor(store: AppStore, isOverlayVisible: () => boolean) {
         super('Debrief', store, isOverlayVisible);
     }
 }

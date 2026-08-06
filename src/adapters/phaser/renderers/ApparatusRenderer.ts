@@ -33,7 +33,7 @@ import {
     SIDE_COLUMN_WIDTH,
     screenXForDistance
 } from './apparatusGeometry';
-import { advanceRefusalRegister, advanceTransitionForPhase, resolveAdvanceView } from './advanceView';
+import { advanceTransitionForPhase, resolveAdvanceRefusal, resolveAdvanceView } from './advanceView';
 import { TransientMessageSlot } from './transientMessage';
 
 const SOURCE_X = 92;
@@ -456,14 +456,22 @@ export class ApparatusRenderer {
         const result = this.storeAdapter.advanceCase(transition);
         if (result.ok) return;
         const current = this.storeAdapter.getState();
-        if (advanceRefusalRegister(result.error.code) === 'gate') {
+        const { register, message } = resolveAdvanceRefusal({
+            code: result.error.code,
+            localizedError: selectLocalizedError(current, result.error),
+            // The laboratory is the one host that can speak the colleague's line — and only when one
+            // actually applies to this evidence. With none, the refusal falls back to the localized
+            // error rather than to an empty slot.
+            colleagueAnswers: selectLocalizedColleagueHint(current) !== undefined
+        });
+        if (register === 'gate') {
             this.advanceRefused = true;
             // The colleague answers this one, so any error still standing in the slot is superseded.
             this.transientError.clear();
         } else {
             // Anchored to the state the refusal happened against: a refused dispatch leaves the state
             // object untouched, so the message survives every repaint until something really changes.
-            this.transientError.set(selectLocalizedError(current, result.error), current);
+            this.transientError.set(message ?? '', current);
         }
         this.render(current);
     }

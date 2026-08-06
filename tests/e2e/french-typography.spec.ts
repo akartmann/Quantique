@@ -8,7 +8,8 @@ import {
     BOARD_TEXT_WRAP,
     PROPOSAL_SURFACE_WIDTH,
     SUBMIT_CONTROL_FONT_SIZE,
-    SUBMIT_CONTROL_LABEL_WRAP
+    SUBMIT_CONTROL_LABEL_WRAP,
+    boardAdvanceControlLabelWrap
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 // From `apparatusGeometry`, not `ApparatusRenderer`: that renderer imports Phaser as a *value*
 // (`BlendModes`), Phaser touches `window` at import time, and these specs run in Node.
@@ -76,18 +77,22 @@ const RIVAL_LAB_TEXT_WRAP_WIDTH = rivalLabTextWrapWidth();
 /**
  * Every in-scene advance control, with the bound of the host that draws it (Story 2.7).
  *
- * Two bounds, not one: the laboratory's control fills its 304px side column, and every other host
- * uses the widget's 232px default. Both are read from the source rather than restated, so a column
- * or a widget resized without this table being updated fails here instead of clipping on screen.
+ * **Three bounds, not one, and each is read from the host that draws it.** The laboratory's control
+ * fills its side column; the two boards draw at `SUBMIT_WIDTH`, the width of the control column they
+ * share with the submit control; the two placeholder shells take the widget's own default. The boards
+ * and the default are the same number today, which is exactly why this table must not take the
+ * default for them: `advanceControlLabelWrap()` and `boardAdvanceControlLabelWrap()` agreeing by
+ * coincidence is how a narrowed submit column would keep this check green while the label clipped on
+ * screen — the "two numbers that agree by accident" failure this file exists to make impossible.
  *
  * This list replaces the single `lab.advance` entry. It is the same control, six times over.
  */
 const ADVANCE_CONTROLS = [
     { key: 'advance.toColleagues', bound: advanceControlLabelWrap() },
-    { key: 'advance.toBench', bound: advanceControlLabelWrap() },
+    { key: 'advance.toBench', bound: boardAdvanceControlLabelWrap('prediction') },
     { key: 'advance.toTheoryBoard', bound: ADVANCE_CONTROL_LABEL_WRAP },
-    { key: 'advance.toReviewers', bound: advanceControlLabelWrap() },
-    { key: 'advance.closeTheCase', bound: advanceControlLabelWrap() },
+    { key: 'advance.toReviewers', bound: boardAdvanceControlLabelWrap('conclusion') },
+    { key: 'advance.closeTheCase', bound: boardAdvanceControlLabelWrap('conclusion') },
     { key: 'advance.replay', bound: advanceControlLabelWrap() }
 ] as const;
 

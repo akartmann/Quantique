@@ -73,13 +73,26 @@ export const advanceTransitionForPhase = (phase: CasePhase): AdvanceTransition =
 export type RefusalRegister = 'gate' | 'error';
 
 /**
+ * Every code the localization layer carries an authored string for, as the code alone.
+ *
+ * Derived from `TranslationKey` rather than restated, so {@link GATE_REFUSAL_CODES} cannot hold a
+ * code the bundles have stopped authoring. `ResultError.code` is a bare `string` — the store has no
+ * code union to bind to — and the failure mode that leaves is silent in exactly the wrong direction:
+ * rename the code in the reducer, fix the one integration test that names it, and this module keeps a
+ * stale literal that `includes` never matches again, so the register quietly answers `'error'`
+ * forever and the authored colleague line stops appearing. `tsc` catches it here instead.
+ */
+type ErrorCodeOf<TKey> = TKey extends `error.${infer TCode}` ? TCode : never;
+export type LocalizedErrorCode = ErrorCodeOf<TranslationKey>;
+
+/**
  * The gates that have an authored in-fiction colleague line, by error code.
  *
  * Exactly one today: the significant-measure gate, whose four `colleagueHints` entries are authored
  * EN+FR in `case.json`. Adding a second predicate kind is a `CaseDefinition` contract change and a
  * version bump — the missing-sources colleague line is Story 2.8's AC4, not this story's.
  */
-const GATE_REFUSAL_CODES: readonly string[] = ['significant-measures-required'];
+const GATE_REFUSAL_CODES: readonly LocalizedErrorCode[] = ['significant-measures-required'];
 
 /**
  * A gate the player can act on is answered by the colleague; anything else by the localized error.
@@ -90,7 +103,80 @@ const GATE_REFUSAL_CODES: readonly string[] = ['significant-measures-required'];
  * must not appear to have explained.
  */
 export const advanceRefusalRegister = (code: string): RefusalRegister =>
-    GATE_REFUSAL_CODES.includes(code) ? 'gate' : 'error';
+    (GATE_REFUSAL_CODES as readonly string[]).includes(code) ? 'gate' : 'error';
+
+export type AdvanceRefusalInput = Readonly<{
+    /** The code the store refused with. */
+    code: string;
+    /** The already-localized error for that refusal — the fallback, and usually the answer. */
+    localizedError: string;
+    /**
+     * Whether this host can actually **speak** the colleague's line for this refusal: it has an
+     * authored hint that applies right now, and a slot to paint it in.
+     *
+     * The laboratory passes `selectLocalizedColleagueHint(state) !== undefined`. Every other host
+     * passes `false` today, and says so here rather than by not calling this function — a host that
+     * routed a gate refusal to a hint slot it does not have would answer with nothing, which is the
+     * one thing AC4 forbids. When Story 2.8 authors the missing-sources line, the library changes
+     * this one argument and inherits the rule already written.
+     */
+    colleagueAnswers: boolean;
+}>;
+
+export type AdvanceRefusal = Readonly<{
+    register: RefusalRegister;
+    /** What to hold in the transient slot, or `undefined` when the colleague has the answer. */
+    message?: string;
+}>;
+
+/**
+ * How a refusal is answered — decided here for **every** host, not just the one that has a hint slot.
+ *
+ * This is the "one rule, not two" the module header claims. `advanceRefusalRegister` alone was not
+ * enough: it says which register a code belongs to, and each host still had to decide what to do with
+ * that, which is where two of them diverged into answering everything with the localized error.
+ *
+ * The fallback is the part that has to be here rather than at a call site. `'gate'` means "the
+ * colleague answers this, so the error must not also be shown" — and with no line actually applying,
+ * that reduces to showing nothing at all: no hint, no error, no change, a refusal indistinguishable
+ * from a dead control. Shipped content cannot reach it (`below-significant-measures` is an
+ * unconditional catch-all and validation requires it authored last), but the register is a lookup
+ * table that later stories add to, and the silent branch should not be waiting for them.
+ */
+export const resolveAdvanceRefusal = ({ code, localizedError, colleagueAnswers }: AdvanceRefusalInput): AdvanceRefusal => {
+    const register: RefusalRegister = colleagueAnswers && advanceRefusalRegister(code) === 'gate' ? 'gate' : 'error';
+    return Object.freeze({ register, message: register === 'gate' ? undefined : localizedError });
+};
+
+/**
+ * How long the control ignores clicks after its own label changes under the cursor.
+ *
+ * **The one scene that hosts two phases is what makes this necessary.** `SceneRouter.route()` returns
+ * early when the resolved scene key is unchanged, so `TheoryBoardScene` and its live control *survive*
+ * `synthesis → review`. `requestAdvance` correctly re-resolves from the live phase, and a double-click
+ * therefore dispatches two **different** actions: click 1 sends `theory.reviewRequested`, the label
+ * changes from "To your reviewers" to "Close the case" between frames, and click 2 sends
+ * `case.debriefCompleted`. Usually that second one is refused with `reviewed-revision-required` one
+ * frame after an advance the player was never told about — but against a restored record already
+ * carrying a matching `decisionHistory` entry every check passes, and the double-click completes the
+ * case, skipping `review` entirely. That is the bypass the transition mapping is careful to prevent,
+ * arrived at through click timing instead.
+ *
+ * 400ms is a read-the-new-label window, not an animation: nothing moves, so it has nothing to do with
+ * `prefers-reduced-motion` and the widget stays free of tweens and update loops. Deliberately longer
+ * than a typical ~150ms double-click and short enough to be invisible to a player clicking on purpose.
+ */
+export const ADVANCE_RELABEL_LOCKOUT_MS = 400;
+
+/**
+ * Whether a click that has just landed should be honoured, given when the label last changed.
+ *
+ * A pure predicate over an elapsed-millisecond clock rather than a timer object: nothing to release in
+ * `destroy()`, nothing to keep in sync with the frame loop, and it can be asserted directly instead of
+ * through a Phaser scene Vitest cannot construct. Elapsed time, never a frame counter.
+ */
+export const acceptsAdvanceClick = ({ relabelledAt, now }: Readonly<{ relabelledAt?: number; now: number }>): boolean =>
+    relabelledAt === undefined || (now - relabelledAt) >= ADVANCE_RELABEL_LOCKOUT_MS;
 
 export type AdvanceViewInput = Readonly<{
     /**

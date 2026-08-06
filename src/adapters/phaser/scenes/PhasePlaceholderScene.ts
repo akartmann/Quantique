@@ -6,7 +6,7 @@ import type { AppStore } from '../../../core/store/createStore';
 import { selectCasePhase, selectLocale, selectLocalizedError } from '../../../core/store/selectors';
 import type { SceneKey } from '../../../domain/cases/ScenarioScript';
 import { createPhaserStoreAdapter, type PhaserStoreAdapter } from '../PhaserStoreAdapter';
-import { advanceTransitionForPhase } from '../renderers/advanceView';
+import { advanceTransitionForPhase, resolveAdvanceRefusal } from '../renderers/advanceView';
 import { TransientMessageSlot } from '../renderers/transientMessage';
 import { ADVANCE_CONTROL_HEIGHT, ADVANCE_CONTROL_WIDTH, AdvanceControl } from '../ui/AdvanceControl';
 import {
@@ -49,11 +49,15 @@ export abstract class PhasePlaceholderScene extends Scene {
      * and the router rebuilds this scene while the book may already be open, so an edge-triggered
      * suppression callback is not enough on its own: a page-turn click would fall through the book
      * and advance the phase.
+     *
+     * **Required, with no default.** A `() => false` fallback would make exactly that omission a
+     * compile-time success and read as "the book is never open" — the defect this parameter exists to
+     * prevent, arrived at by forgetting the parameter rather than by mis-wiring it.
      */
     protected constructor(
         private readonly sceneKey: SceneKey,
         private readonly store: AppStore,
-        private readonly isOverlayVisible: () => boolean = () => false
+        private readonly isOverlayVisible: () => boolean
     ) {
         super(sceneKey);
     }
@@ -114,6 +118,11 @@ export abstract class PhasePlaceholderScene extends Scene {
      * `missing-contextual-sources` refusal a player meets in the library arrives with its `{label}`
      * already filled. Story 2.8 replaces this shell and authors the in-fiction colleague line for
      * that gate; until then the localized error is what keeps the refusal answerable.
+     *
+     * Routed through {@link resolveAdvanceRefusal} rather than straight to `selectLocalizedError`, so
+     * the register is consulted from every host and not only from the laboratory. `colleagueAnswers`
+     * is `false` because this shell has no hint slot to paint one in — and the day 2.8 gives the
+     * library both the line and the slot, that argument is the whole change.
      */
     private requestAdvance(): void {
         const adapter = this.storeAdapter;
@@ -122,7 +131,12 @@ export abstract class PhasePlaceholderScene extends Scene {
         const result = adapter.advanceCase(transition);
         if (result.ok) return;
         const current = this.store.getState();
-        this.transientError.set(selectLocalizedError(current, result.error), current);
+        const { message } = resolveAdvanceRefusal({
+            code: result.error.code,
+            localizedError: selectLocalizedError(current, result.error),
+            colleagueAnswers: false
+        });
+        this.transientError.set(message ?? '', current);
         this.render();
     }
 

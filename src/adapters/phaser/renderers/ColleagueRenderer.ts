@@ -2,10 +2,10 @@ import type { Scene } from 'phaser';
 
 import type { PhaserStoreAdapter, ProposalKind } from '../PhaserStoreAdapter';
 import { uiTextStyle } from '../textStyles';
-import { AdvanceControl, ADVANCE_CONTROL_HEIGHT, advanceControlCentre } from '../ui/AdvanceControl';
+import { AdvanceControl, ADVANCE_CONTROL_HEIGHT, advanceControlCentre, advanceControlLabelWrap } from '../ui/AdvanceControl';
 import { DialogueBox } from '../ui/DialogueBox';
 import { ProposalChoice } from '../ui/ProposalChoice';
-import { advanceTransitionForPhase } from './advanceView';
+import { advanceTransitionForPhase, resolveAdvanceRefusal } from './advanceView';
 import { TransientMessageSlot } from './transientMessage';
 import type { AppState } from '../../../core/store/AppState';
 import { createTranslator, type Translator } from '../../../core/i18n/translate';
@@ -67,8 +67,20 @@ const HEADING_GAP = 6;
  * room. The alternative — a band below the cards — would take height out of `cardGeometry`'s budget,
  * which the 1.12 review already found to be the tightest thing on this surface.
  */
-const SUBMIT_WIDTH = 232;
-const SUBMIT_HEIGHT = 34;
+/**
+ * Exported because the control column's *size* is what two test files have to measure against, and
+ * neither can reach it otherwise.
+ *
+ * `SUBMIT_WIDTH` is also what the advance control on either board is drawn at ({@link
+ * advanceControlBounds}), which is **not** `ADVANCE_CONTROL_WIDTH`, the widget's default for hosts
+ * with no column of their own. The two happen to be the same number today, and a test that reads the
+ * widget's default while the board draws at this one is measuring a rectangle that is never painted —
+ * it would keep passing through exactly the label clipping it exists to catch. Same for
+ * `SUBMIT_HEIGHT`: it is what pushes the advance control down into the second row, so a geometry test
+ * checking the two controls do not collide has to read it rather than restate it.
+ */
+export const SUBMIT_WIDTH = 232;
+export const SUBMIT_HEIGHT = 34;
 const SUBMIT_GAP = 16;
 const SUBMIT_LABEL_PADDING = 10;
 const SUBMIT_FILL = 0x1d4451;
@@ -118,6 +130,13 @@ const advanceControlBounds = (kind: ProposalKind): Readonly<{ x: number; y: numb
 /** The design-space centre of the advance control on either board, for a browser spec to click. */
 export const advanceControlCentreOnBoard = (kind: ProposalKind): Readonly<{ x: number; y: number }> =>
     advanceControlCentre(advanceControlBounds(kind));
+
+/**
+ * The width a board's advance label wraps against — derived from the bounds the board actually passes,
+ * so the French whole-string check cannot drift onto the widget's default.
+ */
+export const boardAdvanceControlLabelWrap = (kind: ProposalKind): number =>
+    advanceControlLabelWrap(advanceControlBounds(kind).width);
 
 /** The measured floor of the control column, so nothing below it can be drawn underneath the column. */
 const controlColumnBottom = (kind: ProposalKind): number =>
@@ -401,17 +420,26 @@ export class ColleagueRenderer {
     /**
      * Asks to make the move that leaves the phase this board is currently hosting.
      *
-     * Every refusal reachable here is answered by the localized error, and that is not an omission:
-     * the one gate with an authored in-fiction colleague line is the significant-measure gate, which
-     * sits on `experiment → synthesis` and can only be refused at the bench. A board that routed a
-     * refusal to a hint slot it does not have would be silent, which is the one thing AC4 forbids.
+     * Routed through {@link resolveAdvanceRefusal} rather than straight to `selectLocalizedError`, so
+     * there is one rule for answering a refusal and not one per host. `colleagueAnswers: false` is
+     * this board's honest statement of what it can do: the one gate with an authored in-fiction line
+     * is the significant-measure gate, which sits on `experiment → synthesis` and can only be refused
+     * at the bench, and a board that routed a refusal to a hint slot it does not have would answer
+     * with nothing — the one thing AC4 forbids. Stating it here means a later story that authors a
+     * line for a gate reachable from a board changes this argument and inherits the rule, instead of
+     * adding a code to the register and finding this call site never consulted it.
      */
     private requestAdvance(): void {
         const { transition } = advanceTransitionForPhase(selectCasePhase(this.storeAdapter.getState()));
         const result = this.storeAdapter.advanceCase(transition);
         if (result.ok) return;
         const current = this.storeAdapter.getState();
-        this.transientGuide.set({ text: selectLocalizedError(current, result.error), tone: 'error' }, current);
+        const { message } = resolveAdvanceRefusal({
+            code: result.error.code,
+            localizedError: selectLocalizedError(current, result.error),
+            colleagueAnswers: false
+        });
+        this.transientGuide.set({ text: message ?? '', tone: 'error' }, current);
         this.render(current);
     }
 
@@ -427,10 +455,18 @@ export class ColleagueRenderer {
      */
     private dialogueTop(): number {
         const guideBottom = (this.guide?.y ?? GUIDE_Y) + (this.guide?.height ?? 0);
-        // The panel spans the full width, so it has to clear the control column on the right as well
-        // as the guide on the left. On the conclusion board the column is two controls tall and its
-        // floor sits within a few pixels of `DIALOGUE_TOP`; measuring against it rather than trusting
-        // that margin is the same rule the guide gets, and for the same reason.
+        // The panel spans the full width, so it has to clear the control column on the right as well as
+        // the guide on the left. This is the same rule the guide gets, and for the same reason — but
+        // unlike the guide's, this term **binds today, on every conclusion-board render**, and saying so
+        // is the point: the column there is two controls tall, its floor is 112, and 112 + `DIALOGUE_GAP`
+        // is 124 against a `DIALOGUE_TOP` of 118. The panel and the cards below it sit 6px lower than
+        // they did before Story 2.7 added the second control. That is a real layout change and not a
+        // safety net that never fires. On the prediction board the column is one control tall (floor 70)
+        // and the term does not bind.
+        //
+        // The 6px does not come out of the cards' budget: `cardGeometry` clamps `top` against its own
+        // floor, so a lower panel costs overlap rather than card height — the documented "overlap beats
+        // absence" trade, bounded by the clamp.
         return Math.max(DIALOGUE_TOP, guideBottom + DIALOGUE_GAP, controlColumnBottom(this.kind) + DIALOGUE_GAP);
     }
 

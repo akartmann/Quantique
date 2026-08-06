@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    ADVANCE_RELABEL_LOCKOUT_MS,
     ADVANCE_TRANSITION_BY_PHASE,
+    acceptsAdvanceClick,
     advanceRefusalRegister,
     advanceTransitionForPhase,
+    resolveAdvanceRefusal,
     resolveAdvanceView,
     type AdvanceViewInput
 } from '../../src/adapters/phaser/renderers/advanceView';
@@ -11,6 +14,7 @@ import { ADVANCE_TRANSITION_IDS } from '../../src/adapters/phaser/PhaserStoreAda
 import { en } from '../../src/core/i18n/locales/en';
 import { fr } from '../../src/core/i18n/locales/fr';
 import { CASE_PHASES } from '../../src/domain/cases/CaseProgress';
+import { ROUTABLE_SCENE_KEYS } from '../../src/domain/cases/ScenarioScript';
 
 /**
  * What the in-scene advance affordance decides, tested without a browser.
@@ -34,15 +38,39 @@ const view = (overrides: Partial<AdvanceViewInput> = {}) => resolveAdvanceView({
     ...overrides
 });
 
-describe('the phase → transition mapping', () => {
-    it('gives every phase in the case machine a forward move', () => {
-        // The set is total by design: `debrief` maps to the replay rather than to nothing, so a player
-        // is never standing in a phase whose scene has no way on. Written against `CASE_PHASES` rather
-        // than a restated list, so a new phase fails here instead of shipping a dead end.
-        const uncovered = CASE_PHASES.filter((phase) => ADVANCE_TRANSITION_BY_PHASE[phase] === undefined);
+/**
+ * Every machinery token a label names, or `[]` when it names only the fiction — the `encodesPath` rule
+ * as one function, so the sweep and the guard that proves the sweep can fire share it.
+ *
+ * Three vocabularies, and they are matched differently on purpose:
+ *
+ * - **Machinery words** ("synthesis", "phase") are wrong in any casing, so they match case-insensitively
+ *   on a word boundary. `\breview\b` deliberately does not match "reviewers": the phase is `review`, the
+ *   people are reviewers, and the people are the fiction.
+ * - **Arrows** are punctuation and carry no word boundary at all, so they are matched as substrings.
+ *   Written as `\b→\b` they could never fire, which is how two dead entries survived in this list.
+ * - **Scene keys** are PascalCase identifiers read from `ROUTABLE_SCENE_KEYS` rather than restated, so a
+ *   scene added to the routing vocabulary is swept without anyone remembering to add it here. Their case
+ *   is the whole distinction the story draws: `Colleagues` is a routing key, "your colleagues" is four
+ *   people in a room, and matching case-insensitively would reject the fiction the rule asks for.
+ */
+const MACHINERY_WORDS = [...CASE_PHASES, 'scene', 'phase', 'route'];
+const MACHINERY_ARROWS = ['→', '->'];
 
-        expect(uncovered).toEqual([]);
-        expect(CASE_PHASES.length).toBeGreaterThan(0);
+const namesMachinery = (label: string): string[] => [
+    ...MACHINERY_WORDS.filter((token) => new RegExp(`\\b${token}\\b`, 'iu').test(label)),
+    ...MACHINERY_ARROWS.filter((token) => label.includes(token)),
+    ...ROUTABLE_SCENE_KEYS.filter((token) => label.includes(token))
+];
+
+describe('the phase → transition mapping', () => {
+    it('covers the case machine\'s phases exactly, with nothing missing and nothing stale', () => {
+        // The set is total by design: `debrief` maps to the replay rather than to nothing, so a player
+        // is never standing in a phase whose scene has no way on. A *missing* phase is already a `tsc`
+        // error — the mapping is a `Record<CasePhase, …>` — so what this asserts is the other half the
+        // type cannot: a key left behind by a phase that has since been renamed or removed, which would
+        // sit there matching nothing.
+        expect(Object.keys(ADVANCE_TRANSITION_BY_PHASE).sort()).toEqual([...CASE_PHASES].sort());
     });
 
     it('maps each phase to the transition that leaves it, and never to another phase\'s', () => {
@@ -73,36 +101,32 @@ describe('the phase → transition mapping', () => {
     });
 
     it('names a destination in the fiction rather than a scene, phase, or route', () => {
-        // The `encodesPath` rule, held to by interface copy as well as authored case prose. Two checks,
-        // because the two vocabularies differ in exactly one respect:
-        //
-        // - **Machinery words** ("synthesis", "phase", an arrow) are wrong in any casing, so they are
-        //   matched case-insensitively. `\breview\b` deliberately does not match "reviewers": the
-        //   phase is `review`, the people are reviewers, and the people are the fiction.
-        // - **Scene keys** are PascalCase identifiers, and their case is the whole distinction the
-        //   story draws: `Colleagues` is a routing key, "your colleagues" is four people in a room.
-        //   Matching them case-insensitively would reject the fiction the rule asks for.
-        const machinery = [...CASE_PHASES, 'scene', 'phase', 'route', '→', '->'];
-        const sceneKeys = ['Library', 'Colleagues', 'Laboratory', 'TheoryBoard', 'Debrief', 'RivalLab'];
         const offending = CASE_PHASES.flatMap((phase) => {
             const { labelKey } = advanceTransitionForPhase(phase);
-            return [en[labelKey], fr[labelKey]].flatMap((label) => [
-                ...machinery.filter((token) => new RegExp(`\\b${token}\\b`, 'iu').test(label)),
-                ...sceneKeys.filter((token) => label.includes(token))
-            ].map((token) => `${labelKey}: "${label}" names ${token}`));
+            return [en[labelKey], fr[labelKey]].flatMap((label) =>
+                namesMachinery(label).map((token) => `${labelKey}: "${label}" names ${token}`));
         });
 
         expect(offending).toEqual([]);
     });
 
     it('would catch a label that named the machinery, so the check above is not vacuous', () => {
-        // The realistic mistake is naming the destination after the thing the code calls it. Pinning
-        // that the matcher fires keeps the sweep from silently degrading into an empty filter.
-        expect(/\bsynthesis\b/iu.test('To synthesis')).toBe(true);
-        expect('Open the TheoryBoard'.includes('TheoryBoard')).toBe(true);
+        // Run through `namesMachinery` itself, not through restated regexes: a guard that asserts
+        // JavaScript's own regex semantics against its own literals stays green when the sweep's
+        // vocabulary is emptied, which is the one failure it exists to prevent.
+        //
+        // The realistic mistakes, one per vocabulary, plus both arrow forms — those were previously
+        // written as `\b→\b` and `\b->\b`, which can never and almost never match: `\b` asserts a word
+        // boundary, `→` is not a word character, and `->` only matched the exact form `word->word`.
+        expect(namesMachinery('To synthesis')).toContain('synthesis');
+        expect(namesMachinery('Open the TheoryBoard')).toContain('TheoryBoard');
+        expect(namesMachinery('Library → prediction')).toContain('→');
+        expect(namesMachinery('To -> the board')).toContain('->');
+        expect(namesMachinery('Advance to the next phase')).toContain('phase');
         // …and that it does not fire on the fiction the rule explicitly permits.
-        expect(/\breview\b/iu.test('To your reviewers')).toBe(false);
-        expect('To your colleagues'.includes('Colleagues')).toBe(false);
+        expect(namesMachinery('To your reviewers')).toEqual([]);
+        expect(namesMachinery('To your colleagues')).toEqual([]);
+        expect(namesMachinery('Vers vos relecteurs')).toEqual([]);
     });
 });
 
@@ -119,6 +143,78 @@ describe('which register answers a refusal', () => {
         ['progress-operation-active', 'missing-contextual-sources', 'missing-prediction', 'conclusion-not-ready',
             'debrief-review-required', 'reviewed-revision-required', 'invalid-completion-timestamp', 'replay-unavailable']
             .forEach((code) => expect(advanceRefusalRegister(code)).toBe('error'));
+    });
+});
+
+describe('resolveAdvanceRefusal', () => {
+    const LOCALIZED = 'Two measurements that differ are needed before the conclusion opens.';
+
+    it('lets the colleague answer a gate, on a host that can speak the line', () => {
+        const { register, message } = resolveAdvanceRefusal({
+            code: 'significant-measures-required', localizedError: LOCALIZED, colleagueAnswers: true
+        });
+
+        // The error is withheld deliberately: showing both would have the colleague and the interface
+        // answer the same refusal twice, in two registers.
+        expect(register).toBe('gate');
+        expect(message).toBeUndefined();
+    });
+
+    it('falls back to the localized error when the gate has no line that applies', () => {
+        // The silent branch this exists to close: `'gate'` with no hint drawn nothing at all — no
+        // colleague, no error, no change — a refusal indistinguishable from a dead control.
+        const { register, message } = resolveAdvanceRefusal({
+            code: 'significant-measures-required', localizedError: LOCALIZED, colleagueAnswers: false
+        });
+
+        expect(register).toBe('error');
+        expect(message).toBe(LOCALIZED);
+    });
+
+    it('answers every non-gate refusal with the localized error, on every host', () => {
+        // Including on the laboratory, which *can* speak a line: a store-busy refusal has nothing to do
+        // with the evidence and a colleague must not appear to have explained it.
+        [true, false].forEach((colleagueAnswers) => {
+            const { register, message } = resolveAdvanceRefusal({
+                code: 'progress-operation-active', localizedError: 'Please wait.', colleagueAnswers
+            });
+
+            expect(register).toBe('error');
+            expect(message).toBe('Please wait.');
+        });
+    });
+
+    it('returns a frozen answer, so a caller cannot edit the rule on its way to the screen', () => {
+        expect(Object.isFrozen(resolveAdvanceRefusal({
+            code: 'replay-unavailable', localizedError: 'x', colleagueAnswers: false
+        }))).toBe(true);
+    });
+});
+
+describe('acceptsAdvanceClick', () => {
+    // The theory board hosts `synthesis` and `review`, the router leaves the scene standing across that
+    // transition, and the label changes under the cursor — so a double-click sends two *different*
+    // actions. Elapsed milliseconds, never a frame count.
+    it('accepts a click on a control whose label has not changed', () => {
+        expect(acceptsAdvanceClick({ relabelledAt: undefined, now: 10_000 })).toBe(true);
+    });
+
+    it('ignores a click that lands while the new label is still unread', () => {
+        expect(acceptsAdvanceClick({ relabelledAt: 10_000, now: 10_000 })).toBe(false);
+        // A typical double-click interval, which is the case that skipped `review` entirely against a
+        // restored record.
+        expect(acceptsAdvanceClick({ relabelledAt: 10_000, now: 10_150 })).toBe(false);
+    });
+
+    it('accepts it again once the window has passed', () => {
+        expect(acceptsAdvanceClick({ relabelledAt: 10_000, now: 10_000 + ADVANCE_RELABEL_LOCKOUT_MS })).toBe(true);
+        expect(acceptsAdvanceClick({ relabelledAt: 10_000, now: 12_000 })).toBe(true);
+    });
+
+    it('holds a window long enough to outlast a double-click, and short enough not to be felt', () => {
+        // Asserted as a range rather than as the constant's own value, which would only restate it.
+        expect(ADVANCE_RELABEL_LOCKOUT_MS).toBeGreaterThan(250);
+        expect(ADVANCE_RELABEL_LOCKOUT_MS).toBeLessThanOrEqual(600);
     });
 });
 

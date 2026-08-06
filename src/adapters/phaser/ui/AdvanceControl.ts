@@ -1,5 +1,6 @@
 import type { Scene } from 'phaser';
 
+import { acceptsAdvanceClick } from '../renderers/advanceView';
 import { uiTextStyle } from '../textStyles';
 
 /**
@@ -21,6 +22,8 @@ import { uiTextStyle } from '../textStyles';
  * No animation, deliberately. Every animated renderer has to subscribe to `prefers-reduced-motion`,
  * register no update loop under `reduce`, and paint a static frame; a hover or reveal effect buys
  * nothing here and costs that whole apparatus. A later story that adds one inherits the requirement.
+ * The one thing here that reads a clock — the relabel lockout, see {@link acceptsAdvanceClick} — moves
+ * nothing on screen, registers no tween or timer, and so inherits none of it.
  *
  * Phaser is imported **as a type only**, so `french-typography.spec.ts` can read the geometry below
  * without Phaser touching `window` at import time in Node.
@@ -86,6 +89,8 @@ export class AdvanceControl {
     private surface?: Phaser.GameObjects.Rectangle;
     private label?: Phaser.GameObjects.Text;
     private inputEnabled = true;
+    /** When the label last changed under the cursor, on the scene clock. See {@link acceptsAdvanceClick}. */
+    private relabelledAt?: number;
 
     public constructor(private readonly scene: Scene, private readonly options: AdvanceControlOptions) {}
 
@@ -104,7 +109,11 @@ export class AdvanceControl {
             wordWrap: { width: advanceControlLabelWrap(width) }
         })).setOrigin(0.5, 0.5);
 
-        this.surface.on('pointerup', () => this.options.onAdvance());
+        this.surface.on('pointerup', () => {
+            // A click aimed at the label that was on screen a moment ago is not a click on this one.
+            if (!acceptsAdvanceClick({ relabelledAt: this.relabelledAt, now: this.scene.time.now })) return;
+            this.options.onAdvance();
+        });
         this.objects.push(this.surface, this.label);
         // Made interactive here rather than at construction, so a scene starting underneath an open
         // reference book can suppress input before the first pointer event reaches the control.
@@ -120,8 +129,15 @@ export class AdvanceControl {
      * `ProposalChoice.resizeHitArea` does.
      */
     public render(view: AdvanceControlView): void {
+        const previous = this.label?.text;
         this.label?.setText(view.label);
         this.surface?.setFillStyle(view.isReady ? ADVANCE_FILL_READY : ADVANCE_FILL);
+        // `previous === ''` is the first render after `create()` writing the label in for the first
+        // time, which is not a change under anyone's cursor. A locale change is, and locking there is
+        // correct for the same reason: the control now says something the player has not read yet.
+        if (previous !== undefined && previous !== '' && previous !== view.label) {
+            this.relabelledAt = this.scene.time.now;
+        }
     }
 
     /** Lets the overlaying reference book suppress this control while it is open. */
@@ -135,6 +151,7 @@ export class AdvanceControl {
         this.objects.length = 0;
         this.surface = undefined;
         this.label = undefined;
+        this.relabelledAt = undefined;
     }
 
     private applyInputState(): void {

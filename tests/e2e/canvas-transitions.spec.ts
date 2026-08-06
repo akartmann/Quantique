@@ -41,20 +41,36 @@ import { en } from '../../src/core/i18n/locales/en';
  * deriving a click target for them would mean restating literals. It stays on the DOM path here and
  * Story 2.10 gives it the knob and the geometry.
  *
- * Canvas *text* is deliberately not asserted: it cannot be read from the DOM, and
- * `french-typography.spec.ts` already measures every advance label against its wrap bound in both
- * locales.
+ * Canvas *text* is deliberately not asserted **anywhere in this file** — it cannot be read from the
+ * DOM. That includes refusal messages, and the layer that owns them is `tests/unit/AdvanceView.test.ts`,
+ * which asserts the hint, the localized error, the precedence between them, and the hint's withdrawal
+ * against `resolveAdvanceView` directly. `french-typography.spec.ts` measures advance *label* widths and
+ * says nothing about a refusal, so it is not the answer to "does a refused click say why".
  */
 
 const canvas = (page: Page) => page.locator('#game-container canvas');
 
+/**
+ * The design surface the geometry helpers are asked about.
+ *
+ * Named rather than written into each call: `phasePlaceholderGeometry` takes the canvas size precisely
+ * so `768`/`1024` are read from `scene.scale` in the scene and never restated — and this spec should
+ * not be the file that restates them six times instead.
+ */
+const DESIGN_WIDTH = 1024;
+const DESIGN_HEIGHT = 768;
+
 const BOOK_CLOSE = bookCloseControlCentre();
-const LIBRARY_ADVANCE = placeholderAdvanceControlCentre(1024, 768);
-const DEBRIEF_ADVANCE = placeholderAdvanceControlCentre(1024, 768);
+/**
+ * One control, two hosts. `LibraryScene` and `DebriefScene` are both `PhasePlaceholderScene`, so the
+ * shell puts its advance control in the same place in each — a single name, so a reader is not left
+ * wondering which of two identical constants is the one that moved.
+ */
+const SHELL_ADVANCE = placeholderAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT);
 const PREDICTION_ADVANCE = advanceControlCentreOnBoard('prediction');
 const LABORATORY_ADVANCE = advanceToSynthesisControlCentre();
 const BOARD_ADVANCE = advanceControlCentreOnBoard('conclusion');
-const CARD = lastProposalCardProbe(768);
+const CARD = lastProposalCardProbe(DESIGN_HEIGHT);
 
 const SOURCE_NAMES = (JSON.parse(
     readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
@@ -65,8 +81,14 @@ const SOURCE_NAMES = (JSON.parse(
 const clickDesign = async (page: Page, point: Readonly<{ x: number; y: number }>): Promise<void> => {
     const bounds = await canvas(page).boundingBox();
     if (!bounds) throw new Error('The routed Phaser surface did not render.');
-    await page.mouse.click(bounds.x + (point.x / 1024) * bounds.width, bounds.y + (point.y / 768) * bounds.height);
+    await page.mouse.click(
+        bounds.x + (point.x / DESIGN_WIDTH) * bounds.width,
+        bounds.y + (point.y / DESIGN_HEIGHT) * bounds.height
+    );
 };
+
+const activeScene = (page: Page): Promise<string | null> =>
+    page.locator('#game-container').getAttribute('data-active-scene');
 
 const expectActiveScene = async (page: Page, sceneKey: string): Promise<void> => {
     await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', sceneKey);
@@ -81,15 +103,21 @@ const expectActiveScene = async (page: Page, sceneKey: string): Promise<void> =>
  * the suppression lifts only when the overlay is destroyed. There is no DOM signal for that moment,
  * so the spec does what a player does and clicks again.
  *
- * This is not a way to make a dead control pass: `toPass` is bounded, and a control that never
+ * This is not a way to make a dead control pass: the loop is bounded, and a control that never
  * dispatches still fails the timeout. The suppression itself is asserted directly in the third test,
  * which is where "a click during the book must do nothing" is pinned rather than tolerated.
+ *
+ * **It re-reads the scene before every click, and stops the moment it has changed.** Wrapping click and
+ * assertion together in a single retried block would fire a second click whenever the router took
+ * longer than the inner timeout to stamp the attribute — landing it on the scene just navigated *to*,
+ * whose surface this walk then goes on to use. A stray click on a live proposal card is exactly the
+ * kind of timing-dependent side effect a retry is supposed to avoid introducing.
  */
 const clickUntilScene = async (page: Page, point: Readonly<{ x: number; y: number }>, sceneKey: string): Promise<void> => {
     await expect(async () => {
-        await clickDesign(page, point);
-        await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', sceneKey, { timeout: 400 });
-    }).toPass({ timeout: 5_000 });
+        if (await activeScene(page) !== sceneKey) await clickDesign(page, point);
+        expect(await activeScene(page)).toBe(sceneKey);
+    }).toPass({ timeout: 5_000, intervals: [100, 200, 300, 500] });
 };
 
 test('takes every forward transition of the Young case from the canvas', async ({ page }) => {
@@ -107,7 +135,7 @@ test('takes every forward transition of the Young case from the canvas', async (
     }
     await clickDesign(page, BOOK_CLOSE);
 
-    await clickUntilScene(page, LIBRARY_ADVANCE, 'Colleagues');
+    await clickUntilScene(page, SHELL_ADVANCE, 'Colleagues');
 
     // --- prediction → experiment ---------------------------------------------------------------
     // The prediction itself is a canvas act already (Story 1.11): one of four attributed proposals.
@@ -160,7 +188,7 @@ test('takes every forward transition of the Young case from the canvas', async (
     await expectActiveScene(page, 'Debrief');
 
     // --- post-debrief replay -------------------------------------------------------------------
-    await clickDesign(page, DEBRIEF_ADVANCE);
+    await clickDesign(page, SHELL_ADVANCE);
     await expectActiveScene(page, 'Library');
     // A replay is a fresh investigation, not a re-reading of the finished one.
     await expect(page.getByRole('region', { name: 'Measurement notebook' }).locator('.notebook-observation')).toHaveCount(0);
@@ -170,11 +198,12 @@ test('refuses a transition the evidence has not earned, and stays where it was',
     await page.goto('/');
     await expectActiveScene(page, 'Library');
 
-    // No source inspected, so `missing-contextual-sources` refuses. The control must neither move the
-    // player nor go silent — a refused click that looks identical to a dead one is the defect AC4 is
-    // written against. What it says is measured by `french-typography.spec.ts`; what it must not do is
-    // route, and that is observable here.
-    await clickDesign(page, LIBRARY_ADVANCE);
+    // No source inspected, so `missing-contextual-sources` refuses. What is observable *here* is that
+    // the player does not move — the control is live, the click reached it, and the router stayed put.
+    // Whether the refusal also says why is the other half of AC4 and cannot be seen from the DOM at
+    // all: it is asserted on `resolveAdvanceView` in `tests/unit/AdvanceView.test.ts`, which is the
+    // layer that decides it. This test does not stand in for that one.
+    await clickDesign(page, SHELL_ADVANCE);
 
     await expectActiveScene(page, 'Library');
 });
@@ -191,12 +220,12 @@ test('does not let a click meant for the reference book advance the phase undern
         await page.getByRole('button', { name: `Inspect ${displayName.en}` }).click();
     }
 
-    await clickDesign(page, LIBRARY_ADVANCE);
+    await clickDesign(page, SHELL_ADVANCE);
 
     await expectActiveScene(page, 'Library');
 
     // …and closing the book restores it, so the suppression is a suppression and not a broken control.
     // The retry covers the 180ms closing fade, during which the control is still — correctly — inert.
     await clickDesign(page, BOOK_CLOSE);
-    await clickUntilScene(page, LIBRARY_ADVANCE, 'Colleagues');
+    await clickUntilScene(page, SHELL_ADVANCE, 'Colleagues');
 });

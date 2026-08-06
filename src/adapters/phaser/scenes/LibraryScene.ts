@@ -9,7 +9,7 @@ import { PhasePlaceholderScene } from './PhasePlaceholderScene';
  * player is standing when they need it.
  */
 export class LibraryScene extends PhasePlaceholderScene {
-    public constructor(store: AppStore, isOverlayVisible: () => boolean = () => false) {
+    public constructor(store: AppStore, isOverlayVisible: () => boolean) {
         super('Library', store, isOverlayVisible);
     }
 }
