@@ -54,6 +54,15 @@ export type PredictionRecordedAction = Readonly<{
     prediction: string;
 }>;
 
+/**
+ * The 1-of-4 attributed prediction choice (Story 1.11). Revisable by design: re-dispatching with
+ * any authored proposal replaces the choice and never fails on "already chosen".
+ */
+export type PredictionProposalChosenAction = Readonly<{
+    type: 'prediction.proposalChosen';
+    proposalId: string;
+}>;
+
 export type TheorySupportRunSelectAction = Readonly<{
     type: 'theory.supportRunSelected';
     runId: string;
@@ -82,6 +91,15 @@ export type TheoryConclusionSetAction = Readonly<{
 export type TheoryLimitationSetAction = Readonly<{
     type: 'theory.limitationSet';
     limitation: string;
+}>;
+
+/**
+ * The 1-of-4 attributed conclusion choice (Story 1.11). It records the choice and nothing else: the
+ * evidence gate, the defensibility critique, and the unlock timing belong to Stories 2.3/2.5/2.6.
+ */
+export type TheoryConclusionProposalChosenAction = Readonly<{
+    type: 'theory.conclusionProposalChosen';
+    proposalId: string;
 }>;
 
 export type TheoryReviewRequestAction = Readonly<{
@@ -125,12 +143,14 @@ export type AppAction = ApparatusControlSetAction
     | ComparisonNoteSaveAction
     | SourceInspectedAction
     | PredictionRecordedAction
+    | PredictionProposalChosenAction
     | TheorySupportRunSelectAction
     | TheorySupportRunUnselectAction
     | TheorySupportSourceSelectAction
     | TheorySupportSourceUnselectAction
     | TheoryConclusionSetAction
     | TheoryLimitationSetAction
+    | TheoryConclusionProposalChosenAction
     | TheoryReviewRequestAction
     | ConsultationRequestAction
     | PeerReviewRequestAction

@@ -6,9 +6,9 @@ import { selectCasePhase } from '../../../core/store/selectors';
 import type { SceneKey } from '../../../domain/cases/ScenarioScript';
 
 /**
- * Routing shell for a scene whose content lands in a later story (Library 2.1, Colleagues 1.11,
- * TheoryBoard 1.6-rework/2.3, Debrief 2.3). It renders a neutral development marker only —
- * authored player-facing copy waits for the EN+FR foundation (Story 1.1b / ADR-010).
+ * Routing shell for a scene whose content lands in a later story (Library 2.1, Debrief 2.3). It
+ * renders a neutral development marker only — authored player-facing copy waits for the scene's own
+ * story, through the i18n layer (ADR-010). Colleagues and TheoryBoard left this shell in Story 1.11.
  *
  * The scene mirrors the phase and never dispatches: it reads the phase purely to label itself.
  */

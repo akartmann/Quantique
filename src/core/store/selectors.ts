@@ -4,6 +4,8 @@ import { resolveLocalizedText } from '../i18n/resolveLocalizedText';
 import { translate, translateError } from '../i18n/translate';
 import type { ResultError } from '../errors/Result';
 import type { ContextualArtifact, PrimaryControl } from '../../domain/cases/CaseDefinition';
+import type { Colleague, ConclusionProposal, PredictionProposal } from '../../domain/cases/ColleagueCast';
+import { selectDefensibleConclusionIds } from '../../domain/theory/conclusionProposals';
 import type { RunRecord } from '../../domain/evidence/RunRecord';
 import type { AppState, ComparisonNote, CompletionSnapshot, ReplayState } from './AppState';
 import type { ConsultationProjection } from '../../domain/review/ConsultationRule';
@@ -145,6 +147,78 @@ export const selectConclusionReadiness = (state: AppState): ConclusionReadiness 
     inspectedSourceIds: state.inspectedSourceIds,
     comparisonNotes: state.comparison.notes
 }, state.theory);
+
+// --- Colleague cast and proposals ---------------------------------------------------------------
+
+export const selectColleagues = (state: AppState): readonly Colleague[] => state.caseDefinition.colleagues;
+
+export const selectColleagueById = (state: AppState, colleagueId: string): Colleague | undefined =>
+    selectColleagues(state).find(({ id }) => id === colleagueId);
+
+export const selectPredictionProposals = (state: AppState): readonly PredictionProposal[] =>
+    state.caseDefinition.predictionProposals;
+
+export const selectConclusionProposals = (state: AppState): readonly ConclusionProposal[] =>
+    state.caseDefinition.conclusionProposals;
+
+export const selectSelectedPredictionProposalId = (state: AppState): string | undefined =>
+    state.selectedPredictionProposalId;
+
+export const selectSelectedConclusionProposalId = (state: AppState): string | undefined =>
+    state.selectedConclusionProposalId;
+
+/**
+ * The defensible-conclusion set, for the evaluator and the later rival-lab critique (Story 2.5).
+ *
+ * Deliberately kept out of {@link selectLocalizedConclusionProposals}: a renderer that could read
+ * this could mark the "right" answer, which ADR-006 and AC3 both forbid.
+ */
+export const selectDefensibleConclusionProposalIds = (state: AppState): readonly string[] =>
+    selectDefensibleConclusionIds(state.caseDefinition, {
+        runs: state.runs,
+        inspectedSourceIds: state.inspectedSourceIds,
+        comparisonNotes: state.comparison.notes
+    });
+
+/**
+ * What a surface needs to render one attributed proposal, and nothing more.
+ *
+ * `text` is the active locale; `colleagueName` stays canonical (a proper noun); `roleLabel` resolves
+ * the stable role enum through the i18n layer. There is no defensibility field, by design.
+ */
+export type LocalizedProposalProjection = Readonly<{
+    proposalId: string;
+    colleagueName: string;
+    roleLabel: string;
+    text: string;
+    /** Present only for conclusion proposals, which carry a stated limitation alongside the claim. */
+    limitation?: string;
+}>;
+
+const projectAttribution = (state: AppState, colleagueId: string): Readonly<{ colleagueName: string; roleLabel: string }> => {
+    const locale = selectLocale(state);
+    const colleague = selectColleagueById(state, colleagueId);
+    // Zod guarantees the attribution resolves in authored content; this guards a degraded cached
+    // case.json the same way `resolveLocalizedText` does, without printing "undefined" to a player.
+    return colleague
+        ? { colleagueName: colleague.name, roleLabel: translate(locale, `colleague.role.${colleague.role}`) }
+        : { colleagueName: translate(locale, 'colleague.unattributed'), roleLabel: '' };
+};
+
+export const selectLocalizedPredictionProposals = (state: AppState): readonly LocalizedProposalProjection[] =>
+    selectPredictionProposals(state).map((proposal) => Object.freeze({
+        proposalId: proposal.id,
+        ...projectAttribution(state, proposal.colleagueId),
+        text: resolveLocalizedText(proposal.text, selectLocale(state))
+    }));
+
+export const selectLocalizedConclusionProposals = (state: AppState): readonly LocalizedProposalProjection[] =>
+    selectConclusionProposals(state).map((proposal) => Object.freeze({
+        proposalId: proposal.id,
+        ...projectAttribution(state, proposal.colleagueId),
+        text: resolveLocalizedText(proposal.claim, selectLocale(state)),
+        limitation: resolveLocalizedText(proposal.limitation, selectLocale(state))
+    }));
 
 export const selectConsultation = (state: AppState): ConsultationProjection | undefined => state.consultation;
 

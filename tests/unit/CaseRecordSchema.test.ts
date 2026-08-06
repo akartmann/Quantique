@@ -68,6 +68,68 @@ describe('portable case records', () => {
         expect(validateCaseRecordForDefinition(parsed.data, localized)).toMatchObject({ ok: true });
     });
 
+    // --- Colleague proposal IDs (Story 1.11) ----------------------------------------------------
+
+    // The cast and the two proposal sets are content, not progress, so a record saved before 1.11
+    // still validates. Without this the upgrade would discard every saved investigation (NFR12).
+    it.each(['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0'])('accepts a %s record against the 1.7.0 proposal definition', (recordVersion) => {
+        const withProposals = { ...definition, version: '1.7.0', predictionProposals: [], conclusionProposals: [] } as unknown as CaseDefinition;
+        const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: recordVersion });
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        // The pre-1.11 record carries neither field, and both stay absent after validation.
+        expect(parsed.data.selectedPredictionProposalId).toBeUndefined();
+        expect(parsed.data.selectedConclusionProposalId).toBeUndefined();
+        expect(validateCaseRecordForDefinition(parsed.data, withProposals)).toMatchObject({ ok: true });
+    });
+
+    const proposalDefinition = {
+        ...definition,
+        predictionProposals: [{ id: 'p-1', colleagueId: 'thea-young', text: { en: 'Bands will appear.', fr: 'Des bandes apparaîtront.' } }],
+        conclusionProposals: [{
+            id: 'c-1',
+            colleagueId: 'thea-young',
+            claim: { en: 'A bounded conclusion.', fr: 'Une conclusion délimitée.' },
+            limitation: { en: 'A limitation.', fr: 'Une limite.' },
+            supportPredicate: { kind: 'minimum-runs', count: 1 }
+        }]
+    } as unknown as CaseDefinition;
+
+    it('accepts a record whose proposal IDs match the canonical authored text', () => {
+        const parsed = CaseRecordSchema.safeParse({
+            ...validRecord,
+            prediction: 'Bands will appear.',
+            selectedPredictionProposalId: 'p-1',
+            selectedConclusionProposalId: 'c-1'
+        });
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        expect(validateCaseRecordForDefinition(parsed.data, proposalDefinition)).toMatchObject({ ok: true });
+    });
+
+    it.each([
+        ['an unauthored prediction proposal ID', { selectedPredictionProposalId: 'p-invented', prediction: 'Bands will appear.' }],
+        ['a prediction whose text no longer matches its proposal', { selectedPredictionProposalId: 'p-1', prediction: 'Hand-edited afterwards.' }],
+        ['an unauthored conclusion proposal ID', { selectedConclusionProposalId: 'c-invented' }],
+        ['a conclusion whose claim no longer matches its proposal', {
+            selectedConclusionProposalId: 'c-1',
+            theory: { ...validRecord.theory, conclusion: 'Hand-edited afterwards.' }
+        }],
+        ['a conclusion whose limitation no longer matches its proposal', {
+            selectedConclusionProposalId: 'c-1',
+            theory: { ...validRecord.theory, limitation: 'Hand-edited afterwards.' }
+        }]
+    ])('rejects a record carrying %s', (_description, overrides) => {
+        const parsed = CaseRecordSchema.safeParse({ ...validRecord, ...overrides });
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        expect(validateCaseRecordForDefinition(parsed.data, proposalDefinition))
+            .toMatchObject({ ok: false, error: { code: 'invalid-case-record' } });
+    });
+
     it('still rejects a record from an unrelated definition version', () => {
         const localized = { ...definition, version: '1.6.0' } as CaseDefinition;
         const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: '0.9.0' });

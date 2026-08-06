@@ -104,6 +104,21 @@ export const fr: Record<TranslationKey, string> = {
     'recognition.calibrated-conclusion.label': 'Conclusion calibrée relevée',
     'recognition.calibrated-conclusion.description': 'Une révision relue énonce une affirmation délimitée, sans constat de généralisation excessive.',
 
+    // --- Colleagues and proposals ---------------------------------------------------------------
+    'colleague.role.lead': 'Responsable',
+    'colleague.role.builder': 'Constructrice ou constructeur d’appareils',
+    'colleague.role.analyst': 'Analyste',
+    'colleague.role.communicator': 'Médiatrice ou médiateur',
+    'colleague.attribution': '{name} — {role}',
+    'colleague.unattributed': 'Proposition sans autrice ni auteur',
+    'colleagues.heading': 'À quoi vous attendez-vous ?',
+    'colleagues.guide': 'Vos collègues n’attendent pas la même chose. Choisissez l’hypothèse que vous voulez mettre à l’épreuve — vous pourrez en changer à tout moment.',
+    'theoryBoard.heading': 'Quelle conclusion signez-vous ?',
+    'theoryBoard.guide': 'Chaque collègue a rédigé une conclusion et la limite qu’il ou elle énoncerait avec. Choisissez-en une — vous pourrez en changer à tout moment.',
+    'proposal.limitation': 'Limite énoncée : {limitation}',
+    'proposal.selected': '✓ Retenue',
+    'proposal.choose': 'Retenir celle-ci',
+
     // --- Peer review projection -----------------------------------------------------------------
     'review.unavailable': 'La relecture par les pairs est momentanément indisponible. Vos preuves et votre brouillon restent inchangés.',
 
@@ -176,6 +191,8 @@ export const fr: Record<TranslationKey, string> = {
     'error.duplicate-inspected-source': 'Cette source est déjà enregistrée comme examinée.',
     'error.missing-contextual-sources': 'Examinez {label} avant de continuer.',
     'error.invalid-prediction': 'Saisissez une prédiction provisoire avant de l’enregistrer.',
+    'error.unknown-prediction-proposal': 'Cette prédiction ne fait pas partie des propositions offertes.',
+    'error.unknown-conclusion-proposal': 'Cette conclusion ne fait pas partie des propositions offertes.',
     'error.missing-prediction': 'Enregistrez une prédiction provisoire avant de passer à l’expérimentation.',
     'error.unknown-theory-run': 'Cette observation est indisponible comme appui de la conclusion.',
     'error.duplicate-theory-run': 'Cette observation appuie déjà cette conclusion.',

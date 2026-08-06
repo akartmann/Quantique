@@ -1,4 +1,5 @@
 import type { Locale } from '../../core/i18n/Locale';
+import type { Colleague, ConclusionProposal, PredictionProposal } from './ColleagueCast';
 import type { ScenarioScript } from './ScenarioScript';
 
 /**
@@ -148,6 +149,12 @@ export type CaseDefinition = Readonly<{
         resetPath: Readonly<{ recoveryRoute: RecoveryRoute; description: LocalizedText }>;
     }>;
     requirements: Readonly<{ minimumRuns: 2; minimumSources: 2 }>;
+    /** The authored cast that voices every proposal. See `ColleagueCast.ts`. */
+    colleagues: readonly Colleague[];
+    /** Exactly four: the pivot makes the prediction a 1-of-4 attributed choice. */
+    predictionProposals: readonly PredictionProposal[];
+    /** Exactly four, likewise. Defensibility is the evaluator's business, never a scene's. */
+    conclusionProposals: readonly ConclusionProposal[];
     consultationRules: readonly ConsultationRule[];
     peerReviewRules: readonly PeerReviewRule[];
     flow: Readonly<{

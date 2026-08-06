@@ -100,6 +100,10 @@ export const CaseRecordSchema = z.object({
     selectedWavelengthMode: z.enum(['minimum', 'advanced']).optional(),
     inspectedSourceIds: z.array(text),
     prediction: z.string().refine((value) => value === value.trim(), 'Prediction must be trimmed.'),
+    // Optional additive fields, so `schemaVersion` stays 3 and `migrateCaseRecord` is untouched —
+    // the same precedent as `selectedWavelengthNm` above. A pre-1.11 record simply omits them.
+    selectedPredictionProposalId: text.optional(),
+    selectedConclusionProposalId: text.optional(),
     runs: z.array(RunRecordSchema),
     comparison: z.object({
         selectedRunIds: z.array(text).max(2),
@@ -135,13 +139,15 @@ const validIds = (values: readonly string[], available: ReadonlySet<string>): bo
 /** Revalidates untrusted progress against the immutable definition already loaded by the app. */
 export const validateCaseRecordForDefinition = (record: CaseRecord, definition: CaseDefinition): Result<CaseRecord> => {
     // Case-definition versions whose *progress-bearing* contract is unchanged, so a record saved
-    // against the older version still validates. 1.5.0 added `fr` to authored display text and 1.6.0
-    // added a French rendition of the archival pages — no run, decision, or recognition value moved
-    // in either — and rejecting the older versions here would discard every saved investigation on
-    // upgrade (NFR12).
+    // against the older version still validates. 1.5.0 added `fr` to authored display text, 1.6.0
+    // added a French rendition of the archival pages, and 1.7.0 added the colleague cast and the two
+    // proposal sets — no run, decision, or recognition value moved in any of them, and the proposal
+    // IDs a 1.7.0 record can carry are optional. Rejecting the older versions here would discard
+    // every saved investigation on upgrade (NFR12).
     const compatibleDefinitionVersion = record.caseDefinitionVersion === definition.version
         || (definition.version === '1.2.0' && ['1.0.0', '1.1.0'].includes(record.caseDefinitionVersion))
-        || (definition.version === '1.6.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0'].includes(record.caseDefinitionVersion));
+        || (definition.version === '1.6.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0'].includes(record.caseDefinitionVersion))
+        || (definition.version === '1.7.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }
@@ -157,6 +163,24 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
     const sources = new Map(definition.contextualArtifacts.map((source) => [source.id, source]));
     if (!validIds(record.inspectedSourceIds, new Set(sources.keys()))
         || record.inspectedSourceIds.some((sourceId) => !isSourceEligibleForInspection(sources.get(sourceId)!))) {
+        return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+    }
+
+    // A proposal ID is a claim about where the text came from, so the text has to still match it.
+    // Without this, a record could name proposal `conclusion-spacing-varies` while carrying a
+    // hand-edited conclusion, and the surface would attribute someone else's words to a colleague.
+    const predictionProposal = record.selectedPredictionProposalId !== undefined
+        && definition.predictionProposals.find(({ id }) => id === record.selectedPredictionProposalId);
+    if (record.selectedPredictionProposalId !== undefined
+        && (!predictionProposal || predictionProposal.text.en !== record.prediction)) {
+        return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
+    }
+    const conclusionProposal = record.selectedConclusionProposalId !== undefined
+        && definition.conclusionProposals.find(({ id }) => id === record.selectedConclusionProposalId);
+    if (record.selectedConclusionProposalId !== undefined
+        && (!conclusionProposal
+            || conclusionProposal.claim.en !== record.theory.conclusion
+            || conclusionProposal.limitation.en !== record.theory.limitation)) {
         return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
     }
 

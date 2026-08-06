@@ -60,9 +60,17 @@ export type AppState = Readonly<{
     selectedWavelengthMode: WavelengthMode;
     inspectedSourceIds: readonly string[];
     prediction: string;
+    /**
+     * The attributed proposal the player chose, when the prediction came from the colleague cast
+     * rather than the free-text panel (Story 1.11). Absent means hand-written, and the two are kept
+     * mutually exclusive: whichever path writes `prediction` owns it. The same holds for
+     * `selectedConclusionProposalId` against `theory.conclusion` / `theory.limitation`.
+     */
+    selectedPredictionProposalId?: string;
     runs: readonly RunRecord[];
     comparison: ComparisonState;
     theory: TheoryBoardDraft;
+    selectedConclusionProposalId?: string;
     consultation?: ConsultationProjection;
     peerReview?: PeerReviewProjection;
     decisionHistory: readonly DecisionHistoryEntry[];
@@ -124,6 +132,8 @@ const freezeState = (state: Omit<AppState, 'recognition'>): AppState => Object.f
     selectedWavelengthNm: state.selectedWavelengthNm,
     selectedWavelengthMode: state.selectedWavelengthMode,
     inspectedSourceIds: Object.freeze([...state.inspectedSourceIds]),
+    selectedPredictionProposalId: state.selectedPredictionProposalId,
+    selectedConclusionProposalId: state.selectedConclusionProposalId,
     runs: Object.freeze(state.runs.map(freezeRun)),
     comparison: freezeComparison(state.comparison),
     theory: Object.freeze({
@@ -190,9 +200,11 @@ export const createAppStateFromCaseRecord = (record: CaseRecord, caseDefinition:
             selectedWavelengthMode: record.selectedWavelengthMode ?? 'minimum',
             inspectedSourceIds: record.inspectedSourceIds,
             prediction: record.prediction,
+            selectedPredictionProposalId: record.selectedPredictionProposalId,
             runs,
             comparison: record.comparison,
             theory: record.theory,
+            selectedConclusionProposalId: record.selectedConclusionProposalId,
             decisionHistory: record.decisionHistory,
             completion: record.completion as CompletionSnapshot | undefined,
             replay: record.replay
@@ -393,7 +405,39 @@ const reducePredictionRecord = (state: AppState, prediction: string): Result<App
     if (!normalized) return failure('invalid-prediction', 'Enter a tentative prediction before recording it.');
     return {
         ok: true,
-        value: freezeState({ ...state, prediction: normalized, consultation: undefined, peerReview: undefined })
+        // The proposal ID is cleared: a hand-typed prediction that kept claiming to be proposal
+        // `prediction-two-patches` would carry text the record consistency check then rejects.
+        value: freezeState({ ...state, prediction: normalized, selectedPredictionProposalId: undefined, consultation: undefined, peerReview: undefined })
+    };
+};
+
+/**
+ * The chosen proposal's canonical `.en` text becomes `prediction`, because that field is what every
+ * phase gate, saved record, and printed page already reads — `evaluatePredictionReadiness`,
+ * `DecisionHistoryEntry`, and `validateCaseRecordForDefinition` among them. Writing the *active*
+ * locale here would make a French player's saved record fail revalidation in English.
+ *
+ * The context gate is the same one `reducePredictionRecord` applies: the choice is a prediction by
+ * another route, not a way around the sources.
+ */
+const reducePredictionProposalChosen = (state: AppState, proposalId: string): Result<AppState> => {
+    const proposal = state.caseDefinition.predictionProposals.find(({ id }) => id === proposalId);
+    if (!proposal) return failure('unknown-prediction-proposal', 'That prediction is not one of the proposals on offer.');
+    const readiness = evaluateContextReadiness(state.caseDefinition, state.inspectedSourceIds);
+    if (readiness.status === 'incomplete') {
+        return failure('missing-contextual-sources', `Inspect ${readiness.missingArtifactLabels[0]} before recording a prediction.`);
+    }
+    // No "already chosen" failure: AC2 makes the choice revisable, and re-choosing the same
+    // proposal has to stay a no-op success rather than an error the surface must explain away.
+    return {
+        ok: true,
+        value: freezeState({
+            ...state,
+            prediction: proposal.text.en,
+            selectedPredictionProposalId: proposal.id,
+            consultation: undefined,
+            peerReview: undefined
+        })
     };
 };
 
@@ -401,6 +445,31 @@ const withTheory = (state: AppState, theory: TheoryBoardDraft): Result<AppState>
     ok: true,
     value: freezeState({ ...state, theory, consultation: undefined, peerReview: undefined })
 });
+
+/** The free-text counterpart of {@link reducePredictionRecord}'s clearing rule, for the conclusion. */
+const withHandWrittenTheory = (state: AppState, theory: TheoryBoardDraft): Result<AppState> => ({
+    ok: true,
+    value: freezeState({ ...state, theory, selectedConclusionProposalId: undefined, consultation: undefined, peerReview: undefined })
+});
+
+/**
+ * Records the choice, and only the choice. It deliberately does not advance the phase, evaluate
+ * defensibility, or block on it: the evidence gate is Story 2.3/2.6 and the critique is Story 2.5.
+ */
+const reduceTheoryConclusionProposalChosen = (state: AppState, proposalId: string): Result<AppState> => {
+    const proposal = state.caseDefinition.conclusionProposals.find(({ id }) => id === proposalId);
+    if (!proposal) return failure('unknown-conclusion-proposal', 'That conclusion is not one of the proposals on offer.');
+    return {
+        ok: true,
+        value: freezeState({
+            ...state,
+            theory: { ...state.theory, conclusion: proposal.claim.en, limitation: proposal.limitation.en },
+            selectedConclusionProposalId: proposal.id,
+            consultation: undefined,
+            peerReview: undefined
+        })
+    };
+};
 
 const reduceTheorySupportRun = (state: AppState, runId: string, selected: boolean): Result<AppState> => {
     if (!state.runs.some(({ id }) => id === runId)) return failure('unknown-theory-run', 'That observation is unavailable as conclusion support.');
@@ -550,6 +619,7 @@ const reduceReplayStart = (state: AppState): Result<AppState> => {
             selectedWavelengthNm: 550,
             selectedWavelengthMode: 'minimum',
             inspectedSourceIds: [], prediction: '', runs: [], comparison: { selectedRunIds: [], notes: [] }, theory: createTheoryBoardDraft(),
+            selectedPredictionProposalId: undefined, selectedConclusionProposalId: undefined,
             consultation: undefined, peerReview: undefined, decisionHistory: [], replay: { isCounterfactual: true }
         })
     };
@@ -577,6 +647,8 @@ export const reduceAppState = (state: AppState, action: AppAction): Result<AppSt
             return reduceSourceInspection(state, action.sourceId);
         case 'prediction.recorded':
             return reducePredictionRecord(state, action.prediction);
+        case 'prediction.proposalChosen':
+            return reducePredictionProposalChosen(state, action.proposalId);
         case 'theory.supportRunSelected':
             return reduceTheorySupportRun(state, action.runId, true);
         case 'theory.supportRunUnselected':
@@ -586,9 +658,11 @@ export const reduceAppState = (state: AppState, action: AppAction): Result<AppSt
         case 'theory.supportSourceUnselected':
             return reduceTheorySupportSource(state, action.sourceId, false);
         case 'theory.conclusionSet':
-            return withTheory(state, { ...state.theory, conclusion: action.conclusion });
+            return withHandWrittenTheory(state, { ...state.theory, conclusion: action.conclusion });
         case 'theory.limitationSet':
-            return withTheory(state, { ...state.theory, limitation: action.limitation });
+            return withHandWrittenTheory(state, { ...state.theory, limitation: action.limitation });
+        case 'theory.conclusionProposalChosen':
+            return reduceTheoryConclusionProposalChosen(state, action.proposalId);
         case 'theory.reviewRequested':
             return reduceTheoryReviewRequest(state);
         case 'consultation.requested':

@@ -52,6 +52,63 @@ const validYoungCase: CaseDefinition = {
         resetPath: { recoveryRoute: 'replication', description: bilingual('Repeat the observation after aligning the screen.') }
     },
     requirements: { minimumRuns: 2, minimumSources: 2 },
+    colleagues: [
+        { id: 'thea-young', name: 'Dr. Thea Young', role: 'lead', portrait: { kind: 'silhouette', accentColor: '#c9a227' } },
+        { id: 'elias-wren', name: 'Elias Wren', role: 'builder', portrait: { kind: 'silhouette', accentColor: '#4f8a8b' } },
+        { id: 'marianne-cole', name: 'Marianne Cole', role: 'analyst', portrait: { kind: 'silhouette', accentColor: '#9c6b98' } },
+        { id: 'samuel-hart', name: 'Samuel Hart', role: 'communicator', portrait: { kind: 'silhouette', accentColor: '#b8653f' } }
+    ],
+    predictionProposals: [
+        { id: 'p-1', colleagueId: 'thea-young', text: bilingual('Alternating bright and dark bands will appear.') },
+        { id: 'p-2', colleagueId: 'elias-wren', text: bilingual('Two bright patches will appear, one behind each opening.') },
+        { id: 'p-3', colleagueId: 'marianne-cole', text: bilingual('A single blurred band will appear at the centre.') },
+        { id: 'p-4', colleagueId: 'samuel-hart', text: bilingual('The screen will brighten evenly with no structure.') }
+    ],
+    conclusionProposals: [
+        {
+            id: 'c-1',
+            colleagueId: 'marianne-cole',
+            claim: bilingual('The recorded band spacing changes with the apparatus settings as a wave account predicts.'),
+            limitation: bilingual('These observations bound one apparatus over a few settings.'),
+            supportPredicate: {
+                kind: 'all-of',
+                predicates: [
+                    { kind: 'minimum-runs', count: 2 },
+                    { kind: 'varied-control', controlId: 'slitSpacingMm' },
+                    { kind: 'inspected-source', sourceId: 'young-lecture-1801' },
+                    { kind: 'inspected-source', sourceId: 'newton-opticks' }
+                ]
+            }
+        },
+        {
+            id: 'c-2',
+            colleagueId: 'elias-wren',
+            claim: bilingual('Both apparatus settings shift the bands in the direction a wave account predicts.'),
+            limitation: bilingual('Only the settings actually varied are covered by this statement.'),
+            supportPredicate: {
+                kind: 'all-of',
+                predicates: [
+                    { kind: 'minimum-runs', count: 2 },
+                    { kind: 'varied-control', controlId: 'slitSpacingMm' },
+                    { kind: 'varied-control', controlId: 'screenDistanceM' }
+                ]
+            }
+        },
+        {
+            id: 'c-3',
+            colleagueId: 'thea-young',
+            claim: bilingual('Light is a wave and the particle account is settled.'),
+            limitation: bilingual('No limitation is offered for this statement.'),
+            supportPredicate: { kind: 'never' }
+        },
+        {
+            id: 'c-4',
+            colleagueId: 'samuel-hart',
+            claim: bilingual('Every optical phenomenon follows from this demonstration.'),
+            limitation: bilingual('No limitation is offered for this statement.'),
+            supportPredicate: { kind: 'never' }
+        }
+    ],
     consultationRules: [
         { id: 'missing-run', predicate: { kind: 'missing-run' }, layers: { observation: bilingual('Fewer than two observations are recorded.'), plainLanguage: bilingual('Record another observation.'), technicalDetail: bilingual('Use another bounded setting.') }, nextStep: bilingual('Record an observation.') },
         { id: 'missing-source', predicate: { kind: 'missing-source', sourceId: 'young-lecture-1801' }, layers: { observation: bilingual('A source is not inspected.'), plainLanguage: bilingual('Inspect the source.'), technicalDetail: bilingual('Check its provenance.') }, nextStep: bilingual('Inspect the lecture record.') },
@@ -234,6 +291,189 @@ describe('CaseDefinitionSchema', () => {
         }],
         ['an empty scenario script', (definition: Record<string, unknown>) => { (definition.scenarioScript as { scenes: unknown[] }).scenes = []; }]
     ])('rejects %s', (_description, mutate) => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        mutate(definition);
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
+
+    // --- Colleague cast and proposals (Story 1.11) ----------------------------------------------
+
+    it('parses the authored cast and both proposal sets', () => {
+        const parsed = CaseDefinitionSchema.safeParse(validYoungCase);
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        // Asserted on the parse output, not the fixture: reading the input back would pass even if
+        // the schema stripped the three new fields entirely.
+        expect(parsed.data.colleagues.map(({ id }) => id))
+            .toEqual(['thea-young', 'elias-wren', 'marianne-cole', 'samuel-hart']);
+        expect(parsed.data.predictionProposals).toHaveLength(4);
+        expect(parsed.data.conclusionProposals).toHaveLength(4);
+        expect(parsed.data.conclusionProposals[0].supportPredicate).toMatchObject({ kind: 'all-of' });
+    });
+
+    it('accepts an asset portrait whose asset is in the manifest', () => {
+        const definition = cloneValidCase();
+        definition.colleagues = [
+            { ...definition.colleagues[0], portrait: { kind: 'asset', assetId: 'quantique-logo' } },
+            ...definition.colleagues.slice(1)
+        ];
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
+    });
+
+    it('accepts a nested all-of predicate within the bounded depth', () => {
+        const definition = cloneValidCase();
+        definition.conclusionProposals = definition.conclusionProposals.map((proposal, index) => index === 0
+            ? {
+                ...proposal,
+                supportPredicate: {
+                    kind: 'all-of',
+                    predicates: [
+                        { kind: 'minimum-runs', count: 2 },
+                        { kind: 'all-of', predicates: [{ kind: 'inspected-source', sourceId: 'young-lecture-1801' }] }
+                    ]
+                }
+            }
+            : proposal);
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
+    });
+
+    it.each([
+        ['no colleagues at all', (definition: Record<string, unknown>) => { definition.colleagues = []; }],
+        ['three prediction proposals', (definition: Record<string, unknown>) => { (definition.predictionProposals as unknown[]).pop(); }],
+        ['five prediction proposals', (definition: Record<string, unknown>) => {
+            const proposals = definition.predictionProposals as Array<{ id: string }>;
+            proposals.push({ ...proposals[0], id: 'p-5' });
+        }],
+        ['three conclusion proposals', (definition: Record<string, unknown>) => { (definition.conclusionProposals as unknown[]).pop(); }],
+        ['an unknown colleague field', (definition: Record<string, unknown>) => { (definition.colleagues as Array<Record<string, unknown>>)[0].pronouns = 'she/her'; }],
+        ['an unknown colleague role', (definition: Record<string, unknown>) => { (definition.colleagues as Array<{ role: string }>)[0].role = 'sceptic'; }],
+        ['a non-hex silhouette accent', (definition: Record<string, unknown>) => { (definition.colleagues as Array<{ portrait: { accentColor: string } }>)[0].portrait.accentColor = 'gold'; }],
+        ['an unknown support predicate kind', (definition: Record<string, unknown>) => { (definition.conclusionProposals as Array<{ supportPredicate: { kind: string } }>)[2].supportPredicate.kind = 'always'; }],
+        ['a non-positive minimum-runs count', (definition: Record<string, unknown>) => {
+            (definition.conclusionProposals as Array<{ supportPredicate: unknown }>)[2].supportPredicate = { kind: 'minimum-runs', count: 0 };
+        }],
+        ['an all-of nested deeper than the bounded depth', (definition: Record<string, unknown>) => {
+            (definition.conclusionProposals as Array<{ supportPredicate: unknown }>)[2].supportPredicate = {
+                kind: 'all-of',
+                predicates: [{ kind: 'all-of', predicates: [{ kind: 'all-of', predicates: [{ kind: 'never' }] }] }]
+            };
+        }]
+    ])('rejects %s', (_description, mutate) => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        mutate(definition);
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
+
+    // Each cross-field rule is asserted by its authored message: several of these mutations would
+    // also trip a neighbouring rule, and a bare `success: false` could not tell which rule fired —
+    // nor fail if the rule under test were deleted.
+    it.each([
+        [
+            'duplicate colleague IDs',
+            'Colleague IDs must be stable and unique.',
+            (definition: Record<string, unknown>) => { (definition.colleagues as Array<{ id: string }>)[1].id = 'thea-young'; }
+        ],
+        [
+            'duplicate prediction proposal IDs',
+            'Proposal IDs must be unique within each proposal set.',
+            (definition: Record<string, unknown>) => { (definition.predictionProposals as Array<{ id: string }>)[1].id = 'p-1'; }
+        ],
+        [
+            'duplicate conclusion proposal IDs',
+            'Proposal IDs must be unique within each proposal set.',
+            (definition: Record<string, unknown>) => { (definition.conclusionProposals as Array<{ id: string }>)[1].id = 'c-1'; }
+        ],
+        [
+            'a prediction proposal attributed to nobody in the cast',
+            'Every proposal must be attributed to an authored colleague.',
+            (definition: Record<string, unknown>) => { (definition.predictionProposals as Array<{ colleagueId: string }>)[0].colleagueId = 'arthur-bell'; }
+        ],
+        [
+            'a conclusion proposal attributed to nobody in the cast',
+            'Every proposal must be attributed to an authored colleague.',
+            (definition: Record<string, unknown>) => { (definition.conclusionProposals as Array<{ colleagueId: string }>)[0].colleagueId = 'arthur-bell'; }
+        ],
+        [
+            'a portrait naming an asset outside the manifest',
+            'A colleague asset portrait must name an authored asset.',
+            (definition: Record<string, unknown>) => {
+                (definition.colleagues as Array<{ portrait: unknown }>)[0].portrait = { kind: 'asset', assetId: 'thea-portrait' };
+            }
+        ],
+        [
+            'an inspected-source predicate naming an unauthored source',
+            'Conclusion proposals may only reference authored sources.',
+            (definition: Record<string, unknown>) => {
+                (definition.conclusionProposals as Array<{ supportPredicate: unknown }>)[2].supportPredicate = { kind: 'inspected-source', sourceId: 'huygens-treatise' };
+            }
+        ],
+        [
+            'a varied-control predicate naming an unauthored control',
+            'Conclusion proposals may only reference authored controls.',
+            (definition: Record<string, unknown>) => {
+                // Both authored controls become `slitSpacingMm`, so `screenDistanceM` is no longer
+                // part of this case's apparatus even though the enum still admits the literal.
+                (definition.apparatus as { primaryControls: Array<{ id: string }> }).primaryControls[1].id = 'slitSpacingMm';
+                (definition.conclusionProposals as Array<{ supportPredicate: unknown }>)[2].supportPredicate = { kind: 'varied-control', controlId: 'screenDistanceM' };
+            }
+        ],
+        [
+            'an empty all-of, which would be vacuously true',
+            'An all-of support predicate needs at least one child predicate.',
+            (definition: Record<string, unknown>) => {
+                (definition.conclusionProposals as Array<{ supportPredicate: unknown }>)[2].supportPredicate = { kind: 'all-of', predicates: [] };
+            }
+        ],
+        [
+            'a conclusion set in which no proposal can ever be defensible',
+            'At least one conclusion proposal must be defensible on some evidence.',
+            (definition: Record<string, unknown>) => {
+                (definition.conclusionProposals as Array<{ supportPredicate: unknown }>)
+                    .forEach((proposal) => { proposal.supportPredicate = { kind: 'never' }; });
+            }
+        ],
+        [
+            'a phase path encoded in a prediction proposal',
+            'Authored proposal copy must not encode a scene, route, or phase path.',
+            (definition: Record<string, unknown>) => {
+                (definition.predictionProposals as Array<{ text: LocalizedText }>)[0].text = { en: 'Move to the experiment phase and see.', fr: 'Voyons ce que montre l’appareil.' };
+            }
+        ],
+        [
+            'an arrow path encoded in a conclusion claim',
+            'Authored proposal copy must not encode a scene, route, or phase path.',
+            (definition: Record<string, unknown>) => {
+                (definition.conclusionProposals as Array<{ claim: LocalizedText }>)[0].claim = { en: 'Bands widen.', fr: 'Preuves → conclusion.' };
+            }
+        ],
+        [
+            'a route encoded in a conclusion limitation',
+            'Authored proposal copy must not encode a scene, route, or phase path.',
+            (definition: Record<string, unknown>) => {
+                (definition.conclusionProposals as Array<{ limitation: LocalizedText }>)[0].limitation = { en: 'One apparatus only.', fr: 'Ouvrez la scène du laboratoire pour vérifier.' };
+            }
+        ]
+    ])('rejects %s', (_description, expectedMessage, mutate) => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        mutate(definition);
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues.map(({ message }) => message)).toContain(expectedMessage);
+    });
+
+    it.each([
+        ['a prediction proposal text', (definition: Record<string, unknown>) => { delete (definition.predictionProposals as Array<{ text: Record<string, unknown> }>)[0].text.fr; }],
+        ['a conclusion claim', (definition: Record<string, unknown>) => { delete (definition.conclusionProposals as Array<{ claim: Record<string, unknown> }>)[0].claim.fr; }],
+        ['a conclusion limitation', (definition: Record<string, unknown>) => { delete (definition.conclusionProposals as Array<{ limitation: Record<string, unknown> }>)[0].limitation.fr; }]
+    ])('rejects a case missing the French locale on %s', (_description, mutate) => {
         const definition = cloneValidCase() as unknown as Record<string, unknown>;
         mutate(definition);
 

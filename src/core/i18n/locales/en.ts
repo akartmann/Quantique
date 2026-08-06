@@ -109,6 +109,23 @@ export const en = {
     'recognition.calibrated-conclusion.label': 'Calibrated conclusion recorded',
     'recognition.calibrated-conclusion.description': 'A reviewed revision makes a bounded claim without an overreach finding.',
 
+    // --- Colleagues and proposals ---------------------------------------------------------------
+    // Colleague *names* are canonical proper nouns authored in case.json; only the role is resolved
+    // here, by its stable enum value, so nothing a record persists depends on the language.
+    'colleague.role.lead': 'Lead',
+    'colleague.role.builder': 'Instrument maker',
+    'colleague.role.analyst': 'Analyst',
+    'colleague.role.communicator': 'Communicator',
+    'colleague.attribution': '{name} — {role}',
+    'colleague.unattributed': 'Unattributed proposal',
+    'colleagues.heading': 'What do you expect to see?',
+    'colleagues.guide': 'Your colleagues each expect something different. Choose the one you want to test — you can change it at any time.',
+    'theoryBoard.heading': 'Which conclusion will you put your name to?',
+    'theoryBoard.guide': 'Each colleague has drafted a conclusion and the limitation they would state with it. Choose one — you can change it at any time.',
+    'proposal.limitation': 'Stated limitation: {limitation}',
+    'proposal.selected': '✓ Chosen',
+    'proposal.choose': 'Choose this',
+
     // --- Peer review projection -----------------------------------------------------------------
     'review.unavailable': 'Peer feedback is temporarily unavailable. Your evidence and draft have been kept unchanged.',
 
@@ -183,6 +200,8 @@ export const en = {
     'error.duplicate-inspected-source': 'That source is already recorded as inspected.',
     'error.missing-contextual-sources': 'Inspect {label} before continuing.',
     'error.invalid-prediction': 'Enter a tentative prediction before recording it.',
+    'error.unknown-prediction-proposal': 'That prediction is not one of the proposals on offer.',
+    'error.unknown-conclusion-proposal': 'That conclusion is not one of the proposals on offer.',
     'error.missing-prediction': 'Record a tentative prediction before continuing to experimentation.',
     'error.unknown-theory-run': 'That observation is unavailable as conclusion support.',
     'error.duplicate-theory-run': 'That observation is already supporting this conclusion.',

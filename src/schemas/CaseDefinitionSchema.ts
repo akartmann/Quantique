@@ -176,6 +176,82 @@ const PeerReviewRuleSchema = z.object({
     revisionPath: LocalizedTextSchema
 }).strict();
 
+const ColleagueRoleSchema = z.enum(['lead', 'builder', 'analyst', 'communicator']);
+
+const ColleaguePortraitSchema = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('asset'), assetId: stableId }).strict(),
+    // Lower-case six-digit hex only: the renderer parses it with `Number.parseInt(…, 16)`, and a
+    // single canonical spelling keeps authored accents comparable at a glance.
+    z.object({ kind: z.literal('silhouette'), accentColor: z.string().regex(/^#[0-9a-f]{6}$/, 'A silhouette accent must be a lower-case #rrggbb colour.') }).strict()
+]);
+
+const ColleagueSchema = z.object({
+    id: stableId,
+    // Canonical: a proper noun, following the `creatorOrOrigin` precedent. The *role* is what gets
+    // localized, by stable enum value.
+    name: z.string().trim().min(1),
+    role: ColleagueRoleSchema,
+    portrait: ColleaguePortraitSchema
+}).strict();
+
+/**
+ * Support predicates, built as three explicit nested levels rather than `z.lazy`.
+ *
+ * The bound is the point: an authored `all-of` tree has no business nesting deeper than this, and an
+ * unbounded recursive schema would accept one. Writing the levels out also sidesteps Zod 4's `lazy`
+ * inference gap — no `z.ZodType<T>` annotation is needed, so the inferred type stays a real
+ * discriminated union that structurally matches `ConclusionSupportPredicate`.
+ *
+ * An empty `predicates` array is rejected in the top-level refinement rather than with `.min(1)`
+ * here, so the failure carries the authored explanation instead of a generic `too_small`.
+ */
+const leafSupportPredicates = [
+    z.object({ kind: z.literal('never') }).strict(),
+    z.object({ kind: z.literal('minimum-runs'), count: z.number().int().positive() }).strict(),
+    z.object({ kind: z.literal('varied-control'), controlId: z.enum(['slitSpacingMm', 'screenDistanceM']) }).strict(),
+    z.object({ kind: z.literal('inspected-source'), sourceId: stableId }).strict()
+] as const;
+
+const allOfSchema = <T extends z.ZodTypeAny>(child: T) =>
+    z.object({ kind: z.literal('all-of'), predicates: z.array(child) }).strict();
+
+/** Depth 3: leaves, an `all-of` over leaves, and an `all-of` over those. */
+const SupportPredicateDepth3Schema = z.discriminatedUnion('kind', [...leafSupportPredicates]);
+const SupportPredicateDepth2Schema = z.discriminatedUnion('kind', [...leafSupportPredicates, allOfSchema(SupportPredicateDepth3Schema)]);
+const ConclusionSupportPredicateSchema = z.discriminatedUnion('kind', [...leafSupportPredicates, allOfSchema(SupportPredicateDepth2Schema)]);
+
+const PredictionProposalSchema = z.object({
+    id: stableId,
+    colleagueId: stableId,
+    text: LocalizedTextSchema
+}).strict();
+
+const ConclusionProposalSchema = z.object({
+    id: stableId,
+    colleagueId: stableId,
+    claim: LocalizedTextSchema,
+    limitation: LocalizedTextSchema,
+    supportPredicate: ConclusionSupportPredicateSchema
+}).strict();
+
+/** Walks an authored predicate tree, including nested `all-of` children. */
+const flattenSupportPredicates = (
+    predicate: z.infer<typeof ConclusionSupportPredicateSchema>
+): readonly z.infer<typeof SupportPredicateDepth3Schema>[] => predicate.kind === 'all-of'
+    ? predicate.predicates.flatMap((child) => flattenSupportPredicates(child as z.infer<typeof ConclusionSupportPredicateSchema>))
+    : [predicate];
+
+/** True only where some evidence could satisfy the predicate — an empty `all-of` is not "some". */
+const isSatisfiablePredicate = (predicate: z.infer<typeof ConclusionSupportPredicateSchema>): boolean => predicate.kind === 'never'
+    ? false
+    : predicate.kind !== 'all-of'
+        || (predicate.predicates.length > 0
+            && predicate.predicates.every((child) => isSatisfiablePredicate(child as z.infer<typeof ConclusionSupportPredicateSchema>)));
+
+const hasEmptyAllOf = (predicate: z.infer<typeof ConclusionSupportPredicateSchema>): boolean => predicate.kind === 'all-of'
+    && (predicate.predicates.length === 0
+        || predicate.predicates.some((child) => hasEmptyAllOf(child as z.infer<typeof ConclusionSupportPredicateSchema>)));
+
 const ScenarioDialogueBeatSchema = z.object({
     id: stableId,
     speakerId: stableId,
@@ -275,6 +351,12 @@ export const CaseDefinitionSchema = z.object({
         }).strict()
     }).strict(),
     requirements: z.object({ minimumRuns: z.literal(2), minimumSources: z.literal(2) }).strict(),
+    colleagues: z.array(ColleagueSchema).min(1),
+    // `.length(4)`, not `.min(4)`: the pivot makes both the prediction and the conclusion a 1-of-4
+    // attributed choice, and a wrong count is unambiguous enough that a generic length failure reads
+    // correctly without an authored message.
+    predictionProposals: z.array(PredictionProposalSchema).length(4),
+    conclusionProposals: z.array(ConclusionProposalSchema).length(4),
     consultationRules: z.array(ConsultationRuleSchema).min(4),
     peerReviewRules: z.array(PeerReviewRuleSchema).min(3),
     flow: z.object({
@@ -353,4 +435,63 @@ export const CaseDefinitionSchema = z.object({
         }
     });
 
+    // --- Colleague cast and proposals -----------------------------------------------------------
+
+    const colleagueIds = new Set(definition.colleagues.map(({ id }) => id));
+    if (colleagueIds.size !== definition.colleagues.length) {
+        context.addIssue({ code: 'custom', message: 'Colleague IDs must be stable and unique.', path: ['colleagues'] });
+    }
+    const assetIds = new Set(definition.assets.entries.map(({ id }) => id));
+    definition.colleagues.forEach((colleague, index) => {
+        // A portrait naming an absent asset would pass the strict parse and then fail
+        // `manifestsMatch` at load with a message about the manifest rather than the cast.
+        if (colleague.portrait.kind === 'asset' && !assetIds.has(colleague.portrait.assetId)) {
+            context.addIssue({ code: 'custom', message: 'A colleague asset portrait must name an authored asset.', path: ['colleagues', index, 'portrait', 'assetId'] });
+        }
+    });
+
+    // Unique *within* each set: a prediction and a conclusion proposal may share an id without
+    // ambiguity, because each is looked up against its own set.
+    ([['predictionProposals', definition.predictionProposals], ['conclusionProposals', definition.conclusionProposals]] as const)
+        .forEach(([field, proposals]) => {
+            if (new Set(proposals.map(({ id }) => id)).size !== proposals.length) {
+                context.addIssue({ code: 'custom', message: 'Proposal IDs must be unique within each proposal set.', path: [field] });
+            }
+            proposals.forEach((proposal, index) => {
+                if (!colleagueIds.has(proposal.colleagueId)) {
+                    context.addIssue({ code: 'custom', message: 'Every proposal must be attributed to an authored colleague.', path: [field, index, 'colleagueId'] });
+                }
+            });
+        });
+
+    definition.predictionProposals.forEach((proposal, index) => {
+        if (encodesPath(proposal.text)) {
+            context.addIssue({ code: 'custom', message: 'Authored proposal copy must not encode a scene, route, or phase path.', path: ['predictionProposals', index, 'text'] });
+        }
+    });
+
+    definition.conclusionProposals.forEach((proposal, index) => {
+        if (encodesPath(proposal.claim) || encodesPath(proposal.limitation)) {
+            context.addIssue({ code: 'custom', message: 'Authored proposal copy must not encode a scene, route, or phase path.', path: ['conclusionProposals', index] });
+        }
+        // An empty `all-of` is vacuously true, which would silently make an overreaching claim
+        // defensible — the exact failure the `never` kind exists to express explicitly.
+        if (hasEmptyAllOf(proposal.supportPredicate)) {
+            context.addIssue({ code: 'custom', message: 'An all-of support predicate needs at least one child predicate.', path: ['conclusionProposals', index, 'supportPredicate'] });
+        }
+        flattenSupportPredicates(proposal.supportPredicate).forEach((leaf) => {
+            if (leaf.kind === 'inspected-source' && !sourceIds.has(leaf.sourceId)) {
+                context.addIssue({ code: 'custom', message: 'Conclusion proposals may only reference authored sources.', path: ['conclusionProposals', index, 'supportPredicate'] });
+            }
+            if (leaf.kind === 'varied-control' && !controlIds.has(leaf.controlId)) {
+                context.addIssue({ code: 'custom', message: 'Conclusion proposals may only reference authored controls.', path: ['conclusionProposals', index, 'supportPredicate'] });
+            }
+        });
+    });
+
+    // Without this the case is uncompletable by construction: every conclusion on offer would be
+    // one the evaluator can never defend, and no evidence the player gathers would change that.
+    if (definition.conclusionProposals.length > 0 && !definition.conclusionProposals.some(({ supportPredicate }) => isSatisfiablePredicate(supportPredicate))) {
+        context.addIssue({ code: 'custom', message: 'At least one conclusion proposal must be defensible on some evidence.', path: ['conclusionProposals'] });
+    }
 });

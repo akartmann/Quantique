@@ -7,7 +7,10 @@
 // 1.1b), so a pre-1.1b case.json left in the cache fails the strict parse the same way.
 // v4: again the same class — a readable source now requires one rendition per shipped locale, so a
 // v3-era case.json carrying only the English rendition no longer parses.
-const CACHE_NAME = 'quantique-bootstrap-v4';
+// v5: and again — `colleagues`, `predictionProposals`, and `conclusionProposals` became required
+// fields of the strictly-parsed case definition (Story 1.11), so a cached pre-1.11 case.json boots
+// a returning offline player into "content unavailable" with no recovery.
+const CACHE_NAME = 'quantique-bootstrap-v5';
 
 self.addEventListener('install', (event) => {
     event.waitUntil(self.skipWaiting());

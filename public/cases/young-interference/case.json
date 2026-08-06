@@ -1,6 +1,6 @@
 {
   "id": "young-interference",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "openingDispute": {
     "en": "Does light travel as particles, waves, or something more subtle?",
     "fr": "La lumière se propage-t-elle comme des particules, comme des ondes, ou d’une manière plus subtile ?"
@@ -1068,6 +1068,135 @@
     "minimumRuns": 2,
     "minimumSources": 2
   },
+  "colleagues": [
+    {
+      "id": "thea-young",
+      "name": "Dr. Thea Young",
+      "role": "lead",
+      "portrait": { "kind": "silhouette", "accentColor": "#c9a227" }
+    },
+    {
+      "id": "elias-wren",
+      "name": "Elias Wren",
+      "role": "builder",
+      "portrait": { "kind": "silhouette", "accentColor": "#4f8a8b" }
+    },
+    {
+      "id": "marianne-cole",
+      "name": "Marianne Cole",
+      "role": "analyst",
+      "portrait": { "kind": "silhouette", "accentColor": "#9c6b98" }
+    },
+    {
+      "id": "samuel-hart",
+      "name": "Samuel Hart",
+      "role": "communicator",
+      "portrait": { "kind": "silhouette", "accentColor": "#b8653f" }
+    }
+  ],
+  "predictionProposals": [
+    {
+      "id": "prediction-alternating-bands",
+      "colleagueId": "thea-young",
+      "text": {
+        "en": "Where light from the two openings overlaps it will reinforce in some places and cancel in others, so I expect a regular series of bright and dark bands.",
+        "fr": "Là où la lumière des deux ouvertures se superpose, elle se renforcera par endroits et s’annulera ailleurs : j’attends donc une succession régulière de bandes claires et sombres."
+      }
+    },
+    {
+      "id": "prediction-two-patches",
+      "colleagueId": "elias-wren",
+      "text": {
+        "en": "Each opening should throw its own beam, so I expect two bright patches with shadow between them — one patch behind each slit.",
+        "fr": "Chaque ouverture devrait projeter son propre faisceau : j’attends deux taches lumineuses séparées par de l’ombre, une derrière chaque fente."
+      }
+    },
+    {
+      "id": "prediction-single-blur",
+      "colleagueId": "marianne-cole",
+      "text": {
+        "en": "The two beams will simply blur together, so I expect one broad bright band in the middle, fading gradually towards the edges.",
+        "fr": "Les deux faisceaux se fondront simplement l’un dans l’autre : j’attends une seule large bande claire au milieu, s’estompant progressivement vers les bords."
+      }
+    },
+    {
+      "id": "prediction-even-wash",
+      "colleagueId": "samuel-hart",
+      "text": {
+        "en": "The openings are so narrow that the light will spread evenly, so I expect a uniform wash with no structure worth measuring.",
+        "fr": "Les ouvertures sont si étroites que la lumière se répandra uniformément : j’attends un éclairement uniforme, sans structure digne d’être mesurée."
+      }
+    }
+  ],
+  "conclusionProposals": [
+    {
+      "id": "conclusion-spacing-varies",
+      "colleagueId": "marianne-cole",
+      "claim": {
+        "en": "In this apparatus, the spacing of the recorded bands changes with the slit separation in the direction a wave account predicts.",
+        "fr": "Dans cet appareil, l’espacement des bandes enregistrées varie avec l’écartement des fentes dans le sens que prévoit une explication ondulatoire."
+      },
+      "limitation": {
+        "en": "This covers one apparatus over the settings actually recorded; it does not describe light in general.",
+        "fr": "Cela ne couvre qu’un appareil, aux réglages effectivement enregistrés ; cela ne décrit pas la lumière en général."
+      },
+      "supportPredicate": {
+        "kind": "all-of",
+        "predicates": [
+          { "kind": "minimum-runs", "count": 2 },
+          { "kind": "varied-control", "controlId": "slitSpacingMm" },
+          { "kind": "inspected-source", "sourceId": "young-lecture-1801" },
+          { "kind": "inspected-source", "sourceId": "newton-opticks" }
+        ]
+      }
+    },
+    {
+      "id": "conclusion-both-settings",
+      "colleagueId": "elias-wren",
+      "claim": {
+        "en": "Both the slit separation and the distance to the screen move the recorded bands, and each moves them the way a wave account expects.",
+        "fr": "L’écartement des fentes et la distance à l’écran déplacent tous deux les bandes enregistrées, chacun dans le sens qu’attend une explication ondulatoire."
+      },
+      "limitation": {
+        "en": "Only the two settings we actually varied are covered; a setting left untouched is not evidence either way.",
+        "fr": "Seuls les deux réglages que nous avons réellement fait varier sont couverts ; un réglage laissé intact ne constitue une preuve dans aucun sens."
+      },
+      "supportPredicate": {
+        "kind": "all-of",
+        "predicates": [
+          { "kind": "minimum-runs", "count": 2 },
+          { "kind": "varied-control", "controlId": "slitSpacingMm" },
+          { "kind": "varied-control", "controlId": "screenDistanceM" }
+        ]
+      }
+    },
+    {
+      "id": "conclusion-wave-settled",
+      "colleagueId": "thea-young",
+      "claim": {
+        "en": "This pattern proves that light is a wave and that the corpuscular account can now be set aside.",
+        "fr": "Cette figure prouve que la lumière est une onde et que l’explication corpusculaire peut désormais être écartée."
+      },
+      "limitation": {
+        "en": "None is offered: the claim is presented as settled by this demonstration alone.",
+        "fr": "Aucune n’est proposée : l’affirmation est présentée comme tranchée par cette seule démonstration."
+      },
+      "supportPredicate": { "kind": "never" }
+    },
+    {
+      "id": "conclusion-universal-optics",
+      "colleagueId": "samuel-hart",
+      "claim": {
+        "en": "Every optical effect anyone will ever record follows from what we have seen on this bench today.",
+        "fr": "Tout effet optique que l’on pourra jamais enregistrer découle de ce que nous avons vu aujourd’hui sur cette paillasse."
+      },
+      "limitation": {
+        "en": "None is offered: the statement reaches far past the two openings and the one light source we used.",
+        "fr": "Aucune n’est proposée : l’énoncé dépasse de loin les deux ouvertures et l’unique source lumineuse utilisées."
+      },
+      "supportPredicate": { "kind": "never" }
+    }
+  ],
   "consultationRules": [
     {
       "id": "observe-two-runs",

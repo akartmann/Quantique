@@ -38,7 +38,19 @@ const WRAPPED_SURFACES = [
     { key: 'book.caption.summary', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 770 },
     { key: 'book.summary.heading', font: BOOK_FONT_STACK, fontSize: 20, wrapWidth: 770 },
     { key: 'book.sourcePage.many', font: UI_FONT_STACK, fontSize: 12, wrapWidth: 372 },
-    { key: 'book.printedPage', font: BOOK_FONT_STACK, fontSize: 14, wrapWidth: 372 }
+    { key: 'book.printedPage', font: BOOK_FONT_STACK, fontSize: 14, wrapWidth: 372 },
+    // Colleague cast and proposals (Story 1.11). The bounds are `ColleagueRenderer`'s: the chrome
+    // wraps at the full card width, everything inside a card at `TEXT_WRAP_WIDTH`, and the choice
+    // marker at its own narrow right-hand column.
+    { key: 'colleagues.heading', font: UI_FONT_STACK, fontSize: 25, wrapWidth: 944 },
+    { key: 'colleagues.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 944 },
+    { key: 'theoryBoard.heading', font: UI_FONT_STACK, fontSize: 25, wrapWidth: 944 },
+    { key: 'theoryBoard.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 944 },
+    { key: 'colleague.attribution', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 744 },
+    { key: 'colleague.unattributed', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 744 },
+    { key: 'proposal.limitation', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 744 },
+    { key: 'proposal.selected', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 160 },
+    { key: 'proposal.choose', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 160 }
 ] as const;
 
 /** Book controls are a fixed hit-test width and shrink to fit down to 10px before they would clip. */
@@ -56,6 +68,9 @@ const caseDefinition = JSON.parse(
 ) as {
     contextualArtifacts: { displayName: { fr: string } }[];
     apparatus: { primaryControls: { label: { fr: string } }[] };
+    colleagues: { name: string }[];
+    predictionProposals: { text: { fr: string } }[];
+    conclusionProposals: { claim: { fr: string }; limitation: { fr: string } }[];
 };
 
 /**
@@ -72,6 +87,19 @@ const SOURCE_NAME = longestFrench(caseDefinition.contextualArtifacts.map(({ disp
 const CONTROL_LABEL = longestFrench(caseDefinition.apparatus.primaryControls.map(({ label }) => label.fr));
 const SPACING = '0,2200 mm';
 
+const COLLEAGUE_NAME = longestFrench(caseDefinition.colleagues.map(({ name }) => name));
+const ROLE_LABEL = longestFrench([
+    fr['colleague.role.lead'], fr['colleague.role.builder'], fr['colleague.role.analyst'], fr['colleague.role.communicator']
+]);
+/**
+ * The authored copy the proposal cards actually hold. Measuring only the interface keys would miss
+ * the strings most likely to overflow — a French conclusion claim is the longest run of text on the
+ * theory board, and it lives in `case.json`, not in `fr.ts`.
+ */
+const PROPOSAL_TEXT = longestFrench(caseDefinition.predictionProposals.map(({ text }) => text.fr));
+const CONCLUSION_CLAIM = longestFrench(caseDefinition.conclusionProposals.map(({ claim }) => claim.fr));
+const CONCLUSION_LIMITATION = longestFrench(caseDefinition.conclusionProposals.map(({ limitation }) => limitation.fr));
+
 const SAMPLE_PARAMS: Readonly<Record<string, Readonly<Record<string, string | number>>>> = {
     'lab.result.recorded': { value: SPACING, wavelength: 550, mode: fr['lab.wavelengthMode.minimum'] },
     'lab.result.stale': { value: SPACING },
@@ -81,7 +109,9 @@ const SAMPLE_PARAMS: Readonly<Record<string, Readonly<Record<string, string | nu
     'book.caption.spread': { source: SOURCE_NAME, index: 19, total: 19 },
     'book.caption.summary': { source: SOURCE_NAME },
     'book.sourcePage.many': { pages: '138, 139' },
-    'book.printedPage': { pages: '138, 139' }
+    'book.printedPage': { pages: '138, 139' },
+    'colleague.attribution': { name: COLLEAGUE_NAME, role: ROLE_LABEL },
+    'proposal.limitation': { limitation: CONCLUSION_LIMITATION }
 };
 
 const fillParams = (key: string): string =>
@@ -159,6 +189,30 @@ test('keeps every French string inside the wrap bound of the surface that holds 
             return sample.width > bound;
         })
         .map(({ key, text, width }) => `${key}: "${text}" (${Math.round(width)}px)`);
+
+    expect(overflowing).toEqual([]);
+});
+
+test('keeps the authored French proposal copy inside the colleague card', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
+
+    // `ColleagueRenderer`'s in-card wrap bound. The body and the limitation are drawn at different
+    // sizes, so each authored string is measured at the size the card actually uses for it.
+    const CARD_TEXT_WRAP_WIDTH = 744;
+    const authored = [
+        { label: 'prediction text', fontSize: 16, text: PROPOSAL_TEXT },
+        { label: 'conclusion claim', fontSize: 16, text: CONCLUSION_CLAIM },
+        { label: 'conclusion limitation', fontSize: 13, text: CONCLUSION_LIMITATION }
+    ];
+    const samples = authored.flatMap(({ label, fontSize, text }) =>
+        text.split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({ label, font: UI_FONT_STACK, fontSize, text: token })));
+    const widths = await measure(page, samples);
+
+    const overflowing = samples
+        .map((sample, index) => ({ ...sample, width: widths[index] }))
+        .filter(({ width }) => width > CARD_TEXT_WRAP_WIDTH)
+        .map(({ label, text, width }) => `${label}: "${text}" (${Math.round(width)}px)`);
 
     expect(overflowing).toEqual([]);
 });
