@@ -3,6 +3,7 @@ import { Scene } from 'phaser';
 import type { AppStore } from '../../../core/store/createStore';
 import { registerCanvasBoundsRefresh } from '../canvasBounds';
 import { createPhaserStoreAdapter } from '../PhaserStoreAdapter';
+import { preloadCaseAssets } from '../preloadCaseAssets';
 import { ColleagueRenderer } from '../renderers/ColleagueRenderer';
 
 /**
@@ -26,6 +27,10 @@ export class ColleaguesScene extends Scene {
 
     public constructor(private readonly store: AppStore) {
         super('Colleagues');
+    }
+
+    public preload(): void {
+        preloadCaseAssets(this, this.store.getState().caseDefinition);
     }
 
     public create(): void {

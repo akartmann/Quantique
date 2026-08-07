@@ -4,6 +4,7 @@ import type { AppStore } from '../../../core/store/createStore';
 import { selectLocale } from '../../../core/store/selectors';
 import { registerCanvasBoundsRefresh } from '../canvasBounds';
 import { createPhaserStoreAdapter } from '../PhaserStoreAdapter';
+import { preloadCaseAssets } from '../preloadCaseAssets';
 import { LibraryRenderer } from '../renderers/LibraryRenderer';
 import { ReferenceBookPresenter } from '../renderers/ReferenceBookPresenter';
 
@@ -31,6 +32,10 @@ export class LibraryScene extends Scene {
 
     public constructor(private readonly store: AppStore) {
         super('Library');
+    }
+
+    public preload(): void {
+        preloadCaseAssets(this, this.store.getState().caseDefinition);
     }
 
     public create(): void {

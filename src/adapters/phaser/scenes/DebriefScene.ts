@@ -5,6 +5,7 @@ import type { AppStore } from '../../../core/store/createStore';
 import { selectCasePhase, selectLocale, selectLocalizedError } from '../../../core/store/selectors';
 import { registerCanvasBoundsRefresh } from '../canvasBounds';
 import { createPhaserStoreAdapter, type PhaserStoreAdapter } from '../PhaserStoreAdapter';
+import { preloadCaseAssets } from '../preloadCaseAssets';
 import { advanceTransitionForPhase, resolveAdvanceRefusal } from '../renderers/advanceView';
 import { DebriefRenderer } from '../renderers/DebriefRenderer';
 import { TransientMessageSlot } from '../renderers/transientMessage';
@@ -47,6 +48,10 @@ export class DebriefScene extends Scene {
 
     public constructor(private readonly store: AppStore) {
         super('Debrief');
+    }
+
+    public preload(): void {
+        preloadCaseAssets(this, this.store.getState().caseDefinition);
     }
 
     public create(): void {

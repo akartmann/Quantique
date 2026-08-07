@@ -4,6 +4,7 @@ import type { AppStore } from '../../../core/store/createStore';
 import { RIVAL_LAB_SCENE_KEY } from '../../../domain/cases/ScenarioScript';
 import { registerCanvasBoundsRefresh } from '../canvasBounds';
 import { createPhaserStoreAdapter } from '../PhaserStoreAdapter';
+import { preloadCaseAssets } from '../preloadCaseAssets';
 import { RivalLabRenderer } from '../renderers/RivalLabRenderer';
 
 /**
@@ -34,6 +35,10 @@ export class RivalLabScene extends Scene {
 
     public constructor(private readonly store: AppStore) {
         super(RIVAL_LAB_SCENE_KEY);
+    }
+
+    public preload(): void {
+        preloadCaseAssets(this, this.store.getState().caseDefinition);
     }
 
     public create(): void {

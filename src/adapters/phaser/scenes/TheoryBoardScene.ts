@@ -4,6 +4,7 @@ import type { AppStore } from '../../../core/store/createStore';
 import type { CaseRecordOperations } from '../../persistence/caseRecordOperations';
 import { registerCanvasBoundsRefresh } from '../canvasBounds';
 import { createPhaserStoreAdapter } from '../PhaserStoreAdapter';
+import { preloadCaseAssets } from '../preloadCaseAssets';
 import { CaseFilePresenter } from '../renderers/CaseFilePresenter';
 import { ColleagueRenderer } from '../renderers/ColleagueRenderer';
 
@@ -40,6 +41,10 @@ export class TheoryBoardScene extends Scene {
         private readonly record?: CaseRecordOperations
     ) {
         super('TheoryBoard');
+    }
+
+    public preload(): void {
+        preloadCaseAssets(this, this.store.getState().caseDefinition);
     }
 
     public create(): void {

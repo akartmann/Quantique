@@ -4,6 +4,7 @@ import type { AppStore } from '../../../core/store/createStore';
 import { selectLocale } from '../../../core/store/selectors';
 import { registerCanvasBoundsRefresh } from '../canvasBounds';
 import { createPhaserStoreAdapter } from '../PhaserStoreAdapter';
+import { preloadCaseAssets } from '../preloadCaseAssets';
 import { ApparatusRenderer } from '../renderers/ApparatusRenderer';
 import { NotebookRenderer } from '../renderers/NotebookRenderer';
 import { ReferenceBookPresenter } from '../renderers/ReferenceBookPresenter';
@@ -35,6 +36,10 @@ export class LaboratoryScene extends Scene {
 
     public constructor(private readonly store: AppStore) {
         super('Laboratory');
+    }
+
+    public preload(): void {
+        preloadCaseAssets(this, this.store.getState().caseDefinition);
     }
 
     /**
