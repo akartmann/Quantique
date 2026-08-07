@@ -43,6 +43,9 @@ export const en = {
     'lab.pattern.recorded': 'Recorded interference pattern: bright bands are {spacing} apart in the saved Young model result.',
     'lab.wavelengthMode.minimum': 'minimum',
     'lab.wavelengthMode.advanced': 'advanced',
+    // The references kept to hand at the bench (Story 2.8). Re-reading one here records nothing and
+    // changes no progression — the reading is recorded once, in the reading room.
+    'lab.reference.heading': 'References to hand',
 
     // --- In-scene advance affordance (Story 2.7) -------------------------------------------------
     // One label per forward transition. Every phase's scene carries one of these controls, because a
@@ -65,6 +68,24 @@ export const en = {
     'advance.toReviewers': 'To your reviewers',
     'advance.closeTheCase': 'Close the case',
     'advance.replay': 'Investigate it again',
+
+    // --- The reading room (Story 2.8) ------------------------------------------------------------
+    // Room chrome and the labels on the artifact metadata only. The *content* — every display name,
+    // creator, case relationship, and the colleague's line at the door — is `LocalizedText` in
+    // `case.json`, and the provenance/type/rights enums resolve through the `source.*` families below.
+    // Nothing here names a scene, a phase, or a route: "the reading room" is furniture, `Library` is a
+    // scene key, and the two must never meet on screen.
+    'library.heading': 'The reading room',
+    'library.guide': 'Take a reference down from the shelf to read it. What you read is recorded as evidence you can cite later.',
+    // Shown on an object whose reading is already on the record. Re-opening one is always allowed.
+    'library.artifact.read': 'Read',
+    'library.detail.creator': 'Creator or originating context: {value}',
+    'library.detail.classification': '{type} · {provenance}',
+    'library.detail.rights': 'Rights status: {status}',
+    // Both are neutral by design: an artifact that cannot be read is a fact about the archive, never a
+    // mistake the player made, and neither line may present it as evidence.
+    'library.artifact.unavailable': 'The rights for this one have not been reviewed, so it cannot be read here or cited as evidence.',
+    'library.artifact.noRendition': 'No local copy of this one is held here, so there is nothing to read from the shelf. Its details above are still on the record.',
 
     // --- Deterministic experiment result --------------------------------------------------------
     // The canonical `ExperimentResult.label` stays English in the record and is compared for string

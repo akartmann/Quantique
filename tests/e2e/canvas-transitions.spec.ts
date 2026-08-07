@@ -1,15 +1,26 @@
 import { readFileSync } from 'node:fs';
 
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 import { advanceControlCentreOnBoard, lastProposalCardProbe } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
 // From `apparatusGeometry`, not `ApparatusRenderer`: that renderer imports Phaser as a *value*
 // (`BlendModes`), Phaser touches `window` at import time, and these specs run in Node. The routing
-// shell's geometry is split out of `PhasePlaceholderScene` for the same reason — it extends `Scene`.
+// shell's geometry is split out of `PhasePlaceholderScene` for the same reason — it extends `Scene`,
+// and `libraryGeometry` out of `LibraryScene` and `LibraryRenderer` for the same reason again.
 import { advanceToSynthesisControlCentre } from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import { placeholderAdvanceControlCentre } from '../../src/adapters/phaser/scenes/phasePlaceholderGeometry';
+import { libraryAdvanceControlCentre, libraryArtifactCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
 import { en } from '../../src/core/i18n/locales/en';
+import {
+    DESIGN_HEIGHT,
+    DESIGN_WIDTH,
+    clickDesign,
+    clickUntilScene,
+    expectActiveScene,
+    waitForBookToClose,
+    waitForBookToOpen
+} from './canvasHelpers';
 
 /**
  * AC2 on the canvas: **every forward transition is taken from the scene the player is standing in.**
@@ -22,24 +33,29 @@ import { en } from '../../src/core/i18n/locales/en';
  *
  * ## What is *not* a canvas click here, and why
  *
- * Every **transition** below is a canvas click. Five intents that *gate* those transitions still have
- * no canvas dispatcher at all and are explicitly out of this story's scope, so they stay on their
- * current DOM path and are annotated inline with the story that closes each:
+ * Every **transition** below is a canvas click. Four intents that *gate* those transitions still have
+ * no canvas dispatcher at all, so they stay on their current DOM path and are annotated inline with
+ * the story that closes each:
  *
  * | Gating intent | Only dispatcher today | Owner |
  * | --- | --- | --- |
- * | `source.inspected` | `src/ui/sources/CuratedRecord.ts` | Story 2.8 |
  * | `experiment.run` | `src/ui/apparatus/ApparatusControls.ts` | Story 2.10 |
  * | `comparison.runSelected` / `comparison.noteSaved` | `src/ui/notebook/NotebookPanel.ts` | Story 2.10 |
  * | `theory.supportRunSelected` / `theory.supportSourceSelected` | `src/ui/theory/TheoryBoard.ts` | unowned |
  * | `peerReview.requested` / `revision.saved` | `src/ui/review/ConclusionReviewPanel.ts` | unowned |
  *
+ * **`source.inspected` left this table in Story 2.8.** The reading room dispatches it from the canvas
+ * now, so the `context → prediction` step below is a genuine canvas walk rather than a DOM reach-in,
+ * and this file no longer has to open the reference book to get out of the way of its own gate. The
+ * reading room's own behaviour — the pickup, the book, the refusal, the suppression — is
+ * `library-reading.spec.ts`; what stays here is only enough of it to reach the next transition.
+ *
  * So this is honestly **"each transition is dispatchable from the canvas"**, not "the Young case can be
- * completed with canvas clicks alone". The latter becomes true when 2.8 and 2.10 land and is verified
- * in full by 2.12. `apparatus.controlSet` is the one exception in the list below: it *is* canvas-
- * dispatchable through the laboratory's step buttons, but those buttons export no geometry, so
- * deriving a click target for them would mean restating literals. It stays on the DOM path here and
- * Story 2.10 gives it the knob and the geometry.
+ * completed with canvas clicks alone". The latter becomes true when 2.10 lands and is verified in full
+ * by 2.12. `apparatus.controlSet` is the one exception in the list below: it *is* canvas-dispatchable
+ * through the laboratory's step buttons, but those buttons export no geometry, so deriving a click
+ * target for them would mean restating literals. It stays on the DOM path here and Story 2.10 gives it
+ * the knob and the geometry.
  *
  * Canvas *text* is deliberately not asserted **anywhere in this file** — it cannot be read from the
  * DOM. That includes refusal messages, and the layer that owns them is `tests/unit/AdvanceView.test.ts`,
@@ -48,24 +64,17 @@ import { en } from '../../src/core/i18n/locales/en';
  * says nothing about a refusal, so it is not the answer to "does a refused click say why".
  */
 
-const canvas = (page: Page) => page.locator('#game-container canvas');
-
-/**
- * The design surface the geometry helpers are asked about.
- *
- * Named rather than written into each call: `phasePlaceholderGeometry` takes the canvas size precisely
- * so `768`/`1024` are read from `scene.scale` in the scene and never restated — and this spec should
- * not be the file that restates them six times instead.
- */
-const DESIGN_WIDTH = 1024;
-const DESIGN_HEIGHT = 768;
-
 const BOOK_CLOSE = bookCloseControlCentre();
 /**
- * One control, two hosts. `LibraryScene` and `DebriefScene` are both `PhasePlaceholderScene`, so the
- * shell puts its advance control in the same place in each — a single name, so a reader is not left
- * wondering which of two identical constants is the one that moved.
+ * The way out of the reading room, and the way out of the debrief.
+ *
+ * These were **one** constant until Story 2.8, because `LibraryScene` and `DebriefScene` were both
+ * `PhasePlaceholderScene` and the shell put its control in the same place in each. The library is a
+ * real scene now with a layout of its own, so the two coordinates are genuinely different and each is
+ * read from the host that draws it. `DebriefScene` is the shell's last subclass; Story 2.11 takes the
+ * second of these with it.
  */
+const LEAVE_THE_ROOM = libraryAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT);
 const SHELL_ADVANCE = placeholderAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT);
 const PREDICTION_ADVANCE = advanceControlCentreOnBoard('prediction');
 const LABORATORY_ADVANCE = advanceToSynthesisControlCentre();
@@ -77,47 +86,17 @@ const SOURCE_NAMES = (JSON.parse(
 ) as { contextualArtifacts: { displayName: { en: string; fr: string } }[] })
     .contextualArtifacts.map(({ displayName }) => displayName);
 
-/** The canvas is sticky, so a click is mapped through the live bounding box rather than assumed. */
-const clickDesign = async (page: Page, point: Readonly<{ x: number; y: number }>): Promise<void> => {
-    const bounds = await canvas(page).boundingBox();
-    if (!bounds) throw new Error('The routed Phaser surface did not render.');
-    await page.mouse.click(
-        bounds.x + (point.x / DESIGN_WIDTH) * bounds.width,
-        bounds.y + (point.y / DESIGN_HEIGHT) * bounds.height
-    );
-};
-
-const activeScene = (page: Page): Promise<string | null> =>
-    page.locator('#game-container').getAttribute('data-active-scene');
-
-const expectActiveScene = async (page: Page, sceneKey: string): Promise<void> => {
-    await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', sceneKey);
-};
-
 /**
- * Clicks a canvas control until the router reports the expected scene.
+ * One object on the reading room's shelf, at the count the room actually draws.
  *
- * Needed for exactly one click in this walk: the first one after the reference book closes.
- * `LectureBookRenderer.isOverlayVisible` stays true for the whole 180ms closing fade — **deliberately**,
- * so that a click during the fade cannot fall through to the surface still painted underneath — and
- * the suppression lifts only when the overlay is destroyed. There is no DOM signal for that moment,
- * so the spec does what a player does and clicks again.
- *
- * This is not a way to make a dead control pass: the loop is bounded, and a control that never
- * dispatches still fails the timeout. The suppression itself is asserted directly in the third test,
- * which is where "a click during the book must do nothing" is pinned rather than tolerated.
- *
- * **It re-reads the scene before every click, and stops the moment it has changed.** Wrapping click and
- * assertion together in a single retried block would fire a second click whenever the router took
- * longer than the inner timeout to stamp the attribute — landing it on the scene just navigated *to*,
- * whose surface this walk then goes on to use. A stray click on a live proposal card is exactly the
- * kind of timing-dependent side effect a retry is supposed to avoid introducing.
+ * Derived, never restated: the objects narrow as the count grows, so a coordinate written down for two
+ * artifacts would land in the gap between four of them — the drift the 1.12 review found and AC7
+ * restates.
  */
-const clickUntilScene = async (page: Page, point: Readonly<{ x: number; y: number }>, sceneKey: string): Promise<void> => {
-    await expect(async () => {
-        if (await activeScene(page) !== sceneKey) await clickDesign(page, point);
-        expect(await activeScene(page)).toBe(sceneKey);
-    }).toPass({ timeout: 5_000, intervals: [100, 200, 300, 500] });
+const artifactAt = (index: number): Readonly<{ x: number; y: number }> => {
+    const centre = libraryArtifactCentre(index, SOURCE_NAMES.length, DESIGN_WIDTH);
+    if (!centre) throw new Error(`The reading room draws no object at index ${index}.`);
+    return centre;
 };
 
 test('takes every forward transition of the Young case from the canvas', async ({ page }) => {
@@ -126,16 +105,17 @@ test('takes every forward transition of the Young case from the canvas', async (
     await expectActiveScene(page, 'Library');
 
     // --- context → prediction ------------------------------------------------------------------
-    // `source.inspected` has no canvas dispatcher until Story 2.8, so the gate is satisfied from the
-    // curated record. Inspecting publishes the reference book over the whole canvas, and leaving it
-    // open would legitimately suppress every canvas click below — the suppression Story 2.7 extended
-    // to this very scene.
-    for (const displayName of SOURCE_NAMES) {
-        await page.getByRole('button', { name: `Inspect ${displayName.en}` }).click();
+    // A canvas walk since Story 2.8: each reference is taken off the shelf, which records
+    // `source.inspected` and opens the book over the room. The book has to be closed before the next
+    // click, because it legitimately suppresses everything underneath it while it is open.
+    for (let index = 0; index < SOURCE_NAMES.length; index += 1) {
+        await clickDesign(page, artifactAt(index));
+        await waitForBookToOpen(page);
+        await clickDesign(page, BOOK_CLOSE);
+        await waitForBookToClose(page);
     }
-    await clickDesign(page, BOOK_CLOSE);
 
-    await clickUntilScene(page, SHELL_ADVANCE, 'Colleagues');
+    await clickUntilScene(page, LEAVE_THE_ROOM, 'Colleagues');
 
     // --- prediction → experiment ---------------------------------------------------------------
     // The prediction itself is a canvas act already (Story 1.11): one of four attributed proposals.
@@ -184,8 +164,18 @@ test('takes every forward transition of the Young case from the canvas', async (
     await peerReview.getByRole('button', { name: 'Request peer feedback' }).click();
     await peerReview.getByRole('button', { name: 'Save reviewed revision' }).click();
 
-    await clickDesign(page, BOARD_ADVANCE);
-    await expectActiveScene(page, 'Debrief');
+    // `clickUntilScene`, not a single click, and the reason is the *previous* advance rather than this
+    // one. The theory board hosts both phases, so the router leaves the scene standing across
+    // `synthesis → review` and the control's label changes from "To your reviewers" to "Close the
+    // case" under the cursor — which starts `ADVANCE_RELABEL_LOCKOUT_MS`, a deliberate 400ms window in
+    // which the control ignores clicks so a double-click cannot skip `review` entirely.
+    //
+    // The two DOM clicks above take about 125ms, so a spec clicking at machine speed lands inside that
+    // window and is correctly ignored. This test passed before Story 2.8 only because nine parallel
+    // workers slowed the machine past 400ms — run on its own, at HEAD or at the story's baseline
+    // commit, it failed either way. Retrying is what a player does without noticing, and the helper is
+    // bounded, so a genuinely dead control still fails.
+    await clickUntilScene(page, BOARD_ADVANCE, 'Debrief');
 
     // --- post-debrief replay -------------------------------------------------------------------
     await clickDesign(page, SHELL_ADVANCE);
@@ -198,34 +188,21 @@ test('refuses a transition the evidence has not earned, and stays where it was',
     await page.goto('/');
     await expectActiveScene(page, 'Library');
 
-    // No source inspected, so `missing-contextual-sources` refuses. What is observable *here* is that
-    // the player does not move — the control is live, the click reached it, and the router stayed put.
+    // Nothing read, so `missing-contextual-sources` refuses. What is observable *here* is that the
+    // player does not move — the control is live, the click reached it, and the router stayed put.
     // Whether the refusal also says why is the other half of AC4 and cannot be seen from the DOM at
     // all: it is asserted on `resolveAdvanceView` in `tests/unit/AdvanceView.test.ts`, which is the
-    // layer that decides it. This test does not stand in for that one.
-    await clickDesign(page, SHELL_ADVANCE);
+    // layer that decides it, and the authored line in `tests/unit/ReadingGateHints.test.ts`. This test
+    // does not stand in for either.
+    await clickDesign(page, LEAVE_THE_ROOM);
 
     await expectActiveScene(page, 'Library');
 });
 
-test('does not let a click meant for the reference book advance the phase underneath it', async ({ page }) => {
-    await page.goto('/');
-    await expectActiveScene(page, 'Library');
-
-    // The exact defect 1.12, 2.5, and 2.6 each had to fix, now reachable in `context` too: the book is
-    // opened by inspecting a source, it covers the whole canvas, and the library's advance control sits
-    // under it. Both gate sources are inspected first, so the advance would otherwise succeed — which
-    // is what makes this a real test rather than one the gate passes for free.
-    for (const displayName of SOURCE_NAMES) {
-        await page.getByRole('button', { name: `Inspect ${displayName.en}` }).click();
-    }
-
-    await clickDesign(page, SHELL_ADVANCE);
-
-    await expectActiveScene(page, 'Library');
-
-    // …and closing the book restores it, so the suppression is a suppression and not a broken control.
-    // The retry covers the 180ms closing fade, during which the control is still — correctly — inert.
-    await clickDesign(page, BOOK_CLOSE);
-    await clickUntilScene(page, SHELL_ADVANCE, 'Colleagues');
-});
+/*
+ * The third test that used to live here — "does not let a click meant for the reference book advance
+ * the phase underneath it" — moved to `library-reading.spec.ts` in Story 2.8, along with the room it
+ * was about. It is not gone: the book is now owned by the scene it covers, so the suppression it pins
+ * is a fact about the reading room rather than about a session-wide overlay, and it belongs with the
+ * rest of that room's behaviour.
+ */

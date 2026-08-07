@@ -88,11 +88,24 @@ export type LocalizedErrorCode = ErrorCodeOf<TranslationKey>;
 /**
  * The gates that have an authored in-fiction colleague line, by error code.
  *
- * Exactly one today: the significant-measure gate, whose four `colleagueHints` entries are authored
- * EN+FR in `case.json`. Adding a second predicate kind is a `CaseDefinition` contract change and a
- * version bump — the missing-sources colleague line is Story 2.8's AC4, not this story's.
+ * Two today, and both are `case.json` collections authored EN+FR with a validated always-satisfiable
+ * floor:
+ *
+ * - `significant-measures-required` — the significant-measure gate, answered from `colleagueHints`
+ *   against the recorded runs (Story 2.6).
+ * - `missing-contextual-sources` — the required-reading gate, answered from `readingGateHints`
+ *   against the inspected artifacts (Story 2.8). It sat in the default register until the reading
+ *   room existed, because a host that routes a gate refusal to a hint slot it does not have answers
+ *   with nothing — which is the one thing AC4 forbids.
+ *
+ * Adding a third is a `CaseDefinition` contract change and a version bump, not a line added here:
+ * membership means "a colleague *can* speak for this refusal", and `colleagueAnswers` is what decides
+ * whether one actually does at the call site.
  */
-const GATE_REFUSAL_CODES: readonly LocalizedErrorCode[] = ['significant-measures-required'];
+const GATE_REFUSAL_CODES: readonly LocalizedErrorCode[] = [
+    'significant-measures-required',
+    'missing-contextual-sources'
+];
 
 /**
  * A gate the player can act on is answered by the colleague; anything else by the localized error.
@@ -114,11 +127,15 @@ export type AdvanceRefusalInput = Readonly<{
      * Whether this host can actually **speak** the colleague's line for this refusal: it has an
      * authored hint that applies right now, and a slot to paint it in.
      *
-     * The laboratory passes `selectLocalizedColleagueHint(state) !== undefined`. Every other host
-     * passes `false` today, and says so here rather than by not calling this function — a host that
-     * routed a gate refusal to a hint slot it does not have would answer with nothing, which is the
-     * one thing AC4 forbids. When Story 2.8 authors the missing-sources line, the library changes
-     * this one argument and inherits the rule already written.
+     * The laboratory passes `selectLocalizedColleagueHint(state) !== undefined`; the library passes
+     * `selectLocalizedReadingGateHint(state) !== undefined` (Story 2.8). Every other host passes
+     * `false`, and says so here rather than by not calling this function — a host that routed a gate
+     * refusal to a hint slot it does not have would answer with nothing, which is the one thing AC4
+     * forbids.
+     *
+     * Note it is a fact about *this host and this moment*, not about the code: the library is the
+     * only scene that can speak for `missing-contextual-sources`, and even there the answer is `false`
+     * in the window where the reading is already complete and the refusal came from somewhere else.
      */
     colleagueAnswers: boolean;
 }>;

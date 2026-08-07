@@ -1,6 +1,10 @@
+---
+baseline_commit: 11c582a5302842ac347821069bb0cda0a29e917d
+---
+
 # Story 2.8: Library scene — the reading room and the reference book
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -66,76 +70,76 @@ So that the case opens as a place I am in rather than a list of source cards.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Author the required-reading colleague lines as case content (AC4).**
-  - [ ] Add `ReadingGateHint` + `ReadingGateHintPredicate` to `src/domain/cases/ColleagueCast.ts`, mirroring `ColleagueHint` exactly: `{ id, colleagueId, predicate, line: LocalizedText }`, predicate `{ kind: 'missing-artifact'; artifactId: string } | { kind: 'any-missing-reading' }`.
-  - [ ] Add `readingGateHints: readonly ReadingGateHint[]` to `CaseDefinition`.
-  - [ ] Add `ReadingGateHintSchema` to `src/schemas/CaseDefinitionSchema.ts`, `.strict()`, `.min(1)`, with the same superRefine guarantees `colleagueHints` gets: unique ids, `colleagueId` ∈ `colleagues[]`, `artifactId` ∈ `contextualArtifacts[]`, EN+FR both non-empty, **and `any-missing-reading` authored and last** (the always-satisfiable floor, so the gate can never refuse with nothing to say).
-  - [ ] `src/domain/review/readingGateHints.ts` — pure, no Phaser/store/locale/Zod. `selectReadingGateHint(definition, inspectedSourceIds): ReadingGateHintProjection | undefined`, returning `undefined` when readiness is `ready`. Reuse `evaluateContextReadiness`; do not re-derive "missing".
-  - [ ] Author in `public/cases/young-interference/case.json`, EN+FR: one `missing-artifact` line per contextual artifact (naming that artifact in prose) plus the `any-missing-reading` floor. In-fiction, attributed to an existing `colleagues[]` member, naming a reading — never a scene, phase or route (`encodesPath`).
-  - [ ] Bump `case.json` `version` `1.11.0` → `1.12.0`, and add `'1.11.0'` to the compatible-version list in `src/schemas/CaseRecordSchema.ts` with a comment saying why (`readingGateHints` is not progress-bearing).
-  - [ ] `selectLocalizedReadingGateHint(state)` in `src/core/store/selectors.ts`, shaped exactly like `selectLocalizedColleagueHint` (`{ hintId, speaker, line }`, speaker via `formatAttribution`/`projectAttribution`).
+- [x] **Task 1 — Author the required-reading colleague lines as case content (AC4).**
+  - [x] Add `ReadingGateHint` + `ReadingGateHintPredicate` to `src/domain/cases/ColleagueCast.ts`, mirroring `ColleagueHint` exactly: `{ id, colleagueId, predicate, line: LocalizedText }`, predicate `{ kind: 'missing-artifact'; artifactId: string } | { kind: 'any-missing-reading' }`.
+  - [x] Add `readingGateHints: readonly ReadingGateHint[]` to `CaseDefinition`.
+  - [x] Add `ReadingGateHintSchema` to `src/schemas/CaseDefinitionSchema.ts`, `.strict()`, `.min(1)`, with the same superRefine guarantees `colleagueHints` gets: unique ids, `colleagueId` ∈ `colleagues[]`, `artifactId` ∈ `contextualArtifacts[]`, EN+FR both non-empty, **and `any-missing-reading` authored and last** (the always-satisfiable floor, so the gate can never refuse with nothing to say).
+  - [x] `src/domain/review/readingGateHints.ts` — pure, no Phaser/store/locale/Zod. `selectReadingGateHint(definition, inspectedSourceIds): ReadingGateHintProjection | undefined`, returning `undefined` when readiness is `ready`. Reuse `evaluateContextReadiness`; do not re-derive "missing".
+  - [x] Author in `public/cases/young-interference/case.json`, EN+FR: one `missing-artifact` line per contextual artifact (naming that artifact in prose) plus the `any-missing-reading` floor. In-fiction, attributed to an existing `colleagues[]` member, naming a reading — never a scene, phase or route (`encodesPath`).
+  - [x] Bump `case.json` `version` `1.11.0` → `1.12.0`, and add `'1.11.0'` to the compatible-version list in `src/schemas/CaseRecordSchema.ts` with a comment saying why (`readingGateHints` is not progress-bearing).
+  - [x] `selectLocalizedReadingGateHint(state)` in `src/core/store/selectors.ts`, shaped exactly like `selectLocalizedColleagueHint` (`{ hintId, speaker, line }`, speaker via `formatAttribution`/`projectAttribution`).
 
-- [ ] **Task 2 — Route `missing-contextual-sources` to the colleague register (AC4).**
-  - [ ] Add `'missing-contextual-sources'` to `GATE_REFUSAL_CODES` in `src/adapters/phaser/renderers/advanceView.ts` and update its docstring (it currently says "exactly one today").
-  - [ ] Library passes `colleagueAnswers: selectLocalizedReadingGateHint(state) !== undefined` to `resolveAdvanceRefusal`, and paints the hint through `resolveAdvanceView`. Do not add a second rule — `advanceView.ts` already owns precedence, the transient-error override, and the hint's self-withdrawal.
-  - [ ] Extend `tests/unit/AdvanceView.test.ts`: the new code lands on the `'gate'` register, and with `colleagueAnswers: false` it still falls back to the localized error (the 2.7 review patch that made this code path reachable).
+- [x] **Task 2 — Route `missing-contextual-sources` to the colleague register (AC4).**
+  - [x] Add `'missing-contextual-sources'` to `GATE_REFUSAL_CODES` in `src/adapters/phaser/renderers/advanceView.ts` and update its docstring (it currently says "exactly one today").
+  - [x] Library passes `colleagueAnswers: selectLocalizedReadingGateHint(state) !== undefined` to `resolveAdvanceRefusal`, and paints the hint through `resolveAdvanceView`. Do not add a second rule — `advanceView.ts` already owns precedence, the transient-error override, and the hint's self-withdrawal.
+  - [x] Extend `tests/unit/AdvanceView.test.ts`: the new code lands on the `'gate'` register, and with `colleagueAnswers: false` it still falls back to the localized error (the 2.7 review patch that made this code path reachable).
 
-- [ ] **Task 3 — Phaser-free room geometry (AC1, AC8).**
-  - [ ] `src/adapters/phaser/scenes/libraryGeometry.ts` (or `renderers/`), Phaser imported **as a type only or not at all** — Vitest and Playwright run in Node and Phaser touches `window` at import time. `apparatusGeometry.ts` and `phasePlaceholderGeometry.ts` are the precedent.
-  - [ ] Export: artifact-object placement for N artifacts across the shelf band (total, deterministic, no overlap, inside the canvas), the detail-panel band, the advance-control bounds, and the gate-line band. Every function takes `canvasWidth`/`canvasHeight` — never closes over `1024`/`768` (AC7).
-  - [ ] `tests/unit/LibraryGeometry.test.ts`: placement for 1, 2, and 4 artifacts; no object overlaps another or the detail panel; every rectangle is inside the canvas; the advance control clears the gate-line band. **No vacuous assertions** — the 2.7 review rejected four (`expect(y).toBeGreaterThan(0)` on a coordinate built from positive offsets, comparisons that reduce to `PADDING > 0`).
+- [x] **Task 3 — Phaser-free room geometry (AC1, AC8).**
+  - [x] `src/adapters/phaser/scenes/libraryGeometry.ts` (or `renderers/`), Phaser imported **as a type only or not at all** — Vitest and Playwright run in Node and Phaser touches `window` at import time. `apparatusGeometry.ts` and `phasePlaceholderGeometry.ts` are the precedent.
+  - [x] Export: artifact-object placement for N artifacts across the shelf band (total, deterministic, no overlap, inside the canvas), the detail-panel band, the advance-control bounds, and the gate-line band. Every function takes `canvasWidth`/`canvasHeight` — never closes over `1024`/`768` (AC7).
+  - [x] `tests/unit/LibraryGeometry.test.ts`: placement for 1, 2, and 4 artifacts; no object overlaps another or the detail panel; every rectangle is inside the canvas; the advance control clears the gate-line band. **No vacuous assertions** — the 2.7 review rejected four (`expect(y).toBeGreaterThan(0)` on a coordinate built from positive offsets, comparisons that reduce to `PADDING > 0`).
 
-- [ ] **Task 4 — Reusable reference-book presenter (AC2, AC6).**
-  - [ ] `src/adapters/phaser/renderers/ReferenceBookPresenter.ts` — owns one `LectureBookRenderer`, the `LecturePagination` for the open artifact, and the ephemeral spread index. API: `create()`, `open(artifact, locale)`, `close()`, `render(state)` (re-publish on locale change), `get isOpen`, `destroy()`. Follows the `create/render/destroy` renderer contract and releases everything.
-  - [ ] Move `src/ui/sources/lecturePagination.ts` → `src/domain/cases/lecturePagination.ts` (pure, no DOM). Re-point the single import in `src/ui/context/CaseContextAndPrediction.ts`. **That import line is the only permitted `src/ui/*` edit in this story.**
-  - [ ] Rendition selection uses `resolveRendition(source.textualRendition, locale)` — the book is read in the active language and falls back to the transcription of record. Never capture the locale.
-  - [ ] A locale change while the book is open must re-publish the presentation (the chrome, the reader label, the source label, the summary, and the translated-rendition notice are all locale-derived).
+- [x] **Task 4 — Reusable reference-book presenter (AC2, AC6).**
+  - [x] `src/adapters/phaser/renderers/ReferenceBookPresenter.ts` — owns one `LectureBookRenderer`, the `LecturePagination` for the open artifact, and the ephemeral spread index. API: `create()`, `open(artifact, locale)`, `close()`, `render(state)` (re-publish on locale change), `get isOpen`, `destroy()`. Follows the `create/render/destroy` renderer contract and releases everything.
+  - [x] Move `src/ui/sources/lecturePagination.ts` → `src/domain/cases/lecturePagination.ts` (pure, no DOM). Re-point the single import in `src/ui/context/CaseContextAndPrediction.ts`. **That import line is the only permitted `src/ui/*` edit in this story.**
+  - [x] Rendition selection uses `resolveRendition(source.textualRendition, locale)` — the book is read in the active language and falls back to the transcription of record. Never capture the locale.
+  - [x] A locale change while the book is open must re-publish the presentation (the chrome, the reader label, the source label, the summary, and the translated-rendition notice are all locale-derived).
 
-- [ ] **Task 5 — Build `LibraryScene` (AC1, AC2, AC3, AC5).**
-  - [ ] `LibraryScene extends Scene` — **not** `PhasePlaceholderScene`. Store subscription stored, `shutdown` registered once, renderer destroyed there (`LaboratoryScene` is the reference lifecycle).
-  - [ ] `LibraryRenderer` under `src/adapters/phaser/renderers/`: shelving + reading surface drawn with `Graphics`/rectangles (no image asset, no loader entry, no rights-ledger entry — the same constraint 2.9 works under), one object per `selectContextualArtifacts(state)`, the detail panel, the gate-line slot, and the `AdvanceControl`.
-  - [ ] Text is created **empty** in `create()` and written in `render(state)` through `createTranslator(locale)`.
-  - [ ] Pickup: if `selectIsSourceInspected(state, id)` → open the book only (**no dispatch** — the store would refuse `duplicate-inspected-source`, and AC2 forbids an error the surface must explain away). Otherwise dispatch `source.inspected` through the adapter, then open the book on success; on failure show the localized error in the transient slot and do not open.
-  - [ ] Widen `PhaserStoreAdapter` with `inspectSource(sourceId)`. Do not let the scene call `store.dispatch` directly — every other scene goes through the adapter.
-  - [ ] Detail panel (AC3) renders, for the focused artifact: `displayName` (`resolveLocalizedText`), `creatorOrOrigin` (canonical), `t('source.type.<sourceType>')`, `t('source.provenanceName.<category>')` **as text, never colour alone**, `t('source.rights.<rightsStatus>')`, and `caseRelationship` (`resolveLocalizedText`). Reuse the existing `source.*` key families; author new `library.*` keys for room chrome only.
-  - [ ] AC3's unusable artifact: `!isSourceEligibleForInspection(a) || !a.textualRendition` → the object is present and its metadata readable, the pickup shows a neutral localized line (`library.artifact.unavailable` / `library.artifact.noRendition`), the book does **not** open, and nothing presents it as verified evidence.
-  - [ ] Advance control: reuse `AdvanceControl` + `advanceTransitionForPhase(phase)` exactly as `PhasePlaceholderScene` does. `isReady` is the honest gate read here — `selectContextualReadiness(state).status === 'ready'` — because it is a fact about the player's own record, not a judgement about a conclusion (ADR-006 bars only the latter).
-  - [ ] Transient refusals use `TransientMessageSlot` with the `AppState`-identity lifetime (Story 2.7's rule). Do not clear a message inside the render that draws it.
-  - [ ] Suppress the scene's own input while its book is open, at creation **and** on every visibility change — a scene rebuilt underneath an open or still-fading book must suppress before the first pointer event (`LectureBookRenderer.isOverlayVisible` stays true for the whole 180 ms closing fade, deliberately).
+- [x] **Task 5 — Build `LibraryScene` (AC1, AC2, AC3, AC5).**
+  - [x] `LibraryScene extends Scene` — **not** `PhasePlaceholderScene`. Store subscription stored, `shutdown` registered once, renderer destroyed there (`LaboratoryScene` is the reference lifecycle).
+  - [x] `LibraryRenderer` under `src/adapters/phaser/renderers/`: shelving + reading surface drawn with `Graphics`/rectangles (no image asset, no loader entry, no rights-ledger entry — the same constraint 2.9 works under), one object per `selectContextualArtifacts(state)`, the detail panel, the gate-line slot, and the `AdvanceControl`.
+  - [x] Text is created **empty** in `create()` and written in `render(state)` through `createTranslator(locale)`.
+  - [x] Pickup: if `selectIsSourceInspected(state, id)` → open the book only (**no dispatch** — the store would refuse `duplicate-inspected-source`, and AC2 forbids an error the surface must explain away). Otherwise dispatch `source.inspected` through the adapter, then open the book on success; on failure show the localized error in the transient slot and do not open.
+  - [x] Widen `PhaserStoreAdapter` with `inspectSource(sourceId)`. Do not let the scene call `store.dispatch` directly — every other scene goes through the adapter.
+  - [x] Detail panel (AC3) renders, for the focused artifact: `displayName` (`resolveLocalizedText`), `creatorOrOrigin` (canonical), `t('source.type.<sourceType>')`, `t('source.provenanceName.<category>')` **as text, never colour alone**, `t('source.rights.<rightsStatus>')`, and `caseRelationship` (`resolveLocalizedText`). Reuse the existing `source.*` key families; author new `library.*` keys for room chrome only.
+  - [x] AC3's unusable artifact: `!isSourceEligibleForInspection(a) || !a.textualRendition` → the object is present and its metadata readable, the pickup shows a neutral localized line (`library.artifact.unavailable` / `library.artifact.noRendition`), the book does **not** open, and nothing presents it as verified evidence.
+  - [x] Advance control: reuse `AdvanceControl` + `advanceTransitionForPhase(phase)` exactly as `PhasePlaceholderScene` does. `isReady` is the honest gate read here — `selectContextualReadiness(state).status === 'ready'` — because it is a fact about the player's own record, not a judgement about a conclusion (ADR-006 bars only the latter).
+  - [x] Transient refusals use `TransientMessageSlot` with the `AppState`-identity lifetime (Story 2.7's rule). Do not clear a message inside the render that draws it.
+  - [x] Suppress the scene's own input while its book is open, at creation **and** on every visibility change — a scene rebuilt underneath an open or still-fading book must suppress before the first pointer event (`LectureBookRenderer.isOverlayVisible` stays true for the whole 180 ms closing fade, deliberately).
 
-- [ ] **Task 6 — Reference reading in the laboratory (AC6).**
-  - [ ] `LaboratoryScene` owns its own `ReferenceBookPresenter` and gains one in-scene reference affordance that opens an artifact for re-reading during `experiment`.
-  - [ ] Reading in the laboratory dispatches nothing and changes no progression — reading, paging, and closing stay ephemeral.
-  - [ ] Book-open suppression of the apparatus stays, but is now **intra-scene** (`ApparatusRenderer.setInputEnabled` driven by the scene's own presenter), not a callback from another scene.
+- [x] **Task 6 — Reference reading in the laboratory (AC6).**
+  - [x] `LaboratoryScene` owns its own `ReferenceBookPresenter` and gains one in-scene reference affordance that opens an artifact for re-reading during `experiment`.
+  - [x] Reading in the laboratory dispatches nothing and changes no progression — reading, paging, and closing stay ephemeral.
+  - [x] Book-open suppression of the apparatus stays, but is now **intra-scene** (`ApparatusRenderer.setInputEnabled` driven by the scene's own presenter), not a callback from another scene.
 
-- [ ] **Task 7 — Retire `LectureBookScene` and its reach-in (AC6).**
-  - [ ] Delete `src/adapters/phaser/scenes/LectureBookScene.ts` and the `LECTURE_BOOK_SCENE_KEY` export.
-  - [ ] `src/game/main.ts`: delete the whole `onLectureBookReady` / `isOverlayVisible` / suppression-callback block; `StartGame(parent, store)`.
-  - [ ] Drop the now-dead `isOverlayVisible` constructor parameter from `ColleaguesScene`, `TheoryBoardScene`, `RivalLabScene`, `PhasePlaceholderScene` and `DebriefScene` — no book can be open in their phases once the overlay is gone. Keep each renderer's `setInputEnabled` (the laboratory and the library still need it). **Do not** leave a `() => false` default behind: the 2.7 review flagged exactly that as making a wiring omission a compile-time success.
-  - [ ] `src/main.ts`: delete `lectureBookController` / `pendingLectureBookPresentation` / `projectLectureBook`; pass `onLectureBookPresentationChange: () => {}` to `mountCaseContextAndPrediction` so the retired panel still compiles and still dispatches `source.inspected`. Keep the `LectureBookPresentation` type export path that `CaseContextAndPrediction` imports.
-  - [ ] Relocate the sticky-canvas listener: `src/adapters/phaser/canvasBounds.ts` exporting `registerCanvasBoundsRefresh(scene): () => void` (passive `window` `scroll` → `scene.scale.updateBounds()`, returns its own disposer). Call it in **every** routed scene's `create()` and dispose on `shutdown`. With the always-on overlay gone, exactly one routed scene is active at a time, so exactly one listener exists. Delete the stale comment at `LaboratoryScene.ts:26-27`.
+- [x] **Task 7 — Retire `LectureBookScene` and its reach-in (AC6).**
+  - [x] Delete `src/adapters/phaser/scenes/LectureBookScene.ts` and the `LECTURE_BOOK_SCENE_KEY` export.
+  - [x] `src/game/main.ts`: delete the whole `onLectureBookReady` / `isOverlayVisible` / suppression-callback block; `StartGame(parent, store)`.
+  - [x] Drop the now-dead `isOverlayVisible` constructor parameter from `ColleaguesScene`, `TheoryBoardScene`, `RivalLabScene`, `PhasePlaceholderScene` and `DebriefScene` — no book can be open in their phases once the overlay is gone. Keep each renderer's `setInputEnabled` (the laboratory and the library still need it). **Do not** leave a `() => false` default behind: the 2.7 review flagged exactly that as making a wiring omission a compile-time success.
+  - [x] `src/main.ts`: delete `lectureBookController` / `pendingLectureBookPresentation` / `projectLectureBook`; pass `onLectureBookPresentationChange: () => {}` to `mountCaseContextAndPrediction` so the retired panel still compiles and still dispatches `source.inspected`. Keep the `LectureBookPresentation` type export path that `CaseContextAndPrediction` imports.
+  - [x] Relocate the sticky-canvas listener: `src/adapters/phaser/canvasBounds.ts` exporting `registerCanvasBoundsRefresh(scene): () => void` (passive `window` `scroll` → `scene.scale.updateBounds()`, returns its own disposer). Call it in **every** routed scene's `create()` and dispose on `shutdown`. With the always-on overlay gone, exactly one routed scene is active at a time, so exactly one listener exists. Delete the stale comment at `LaboratoryScene.ts:26-27`.
 
-- [ ] **Task 8 — One book-control constant (AC7).**
-  - [ ] `LectureBookRenderer`: export `BOOK_CONTROL_WIDTH` and `bookControlLabelWrap()`; `drawControl`'s literal `150`, the `CONTROL_WIDTH - 16` shrink bound, and `activateControl`'s hit test all read them.
-  - [ ] Start the shrink loop below the authored size — the first iteration currently measures at 15px and then calls `setFontSize(15)`, one wasted measure/reflow per control per redraw.
-  - [ ] `tests/e2e/french-typography.spec.ts`: replace `const CONTROL_INNER_WIDTH = 134` with the exported bound.
-  - [ ] Replace the restated `1024`/`768` in `tests/e2e/canvas-transitions.spec.ts` (and any spec this story touches) with values derived from the canvas bounding box or from exported geometry. Closes the remaining half of the `deferred-work.md` "unlinked book-control coordinate" item.
+- [x] **Task 8 — One book-control constant (AC7).**
+  - [x] `LectureBookRenderer`: export `BOOK_CONTROL_WIDTH` and `bookControlLabelWrap()`; `drawControl`'s literal `150`, the `CONTROL_WIDTH - 16` shrink bound, and `activateControl`'s hit test all read them.
+  - [x] Start the shrink loop below the authored size — the first iteration currently measures at 15px and then calls `setFontSize(15)`, one wasted measure/reflow per control per redraw.
+  - [x] `tests/e2e/french-typography.spec.ts`: replace `const CONTROL_INNER_WIDTH = 134` with the exported bound.
+  - [x] Replace the restated `1024`/`768` in `tests/e2e/canvas-transitions.spec.ts` (and any spec this story touches) with values derived from the canvas bounding box or from exported geometry. Closes the remaining half of the `deferred-work.md` "unlinked book-control coordinate" item.
 
-- [ ] **Task 9 — Localization (AC3, AC4, AC8).**
-  - [ ] Every new key in **both** `src/core/i18n/locales/en.ts` and `fr.ts`. `TranslationKey` is derived from `en`, so a missing French key is a `tsc` error — do not work around it.
-  - [ ] Room chrome, artifact-metadata labels, pickup refusals, and the unusable-artifact lines are interface strings (`translate`). The colleague's gate line is authored prose in `case.json` (`LocalizedText`). Do not mix the two.
-  - [ ] Add any new fixed-height control to `FIXED_HEIGHT_CONTROLS` in `french-typography.spec.ts` — the **whole-string** check. The per-token sweep provably cannot catch a two-line wrap inside a fixed-height rectangle.
-  - [ ] **How AC8's "asserted present in EN and FR" is actually met:** canvas text cannot be read from the DOM, so do **not** try to assert it in Playwright. Assert bundle completeness and non-emptiness in `tests/unit/I18n.test.ts` for every new `library.*` key, assert the authored `readingGateHints` lines carry both locales in `tests/unit/ReadingGateHints.test.ts` (or the schema test), and assert the French widths in `french-typography.spec.ts`. That is the same division `canvas-transitions.spec.ts` documents in its header.
+- [x] **Task 9 — Localization (AC3, AC4, AC8).**
+  - [x] Every new key in **both** `src/core/i18n/locales/en.ts` and `fr.ts`. `TranslationKey` is derived from `en`, so a missing French key is a `tsc` error — do not work around it.
+  - [x] Room chrome, artifact-metadata labels, pickup refusals, and the unusable-artifact lines are interface strings (`translate`). The colleague's gate line is authored prose in `case.json` (`LocalizedText`). Do not mix the two.
+  - [x] Add any new fixed-height control to `FIXED_HEIGHT_CONTROLS` in `french-typography.spec.ts` — the **whole-string** check. The per-token sweep provably cannot catch a two-line wrap inside a fixed-height rectangle.
+  - [x] **How AC8's "asserted present in EN and FR" is actually met:** canvas text cannot be read from the DOM, so do **not** try to assert it in Playwright. Assert bundle completeness and non-emptiness in `tests/unit/I18n.test.ts` for every new `library.*` key, assert the authored `readingGateHints` lines carry both locales in `tests/unit/ReadingGateHints.test.ts` (or the schema test), and assert the French widths in `french-typography.spec.ts`. That is the same division `canvas-transitions.spec.ts` documents in its header.
 
-- [ ] **Task 10 — Tests (AC8).**
-  - [ ] `tests/unit/LibraryGeometry.test.ts` (Task 3).
-  - [ ] `tests/unit/ReadingGateHints.test.ts` — predicate selection over fixtures: nothing inspected → the first missing artifact's line; one inspected → the other's; both inspected → `undefined`; a case whose specific predicates all miss → the floor.
-  - [ ] `tests/unit/CaseDefinition.test.ts` — schema rejects a `readingGateHints` with an unknown `colleagueId`, an unknown `artifactId`, a missing floor, or a floor that is not last.
-  - [ ] `tests/integration/LibraryReading.test.ts` — **public actions and selectors only**: `source.inspected` for both artifacts moves `selectContextualReadiness` to `ready`; `case.phaseAdvance { nextPhase: 'prediction' }` is refused with `missing-contextual-sources` before and succeeds after; a re-inspect is the store's `duplicate-inspected-source` refusal, which is why the scene must not dispatch it.
-  - [ ] `tests/e2e/library-reading.spec.ts` — canvas clicks only: open artifact 1, page, close, open artifact 2, close, leave the library, assert `data-active-scene` becomes `Colleagues` (the observable hook `src/main.ts:138` sets), and assert a prediction card is live (the AC5 Blocker-A proof — today all four refuse on a canvas-only path). Every click target derived from exported geometry, never restated. Use `clickUntilScene` for the first click after the book closes (the 180 ms fade suppression). One negative test: an advance click with nothing read must leave the scene on `Library`.
-  - [ ] Reconcile the specs the retirement breaks — see §Spec fallout. Do not delete an assertion to make a suite green; re-point it.
-  - [ ] `npm run typecheck`, `npm test`, `npm run test:e2e`. **Measure the baseline first** (stash and run at `4ef6b83`) — seven chromium e2e specs already fail. Record the before/after comparison in the Dev Agent Record.
-  - [ ] Manual at 1280×720, EN and FR: the room is legible and un-truncated, the detail text does not overflow, the gate line is answered rather than silent, and `prefers-reduced-motion: reduce` paints a static frame with no update loop registered.
+- [x] **Task 10 — Tests (AC8).**
+  - [x] `tests/unit/LibraryGeometry.test.ts` (Task 3).
+  - [x] `tests/unit/ReadingGateHints.test.ts` — predicate selection over fixtures: nothing inspected → the first missing artifact's line; one inspected → the other's; both inspected → `undefined`; a case whose specific predicates all miss → the floor.
+  - [x] `tests/unit/CaseDefinition.test.ts` — schema rejects a `readingGateHints` with an unknown `colleagueId`, an unknown `artifactId`, a missing floor, or a floor that is not last.
+  - [x] `tests/integration/LibraryReading.test.ts` — **public actions and selectors only**: `source.inspected` for both artifacts moves `selectContextualReadiness` to `ready`; `case.phaseAdvance { nextPhase: 'prediction' }` is refused with `missing-contextual-sources` before and succeeds after; a re-inspect is the store's `duplicate-inspected-source` refusal, which is why the scene must not dispatch it.
+  - [x] `tests/e2e/library-reading.spec.ts` — canvas clicks only: open artifact 1, page, close, open artifact 2, close, leave the library, assert `data-active-scene` becomes `Colleagues` (the observable hook `src/main.ts:138` sets), and assert a prediction card is live (the AC5 Blocker-A proof — today all four refuse on a canvas-only path). Every click target derived from exported geometry, never restated. Use `clickUntilScene` for the first click after the book closes (the 180 ms fade suppression). One negative test: an advance click with nothing read must leave the scene on `Library`.
+  - [x] Reconcile the specs the retirement breaks — see §Spec fallout. Do not delete an assertion to make a suite green; re-point it.
+  - [x] `npm run typecheck`, `npm test`, `npm run test:e2e`. **Measure the baseline first** (stash and run at `4ef6b83`) — seven chromium e2e specs already fail. Record the before/after comparison in the Dev Agent Record.
+  - [x] Manual at 1280×720, EN and FR: the room is legible and un-truncated, the detail text does not overflow, the gate line is answered rather than silent, and `prefers-reduced-motion: reduce` paints a static frame with no update loop registered.
 
 ## Dev Notes
 
@@ -290,16 +294,195 @@ Pinned; no upgrade and **no new dependency** is in scope: Phaser 4.2.1, TypeScri
 
 ### Agent Model Used
 
+Claude Opus 4.6 (`claude-opus-4-6`), via the `gds-dev-story` workflow.
+
 ### Implementation Plan
+
+Built in the story's task order, because the dependencies run that way: the authored content and its
+selector first (Tasks 1–2), then the Phaser-free geometry the renderer and every spec read (Task 3),
+then the reusable presenter (Task 4), then the two scenes that own one (Tasks 5–6), then the retirement
+the new owners make possible (Task 7), then the constants, the locales, and the tests (Tasks 8–10).
+
+Four decisions taken during the build that the story did not pre-decide:
+
+1. **`libraryGeometry.ts` imports Phaser not at all**, not even as a type. `apparatusGeometry.ts` and
+   `phasePlaceholderGeometry.ts` import `AdvanceControl` (type-only Phaser); this one needed nothing,
+   so it takes nothing. It re-exports `ADVANCE_CONTROL_WIDTH`/`HEIGHT` from the widget rather than
+   restating them.
+2. **`ReferenceBookPresenter` takes a `getLocale` reader**, not a `locale` argument per call. The
+   project rule bars a defaulted locale because it converts a forgotten call site into a silent English
+   render; a live reader supplied by the owning scene has no call site to forget and lets the book's
+   own internal chrome redraws read the current language too.
+3. **`designSurface.ts`** was added so the specs stop restating `1024`/`768`. A spec cannot import
+   `game/main.ts` (it constructs a `Phaser.Game`), so the two numbers live in a module with no imports
+   and both sides read it. This closes the second half of the `deferred-work.md` coordinate item.
+4. **The bench's reference controls are measured, not fixed-height.** Their labels are authored
+   artifact display names, and the French one wraps to two lines where the English fits on one. Each
+   control is sized to its own measured label and the next is stacked under it.
 
 ### Debug Log References
 
+Three defects found while building, each worth recording because none was visible from the code:
+
+- **`Shape.setSize` throws, and the throw escaped into the store's notify loop.** The bench's reference
+  controls were `Rectangle`s resized per render. `Cannot set properties of null (setting 'width')` was
+  raised inside `ApparatusRenderer.render`, which runs inside the router's `start`, which runs inside
+  `dispatch`'s notify — so `prediction → experiment` advanced the phase and then stranded the router,
+  leaving `data-active-scene` on the previous scene with no visible error. Rebuilt on a shared
+  `Graphics` for the fill and a `Zone` per control: `Zone.setSize(w, h, true)` is the one Phaser API
+  that resizes a hit area with the object.
+- **The book's three animations each disable input for their whole duration**, which is correct for a
+  player and invisible to a spec clicking at machine speed. `BOOK_OPEN_MS`, `BOOK_TURN_MS`, and
+  `BOOK_CLOSE_FADE_MS` are now exported and `canvasHelpers.ts` waits on the real numbers.
+- **`canvas-transitions.spec.ts`'s `review → debrief` step was already flaky at baseline.** The two DOM
+  clicks between the board's two advances take ~125ms, inside `ADVANCE_RELABEL_LOCKOUT_MS` (400ms), so
+  the second click is correctly ignored. Measured at 125ms at HEAD *and* at the story's baseline
+  commit, where the test also fails when run alone — it passed in the full baseline run only because
+  nine parallel workers slowed the machine past 400ms. Fixed with the bounded `clickUntilScene`, which
+  the file already uses for the book fade.
+
 ### Completion Notes List
 
+**Baseline, measured before any change** (HEAD `11c582a`, whose only diff from the story's stated
+baseline `4ef6b83` is this story file and `sprint-status.yaml`): `typecheck` clean, `npm test`
+668 passing across 46 files, `npm run test:e2e` **43 passed / 7 failed** on chromium.
+
+**After**: `typecheck` clean, `npm test` **764 passing across 49 files**, `npm run test:e2e`
+**47 passed / 7 failed**. The seven failures are the **same seven test names** as baseline —
+`accessibility`, `curated-record` (snapshots inspected source labels), `inquiry-recognition`,
+`offline-reload`, `progress-portability`, `theory-board`, `young-experiment` — all of which fail on a
+missing DOM control (`Record prepared observation` and friends) that this story never touches.
+`offline-reload` specifically dies at line 89, well before the stale reader at 121–135 the story asked
+about, so that reader was never reached at baseline either.
+
+The test count moved 50 → 54, and the arithmetic accounts for every one: **+6** in the new
+`library-reading.spec.ts`, **−2** from `curated-record.spec.ts` (the summary toggle and the
+reduced-motion open/close, re-pointed onto the canvas path), **−1** from `canvas-transitions.spec.ts`
+(the book-suppression test, moved to the room it is about), **+1** in `french-typography.spec.ts` (the
+reading room's authored content). No assertion was deleted to make a suite green.
+
+**Per acceptance criterion:**
+
+- **AC1** — `LibraryScene extends Scene`, not `PhasePlaceholderScene`. `LibraryRenderer` draws shelving,
+  a plank, a reading surface, one object per contextual artifact, and a detail panel — all coded
+  geometry, no asset, no loader or rights-ledger entry. The placeholder marker is gone.
+- **AC2** — Pickup opens the book on the unchanged `LectureBookRenderer` and dispatches `source.inspected`
+  through the new `PhaserStoreAdapter.inspectSource`. An already-read artifact **re-opens without
+  dispatching**, so the store's `duplicate-inspected-source` refusal is never provoked.
+- **AC3** — The detail panel renders display name, `creatorOrOrigin` (canonical), source type,
+  provenance category, rights status, and case relationship — **as text**, through the shared `source.*`
+  key families. An ineligible artifact or one with no rendition gets a neutral localized line, does not
+  open, and is never recorded.
+- **AC4** — `readingGateHints` is a new `CaseDefinition` collection with the same validation
+  `colleagueHints` gets (unique ids, cast attribution, real artifact ids, `encodesPath`, and a floor
+  authored last). `missing-contextual-sources` joined `GATE_REFUSAL_CODES`; the room passes
+  `colleagueAnswers` and paints through the shared `resolveAdvanceView`. No second precedence rule.
+- **AC5** — Proven end to end by canvas clicks only in `library-reading.spec.ts`: both references read,
+  the room left, a prediction card chosen, and `prediction → experiment` taken on it.
+- **AC6** — `LectureBookScene` deleted, along with `LECTURE_BOOK_SCENE_KEY`, the suppression callback,
+  the `isOverlayVisible` parameter on five scenes (**removed, not defaulted**), the `main.ts` controller
+  wiring, and the now-dead `LectureBookController`. The scroll listener is
+  `canvasBounds.registerCanvasBoundsRefresh`, registered and disposed by every routed scene. The book
+  stays reachable at the bench through the laboratory's own presenter and reference shelf.
+- **AC7** — `BOOK_CONTROL_*` and `bookControlLabelWrap()` exported and read by the draw call, the shrink
+  bound, the hit test, and the spec; the control row's three x positions named; `designSurface.ts`
+  removes the last restated `1024`/`768`.
+- **AC8** — `LibraryGeometry.test.ts` (47 assertions, run against two canvas sizes so a memorised
+  dimension fails), `ReadingGateHints.test.ts`, `LibraryReading.test.ts` (public actions and selectors
+  only), `library-reading.spec.ts` (canvas clicks only), and EN+FR coverage split across
+  `I18n.test.ts`, `CaseDefinition.test.ts`, and `french-typography.spec.ts`.
+
+**Manual check at 1280×720, EN and FR** (screenshots taken through Playwright): the room is legible and
+un-truncated in both, the detail text does not overflow its panel, the read state is carried by a
+marker *and* a stroke rather than by colour alone, the gate line is answered by the attributed colleague
+rather than left silent, the bench's reference shelf and the laboratory hint coexist without collision,
+and under `prefers-reduced-motion: reduce` the book opens and closes as a static frame.
+`LibraryRenderer` registers no update loop, starts no tween, and owns no timer.
+
+**Open questions answered, for the reviewer:**
+
+1. **Scene-local book ownership (D1) is what shipped.** No reach-in, no un-routed scene, every
+   cross-cutting fact from the store, and only the spread index widget-local. Flagging rather than
+   reinterpreting AC6 silently, as the story asked.
+2. **The ineligible-artifact dead end was not fixed here.** `evaluateContextReadiness` is untouched, so
+   an unreviewed artifact still makes context readiness permanently incomplete. Unreachable with shipped
+   Young content; `ReadingGateHints.test.ts` pins that the colleague and the readiness rule at least
+   agree about it. Still needs an owner — Story 3.1 or here on review.
+3. **The two unowned `review → debrief` intents are still unowned.** Carried from 2.7, untouched.
+4. **The laboratory's reference affordance is a chooser**, as Task 6 assumed — one control per readable
+   artifact. Worth a second opinion: a single "reopen the last one" control would be cheaper, and with
+   two artifacts the chooser is only marginally more useful.
+
 ### File List
+
+**New**
+
+- `src/adapters/phaser/canvasBounds.ts`
+- `src/adapters/phaser/designSurface.ts`
+- `src/adapters/phaser/renderers/LibraryRenderer.ts`
+- `src/adapters/phaser/renderers/ReadingRoomDecor.ts`
+- `src/adapters/phaser/renderers/ReferenceBookPresenter.ts`
+- `src/adapters/phaser/scenes/libraryDecorGeometry.ts`
+- `src/adapters/phaser/scenes/libraryGeometry.ts`
+- `src/domain/review/readingGateHints.ts`
+- `tests/e2e/canvasHelpers.ts`
+- `tests/e2e/library-reading.spec.ts`
+- `tests/integration/LibraryReading.test.ts`
+- `tests/unit/LibraryDecorGeometry.test.ts`
+- `tests/unit/LibraryGeometry.test.ts`
+- `tests/unit/ReadingGateHints.test.ts`
+
+**Moved**
+
+- `src/ui/sources/lecturePagination.ts` → `src/domain/cases/lecturePagination.ts`
+
+**Deleted**
+
+- `src/adapters/phaser/scenes/LectureBookScene.ts`
+
+**Modified**
+
+- `public/cases/young-interference/case.json`
+- `src/adapters/phaser/PhaserStoreAdapter.ts`
+- `src/adapters/phaser/renderers/ApparatusRenderer.ts`
+- `src/adapters/phaser/renderers/LectureBookRenderer.ts`
+- `src/adapters/phaser/renderers/advanceView.ts`
+- `src/adapters/phaser/renderers/apparatusGeometry.ts`
+- `src/adapters/phaser/scenes/ColleaguesScene.ts`
+- `src/adapters/phaser/scenes/DebriefScene.ts`
+- `src/adapters/phaser/scenes/LaboratoryScene.ts`
+- `src/adapters/phaser/scenes/LibraryScene.ts`
+- `src/adapters/phaser/scenes/PhasePlaceholderScene.ts`
+- `src/adapters/phaser/scenes/RivalLabScene.ts`
+- `src/adapters/phaser/scenes/TheoryBoardScene.ts`
+- `src/adapters/phaser/ui/AdvanceControl.ts`
+- `src/core/i18n/locales/en.ts`
+- `src/core/i18n/locales/fr.ts`
+- `src/core/store/selectors.ts`
+- `src/domain/cases/CaseDefinition.ts`
+- `src/domain/cases/ColleagueCast.ts`
+- `src/game/main.ts`
+- `src/main.ts`
+- `src/schemas/CaseDefinitionSchema.ts`
+- `src/schemas/CaseRecordSchema.ts`
+- `src/ui/context/CaseContextAndPrediction.ts`
+- `tests/e2e/canvas-transitions.spec.ts`
+- `tests/e2e/curated-record.spec.ts`
+- `tests/e2e/dialogue-advance.spec.ts`
+- `tests/e2e/french-typography.spec.ts`
+- `tests/e2e/rival-lab.spec.ts`
+- `tests/unit/AdvanceView.test.ts`
+- `tests/unit/CaseDefinition.test.ts`
+- `tests/unit/CaseRecordSchema.test.ts`
+- `tests/unit/I18n.test.ts`
+- `tests/unit/lecturePagination.test.ts`
+- `_bmad-output/implementation-artifacts/deferred-work.md`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
 
 ## Change Log
 
 | Date | Version | Description | Author |
 | --- | --- | --- | --- |
 | 2026-08-07 | 0.1 | Story context created from epics.md §Story 2.8, sprint-change-proposal-2026-08-06, EXPERIENCE.md v2.0, game-architecture v1.2, project-context v2.1, the 2.7 story and review, deferred-work.md, and the live source. | Game Scrum Master |
+| 2026-08-07 | 1.1 | Reading-room visual direction revised after author review ("too basic", with three reference photographs of period reading rooms). Palette moved off the laboratory's teals to warm walnut and lamplight; wall bays packed floor to ceiling with deterministically generated shelving; the shelf became a joined bookcase with cornice, uprights, picture lights and pockets of filler books; the references became bound volumes with gilt work, fore-edges, corner fleurons, a read ribbon, and the title on a bookplate centred on the front board; the desk gained a green leather blotter and a lamp pool; the dead lower third became panelled wainscot over a floorboard strip. `SHELF_INSET` widened 76→118 to give the bays depth. Scenery split into `ReadingRoomDecor` + `libraryDecorGeometry` so no hit target can move with a repaint; `AdvanceControl` gained an optional palette, defaulting to Story 2.6's exact fills. Still no asset, no loader entry, and no motion. Unit tests 764→798. | Game Developer |
+| 2026-08-07 | 1.0 | Implemented all ten tasks. Reading room and reference book on the canvas; `source.inspected` canvas-dispatchable; `readingGateHints` authored EN+FR at `case.json` 1.12.0; `LectureBookScene`, its scene→scene reach-in, and the `isOverlayVisible` parameter retired; scroll listener relocated to the scene lifecycle; book-control and design-surface constants exported. Three `deferred-work.md` items closed. E2E fallout reconciled across five specs, none by deleting an assertion. | Game Developer |

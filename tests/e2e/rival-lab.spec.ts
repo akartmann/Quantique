@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 
 import { lastProposalCardProbe, submitConclusionControlCentre } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
-import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
 import { rivalLabReviseControlCentre } from '../../src/adapters/phaser/renderers/RivalLabRenderer';
 // From `apparatusGeometry`, not `ApparatusRenderer`: that renderer imports Phaser as a *value*
 // (`BlendModes`), Phaser touches `window` at import time, and these specs run in Node.
@@ -28,13 +27,6 @@ import { fr } from '../../src/core/i18n/locales/fr';
 
 const canvas = (page: import('@playwright/test').Page) => page.locator('#game-container canvas');
 
-/**
- * The archival book's own canvas "Close book" control, which covers the surface once a source is read.
- *
- * Derived from the renderer since Story 2.7, rather than restated: a second spec needed the same
- * coordinate, and two copies of a literal shared with source is exactly what the project rule forbids.
- */
-const BOOK_CLOSE = bookCloseControlCentre();
 const CARD = lastProposalCardProbe(768);
 const SUBMIT = submitConclusionControlCentre();
 const REVISE = rivalLabReviseControlCentre(768);
@@ -85,12 +77,13 @@ const walkToTheoryBoardWithThinEvidence = async (
     await expect(page.getByRole('heading', { name: labels['boot.title'] })).toBeVisible();
     await expectActiveScene(page, 'Library');
 
+    // The DOM record is used only to satisfy the context gate on the way to the rival lab. Since Story
+    // 2.8 it opens nothing: the book belongs to the reading room, and this panel records the inspection
+    // and draws nothing over the canvas. The `clickDesign(BOOK_CLOSE)` that used to follow went with
+    // it — with no book to dismiss, that click would land on live canvas instead.
     for (const displayName of SOURCE_NAMES) {
         await page.getByRole('button', { name: labels['curatedRecord.inspect'].replace('{name}', displayName[locale]) }).click();
     }
-    // Inspecting a source publishes the reference book over the whole canvas; leaving it open would
-    // legitimately suppress every canvas click below.
-    await clickDesign(page, BOOK_CLOSE);
 
     await page.getByRole('button', { name: 'Continue to prediction' }).click();
     await page.getByLabel('Tentative prediction').fill('A larger screen distance may widen the pattern.');

@@ -10,6 +10,7 @@ import { selectDefensibleConclusionIds } from '../../domain/theory/conclusionPro
 import type { RunRecord } from '../../domain/evidence/RunRecord';
 import { countSignificantMeasures } from '../../domain/evidence/significantMeasures';
 import { selectColleagueHint } from '../../domain/review/colleagueHints';
+import { selectReadingGateHint } from '../../domain/review/readingGateHints';
 import type { AppState, ComparisonNote, CompletionSnapshot, ReplayState, RivalLabCritiqueEntry } from './AppState';
 import type { RivalLabCritiqueSelection } from '../../domain/review/rivalLabRules';
 import type { ConsultationProjection } from '../../domain/review/ConsultationRule';
@@ -323,6 +324,34 @@ export type LocalizedColleagueHint = Readonly<{
  */
 export const selectLocalizedColleagueHint = (state: AppState): LocalizedColleagueHint | undefined => {
     const hint = selectColleagueHint(state.caseDefinition, state.runs);
+    if (!hint) return undefined;
+    const locale = selectLocale(state);
+    const t = createTranslator(locale);
+    return Object.freeze({
+        hintId: hint.hintId,
+        speaker: formatAttribution(t, projectAttribution(state, hint.colleagueId, 'colleague.unattributedSpeaker')),
+        line: resolveLocalizedText(hint.line, locale)
+    });
+};
+
+// --- Reading gate (Story 2.8) -------------------------------------------------------------------
+
+/**
+ * The in-fiction line for a player whose required reading is incomplete, resolved for display.
+ *
+ * Shaped exactly like {@link LocalizedColleagueHint} and for the same reasons — three string members,
+ * no defensibility field, and none is reachable: the domain function it wraps reads only the inspected
+ * artifacts and never the conclusion proposals. The two hint selectors are siblings and stay
+ * symmetrical deliberately; the gates they answer are different (`inspectedSourceIds` here, `runs`
+ * there) and neither can substitute for the other.
+ *
+ * `undefined` means the player needs no line: either the reading is complete, or no authored line
+ * matches. Validation guarantees shipped content always has one for an incomplete reading, so in
+ * practice the first case is the one a caller sees — and `resolveAdvanceRefusal`'s `colleagueAnswers`
+ * argument is how a caller handles the second without going silent.
+ */
+export const selectLocalizedReadingGateHint = (state: AppState): LocalizedColleagueHint | undefined => {
+    const hint = selectReadingGateHint(state.caseDefinition, state.inspectedSourceIds);
     if (!hint) return undefined;
     const locale = selectLocale(state);
     const t = createTranslator(locale);

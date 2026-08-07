@@ -1,56 +1,65 @@
 import { AUTO, Game, Scale, type Scene } from 'phaser';
 
-import type { LectureBookController } from '../adapters/phaser/renderers/LectureBookRenderer';
+import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../adapters/phaser/designSurface';
+
 import { ColleaguesScene } from '../adapters/phaser/scenes/ColleaguesScene';
 import { DebriefScene } from '../adapters/phaser/scenes/DebriefScene';
 import { LaboratoryScene } from '../adapters/phaser/scenes/LaboratoryScene';
-import { LECTURE_BOOK_SCENE_KEY, LectureBookScene } from '../adapters/phaser/scenes/LectureBookScene';
 import { LibraryScene } from '../adapters/phaser/scenes/LibraryScene';
 import { RivalLabScene } from '../adapters/phaser/scenes/RivalLabScene';
 import { TheoryBoardScene } from '../adapters/phaser/scenes/TheoryBoardScene';
 import type { AppStore } from '../core/store/createStore';
 import { RIVAL_LAB_SCENE_KEY, ROUTABLE_SCENE_KEYS, type RoutableSceneKey } from '../domain/cases/ScenarioScript';
 
-export type { LectureBookController, LectureBookPresentation } from '../adapters/phaser/renderers/LectureBookRenderer';
-export { LECTURE_BOOK_SCENE_KEY } from '../adapters/phaser/scenes/LectureBookScene';
+/**
+ * The presentation type the retiring `CaseContextAndPrediction` panel still imports. Story 2.12 deletes
+ * that panel and this re-export with it; until then the path has to keep resolving.
+ */
+export type { LectureBookPresentation } from '../adapters/phaser/renderers/LectureBookRenderer';
 
-const StartGame = (parent: string, store: AppStore, onLectureBookReady?: (controller: LectureBookController) => void): Game => {
-    // Assigned below: every scene with its own canvas input reads the book's live visibility, and the
-    // book is built after them.
-    let lectureBookScene: LectureBookScene | undefined;
-    const isOverlayVisible = (): boolean => lectureBookScene?.isOverlayVisible() ?? false;
-    const laboratoryScene = new LaboratoryScene(store, isOverlayVisible);
-    const colleaguesScene = new ColleaguesScene(store, isOverlayVisible);
-    const theoryBoardScene = new TheoryBoardScene(store, isOverlayVisible);
-    const rivalLabScene = new RivalLabScene(store, isOverlayVisible);
-    // Since Story 2.7 these two carry an advance control of their own, so they own canvas input like
-    // the four above and need the same suppression.
-    const libraryScene = new LibraryScene(store, isOverlayVisible);
-    const debriefScene = new DebriefScene(store, isOverlayVisible);
+/**
+ * Every routed scene, and nothing else (Story 2.8).
+ *
+ * There is no longer an always-running overlay scene above them. `LectureBookScene` was registered
+ * last so it drew over whatever the router had started, auto-started so the book was reachable in every
+ * phase, and — because it was the one scene that always ran — it also owned the session-wide canvas
+ * bounds refresh and a callback that reached into five other scenes to suppress their input.
+ *
+ * All three of those jobs moved somewhere they belong:
+ *
+ * - The **book** is a `ReferenceBookPresenter` owned by each scene that can host one (`LibraryScene`,
+ *   `LaboratoryScene`), so the scene that draws it is the scene that suppresses itself. No reach-in.
+ * - The **bounds refresh** is `registerCanvasBoundsRefresh`, registered and disposed by every routed
+ *   scene's own lifecycle. Exactly one routed scene runs at a time, so exactly one listener exists.
+ * - The **suppression callback** is gone entirely, and with it the `isOverlayVisible` parameter the
+ *   five other scenes took. It was dropped rather than defaulted: a `() => false` fallback would have
+ *   made a wiring omission a compile-time success, which the 2.7 review flagged as its own defect.
+ */
+const StartGame = (parent: string, store: AppStore): Game => {
     // A Record, not an array of pairs: this is the one place that has to be exhaustive over the
     // *routable* keys, and only the index signature makes the compiler reject a key the router can
     // activate. It is wider than `SceneKey` because the rival lab is routable but not authorable.
     const phaseScenes: Record<RoutableSceneKey, Scene> = {
-        Library: libraryScene,
-        Colleagues: colleaguesScene,
-        Laboratory: laboratoryScene,
-        TheoryBoard: theoryBoardScene,
-        Debrief: debriefScene,
-        [RIVAL_LAB_SCENE_KEY]: rivalLabScene
+        Library: new LibraryScene(store),
+        Colleagues: new ColleaguesScene(store),
+        Laboratory: new LaboratoryScene(store),
+        TheoryBoard: new TheoryBoardScene(store),
+        Debrief: new DebriefScene(store),
+        [RIVAL_LAB_SCENE_KEY]: new RivalLabScene(store)
     };
 
     const game = new Game({
         type: AUTO,
-        width: 1024,
-        height: 768,
+        width: DESIGN_WIDTH,
+        height: DESIGN_HEIGHT,
         backgroundColor: '#10252c',
         antialias: true,
         antialiasGL: true,
         scale: {
             parent,
             mode: Scale.FIT,
-            width: 1024,
-            height: 768,
+            width: DESIGN_WIDTH,
+            height: DESIGN_HEIGHT,
             autoCenter: Scale.CENTER_BOTH
         },
         // Registered below instead of here: Phaser auto-starts the first scene of a config array,
@@ -59,30 +68,6 @@ const StartGame = (parent: string, store: AppStore, onLectureBookReady?: (contro
     });
 
     ROUTABLE_SCENE_KEYS.forEach((sceneKey) => game.scene.add(sceneKey, phaseScenes[sceneKey], false));
-    // Added last so it draws above the routed scene, and auto-started so the book is available
-    // in every phase — including the phases whose scene has no book of its own yet.
-    lectureBookScene = new LectureBookScene(
-        store,
-        // Every routed scene that owns canvas input, not just the laboratory: the book is reachable in
-        // every phase, and the proposal cards cover almost the whole canvas.
-        (visible) => {
-            laboratoryScene.setApparatusInputEnabled(!visible);
-            colleaguesScene.setProposalInputEnabled(!visible);
-            theoryBoardScene.setProposalInputEnabled(!visible);
-            // The rival lab too: the book is reachable in every phase and the critique surface covers
-            // the canvas, so omitting it reproduces exactly the click-through defect 1.12 fixed for the
-            // proposal cards — a page-turn falling through to the revise control underneath.
-            rivalLabScene.setInputEnabled(!visible);
-            // And the two routing shells, which since Story 2.7 own an advance control. The library is
-            // where the book is *most* reachable — inspecting a source in the context phase is what
-            // opens it — so a page-turn falling through here would move the player straight out of the
-            // reading they had just started.
-            libraryScene.setInputEnabled(!visible);
-            debriefScene.setInputEnabled(!visible);
-        },
-        onLectureBookReady
-    );
-    game.scene.add(LECTURE_BOOK_SCENE_KEY, lectureBookScene, true);
 
     return game;
 };

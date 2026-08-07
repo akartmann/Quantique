@@ -61,12 +61,27 @@ export const advanceControlCentre = (
 const ADVANCE_FILL = 0x1d4451;
 const ADVANCE_FILL_READY = 0x276b55;
 
+/**
+ * A host's own two fills, for a room whose palette is not the laboratory's.
+ *
+ * Optional, and defaulting to Story 2.6's exact values, so adding this changed nothing on any of the
+ * five surfaces that already draw the control. The reading room passes walnut and bottle green: the
+ * teal above is the laboratory's, and against warm wood it read as a web button that had been dropped
+ * into the picture.
+ *
+ * Only the fills are a host's to choose. The dimensions, the label's colour, the relabel lockout and
+ * the readiness *rule* stay the widget's, because those are what make it one control rather than five
+ * that look alike.
+ */
+export type AdvanceControlPalette = Readonly<{ fill: number; fillReady: number }>;
+
 export type AdvanceControlOptions = Readonly<{
     /** Top-left of the control, in design space. */
     x: number;
     y: number;
     width?: number;
     height?: number;
+    palette?: AdvanceControlPalette;
     /** Fired on a click. The owner decides what that means and dispatches it. */
     onAdvance: () => void;
 }>;
@@ -99,7 +114,7 @@ export class AdvanceControl {
         const width = this.options.width ?? ADVANCE_CONTROL_WIDTH;
         const height = this.options.height ?? ADVANCE_CONTROL_HEIGHT;
 
-        this.surface = this.scene.add.rectangle(x, y, width, height, ADVANCE_FILL).setOrigin(0.5, 0.5);
+        this.surface = this.scene.add.rectangle(x, y, width, height, this.palette().fill).setOrigin(0.5, 0.5);
         // Authored empty here and written in `render`: `create()` runs once, but the locale can change
         // at any time, so every string has to arrive through the store subscription.
         this.label = this.scene.add.text(x, y, '', uiTextStyle({
@@ -131,7 +146,8 @@ export class AdvanceControl {
     public render(view: AdvanceControlView): void {
         const previous = this.label?.text;
         this.label?.setText(view.label);
-        this.surface?.setFillStyle(view.isReady ? ADVANCE_FILL_READY : ADVANCE_FILL);
+        const { fill, fillReady } = this.palette();
+        this.surface?.setFillStyle(view.isReady ? fillReady : fill);
         // `previous === ''` is the first render after `create()` writing the label in for the first
         // time, which is not a change under anyone's cursor. A locale change is, and locking there is
         // correct for the same reason: the control now says something the player has not read yet.
@@ -152,6 +168,10 @@ export class AdvanceControl {
         this.surface = undefined;
         this.label = undefined;
         this.relabelledAt = undefined;
+    }
+
+    private palette(): AdvanceControlPalette {
+        return this.options.palette ?? { fill: ADVANCE_FILL, fillReady: ADVANCE_FILL_READY };
     }
 
     private applyInputState(): void {

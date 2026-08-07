@@ -57,6 +57,10 @@ const validYoungCase: CaseDefinition = {
         { id: 'h-1', colleagueId: 'elias-wren', predicate: { kind: 'no-recorded-runs' }, line: bilingual('Take a reading and write it down.') },
         { id: 'h-2', colleagueId: 'marianne-cole', predicate: { kind: 'below-significant-measures' }, line: bilingual('Change a setting and record it beside the first.') }
     ],
+    readingGateHints: [
+        { id: 'r-1', colleagueId: 'samuel-hart', predicate: { kind: 'missing-artifact', artifactId: 'young-lecture-1801' }, line: bilingual('Young’s own lecture record is still unopened.') },
+        { id: 'r-2', colleagueId: 'thea-young', predicate: { kind: 'any-missing-reading' }, line: bilingual('There is something on that shelf you have not opened.') }
+    ],
     colleagues: [
         { id: 'thea-young', name: 'Dr. Thea Young', role: 'lead', portrait: { kind: 'silhouette', accentColor: '#c9a227' } },
         { id: 'elias-wren', name: 'Elias Wren', role: 'builder', portrait: { kind: 'silhouette', accentColor: '#4f8a8b' } },
@@ -596,6 +600,60 @@ describe('CaseDefinitionSchema', () => {
             }
         ],
         [
+            'duplicate reading-gate line IDs',
+            'Reading-gate line IDs must be stable and unique.',
+            (definition: Record<string, unknown>) => { (definition.readingGateHints as Array<{ id: string }>)[1].id = 'r-1'; }
+        ],
+        [
+            'a reading-gate line attributed to nobody in the cast',
+            'Every reading-gate line must be attributed to an authored colleague.',
+            // The rival lab specifically, for the same reason the colleague-hint case names him: he is
+            // deliberately not a member of `colleagues[]`, and a helpful nudge in the challenger's
+            // voice would misread the whole design.
+            (definition: Record<string, unknown>) => { (definition.readingGateHints as Array<{ colleagueId: string }>)[0].colleagueId = 'arthur-bell'; }
+        ],
+        [
+            'a reading-gate line naming an unauthored artifact',
+            'A reading-gate line may only name an authored contextual artifact.',
+            // Unreachable content: the predicate is matched against `missingArtifactIds`, drawn from
+            // `contextualArtifacts`, so a line naming anything else can never be shown to a player.
+            (definition: Record<string, unknown>) => {
+                (definition.readingGateHints as Array<{ predicate: unknown }>)[0].predicate =
+                    { kind: 'missing-artifact', artifactId: 'an-artifact-this-case-does-not-carry' };
+            }
+        ],
+        [
+            'a scene path encoded in a reading-gate line',
+            'Reading-gate copy must not encode a scene, route, or phase path.',
+            (definition: Record<string, unknown>) => {
+                (definition.readingGateHints as Array<{ line: LocalizedText }>)[0].line =
+                    { en: 'Go back to the library scene.', fr: 'Reprenez votre lecture.' };
+            }
+        ],
+        [
+            'a reading-gate set with no catch-all floor',
+            'Reading-gate lines must include an any-missing-reading line, so the gate always has something to say.',
+            // The floor that keeps this gate from refusing in silence. With only artifact-specific
+            // lines authored, a case that later adds a third artifact and forgets its line refuses
+            // with nothing to say — the dead end the rule exists to prevent.
+            (definition: Record<string, unknown>) => {
+                (definition.readingGateHints as Array<{ predicate: unknown }>)
+                    .forEach((hint) => { hint.predicate = { kind: 'missing-artifact', artifactId: 'young-lecture-1801' }; });
+            }
+        ],
+        [
+            'a catch-all floor authored before the lines it would shadow',
+            'The any-missing-reading line must be the last authored line, or it shadows every line after it.',
+            // Selection is first-match and this predicate is unconditionally true, so anywhere but
+            // last it collapses the escalation ladder to one generic line and turns every line after
+            // it into unreachable content. Authoring two floors is caught here too, because the
+            // earlier of them cannot be last.
+            (definition: Record<string, unknown>) => {
+                const hints = definition.readingGateHints as unknown[];
+                hints.reverse();
+            }
+        ],
+        [
             'a significance rule naming no critical control at all',
             'Too small: expected array to have >=1 items',
             (definition: Record<string, unknown>) => {
@@ -756,7 +814,12 @@ describe('CaseDefinitionSchema', () => {
         // boundary". Both directions, because a surface shipped English-only is the project's
         // most-repeated defect and the French-only case is the one nobody thinks to try.
         ['a colleague hint line', (definition: Record<string, unknown>) => { delete (definition.colleagueHints as Array<{ line: Record<string, unknown> }>)[0].line.fr; }],
-        ['a colleague hint line missing its English', (definition: Record<string, unknown>) => { delete (definition.colleagueHints as Array<{ line: Record<string, unknown> }>)[1].line.en; }]
+        ['a colleague hint line missing its English', (definition: Record<string, unknown>) => { delete (definition.colleagueHints as Array<{ line: Record<string, unknown> }>)[1].line.en; }],
+        // Story 2.8's AC8 asks the same of the reading-gate lines, and for the same reason: they are a
+        // new player-facing content surface, and a content surface shipped in one language is the
+        // defect this project repeats most often.
+        ['a reading-gate line', (definition: Record<string, unknown>) => { delete (definition.readingGateHints as Array<{ line: Record<string, unknown> }>)[0].line.fr; }],
+        ['a reading-gate line missing its English', (definition: Record<string, unknown>) => { delete (definition.readingGateHints as Array<{ line: Record<string, unknown> }>)[1].line.en; }]
     ])('rejects a case missing the French locale on %s', (_description, mutate) => {
         const definition = cloneValidCase() as unknown as Record<string, unknown>;
         mutate(definition);

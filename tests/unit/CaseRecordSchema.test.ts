@@ -102,6 +102,25 @@ describe('portable case records', () => {
         }
     );
 
+    // --- Reading-gate lines (Story 2.8) ---------------------------------------------------------
+
+    // 1.12.0 added `readingGateHints`: authored prose selected at display time from
+    // `inspectedSourceIds`, persisted nowhere, referenced by no record field, read by no reducer. The
+    // gate they answer is older than they are — `missing-contextual-sources` has refused the
+    // `context → prediction` advance since 1.2.0 against a field every listed version already saves —
+    // so a restored record meets exactly the gate it met before. Only the refusal's wording changed.
+    it.each(['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0'])(
+        'accepts a %s record against the 1.12.0 reading-room definition',
+        (recordVersion) => {
+            const readingRoom = { ...definition, version: '1.12.0' } as CaseDefinition;
+            const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: recordVersion });
+
+            expect(parsed.success).toBe(true);
+            if (!parsed.success) return;
+            expect(validateCaseRecordForDefinition(parsed.data, readingRoom)).toMatchObject({ ok: true });
+        }
+    );
+
     /**
      * The one question this bump raises that the earlier ones did not.
      *

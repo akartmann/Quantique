@@ -233,7 +233,19 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // looser, not stricter — nothing that counted before counts for less. So no saved record can
         // be retroactively short of a bar it already cleared, and the 1.10.0 note above continues to
         // hold unchanged for everything at or past `synthesis`.
-        || (definition.version === '1.11.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0'].includes(record.caseDefinitionVersion));
+        || (definition.version === '1.11.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0'].includes(record.caseDefinitionVersion))
+        // 1.12.0 added `readingGateHints` — the in-fiction lines the reading room answers its gate with
+        // (Story 2.8). Purely additive, and **not progress-bearing**: a line is authored prose selected
+        // at display time from `inspectedSourceIds`, nothing about it is persisted, no record field
+        // references one, and no reducer reads the collection. The canonical English strings this
+        // function recomputes and compares — `peerReviewRules`' `feedback` and `revisionPath`, and the
+        // proposal claims and limitations — are byte-identical to 1.11.0.
+        //
+        // The gate itself is older than the lines: `missing-contextual-sources` has refused the
+        // `context → prediction` advance since 1.2.0, against `inspectedSourceIds`, which every listed
+        // version already persists. So a record restored from any of them meets exactly the gate it
+        // met before; 1.12.0 only changes what the refusal *says*.
+        || (definition.version === '1.12.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }

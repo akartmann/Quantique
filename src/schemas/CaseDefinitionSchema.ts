@@ -216,6 +216,28 @@ const ColleagueHintSchema = z.object({
     )
 }).strict();
 
+const ReadingGateHintPredicateSchema = z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('missing-artifact'), artifactId: stableId }).strict(),
+    z.object({ kind: z.literal('any-missing-reading') }).strict()
+]);
+
+/**
+ * The same bound, and the same reason, as {@link ColleagueHintSchema}'s: the line is drawn into a
+ * fixed reading-room band with no scroll, and clamping the prose at runtime would truncate the one
+ * thing the player needs to read. Failing at case load puts the problem where an author can see it.
+ */
+const MAX_READING_GATE_LINE_LENGTH = 320;
+
+const ReadingGateHintSchema = z.object({
+    id: stableId,
+    colleagueId: stableId,
+    predicate: ReadingGateHintPredicateSchema,
+    line: LocalizedTextSchema.refine(
+        ({ en, fr }) => en.length <= MAX_READING_GATE_LINE_LENGTH && fr.length <= MAX_READING_GATE_LINE_LENGTH,
+        `A reading-gate line must be at most ${MAX_READING_GATE_LINE_LENGTH} characters in each locale.`
+    )
+}).strict();
+
 const ColleagueRoleSchema = z.enum(['lead', 'builder', 'analyst', 'communicator']);
 
 const ColleaguePortraitSchema = z.discriminatedUnion('kind', [
@@ -449,6 +471,9 @@ export const CaseDefinitionSchema = z.object({
     // `.min(1)` only. "At least one hint applies with no runs recorded" is a cross-field rule and
     // lives in the top-level refinement, where the message can say what is missing and why.
     colleagueHints: z.array(ColleagueHintSchema).min(1),
+    // `.min(1)` only, for the same reason: "a floor is authored and authored last" is a cross-field
+    // rule and lives in the top-level refinement, where the message can say what is missing and why.
+    readingGateHints: z.array(ReadingGateHintSchema).min(1),
     colleagues: z.array(ColleagueSchema).min(1),
     // `.length(4)`, not `.min(4)`: the pivot makes both the prediction and the conclusion a 1-of-4
     // attributed choice, and a wrong count is unambiguous enough that a generic length failure reads
@@ -692,6 +717,62 @@ export const CaseDefinitionSchema = z.object({
             code: 'custom',
             message: 'The below-significant-measures hint must be the last authored hint, or it shadows every hint after it.',
             path: ['colleagueHints', floorIndex]
+        });
+    }
+
+    // --- Reading-gate lines (Story 2.8) -----------------------------------------------------------
+    //
+    // Every guarantee `colleagueHints` gets, for the same reasons, against the artifacts rather than
+    // the runs. The two lists are siblings and their validation is deliberately symmetrical: a defect
+    // found in one is a defect in the other, and asymmetric rules are how the pair would drift.
+    const readingGateHintIds = definition.readingGateHints.map(({ id }) => id);
+    if (new Set(readingGateHintIds).size !== readingGateHintIds.length) {
+        context.addIssue({ code: 'custom', message: 'Reading-gate line IDs must be stable and unique.', path: ['readingGateHints'] });
+    }
+    definition.readingGateHints.forEach((hint, index) => {
+        if (!colleagueIds.has(hint.colleagueId)) {
+            context.addIssue({
+                code: 'custom',
+                // The rival lab is deliberately not in `colleagues[]`, so this also stops an author
+                // putting the challenger's voice behind a helpful nudge.
+                message: 'Every reading-gate line must be attributed to an authored colleague.',
+                path: ['readingGateHints', index, 'colleagueId']
+            });
+        }
+        // Naming an artifact this case does not carry produces a line no player can ever be shown:
+        // the predicate is matched against `missingArtifactIds`, which is drawn from
+        // `contextualArtifacts`, so the entry is silently unreachable content.
+        if (hint.predicate.kind === 'missing-artifact' && !sourceIds.has(hint.predicate.artifactId)) {
+            context.addIssue({
+                code: 'custom',
+                message: 'A reading-gate line may only name an authored contextual artifact.',
+                path: ['readingGateHints', index, 'predicate', 'artifactId']
+            });
+        }
+        if (encodesPath(hint.line)) {
+            context.addIssue({
+                code: 'custom',
+                message: 'Reading-gate copy must not encode a scene, route, or phase path.',
+                path: ['readingGateHints', index, 'line']
+            });
+        }
+    });
+
+    // The floor that makes this gate honest, on exactly the terms `colleagueHints` states above: only
+    // `any-missing-reading` is unconditionally true for an unmet gate, and selection is first-match in
+    // authored order, so anywhere but last it shadows every line after it.
+    const readingFloorIndex = definition.readingGateHints.findIndex(({ predicate }) => predicate.kind === 'any-missing-reading');
+    if (readingFloorIndex === -1) {
+        context.addIssue({
+            code: 'custom',
+            message: 'Reading-gate lines must include an any-missing-reading line, so the gate always has something to say.',
+            path: ['readingGateHints']
+        });
+    } else if (readingFloorIndex !== definition.readingGateHints.length - 1) {
+        context.addIssue({
+            code: 'custom',
+            message: 'The any-missing-reading line must be the last authored line, or it shadows every line after it.',
+            path: ['readingGateHints', readingFloorIndex]
         });
     }
 

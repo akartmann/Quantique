@@ -20,7 +20,9 @@
  * left — but only *below* the apparatus, which is the correction below.
  */
 
-import { advanceControlCentre, advanceControlLabelWrap } from '../ui/AdvanceControl';
+// `ADVANCE_CONTROL_HEIGHT` is imported as well as re-exported below: a bare `export … from` re-export
+// does not bind the name locally, and the reference shelf's placement is derived from it.
+import { ADVANCE_CONTROL_HEIGHT, advanceControlCentre, advanceControlLabelWrap } from '../ui/AdvanceControl';
 
 /** The painted apparatus, in the same design space, so the column can be placed clear of it. */
 export const CENTRE_Y = 200;
@@ -77,8 +79,57 @@ export const ADVANCE_CONTROL_Y = 360;
 /** The laboratory's control fills the column, so its label bound is wider than the widget's default. */
 export const ADVANCE_CONTROL_LABEL_WRAP = advanceControlLabelWrap(SIDE_COLUMN_WIDTH);
 
+/**
+ * The reference shelf in the side column (Story 2.8, Task 6 / AC6).
+ *
+ * The book has to stay reachable from the bench for re-reading during `experiment` — that is what the
+ * retired always-on overlay was buying, and retiring it without replacing the affordance would take
+ * the reference away rather than move it. So the laboratory owns a presenter of its own and a small
+ * chooser over the case's artifacts.
+ *
+ * **Reading here dispatches nothing and changes no progression.** Paging and closing stay ephemeral,
+ * exactly as the archival-book rule in `project-context.md` requires. The *record* of having read a
+ * source is made in the reading room; the bench only re-opens what is already on the shelf.
+ *
+ * The controls are **not** fixed-height. Their labels are authored artifact display names, not
+ * interface strings — "Le compte rendu de la conférence de Thomas Young de 1801" is 55 characters and
+ * wraps to two lines at this width where its English counterpart fits on one — so each control is
+ * sized to its own measured label and the next is stacked under the previous one's measured bottom.
+ * A fixed height here would clip the French, which is the defect class the per-token typography sweep
+ * provably cannot catch.
+ */
+export const REFERENCE_HEADING_GAP = 28;
+export const REFERENCE_HEADING_FONT_SIZE = 13;
+export const REFERENCE_HEADING_GAP_BELOW = 10;
+export const REFERENCE_CONTROL_FONT_SIZE = 13;
+export const REFERENCE_CONTROL_PADDING = 10;
+export const REFERENCE_CONTROL_GAP = 8;
+
+/** Where the reference shelf's heading sits: under the way out, never over the apparatus above it. */
+export const REFERENCE_HEADING_Y = ADVANCE_CONTROL_Y + ADVANCE_CONTROL_HEIGHT + REFERENCE_HEADING_GAP;
+
+/** The bound a reference label wraps to, derived from the column rather than restated. */
+export const REFERENCE_CONTROL_LABEL_WRAP = SIDE_COLUMN_WIDTH - (2 * REFERENCE_CONTROL_PADDING);
+
+/**
+ * Room kept clear between the lowest reference control and the tallest hint the content schema
+ * permits: four wrapped lines at {@link HINT_LINE_FONT_SIZE} over an attributed speaker line, plus the
+ * panel's own padding top and bottom.
+ */
+export const REFERENCE_SHELF_HINT_CLEARANCE = 120;
+
 /** Between the hint's last line and the canvas floor. */
 export const HINT_BOTTOM_MARGIN = 24;
+
+/**
+ * The ceiling the reference shelf must not grow past.
+ *
+ * The colleague's hint grows *upward* from the canvas floor and the shelf grows *downward* from the
+ * control above it, so the two approach each other. This is the line where the renderer stops adding
+ * controls — measured against the same floor margin the hint uses, so the two cannot be changed apart.
+ */
+export const referenceShelfFloor = (canvasHeight: number): number =>
+    canvasHeight - HINT_BOTTOM_MARGIN - REFERENCE_SHELF_HINT_CLEARANCE;
 /** Between the attributed speaker line and the hint prose under it. */
 export const HINT_SPEAKER_GAP = 4;
 export const HINT_PADDING = 12;

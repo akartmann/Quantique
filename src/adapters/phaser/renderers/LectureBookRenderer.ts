@@ -31,10 +31,11 @@ export type LectureBookPresentation = Readonly<{
     onClose: () => void;
 }>;
 
-export type LectureBookController = Readonly<{
-    show: (presentation: LectureBookPresentation) => void;
-    hide: () => void;
-}>;
+// `LectureBookController` used to live here: a `{ show, hide }` handle the retired `LectureBookScene`
+// passed up to `src/main.ts`, so a DOM panel could drive an overlay scene it could not otherwise
+// reach. Story 2.8 retired both ends of that wire — the book is opened by the scene that owns it,
+// through `ReferenceBookPresenter`, which calls `show`/`hide` on this renderer directly. The handle
+// was left dead by that change, and a dead public API is an invitation to wire the old path back up.
 
 const PAPER = 0xf7f0dd;
 const INK = '#28343a';
@@ -48,8 +49,16 @@ const BODY_MAX_HEIGHT = 382;
 const MAX_BODY_FONT_SIZE = 13;
 const MIN_BODY_FONT_SIZE = 8;
 const CONTROL_Y = 678;
-const CONTROL_WIDTH = 150;
-const CONTROL_HEIGHT = 42;
+/**
+ * The control row's three x positions, named once.
+ *
+ * Each was a literal written twice — once in `drawSpread` and once in `activateControl`'s hit test —
+ * so the button a player sees and the button a click resolves to were two independent numbers that
+ * happened to agree. Same defect as the width triple AC7 is about, one row over.
+ */
+const CONTROL_PREVIOUS_X = 188;
+const CONTROL_CLOSE_X = 512;
+const CONTROL_NEXT_X = 836;
 const SUMMARY_TOGGLE_X = 848;
 const SUMMARY_TOGGLE_Y = 55;
 const SUMMARY_TEXT_WIDTH = 760;
@@ -65,7 +74,73 @@ const CENTER_X = 512;
  * Story 2.7 needed a second copy of it and exported this instead, which is the project's rule ("never
  * assert a magic number that a test shares with source unless both read one exported constant").
  */
-export const bookCloseControlCentre = (): Readonly<{ x: number; y: number }> => ({ x: CENTER_X, y: CONTROL_Y });
+export const bookCloseControlCentre = (): Readonly<{ x: number; y: number }> => ({ x: CONTROL_CLOSE_X, y: CONTROL_Y });
+
+/**
+ * The page-turn controls, for a spec that needs to prove the book is genuinely open rather than that a
+ * click was merely swallowed. Story 2.8's canvas walk pages the book before closing it.
+ */
+export const bookNextControlCentre = (): Readonly<{ x: number; y: number }> => ({ x: CONTROL_NEXT_X, y: CONTROL_Y });
+export const bookPreviousControlCentre = (): Readonly<{ x: number; y: number }> => ({ x: CONTROL_PREVIOUS_X, y: CONTROL_Y });
+/** The on-book summary toggle, in its own corner rather than on the control row. */
+export const bookSummaryToggleCentre = (): Readonly<{ x: number; y: number }> => ({ x: SUMMARY_TOGGLE_X, y: SUMMARY_TOGGLE_Y });
+
+/**
+ * How long the book stays painted after it is asked to close.
+ *
+ * `isOverlayVisible` stays true for this whole window — **deliberately**, so a click during the fade
+ * cannot fall through to the surface still visible underneath it. The scene underneath therefore stays
+ * suppressed for the same window, and there is no DOM signal for the moment it lifts.
+ *
+ * Exported because a browser spec has to wait it out between two canvas acts, and the alternative is a
+ * literal in the spec that would silently stop covering the fade the day this number changed. Under
+ * `prefers-reduced-motion: reduce` the overlay is destroyed immediately and the wait is only slack.
+ */
+export const BOOK_CLOSE_FADE_MS = 180;
+
+/**
+ * The open and page-turn animations, for the same reason and with the same consequence.
+ *
+ * Both **disable the book's own interaction surface for their whole duration** — see `animateOpen` and
+ * `animateTurn` — so a click landing inside either window does not reach a book control. It is not
+ * lost to the scene underneath either: the scene was suppressed before the open tween started and
+ * stays suppressed until the close fade finishes, so the click simply does nothing.
+ *
+ * That is correct behaviour and a player never notices it. A browser spec does: it clicks faster than
+ * a person, and without waiting these out its second click silently vanishes and the failure reads as
+ * a dead control. Exported so the spec waits on the real numbers rather than on copies of them.
+ */
+export const BOOK_OPEN_MS = 260;
+export const BOOK_TURN_MS = 170;
+
+/**
+ * The book's control geometry — **one constant, read by everything that depends on it** (Story 2.8,
+ * AC7).
+ *
+ * These were three numbers that happened to agree: `drawControl` painted a literal `150 × 42`, the
+ * label's shrink-to-fit measured against a private `CONTROL_WIDTH - 16`, `activateControl` hit-tested
+ * a private `CONTROL_WIDTH / 2`, and `french-typography.spec.ts` carried a fourth copy as
+ * `CONTROL_INNER_WIDTH = 134`. The 2.7 review found three tests substituting a different width for the
+ * one the board actually drew, for exactly this reason — a private constant leaves a spec no honest
+ * way to read it — and `deferred-work.md` has carried the item since 1.1b. Exporting it is the fix;
+ * adding a fifth copy would not have been.
+ */
+export const BOOK_CONTROL_WIDTH = 150;
+export const BOOK_CONTROL_HEIGHT = 42;
+/** Between the control's edge and its label, on each side. */
+export const BOOK_CONTROL_PADDING = 8;
+export const BOOK_CONTROL_FONT_SIZE = 15;
+/** The smallest the shrink-to-fit will go before it lets a label run wide rather than illegible. */
+export const BOOK_CONTROL_MIN_FONT_SIZE = 10;
+
+/**
+ * The bound a control label has to fit inside, derived rather than restated.
+ *
+ * This is what the French whole-string typography check measures against. A label that wraps to two
+ * lines inside a fixed-height rectangle clips, which is the defect class the per-token sweep provably
+ * cannot catch — so the spec reads this function and the renderer shrinks against it.
+ */
+export const bookControlLabelWrap = (): number => BOOK_CONTROL_WIDTH - (2 * BOOK_CONTROL_PADDING);
 
 export class LectureBookRenderer {
     private overlay?: Phaser.GameObjects.Container;
@@ -89,11 +164,6 @@ export class LectureBookRenderer {
     private translator(): Translator {
         return createTranslator(this.getLocale());
     }
-
-    public readonly controller: LectureBookController = {
-        show: (presentation) => this.show(presentation),
-        hide: () => this.hide()
-    };
 
     /**
      * Whether the book is on screen, closing fade included. `hide` disables the book's own input
@@ -143,7 +213,7 @@ export class LectureBookRenderer {
             alpha: 0,
             scaleX: 0.84,
             scaleY: 0.84,
-            duration: 180,
+            duration: BOOK_CLOSE_FADE_MS,
             ease: 'Sine.easeIn',
             onComplete: () => this.destroyOverlay()
         });
@@ -209,9 +279,9 @@ export class LectureBookRenderer {
         // shipped locale, which is what makes `book.translatedRendition`'s "English original"
         // wording true for every rendition that can reach this line.
         this.originalLanguageNote?.setText(presentation.renditionKind === 'translation' ? t('book.translatedRendition') : '');
-        this.drawControl(188, CONTROL_Y, t('book.previous'), presentation.canGoPrevious);
-        this.drawControl(512, CONTROL_Y, t('book.close'), true);
-        this.drawControl(836, CONTROL_Y, t('book.next'), presentation.canGoNext);
+        this.drawControl(CONTROL_PREVIOUS_X, CONTROL_Y, t('book.previous'), presentation.canGoPrevious);
+        this.drawControl(CONTROL_CLOSE_X, CONTROL_Y, t('book.close'), true);
+        this.drawControl(CONTROL_NEXT_X, CONTROL_Y, t('book.next'), presentation.canGoNext);
         if (presentation.summary?.length) this.drawControl(SUMMARY_TOGGLE_X, SUMMARY_TOGGLE_Y, t('book.summary.show'), true);
     }
 
@@ -233,7 +303,7 @@ export class LectureBookRenderer {
         })).setOrigin(0.5, 0);
         this.fitSummaryText(body);
         this.pages.add([heading, body]);
-        this.drawControl(512, CONTROL_Y, t('book.summary.close'), true);
+        this.drawControl(CONTROL_CLOSE_X, CONTROL_Y, t('book.summary.close'), true);
     }
 
     private fitSummaryText(text: Phaser.GameObjects.Text): void {
@@ -280,14 +350,24 @@ export class LectureBookRenderer {
     }
 
     private drawControl(x: number, y: number, label: string, enabled: boolean): void {
-        const background = this.scene.add.rectangle(x, y, 150, 42, enabled ? 0xe7c866 : 0x9aa7a6, enabled ? 1 : 0.55)
+        const background = this.scene.add
+            .rectangle(x, y, BOOK_CONTROL_WIDTH, BOOK_CONTROL_HEIGHT, enabled ? 0xe7c866 : 0x9aa7a6, enabled ? 1 : 0.55)
             .setStrokeStyle(2, 0x4c5d60);
         // Shrink-to-fit rather than overflow: French control labels run longer than their English
         // counterparts and the button width is fixed by the hit-test geometry below.
         const text = this.scene.add.text(x, y, label, uiTextStyle({
-            color: '#10252c', fontSize: '15px', fontStyle: 'bold', align: 'center'
+            color: '#10252c', fontSize: `${BOOK_CONTROL_FONT_SIZE}px`, fontStyle: 'bold', align: 'center'
         })).setOrigin(0.5);
-        for (let fontSize = 15; fontSize >= 10 && text.width > CONTROL_WIDTH - 16; fontSize -= 1) {
+        // Starts one step *below* the authored size on purpose. The text is already rendered at
+        // `BOOK_CONTROL_FONT_SIZE`, so a first iteration at that size measures the label and then sets
+        // the size it already had — a wasted measure and reflow on every control on every redraw, for
+        // no possible change. The `text.width` the condition reads is still the measurement at the
+        // authored size, so the shrink decision itself is identical.
+        for (
+            let fontSize = BOOK_CONTROL_FONT_SIZE - 1;
+            fontSize >= BOOK_CONTROL_MIN_FONT_SIZE && text.width > bookControlLabelWrap();
+            fontSize -= 1
+        ) {
             text.setFontSize(fontSize);
         }
         this.pages?.add([background, text]);
@@ -296,11 +376,11 @@ export class LectureBookRenderer {
     private activateControl(localX: number, localY: number): void {
         const presentation = this.currentPresentation;
         if (!presentation) return;
-        const isWithin = (x: number): boolean => Math.abs(localX - x) <= CONTROL_WIDTH / 2;
-        const onRow = (y: number): boolean => Math.abs(localY - y) <= CONTROL_HEIGHT / 2;
+        const isWithin = (x: number): boolean => Math.abs(localX - x) <= BOOK_CONTROL_WIDTH / 2;
+        const onRow = (y: number): boolean => Math.abs(localY - y) <= BOOK_CONTROL_HEIGHT / 2;
 
         if (this.summaryOpen) {
-            if (onRow(CONTROL_Y) && isWithin(512)) {
+            if (onRow(CONTROL_Y) && isWithin(CONTROL_CLOSE_X)) {
                 this.summaryOpen = false;
                 this.drawSpread(presentation);
             }
@@ -314,9 +394,9 @@ export class LectureBookRenderer {
         }
 
         if (!onRow(CONTROL_Y)) return;
-        if (isWithin(188) && presentation.canGoPrevious) presentation.onPrevious();
-        else if (isWithin(512)) presentation.onClose();
-        else if (isWithin(836) && presentation.canGoNext) presentation.onNext();
+        if (isWithin(CONTROL_PREVIOUS_X) && presentation.canGoPrevious) presentation.onPrevious();
+        else if (isWithin(CONTROL_CLOSE_X)) presentation.onClose();
+        else if (isWithin(CONTROL_NEXT_X) && presentation.canGoNext) presentation.onNext();
     }
 
     private animateOpen(): void {
@@ -333,7 +413,7 @@ export class LectureBookRenderer {
             alpha: 1,
             scaleX: 1,
             scaleY: 1,
-            duration: 260,
+            duration: BOOK_OPEN_MS,
             ease: 'Back.easeOut',
             onComplete: () => this.interactionSurface?.setInteractive({ useHandCursor: true })
         });
@@ -349,7 +429,7 @@ export class LectureBookRenderer {
             alpha: 1,
             x: 0,
             scaleX: 1,
-            duration: 170,
+            duration: BOOK_TURN_MS,
             ease: 'Sine.easeOut',
             onComplete: () => this.interactionSurface?.setInteractive({ useHandCursor: true })
         });

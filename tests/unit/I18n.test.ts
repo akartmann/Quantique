@@ -34,6 +34,73 @@ describe('locale resources', () => {
         expect(blank).toEqual([]);
     });
 
+    /**
+     * The reading room's whole interface surface, named key by key (Story 2.8, AC8).
+     *
+     * The two tests above are symmetry checks: they prove `en` and `fr` agree and that nothing shipped
+     * blank. Neither can notice a key that was **never authored** — a surface deleted from both
+     * bundles passes both of them, and "chrome gets localized and content does not" is the defect this
+     * project repeats most often.
+     *
+     * This is also where AC8's "asserted present in English **and** French" is actually met for the
+     * room. Canvas text cannot be read from the DOM, so a Playwright spec cannot assert it; the
+     * division of labour is bundle completeness here, authored-content locales in
+     * `ReadingGateHints.test.ts` and `CaseDefinition.test.ts`, and French *widths* in
+     * `french-typography.spec.ts`. `canvas-transitions.spec.ts` documents the same split in its header.
+     */
+    it('authors every string the reading room draws, in both locales', () => {
+        const READING_ROOM_KEYS = [
+            'library.heading',
+            'library.guide',
+            'library.artifact.read',
+            'library.detail.creator',
+            'library.detail.classification',
+            'library.detail.rights',
+            'library.artifact.unavailable',
+            'library.artifact.noRendition',
+            // The bench's reference shelf, which the same story added.
+            'lab.reference.heading'
+        ] as const;
+
+        READING_ROOM_KEYS.forEach((key) => {
+            expect(en[key], `${key} (en)`).toBeDefined();
+            expect(en[key].trim().length, `${key} (en) is blank`).toBeGreaterThan(0);
+            expect(fr[key], `${key} (fr)`).toBeDefined();
+            expect(fr[key].trim().length, `${key} (fr) is blank`).toBeGreaterThan(0);
+            // A French value byte-identical to its English one is almost always an untranslated
+            // placeholder. `library.detail.classification` is the deliberate exception: it is pure
+            // punctuation around two already-localized values.
+            if (key !== 'library.detail.classification') {
+                expect(fr[key], `${key} was never translated`).not.toBe(en[key]);
+            }
+        });
+    });
+
+    /**
+     * The enum families the detail panel resolves rather than re-authoring.
+     *
+     * AC3 requires the source type, provenance category, and rights status to be readable **as text**
+     * — never as colour alone. The panel renders them through these shared `source.*` keys, so a
+     * missing one would leave a player reading a raw enum value or an empty line where the rights
+     * status should be.
+     */
+    it('authors a readable label for every source type, provenance category, and rights status', () => {
+        const SOURCE_TYPES = ['lecture-record', 'published-book', 'reconstruction', 'interpretive-essay', 'fictionalized-account'] as const;
+        const PROVENANCE = ['primary-material', 'reconstruction', 'later-interpretation', 'deliberate-fiction'] as const;
+        const RIGHTS = ['reviewed', 'incomplete', 'unavailable'] as const;
+
+        const required = [
+            ...SOURCE_TYPES.map((value) => `source.type.${value}` as const),
+            ...PROVENANCE.map((value) => `source.provenanceName.${value}` as const),
+            ...RIGHTS.map((value) => `source.rights.${value}` as const)
+        ];
+
+        required.forEach((key) => {
+            expect(en[key], `${key} (en)`).toBeDefined();
+            expect(fr[key], `${key} (fr)`).toBeDefined();
+        });
+    });
+
     it('keeps the same interpolation parameters in both locales', () => {
         const params = (value: string): string[] => [...value.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
         const mismatched = Object.keys(en).filter((key) => {

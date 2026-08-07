@@ -1,4 +1,4 @@
-import type { LocalizedTextualRendition } from '../../domain/cases/CaseDefinition';
+import type { LocalizedTextualRendition } from './CaseDefinition';
 
 export type LecturePage = Readonly<{
     id: string;
@@ -24,6 +24,11 @@ export type LecturePagination = Readonly<{
 /**
  * Produces stable leaves without inspecting the DOM or mutating the immutable case rendition.
  * A source section is an authored printed page, so it must remain a single book leaf.
+ *
+ * Moved out of `src/ui/sources/` by Story 2.8: it is pure arithmetic over authored content with no
+ * DOM, Phaser, or Zod anywhere in it, and both the Phaser reference book and the retiring DOM panel
+ * read it. Leaving it under a directory Story 2.12 deletes would have made the canvas book depend on
+ * a module scheduled for removal.
  */
 export const paginateLectureRendition = (rendition: LocalizedTextualRendition): LecturePagination => {
     const pages = rendition.sections.map((section) => ({

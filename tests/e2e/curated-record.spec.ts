@@ -1,15 +1,23 @@
 import { expect, test } from '@playwright/test';
 
-const clickBookControl = async (
-    page: import('@playwright/test').Page,
-    designX: number,
-    designY: number
-): Promise<void> => {
-    const canvas = page.locator('#game-container canvas');
-    const bounds = await canvas.boundingBox();
-    if (!bounds) throw new Error('The laboratory surface did not render.');
-    await page.mouse.click(bounds.x + (designX / 1024) * bounds.width, bounds.y + (designY / 768) * bounds.height);
-};
+/**
+ * ## What moved out of this file in Story 2.8
+ *
+ * This spec used to drive the **reference book** from these DOM controls, through an always-running
+ * `LectureBookScene` overlay. That scene is retired: the book belongs to the scene the player is
+ * standing in, and it is opened by taking an object off the shelf on the canvas.
+ *
+ * Three book legs left with it — opening and closing, the summary toggle, and the reduced-motion
+ * open/close — and all three are now in `library-reading.spec.ts`, driven the way a player reaches
+ * them. None was deleted to make this suite green: each is a real assertion re-pointed at the surface
+ * that now owns it, and the reduced-motion one is a standing project requirement that outlived the
+ * a11y de-scope.
+ *
+ * What stays is everything about the **inspection record**. This panel still dispatches
+ * `source.inspected`, several walks still satisfy the context gate through it, and Story 2.12 deletes
+ * both. Its compact attribution block still renders too — the panel's *reading* projection is what
+ * lost its surface, not its record.
+ */
 
 test('inspects both Young contextual sources through the semantic Curated Record', async ({ page }) => {
     await page.goto('/');
@@ -42,7 +50,7 @@ test('inspects both Young contextual sources through the semantic Curated Record
     await expect(record.getByText('Inspection recorded')).toHaveCount(2);
 });
 
-test('a single inspect control records a readable source as evidence and opens the local book', async ({ page }) => {
+test('a single inspect control records a readable source as evidence', async ({ page }) => {
     await page.goto('/');
 
     const record = page.getByRole('region', { name: 'Curated Record' });
@@ -74,59 +82,12 @@ test('a single inspect control records a readable source as evidence and opens t
     await expect(context.locator('.contextual-text-section')).toHaveCount(0);
     await expect(page.locator('#game-container canvas')).toBeVisible();
 
-    // Re-clicking keeps a single inspection record and reopens the book.
+    // Re-clicking keeps a single inspection record.
     await youngLecture.click();
     await expect(record.getByText('Inspection recorded')).toHaveCount(1);
     await expect(record.getByRole('status', { name: 'Curated Record status' })).toHaveText(
         'Thomas Young’s 1801 lecture record is already recorded as inspected evidence.'
     );
-
-    // Closing the book from its own control returns focus to the inspect trigger.
-    await page.waitForTimeout(300);
-    await clickBookControl(page, 512, 678);
-    await expect(attribution).toHaveCount(0);
-    await expect(youngLecture).toBeFocused();
-});
-
-test('reveals and dismisses the reference summary from the book view', async ({ page }) => {
-    const errors: string[] = [];
-    page.on('pageerror', (error) => errors.push(error.message));
-    page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
-    await page.goto('/');
-
-    const record = page.getByRole('region', { name: 'Curated Record' });
-    const context = page.getByRole('region', { name: 'Young context and prediction' });
-    const attribution = context.getByRole('group', { name: 'Read the Opticks reference — source attribution' });
-
-    await record.getByRole('button', { name: 'Inspect Opticks reference' }).click();
-    await expect(attribution).toBeVisible();
-
-    // Let the open animation finish so the book controls are interactive, then toggle the
-    // Phaser summary overlay. If "Show summary" did not open, the 512/678 click would close the
-    // book (Close book) instead of the summary — so the final assertion also proves it opened.
-    await page.waitForTimeout(400);
-    await clickBookControl(page, 848, 55); // Show summary
-    await page.waitForTimeout(200);
-    await clickBookControl(page, 512, 678); // Close summary — book stays open
-    await page.waitForTimeout(200);
-
-    await expect(attribution).toBeVisible();
-    expect(errors).toEqual([]);
-});
-
-test('opens the readable book and closes it under reduced motion', async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/');
-
-    const record = page.getByRole('region', { name: 'Curated Record' });
-    const context = page.getByRole('region', { name: 'Young context and prediction' });
-
-    await record.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' }).click();
-    const attribution = context.getByRole('group', { name: 'Read the lecture record — source attribution' });
-    await expect(attribution).toBeVisible();
-
-    await clickBookControl(page, 512, 678);
-    await expect(attribution).toHaveCount(0);
 });
 
 test('uses the authored reader label from the case definition as the book identity', async ({ page }) => {

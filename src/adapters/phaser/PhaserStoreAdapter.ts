@@ -42,6 +42,20 @@ export type PhaserStoreAdapter = Readonly<{
     /** Answering a standing rival-lab challenge. Clears the challenge; keeps the choice and the draft. */
     requestRivalLabRevision: () => ReturnType<AppStore['dispatch']>;
     /**
+     * Recording that a contextual artifact has been read (Story 2.8).
+     *
+     * Until this existed the only dispatcher of `source.inspected` was the retired `CuratedRecord` DOM
+     * panel — one of the nine intents the 2026-08-06 correction found unreachable from the canvas
+     * (ADR-011).
+     *
+     * The caller is expected to have checked `selectIsSourceInspected` first: re-reading is a
+     * legitimate, common act and the reducer answers a second inspection with
+     * `duplicate-inspected-source`, which is a refusal the reading room would then have to explain
+     * away for something the player did nothing wrong to reach. The refusal stays — it is the correct
+     * answer to a genuinely duplicated dispatch — but the surface must not provoke it.
+     */
+    inspectSource: (sourceId: string) => ReturnType<AppStore['dispatch']>;
+    /**
      * Taking one named forward transition (Story 2.7). It generalizes Story 2.6's `advanceToSynthesis`,
      * which was the only one of the six that had a canvas dispatcher at all.
      *
@@ -84,6 +98,7 @@ export const createPhaserStoreAdapter = (store: AppStore): PhaserStoreAdapter =>
     // function of its arguments, and every other timestamped action follows the same rule.
     submitConclusion: () => store.dispatch({ type: 'theory.conclusionSubmitted', timestamp: new Date().toISOString() }),
     requestRivalLabRevision: () => store.dispatch({ type: 'rivalLab.revisionRequested' }),
+    inspectSource: (sourceId) => store.dispatch({ type: 'source.inspected', sourceId }),
     advanceCase: (transition) => ADVANCE_DISPATCHERS[transition](store),
     subscribe: store.subscribe
 });

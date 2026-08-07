@@ -21,6 +21,24 @@ import {
     HINT_TEXT_WRAP
 } from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import { advanceControlLabelWrap } from '../../src/adapters/phaser/ui/AdvanceControl';
+// `LectureBookRenderer` imports Phaser as a *type* only, so its exported geometry is readable here.
+import { BOOK_CONTROL_MIN_FONT_SIZE, bookControlLabelWrap } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
+// `libraryGeometry` imports Phaser not at all — `LibraryScene` and `LibraryRenderer` both import it as
+// a value, which is exactly why the room's layout lives in its own module (Story 2.8).
+import {
+    GATE_LINE_FONT_SIZE,
+    detailTextWrap,
+    gateLineTextWrap,
+    libraryArtifactLabelBand,
+    libraryArtifactPlacements,
+    libraryShelfBand
+} from '../../src/adapters/phaser/scenes/libraryGeometry';
+import {
+    REFERENCE_CONTROL_FONT_SIZE,
+    REFERENCE_CONTROL_LABEL_WRAP,
+    REFERENCE_HEADING_FONT_SIZE,
+    SIDE_COLUMN_WIDTH
+} from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import {
     RIVAL_LAB_BODY_FONT_SIZE,
     RIVAL_LAB_CONTROL_FONT_SIZE,
@@ -73,6 +91,28 @@ const CARD_TEXT_WRAP_WIDTH = proposalTextWrapWidth(PROPOSAL_SURFACE_WIDTH);
 const DIALOGUE_BODY_WRAP_WIDTH = dialogueBodyWrapWidth(PROPOSAL_SURFACE_WIDTH);
 const DIALOGUE_SPEAKER_WRAP_WIDTH = dialogueSpeakerWrapWidth(PROPOSAL_SURFACE_WIDTH);
 const RIVAL_LAB_TEXT_WRAP_WIDTH = rivalLabTextWrapWidth();
+
+/**
+ * The reading room's bounds (Story 2.8), derived from `libraryGeometry` at the shipped canvas size.
+ *
+ * The design dimensions come from Phaser's own game config, and the geometry module takes them as
+ * arguments rather than closing over them (AC7) — so this spec has to supply them once, here, named,
+ * instead of scattering `1024` and `768` through the table below.
+ */
+const LIBRARY_CANVAS_WIDTH = 1024;
+const LIBRARY_CANVAS_HEIGHT = 768;
+const LIBRARY_ROOM_WRAP = libraryShelfBand(LIBRARY_CANVAS_WIDTH).width;
+const LIBRARY_DETAIL_WRAP = detailTextWrap(LIBRARY_CANVAS_WIDTH, LIBRARY_CANVAS_HEIGHT);
+const LIBRARY_GATE_WRAP = gateLineTextWrap(LIBRARY_CANVAS_WIDTH);
+/**
+ * The title strip on an object, at the count the shipped case actually draws.
+ *
+ * Two artifacts, not one: the objects narrow as the count grows, so measuring the single-object width
+ * would check a bound the room never uses and let a French display name overflow the one it does.
+ */
+const LIBRARY_ARTIFACT_LABEL_WRAP = libraryArtifactLabelBand(
+    libraryArtifactPlacements(2, LIBRARY_CANVAS_WIDTH)[0]!
+).width;
 
 /**
  * Every in-scene advance control, with the bound of the host that draws it (Story 2.7).
@@ -149,7 +189,21 @@ const WRAPPED_SURFACES = [
     // bounded by the control rather than by the panel; the counter has its own narrow column.
     { key: 'dialogue.advance', font: UI_FONT_STACK, fontSize: DIALOGUE_CONTROL_FONT_SIZE, wrapWidth: DIALOGUE_CONTROL_LABEL_WRAP },
     { key: 'dialogue.end', font: UI_FONT_STACK, fontSize: DIALOGUE_CONTROL_FONT_SIZE, wrapWidth: DIALOGUE_CONTROL_LABEL_WRAP },
-    { key: 'dialogue.counter', font: UI_FONT_STACK, fontSize: DIALOGUE_COUNTER_FONT_SIZE, wrapWidth: DIALOGUE_COUNTER_WRAP }
+    { key: 'dialogue.counter', font: UI_FONT_STACK, fontSize: DIALOGUE_COUNTER_FONT_SIZE, wrapWidth: DIALOGUE_COUNTER_WRAP },
+    // The reading room (Story 2.8). The chrome wraps at the shelf's own width; the detail panel's
+    // metadata rows and the colleague's gate line each wrap at their band's derived bound. Every one
+    // of these bounds is read from `libraryGeometry`, which is Phaser-free precisely so this spec can.
+    { key: 'library.heading', font: UI_FONT_STACK, fontSize: 22, wrapWidth: LIBRARY_ROOM_WRAP },
+    { key: 'library.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: LIBRARY_ROOM_WRAP },
+    { key: 'library.detail.creator', font: UI_FONT_STACK, fontSize: 13, wrapWidth: LIBRARY_DETAIL_WRAP },
+    { key: 'library.detail.classification', font: UI_FONT_STACK, fontSize: 13, wrapWidth: LIBRARY_DETAIL_WRAP },
+    { key: 'library.detail.rights', font: UI_FONT_STACK, fontSize: 13, wrapWidth: LIBRARY_DETAIL_WRAP },
+    { key: 'library.artifact.unavailable', font: UI_FONT_STACK, fontSize: GATE_LINE_FONT_SIZE, wrapWidth: LIBRARY_GATE_WRAP },
+    { key: 'library.artifact.noRendition', font: UI_FONT_STACK, fontSize: GATE_LINE_FONT_SIZE, wrapWidth: LIBRARY_GATE_WRAP },
+    // The bench's reference shelf heading, in the laboratory's side column.
+    { key: 'lab.reference.heading', font: UI_FONT_STACK, fontSize: REFERENCE_HEADING_FONT_SIZE, wrapWidth: SIDE_COLUMN_WIDTH },
+    // The read marker on an object's corner. Short by design, and the narrowest bound in the room.
+    { key: 'library.artifact.read', font: UI_FONT_STACK, fontSize: 12, wrapWidth: LIBRARY_ARTIFACT_LABEL_WRAP }
 ] as const;
 
 /** Book controls are a fixed hit-test width and shrink to fit down to 10px before they would clip. */
@@ -165,7 +219,8 @@ const BOOK_CONTROLS = ['book.previous', 'book.next', 'book.close', 'book.summary
 const caseDefinition = JSON.parse(
     readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
 ) as {
-    contextualArtifacts: { displayName: { fr: string } }[];
+    contextualArtifacts: { id: string; displayName: { en: string; fr: string }; caseRelationship: { en: string; fr: string } }[];
+    readingGateHints: { id: string; line: { en: string; fr: string } }[];
     apparatus: { primaryControls: { label: { fr: string } }[] };
     colleagues: { name: string }[];
     rivalLab: { name: string; critiques: { id: string; line: { en: string; fr: string } }[] };
@@ -244,6 +299,33 @@ const RIVAL_LAB_CRITIQUES = caseDefinition.rivalLab.critiques.flatMap(({ id, lin
 const COLLEAGUE_HINTS = caseDefinition.colleagueHints.flatMap(({ id, line }) => [
     { label: `colleague hint ${id} [fr]`, text: line.fr },
     { label: `colleague hint ${id} [en]`, text: line.en }
+]);
+
+/**
+ * Every authored reading-gate line, in both locales (Story 2.8).
+ *
+ * The seventh authored-prose surface, joining this sweep with the story that introduces it rather than
+ * with the review that would otherwise have found the gap — which is how the previous six arrived.
+ */
+const READING_GATE_LINES = caseDefinition.readingGateHints.flatMap(({ id, line }) => [
+    { label: `reading-gate line ${id} [fr]`, text: line.fr },
+    { label: `reading-gate line ${id} [en]`, text: line.en }
+]);
+
+/**
+ * Every authored artifact display name and case relationship, in both locales (Story 2.8).
+ *
+ * These were content nothing measured: `SOURCE_NAME` fed one interpolated interface key and nothing
+ * checked the names against the surfaces that now draw them directly. The reading room draws each name
+ * twice — once in a title strip on the object, which is the narrowest bound in the game, and once at
+ * the head of the detail panel — and the bench's reference shelf draws it a third time.
+ */
+const LIBRARY_ARTIFACT_TEXTS = caseDefinition.contextualArtifacts.flatMap(({ id, displayName, caseRelationship }) => [
+    { label: `artifact name ${id} [fr]`, text: displayName.fr, wrapWidth: LIBRARY_ARTIFACT_LABEL_WRAP, fontSize: 13 },
+    { label: `artifact name ${id} [en]`, text: displayName.en, wrapWidth: LIBRARY_ARTIFACT_LABEL_WRAP, fontSize: 13 },
+    { label: `artifact name ${id} on the bench [fr]`, text: displayName.fr, wrapWidth: REFERENCE_CONTROL_LABEL_WRAP, fontSize: REFERENCE_CONTROL_FONT_SIZE },
+    { label: `artifact relationship ${id} [fr]`, text: caseRelationship.fr, wrapWidth: LIBRARY_DETAIL_WRAP, fontSize: 14 },
+    { label: `artifact relationship ${id} [en]`, text: caseRelationship.en, wrapWidth: LIBRARY_DETAIL_WRAP, fontSize: 14 }
 ]);
 
 const LONGEST_CONVERSATION = Math.max(
@@ -467,6 +549,36 @@ test('keeps the authored colleague hints inside the laboratory hint panel, in bo
     expect(COLLEAGUE_HINTS.length).toBeGreaterThan(0);
 });
 
+test('keeps the reading room’s authored content inside the bands that hold it, in both locales', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
+
+    // Three different bounds in one pass, because the room draws the same authored strings at three
+    // different widths: an artifact's name on its object (the narrowest bound in the game), the same
+    // name on the bench's reference shelf, and its case relationship across the detail panel. The
+    // colleague's gate line gets the widest band and the longest prose.
+    const authored = [
+        ...LIBRARY_ARTIFACT_TEXTS,
+        ...READING_GATE_LINES.map(({ label, text }) => ({
+            label, text, wrapWidth: LIBRARY_GATE_WRAP, fontSize: GATE_LINE_FONT_SIZE
+        }))
+    ];
+    const samples = authored.flatMap(({ label, fontSize, wrapWidth, text }) =>
+        text.split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({ label, font: UI_FONT_STACK, fontSize, wrapWidth, text: token })));
+    const widths = await measure(page, samples);
+
+    const overflowing = samples
+        .map((sample, index) => ({ ...sample, width: widths[index]! }))
+        .filter(({ width, wrapWidth }) => width > wrapWidth)
+        .map(({ label, text, width, wrapWidth }) => `${label}: "${text}" (${Math.round(width)}px > ${Math.round(wrapWidth)}px)`);
+
+    expect(overflowing).toEqual([]);
+    // Guards on the sweeps themselves: an empty list would make the assertion above vacuously true,
+    // which is how a spec starts passing because the content it measures stopped being found.
+    expect(READING_GATE_LINES.length).toBeGreaterThan(0);
+    expect(LIBRARY_ARTIFACT_TEXTS.length).toBeGreaterThan(0);
+});
+
 test('fits every French fixed-height control label on one line', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
@@ -506,17 +618,18 @@ test('fits every French book control inside its fixed button width', async ({ pa
     await page.goto('/');
     await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
 
-    // The renderer shrinks a control label from 15px down to 10px before it would clip.
-    const MIN_CONTROL_FONT_SIZE = 10;
-    const CONTROL_INNER_WIDTH = 134;
+    // Both numbers now read the renderer's own exported constants (Story 2.8, AC7). `134` was a
+    // fourth copy of a private `CONTROL_WIDTH - 16`, and the 2.7 review found three tests measuring a
+    // width the surface did not actually draw for exactly this reason.
+    const bound = bookControlLabelWrap();
     const widths = await measure(page, BOOK_CONTROLS.map((key) => ({
-        font: UI_FONT_STACK, fontSize: MIN_CONTROL_FONT_SIZE, text: fr[key]
+        font: UI_FONT_STACK, fontSize: BOOK_CONTROL_MIN_FONT_SIZE, text: fr[key]
     })));
 
     const overflowing = BOOK_CONTROLS
         .map((key, index) => ({ key, width: widths[index] }))
-        .filter(({ width }) => width > CONTROL_INNER_WIDTH)
-        .map(({ key, width }) => `${key} (${Math.round(width)}px)`);
+        .filter(({ width }) => width > bound)
+        .map(({ key, width }) => `${key} (${Math.round(width)}px > ${bound}px)`);
 
     expect(overflowing).toEqual([]);
 });

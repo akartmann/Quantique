@@ -12,10 +12,12 @@ import {
     selectLocale,
     selectLocalizedColleagueHint,
     selectLocalizedError,
+    selectContextualArtifacts,
     selectPrimaryControl,
     selectSignificantMeasureGate
 } from '../../../core/store/selectors';
-import type { PrimaryControl } from '../../../domain/cases/CaseDefinition';
+import { resolveLocalizedText } from '../../../core/i18n/resolveLocalizedText';
+import { isSourceEligibleForInspection, type ContextualArtifact, type PrimaryControl } from '../../../domain/cases/CaseDefinition';
 import { interferenceIntensity, rgbToInt, wavelengthToRgb } from '../../../domain/apparatus/opticalVisualModel';
 import { AdvanceControl } from '../ui/AdvanceControl';
 import {
@@ -27,10 +29,18 @@ import {
     HINT_SPEAKER_FONT_SIZE,
     HINT_SPEAKER_GAP,
     HINT_TEXT_WRAP,
+    REFERENCE_CONTROL_FONT_SIZE,
+    REFERENCE_CONTROL_GAP,
+    REFERENCE_CONTROL_LABEL_WRAP,
+    REFERENCE_CONTROL_PADDING,
+    REFERENCE_HEADING_FONT_SIZE,
+    REFERENCE_HEADING_GAP_BELOW,
+    REFERENCE_HEADING_Y,
     SCREEN_HALF_HEIGHT,
     SCREEN_LABEL_Y,
     SIDE_COLUMN_LEFT,
     SIDE_COLUMN_WIDTH,
+    referenceShelfFloor,
     screenXForDistance
 } from './apparatusGeometry';
 import { advanceTransitionForPhase, resolveAdvanceRefusal, resolveAdvanceView } from './advanceView';
@@ -62,6 +72,36 @@ const RESULT_READOUT_MAX_HEIGHT = 96;
  * the same thing true of five further transitions and gave every phase's scene the same widget, so
  * what is special about the laboratory is now only its column and its authored hint — not the control.
  */
+
+export type ApparatusRendererOptions = Readonly<{
+    /**
+     * Opens an artifact for **re-reading** at the bench (Story 2.8, AC6).
+     *
+     * The reference has to stay reachable during `experiment` — that is what the retired always-on
+     * `LectureBookScene` was buying, and removing it without replacing the affordance would take the
+     * reference away rather than move it. This opens the *scene's own* presenter: an intra-scene call,
+     * never a reach into another scene.
+     *
+     * Reading here dispatches nothing. The record of having read a source is made once, in the reading
+     * room; paging and closing at the bench stay ephemeral, as the archival-book rule requires.
+     */
+    openReference?: (artifact: ContextualArtifact) => boolean;
+}>;
+
+/**
+ * One control on the bench's reference shelf. Sized to its own label, which is authored content.
+ *
+ * A `Zone` for input and a shared `Graphics` for the fill, rather than a `Rectangle` doing both.
+ * `Zone.setSize(width, height, true)` is the one Phaser API that resizes a hit area along with the
+ * object; `Shape.setSize` does not — it throws on a shape whose geometry was built at a different size,
+ * and the throw lands inside the store's notify loop, where an escaping error breaks `dispatch`'s
+ * `Result` contract and strands the router mid-transition. Found exactly that way.
+ */
+type ReferenceControl = Readonly<{
+    artifactId: string;
+    hitArea: Phaser.GameObjects.Zone;
+    label: Phaser.GameObjects.Text;
+}>;
 
 export class ApparatusRenderer {
     private readonly objects: Phaser.GameObjects.GameObject[] = [];
@@ -126,7 +166,21 @@ export class ApparatusRenderer {
     private readonly reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     private motionAllowed = !this.reducedMotionQuery.matches;
 
-    public constructor(private readonly scene: Scene, private readonly storeAdapter: PhaserStoreAdapter) {}
+    /** The bench's reference shelf (Story 2.8): a heading and one control per authored artifact. */
+    private referenceHeading?: Phaser.GameObjects.Text;
+    private referenceShelfFills?: Phaser.GameObjects.Graphics;
+    private readonly referenceControls: ReferenceControl[] = [];
+
+    /**
+     * @param options.openReference Opens an artifact in the *scene's own* reference book. Optional,
+     * and absent means the bench simply draws no shelf — a scene that hosts no book must not be made
+     * to look as though it does.
+     */
+    public constructor(
+        private readonly scene: Scene,
+        private readonly storeAdapter: PhaserStoreAdapter,
+        private readonly options: ApparatusRendererOptions = {}
+    ) {}
 
     // Reduced-motion can be toggled at runtime; keep the cached flag and the loop in sync when it changes.
     private readonly onReducedMotionChange = (): void => {
@@ -164,6 +218,7 @@ export class ApparatusRenderer {
             .setOrigin(0, 1);
         this.objects.push(this.resultReadout);
         this.createSideColumn();
+        this.createReferenceShelf();
         this.updatePhoneReadOnlyMode();
         window.addEventListener('resize', this.updatePhoneReadOnlyMode);
 
@@ -205,6 +260,7 @@ export class ApparatusRenderer {
             : t('lab.result.emptyHint'));
         this.fitResultReadout();
         this.renderSideColumn(state, t);
+        this.renderReferenceShelf(state, t);
         this.renderApparatusGeometry(state, t, latestMatchesActiveSetup ? latest?.result.value : undefined);
         if (latest && latest.id !== this.lastRunId) this.animateRecordedRun();
         this.lastRunId = latest?.id;
@@ -232,6 +288,7 @@ export class ApparatusRenderer {
         this.beamGraphics = undefined; this.wavefrontGraphics = undefined; this.fringeGraphics = undefined;
         this.advanceControl = undefined;
         this.hintBackground = undefined; this.hintSpeaker = undefined; this.hintLine = undefined;
+        this.referenceHeading = undefined; this.referenceShelfFills = undefined; this.referenceControls.length = 0;
         this.advanceRefused = false; this.transientError.clear();
         this.lastRunId = undefined; this.fringeSignature = ''; this.measurementBoost = 0;
     }
@@ -531,6 +588,101 @@ export class ApparatusRenderer {
             .setVisible(true);
     }
 
+    /**
+     * The bench's reference shelf: one control per authored artifact, under the way out.
+     *
+     * Built only when the scene actually hosts a book. A shelf drawn by a scene with no presenter
+     * would be a control that does nothing, which is worse than no control at all.
+     */
+    private createReferenceShelf(): void {
+        if (!this.options.openReference) return;
+        this.referenceHeading = this.scene.add.text(SIDE_COLUMN_LEFT, REFERENCE_HEADING_Y, '', uiTextStyle({
+            color: '#9fc6bb', fontSize: `${REFERENCE_HEADING_FONT_SIZE}px`, fontStyle: 'bold', wordWrap: { width: SIDE_COLUMN_WIDTH }
+        }));
+        this.objects.push(this.referenceHeading);
+
+        // One `Graphics` for every control's fill, redrawn as a whole each render. Cheaper than a
+        // rectangle per control and, more to the point, it keeps the painted shape and the hit area as
+        // two things sized from one measurement rather than one object fighting its own geometry.
+        this.referenceShelfFills = this.scene.add.graphics();
+        this.objects.push(this.referenceShelfFills);
+
+        selectContextualArtifacts(this.storeAdapter.getState()).forEach((artifact) => {
+            // An artifact with no local rendition has nothing to re-read, and one whose rights are
+            // unreviewed must not be reachable as a reading at all. Neither gets a control here; the
+            // reading room is where both are explained, which is where the player met them.
+            if (!isSourceEligibleForInspection(artifact) || !artifact.textualRendition) return;
+            const hitArea = this.scene.add.zone(SIDE_COLUMN_LEFT, 0, SIDE_COLUMN_WIDTH, 1).setOrigin(0, 0);
+            // Empty here, written in `render`: an artifact's display name is authored `LocalizedText`
+            // and the locale can change at any time.
+            const label = this.scene.add.text(0, 0, '', uiTextStyle({
+                color: '#dfeaea', fontSize: `${REFERENCE_CONTROL_FONT_SIZE}px`, wordWrap: { width: REFERENCE_CONTROL_LABEL_WRAP }
+            }));
+            hitArea.on('pointerup', () => this.options.openReference?.(artifact));
+            this.objects.push(hitArea, label);
+            this.referenceControls.push({ artifactId: artifact.id, hitArea, label });
+        });
+    }
+
+    /**
+     * Paints the shelf, sizing each control to its own measured label and stacking the next under it.
+     *
+     * Measured rather than laid out against constants, because the labels are authored artifact names
+     * and French runs 15–25% longer: "Le compte rendu de la conférence de Thomas Young de 1801" wraps
+     * to two lines at this column width where its English counterpart fits on one. A fixed height here
+     * would clip it.
+     *
+     * A control that would reach {@link referenceShelfFloor} is hidden rather than drawn. The
+     * colleague's hint grows upward from the canvas floor into the same column, and this surface does
+     * not scroll — so the shelf yields, because the hint is the thing the player is being asked to act
+     * on and the reference is still reachable from the reading room.
+     */
+    private renderReferenceShelf(state: AppState, t: Translator): void {
+        const fills = this.referenceShelfFills;
+        if (!this.referenceHeading || !fills) return;
+        const locale = selectLocale(state);
+        this.referenceHeading.setText(t('lab.reference.heading'));
+        const artifacts = selectContextualArtifacts(state);
+        const floor = referenceShelfFloor(this.scene.scale.height);
+        let cursor = REFERENCE_HEADING_Y + this.referenceHeading.height + REFERENCE_HEADING_GAP_BELOW;
+
+        fills.clear();
+        fills.fillStyle(0x1d4451, 1);
+        this.referenceControls.forEach(({ artifactId, hitArea, label }) => {
+            const artifact = artifacts.find(({ id }) => id === artifactId);
+            const hide = (): void => {
+                hitArea.setVisible(false).disableInteractive();
+                label.setVisible(false);
+            };
+            if (!artifact) {
+                hide();
+                return;
+            }
+            label.setText(resolveLocalizedText(artifact.displayName, locale));
+            const height = label.height + (2 * REFERENCE_CONTROL_PADDING);
+            // The hint grows upward from the canvas floor into this same column. Where the two would
+            // meet, the shelf yields: the hint is what the player is being asked to act on, and the
+            // reference is still reachable from the reading room.
+            if (cursor + height > floor) {
+                hide();
+                return;
+            }
+            fills.fillRect(SIDE_COLUMN_LEFT, cursor, SIDE_COLUMN_WIDTH, height);
+            // The third argument is the whole point: `Zone.setSize` resizes the input hit area with the
+            // object. Nothing else in Phaser does — `setInteractive` a second time only re-enables an
+            // existing area, and `Shape.setSize` throws outright on a shape built at another size. That
+            // throw lands inside the store's notify loop, where an escaping error breaks `dispatch`'s
+            // `Result` contract and strands the router mid-transition. Found exactly that way.
+            hitArea.setVisible(true).setPosition(SIDE_COLUMN_LEFT, cursor).setSize(SIDE_COLUMN_WIDTH, height, true);
+            label.setVisible(true).setPosition(SIDE_COLUMN_LEFT + REFERENCE_CONTROL_PADDING, cursor + REFERENCE_CONTROL_PADDING);
+            cursor += height + REFERENCE_CONTROL_GAP;
+        });
+        // Re-applied because visibility just changed: a control this pass hid must not stay clickable,
+        // and one it revealed must not stay inert. One rule for input state, re-run, rather than a
+        // second copy of it inline here.
+        this.updatePhoneReadOnlyMode();
+    }
+
     private createControl(controlId: PrimaryControl['id'], y: number): void {
         // A French control label runs 15–25% longer than its English counterpart; the readout wraps
         // rather than running under the step buttons at x = 390.
@@ -561,5 +713,11 @@ export class ApparatusRenderer {
         // reference book's page controls falls through to it and moves the player out of the
         // laboratory — the same defect the book overlay caused on the proposal cards (1.12 review).
         this.advanceControl?.setInputEnabled(enabled);
+        // And the reference shelf, which is directly under the book's own control row: a page turn
+        // falling through here would re-open the book the player was closing.
+        this.referenceControls.forEach(({ hitArea }) => {
+            if (enabled && hitArea.visible) hitArea.setInteractive({ useHandCursor: true });
+            else hitArea.disableInteractive();
+        });
     };
 }

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 
 import type { LocalizedTextualRendition } from '../../src/domain/cases/CaseDefinition';
-import { getLectureSpread, paginateLectureRendition } from '../../src/ui/sources/lecturePagination';
+import { getLectureSpread, paginateLectureRendition } from '../../src/domain/cases/lecturePagination';
 
 const rendition: LocalizedTextualRendition = {
     locale: 'en',

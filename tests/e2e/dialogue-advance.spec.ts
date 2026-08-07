@@ -29,9 +29,6 @@ const ADVANCE = dialogueAdvanceControlCentre({
     width: PROPOSAL_SURFACE_WIDTH
 });
 
-/** The archival book's own canvas "Close book" control, which covers the whole surface once opened. */
-const BOOK_CLOSE = { x: 512, y: 678 };
-
 /** Inside the last card wherever the band starts. Derived, never a mid-surface guess — see the helper. */
 const CARD = lastProposalCardProbe(768);
 
@@ -68,11 +65,13 @@ const panelShot = async (page: import('@playwright/test').Page): Promise<Buffer>
 test('advances the authored conversation on the canvas without touching the investigation', async ({ page }) => {
     await page.goto('/');
 
+    // The DOM record is used only to satisfy the context gate. It no longer opens anything: Story 2.8
+    // retired the always-on book overlay, so this panel records the inspection and draws nothing over
+    // the canvas. The `clickDesign(BOOK_CLOSE)` that used to follow was deleted with it — with no book
+    // to dismiss, that click would land on live canvas at (512, 678), and a stray click on a proposal
+    // board is exactly the kind of side effect the 2.7 review called out.
     await page.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' }).click();
     await page.getByRole('button', { name: 'Inspect Opticks reference' }).click();
-    // Inspecting a source publishes the reference book over the whole canvas. It has to be closed, or
-    // every click below is legitimately suppressed by the overlay.
-    await clickDesign(page, BOOK_CLOSE);
     await page.getByRole('button', { name: 'Continue to prediction' }).click();
     await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', 'Colleagues');
 
@@ -100,7 +99,6 @@ test('keeps choosing a proposal working after the conversation has moved the car
 
     await page.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' }).click();
     await page.getByRole('button', { name: 'Inspect Opticks reference' }).click();
-    await clickDesign(page, BOOK_CLOSE);
     await page.getByRole('button', { name: 'Continue to prediction' }).click();
     await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', 'Colleagues');
 

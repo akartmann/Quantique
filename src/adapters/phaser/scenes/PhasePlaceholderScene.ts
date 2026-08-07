@@ -1,6 +1,7 @@
 import { Scene } from 'phaser';
 
 import { createTranslator } from '../../../core/i18n/translate';
+import { registerCanvasBoundsRefresh } from '../canvasBounds';
 import { monoTextStyle, uiTextStyle } from '../textStyles';
 import type { AppStore } from '../../../core/store/createStore';
 import { selectCasePhase, selectLocale, selectLocalizedError } from '../../../core/store/selectors';
@@ -17,25 +18,25 @@ import {
 } from './phasePlaceholderGeometry';
 
 /**
- * Routing shell for a scene whose content lands in a later story (Library 2.8, Debrief 2.11). It
- * renders a neutral development marker only — authored player-facing copy waits for the scene's own
- * story, through the i18n layer (ADR-010). Colleagues and TheoryBoard left this shell in Story 1.11.
+ * Routing shell for a scene whose content lands in a later story. **Only `DebriefScene` extends it
+ * now** — Story 2.8 replaced `LibraryScene` with a real reading room, and Story 2.11 replaces the
+ * debrief, after which this file is deleted. It renders a neutral development marker only; authored
+ * player-facing copy waits for the scene's own story, through the i18n layer (ADR-010). Colleagues and
+ * TheoryBoard left this shell in Story 1.11.
  *
  * The scene mirrors the phase and never dispatches it: it reads the phase to label itself, and to
  * resolve **which** typed action its advance control asks for.
  *
- * **It carries the advance affordance (Story 2.7).** The shell is mounted for `context` and `debrief`,
- * and until 2.8 and 2.11 replace it those two phases would otherwise have no way on from the canvas
- * at all — `context → prediction` and the post-debrief replay were both reachable only from a retired
- * DOM panel. Mounting it in the base class rather than in each subclass is the smaller diff and the
- * one that disappears cleanly: the base class is deleted once both replacements land, and the widget
- * survives into the real scenes.
+ * **It carries the advance affordance (Story 2.7).** Without it the post-debrief replay would be
+ * reachable only from a retired DOM panel, and `debrief` is the last phase — a finished player would
+ * have nowhere to go on the canvas at all.
  *
  * The control is the only player-facing thing here. The marker stays un-localized on purpose.
  */
 
 export abstract class PhasePlaceholderScene extends Scene {
     private unsubscribe?: () => void;
+    private disposeCanvasBounds?: () => void;
     private marker?: Phaser.GameObjects.Text;
     private advanceControl?: AdvanceControl;
     private refusalMessage?: Phaser.GameObjects.Text;
@@ -44,20 +45,17 @@ export abstract class PhasePlaceholderScene extends Scene {
     private readonly transientError = new TransientMessageSlot<string>();
 
     /**
-     * @param isOverlayVisible Reads the reference book's live visibility, for the same reason
-     * {@link LaboratoryScene} does. The book is reachable in **every** phase — `context` included —
-     * and the router rebuilds this scene while the book may already be open, so an edge-triggered
-     * suppression callback is not enough on its own: a page-turn click would fall through the book
-     * and advance the phase.
+     * It took an `isOverlayVisible` reader until Story 2.8, because an always-running book scene could
+     * be open over it and a page-turn click would otherwise fall through and advance the phase. There
+     * is no such scene now: the book belongs to the two scenes that host one, and neither is this.
      *
-     * **Required, with no default.** A `() => false` fallback would make exactly that omission a
-     * compile-time success and read as "the book is never open" — the defect this parameter exists to
-     * prevent, arrived at by forgetting the parameter rather than by mis-wiring it.
+     * The parameter was **removed rather than defaulted**. A `() => false` fallback would have made a
+     * wiring omission a compile-time success reading as "the book is never open" — which is what the
+     * 2.7 review flagged, and it is the same reasoning that put the parameter here in the first place.
      */
     protected constructor(
         private readonly sceneKey: SceneKey,
-        private readonly store: AppStore,
-        private readonly isOverlayVisible: () => boolean
+        private readonly store: AppStore
     ) {
         super(sceneKey);
     }
@@ -85,16 +83,13 @@ export abstract class PhasePlaceholderScene extends Scene {
             color: '#f4d35e', fontSize: `${PLACEHOLDER_MESSAGE_FONT_SIZE}px`, align: 'center', wordWrap: { width: PLACEHOLDER_MESSAGE_WRAP }
         })).setOrigin(0.5, 0);
 
-        this.advanceControl.setInputEnabled(!this.isOverlayVisible());
         this.render();
+        // The sticky-canvas bounds refresh the retired overlay scene used to own for the whole session
+        // (Story 2.8). Every routed scene registers its own; exactly one routed scene runs at a time.
+        this.disposeCanvasBounds = registerCanvasBoundsRefresh(this);
 
         this.unsubscribe = this.store.subscribe(() => this.render());
         this.events.once('shutdown', this.shutdown, this);
-    }
-
-    /** Lets the overlaying reference book suppress the advance control while it is open. */
-    public setInputEnabled(enabled: boolean): void {
-        this.advanceControl?.setInputEnabled(enabled);
     }
 
     private render(): void {
@@ -120,9 +115,11 @@ export abstract class PhasePlaceholderScene extends Scene {
      * that gate; until then the localized error is what keeps the refusal answerable.
      *
      * Routed through {@link resolveAdvanceRefusal} rather than straight to `selectLocalizedError`, so
-     * the register is consulted from every host and not only from the laboratory. `colleagueAnswers`
-     * is `false` because this shell has no hint slot to paint one in — and the day 2.8 gives the
-     * library both the line and the slot, that argument is the whole change.
+     * the register is consulted from every host and not only from the ones that can speak a line.
+     * `colleagueAnswers` is `false` because this shell has no hint slot to paint one in — a host that
+     * routed a gate refusal to a slot it does not have would answer with nothing. Story 2.8 changed
+     * exactly this argument in the reading room and left the rule here untouched, which is what "one
+     * rule, not two" was supposed to buy.
      */
     private requestAdvance(): void {
         const adapter = this.storeAdapter;
@@ -143,6 +140,8 @@ export abstract class PhasePlaceholderScene extends Scene {
     private shutdown(): void {
         this.unsubscribe?.();
         this.unsubscribe = undefined;
+        this.disposeCanvasBounds?.();
+        this.disposeCanvasBounds = undefined;
         this.advanceControl?.destroy();
         this.advanceControl = undefined;
         this.refusalMessage?.destroy();

@@ -111,3 +111,39 @@ export type ColleagueHint = Readonly<{
     predicate: ColleagueHintPredicate;
     line: LocalizedText;
 }>;
+
+/**
+ * When an authored reading-gate line applies, evaluated against the inspected contextual artifacts and
+ * nothing else (Story 2.8).
+ *
+ * The sibling of {@link ColleagueHintPredicate}, not a widening of it. The two answer different gates
+ * from different evidence — this one reads `inspectedSourceIds`, that one reads `runs` — and
+ * `selectColleagueHint` short-circuits on the significant-measure count before its predicates run at
+ * all, so a `missing-artifact` entry added there would never be reached in the `context` phase.
+ *
+ * `any-missing-reading` is the catch-all floor: it applies whenever the gate is unmet, so an author
+ * can guarantee the gate always has something to say without enumerating every artifact. Authored
+ * order is the escalation order, so put the specific predicates first.
+ */
+export type ReadingGateHintPredicate =
+    /** That one contextual artifact is still outstanding — unread, or not reviewable as evidence. */
+    | Readonly<{ kind: 'missing-artifact'; artifactId: string }>
+    /** True whenever any required reading is outstanding. Always satisfiable. */
+    | Readonly<{ kind: 'any-missing-reading' }>;
+
+/**
+ * One authored in-fiction nudge, spoken by a member of the cast when the required reading is
+ * incomplete and the player tries to leave the reading room (Story 2.8, AC4).
+ *
+ * Shaped exactly like {@link ColleagueHint} — `line` is display prose resolved at display time, and a
+ * line is never persisted, so an author may rewrite one without touching a saved investigation.
+ *
+ * A line names a *reading*. It never names a scene, phase, or route (`encodesPath` rejects the last),
+ * and it never states a conclusion or ranks the proposals.
+ */
+export type ReadingGateHint = Readonly<{
+    id: string;
+    colleagueId: string;
+    predicate: ReadingGateHintPredicate;
+    line: LocalizedText;
+}>;

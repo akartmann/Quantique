@@ -1,5 +1,5 @@
 import type { Locale } from '../../core/i18n/Locale';
-import type { Colleague, ColleagueHint, ConclusionProposal, PredictionProposal } from './ColleagueCast';
+import type { Colleague, ColleagueHint, ConclusionProposal, PredictionProposal, ReadingGateHint } from './ColleagueCast';
 import type { ScenarioScript } from './ScenarioScript';
 
 /**
@@ -224,6 +224,12 @@ export type CaseDefinition = Readonly<{
      * never refuse with nothing to say.
      */
     colleagueHints: readonly ColleagueHint[];
+    /**
+     * The in-fiction nudges shown when the required reading is incomplete and the player tries to
+     * leave the reading room (Story 2.8). Validation requires one that is satisfiable with nothing
+     * read, so this gate can never refuse with nothing to say either.
+     */
+    readingGateHints: readonly ReadingGateHint[];
     /** The authored cast that voices every proposal. See `ColleagueCast.ts`. */
     colleagues: readonly Colleague[];
     /** Exactly four: the pivot makes the prediction a 1-of-4 attributed choice. */

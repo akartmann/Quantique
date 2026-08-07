@@ -39,6 +39,7 @@ export const fr: Record<TranslationKey, string> = {
     'lab.pattern.recorded': 'Figure d’interférence enregistrée : les franges brillantes sont espacées de {spacing} dans le résultat du modèle de Young enregistré.',
     'lab.wavelengthMode.minimum': 'minimal',
     'lab.wavelengthMode.advanced': 'avancé',
+    'lab.reference.heading': 'Références à portée de main',
 
     // --- In-scene advance affordance (Story 2.7) -------------------------------------------------
     // See `en.ts` for the rule these follow. French runs 15–25% longer than English and each of these
@@ -50,6 +51,17 @@ export const fr: Record<TranslationKey, string> = {
     'advance.toReviewers': 'Vers vos relecteurs',
     'advance.closeTheCase': 'Clore l’enquête',
     'advance.replay': 'Enquêter à nouveau',
+
+    // --- The reading room (Story 2.8) ------------------------------------------------------------
+    // See `en.ts` for what belongs here and what belongs in `case.json`.
+    'library.heading': 'La salle de lecture',
+    'library.guide': 'Prenez une référence sur l’étagère pour la lire. Ce que vous lisez est consigné comme une pièce que vous pourrez citer plus tard.',
+    'library.artifact.read': 'Lu',
+    'library.detail.creator': 'Auteur ou contexte d’origine : {value}',
+    'library.detail.classification': '{type} · {provenance}',
+    'library.detail.rights': 'Statut des droits : {status}',
+    'library.artifact.unavailable': 'Les droits de ce document n’ont pas été vérifiés : il ne peut être lu ici ni cité comme pièce.',
+    'library.artifact.noRendition': 'Aucune copie locale de ce document n’est conservée ici, il n’y a donc rien à lire sur l’étagère. Ses informations ci-dessus restent consignées.',
 
     // --- Deterministic experiment result --------------------------------------------------------
     'experiment.result.fringeSpacing': 'Interfrange',

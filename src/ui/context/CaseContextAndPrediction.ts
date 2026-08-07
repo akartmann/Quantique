@@ -17,7 +17,7 @@ import {
     selectMissingContextArtifactLabels,
     selectSavedPrediction
 } from '../../core/store/selectors';
-import { getLectureSpread, paginateLectureRendition, type LecturePagination } from '../sources/lecturePagination';
+import { getLectureSpread, paginateLectureRendition, type LecturePagination } from '../../domain/cases/lecturePagination';
 
 const phaseCopy = (phase: string): string => {
     switch (phase) {

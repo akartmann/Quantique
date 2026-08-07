@@ -1,6 +1,6 @@
 {
   "id": "young-interference",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "openingDispute": {
     "en": "Does light travel as particles, waves, or something more subtle?",
     "fr": "La lumière se propage-t-elle comme des particules, comme des ondes, ou d’une manière plus subtile ?"
@@ -1108,6 +1108,35 @@
       "line": {
         "en": "One recorded arrangement is one recorded arrangement. Change something we can name — the separation of the openings, or the throw to the screen — and write the second reading beside the first.",
         "fr": "Un seul montage enregistré reste un seul montage enregistré. Changez quelque chose que nous puissions nommer — l’écartement des ouvertures ou la distance à l’écran — et consignez le second relevé à côté du premier."
+      }
+    }
+  ],
+  "readingGateHints": [
+    {
+      "id": "reading-young-lecture-outstanding",
+      "colleagueId": "samuel-hart",
+      "predicate": { "kind": "missing-artifact", "artifactId": "young-lecture-1801" },
+      "line": {
+        "en": "Young’s own lecture record is still on the shelf, unopened. Read what he put before the Royal Society in his own words before we go on — everything anyone will ask you afterwards rests on it.",
+        "fr": "Le compte rendu de la conférence de Young est encore sur l’étagère, non ouvert. Lisez ce qu’il a exposé devant la Royal Society, dans ses propres mots, avant que nous poursuivions : tout ce qu’on vous demandera ensuite repose là-dessus."
+      }
+    },
+    {
+      "id": "reading-newton-opticks-outstanding",
+      "colleagueId": "marianne-cole",
+      "predicate": { "kind": "missing-artifact", "artifactId": "newton-opticks" },
+      "line": {
+        "en": "The Opticks is still where you left it. Newton’s account is the one Young is arguing against, and we cannot weigh the argument having read only one side of it.",
+        "fr": "L’Opticks est resté là où vous l’avez laissé. L’explication de Newton est celle que Young conteste, et nous ne pouvons pas peser l’argument en n’ayant lu qu’un seul côté."
+      }
+    },
+    {
+      "id": "reading-something-still-unopened",
+      "colleagueId": "thea-young",
+      "predicate": { "kind": "any-missing-reading" },
+      "line": {
+        "en": "There is something on that shelf you have not opened yet. Take it down and read it — I would rather we argued from what the record actually says than from what we remember of it.",
+        "fr": "Il reste sur cette étagère quelque chose que vous n’avez pas ouvert. Prenez-le et lisez-le : je préfère que nous raisonnions à partir de ce que dit le document plutôt que de ce que nous en gardons en mémoire."
       }
     }
   ],

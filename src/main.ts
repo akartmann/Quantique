@@ -6,7 +6,7 @@ import { resolveBrowserLocale } from './core/i18n/resolveBrowserLocale';
 import { createTranslator, translateError } from './core/i18n/translate';
 import { createAppStateFromCaseRecord, createInitialAppState } from './core/store/AppState';
 import { createStore } from './core/store/createStore';
-import StartGame, { type LectureBookController, type LectureBookPresentation } from './game/main';
+import StartGame from './game/main';
 import { mountApparatusControls } from './ui/apparatus/ApparatusControls';
 import { createBootShell, setBootShellStatus } from './ui/BootShell';
 import { mountNotebookPanel } from './ui/notebook/NotebookPanel';
@@ -86,15 +86,14 @@ const initializeLaboratory = async (): Promise<void> => {
         }
     }
     const store = createStore(initialState);
-    let lectureBookController: LectureBookController | undefined;
-    let pendingLectureBookPresentation: LectureBookPresentation | undefined;
-    const projectLectureBook = (presentation: LectureBookPresentation | undefined): void => {
-        pendingLectureBookPresentation = presentation;
-        if (presentation) lectureBookController?.show(presentation);
-        else lectureBookController?.hide();
-    };
+    // The reference book belongs to the scene the player is standing in (Story 2.8), so there is no
+    // controller to hold here and nothing for this panel to project into. `CuratedRecord` still
+    // dispatches `source.inspected` and this panel still records it — that half is what keeps several
+    // e2e walks working until Story 2.12 deletes both — but its *reading* projection now has nowhere
+    // to draw, which is intended. The callback is a no-op rather than removed so the retired panel
+    // still compiles unchanged.
     const contextAndPrediction = mountCaseContextAndPrediction(contextPredictionRoot, store, {
-        onLectureBookPresentationChange: projectLectureBook
+        onLectureBookPresentationChange: () => {}
     });
     let curatedRecord: ReturnType<typeof mountCuratedRecord> | undefined;
     curatedRecord = mountCuratedRecord(curatedRecordRoot, store, {
@@ -114,10 +113,7 @@ const initializeLaboratory = async (): Promise<void> => {
         mountCaseProgressPanel(progressRoot, store, repository);
         mountCaseRecordPrintView(printRoot, store);
     }
-    const game = StartGame('game-container', store, (controller) => {
-        lectureBookController = controller;
-        if (pendingLectureBookPresentation) controller.show(pendingLectureBookPresentation);
-    });
+    const game = StartGame('game-container', store);
     // The routed Phaser game is the surface whose active scene mirrors the authoritative phase.
     //
     // Constructed on Phaser's ready event, not inline: before the scene manager boots, `start` only

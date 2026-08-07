@@ -132,15 +132,22 @@ describe('the phase → transition mapping', () => {
 
 describe('which register answers a refusal', () => {
     it('sends the significant-measure gate to the authored colleague line', () => {
-        // The one gate with authored in-fiction lines today (`case.json` `colleagueHints`).
+        // The gate with authored in-fiction lines since Story 2.6 (`case.json` `colleagueHints`).
         expect(advanceRefusalRegister('significant-measures-required')).toBe('gate');
+    });
+
+    it('sends the required-reading gate to the authored colleague line', () => {
+        // Story 2.8 gave this gate both an authored line (`case.json` `readingGateHints`) and a host
+        // with a slot to paint it in. Until then it belonged in the register below, and the 2.7 review
+        // named this move as the reason `colleagueAnswers` had to become a real argument.
+        expect(advanceRefusalRegister('missing-contextual-sources')).toBe('gate');
     });
 
     it('sends every other refusal to the localized error', () => {
         // Including the ones that have nothing to do with the evidence. `createStore` short-circuits
         // every dispatch during an exclusive progress operation, so a click during an export fails
         // with `progress-operation-active` and must not be answered by a colleague.
-        ['progress-operation-active', 'missing-contextual-sources', 'missing-prediction', 'conclusion-not-ready',
+        ['progress-operation-active', 'missing-prediction', 'conclusion-not-ready',
             'debrief-review-required', 'reviewed-revision-required', 'invalid-completion-timestamp', 'replay-unavailable']
             .forEach((code) => expect(advanceRefusalRegister(code)).toBe('error'));
     });
@@ -169,6 +176,17 @@ describe('resolveAdvanceRefusal', () => {
 
         expect(register).toBe('error');
         expect(message).toBe(LOCALIZED);
+    });
+
+    it('lets the colleague answer the required-reading gate, and falls back when no line applies', () => {
+        // Both directions on the code Story 2.8 added, because the fallback is the half that goes
+        // silent when it breaks: a `'gate'` verdict with no line drawn shows nothing at all.
+        const READING = 'Inspect Thomas Young’s 1801 lecture record before continuing.';
+
+        expect(resolveAdvanceRefusal({ code: 'missing-contextual-sources', localizedError: READING, colleagueAnswers: true }))
+            .toStrictEqual({ register: 'gate', message: undefined });
+        expect(resolveAdvanceRefusal({ code: 'missing-contextual-sources', localizedError: READING, colleagueAnswers: false }))
+            .toStrictEqual({ register: 'error', message: READING });
     });
 
     it('answers every non-gate refusal with the localized error, on every host', () => {
