@@ -30,7 +30,7 @@ export class ColleaguesScene extends Scene {
 
     public create(): void {
         this.cameras.main.setBackgroundColor(0x10252c);
-        this.colleagueRenderer = new ColleagueRenderer(this, createPhaserStoreAdapter(this.store), 'prediction');
+        this.colleagueRenderer = new ColleagueRenderer(this, createPhaserStoreAdapter(this.store), { kind: 'prediction' });
         this.colleagueRenderer.create();
         this.disposeCanvasBounds = registerCanvasBoundsRefresh(this);
 

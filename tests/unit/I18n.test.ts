@@ -8,6 +8,7 @@ import { createTranslator, translate, translateError } from '../../src/core/i18n
 import { formatMeasurement, formatNumber } from '../../src/core/i18n/formatNumber';
 import { resolveLocalizedText, resolveLocalizedTextList } from '../../src/core/i18n/resolveLocalizedText';
 import { SourceProvenanceCategorySchema, SourceRightsStatusSchema, SourceTypeSchema } from '../../src/schemas/CaseDefinitionSchema';
+import { RECOGNITION_IDS } from '../../src/domain/recognition/recognitionRules';
 
 /** U+202F. Asserted as a code point: a plain space would pass locally and drift across ICU builds. */
 const NARROW_NO_BREAK_SPACE = '\u202F';
@@ -125,6 +126,148 @@ describe('locale resources', () => {
             expect(en[key], `${key} (en)`).toBeDefined();
             expect(fr[key], `${key} (fr)`).toBeDefined();
         });
+    });
+
+    /**
+     * The debrief and the case file (Story 2.11) — the last two content surfaces on `EXPERIENCE.md`'s
+     * own EN+FR list.
+     *
+     * Named rather than left to the symmetry checks above, for the reason the reading room's list
+     * exists: those prove `en` and `fr` agree and that nothing shipped blank, and neither can notice a
+     * key that was **never authored** — a surface missing from both bundles passes both of them.
+     *
+     * The eight `recognition.*` keys are in this list on purpose. They have shipped in both bundles
+     * since Story 1.9 and **nothing resolved them** until the debrief did; `deriveRecognition` emits
+     * canonical English into the persisted record and the display resolves by stable id, so a bundle
+     * gap here would have shown a French player four English labels with no test able to see it.
+     */
+    it('authors every string the debrief and the case file draw, in both locales', () => {
+        const CANVAS_DEBRIEF_KEYS = [
+            'debrief.heading',
+            'debrief.sources.heading',
+            'debrief.sources.line',
+            'debrief.deeperTheory.show',
+            'debrief.deeperTheory.hide',
+            'debrief.recognition.heading',
+            'debrief.recognition.intro',
+            'debrief.recognition.achieved',
+            'debrief.recognition.notRecorded',
+            'debrief.critiques.heading',
+            'debrief.critiques.headingCounted',
+            'debrief.critiques.empty',
+            'debrief.critiques.earlier',
+            'debrief.critiques.later',
+            'debrief.record.unavailable',
+            'caseFile.open',
+            'caseFile.heading',
+            'caseFile.guide',
+            'caseFile.close',
+            'caseFile.observations.heading',
+            'caseFile.observations.empty',
+            'caseFile.observation',
+            'caseFile.observation.detail',
+            'caseFile.sources.heading',
+            'caseFile.sources.empty',
+            'caseFile.source.detail',
+            'caseFile.pin',
+            'caseFile.unpin',
+            'caseFile.page.earlier',
+            'caseFile.page.later',
+            'caseFile.page.counter',
+            'caseFile.readiness.heading',
+            'caseFile.readiness.complete',
+            'caseFile.review.heading',
+            'caseFile.review.request',
+            'caseFile.review.save',
+            'caseFile.review.none',
+            'caseFile.review.notRequested',
+            'caseFile.review.issue',
+            'caseFile.review.saved',
+            // Resolved for the first time by the debrief. Shipped and dead since Story 1.9.
+            ...RECOGNITION_IDS.flatMap((id) => [
+                `recognition.${id}.label` as const,
+                `recognition.${id}.description` as const
+            ]),
+            // AC6's split: the ordering failure stopped sharing a message with the malformed stamp.
+            'error.completion-timestamp-not-later',
+            'error.invalid-completion-timestamp'
+        ] as const;
+
+        CANVAS_DEBRIEF_KEYS.forEach((key) => {
+            expect(en[key], `${key} (en)`).toBeDefined();
+            expect(en[key].trim().length, `${key} (en) is blank`).toBeGreaterThan(0);
+            expect(fr[key], `${key} (fr)`).toBeDefined();
+            expect(fr[key].trim().length, `${key} (fr) is blank`).toBeGreaterThan(0);
+            // A French value byte-identical to its English one is almost always an untranslated
+            // placeholder. Four are deliberate exceptions, and each is stated rather than waved
+            // through: three are pure punctuation around values that are already localized where they
+            // are produced, and `caseFile.observation` is a cognate — "Observation {order}" is correct
+            // French, and `notebook.observation` has carried the same identical pair since Story 2.10.
+            const IDENTICAL_BY_DESIGN = [
+                'debrief.sources.line',
+                'caseFile.observation.detail',
+                'caseFile.source.detail',
+                'caseFile.review.issue',
+                'caseFile.observation'
+            ];
+            if (!IDENTICAL_BY_DESIGN.includes(key)) {
+                expect(fr[key], `${key} was never translated`).not.toBe(en[key]);
+            }
+        });
+    });
+
+    /**
+     * AC7's readiness list, localized by requirement `code` rather than from the domain's dev-facing
+     * `missing[].message`.
+     *
+     * Derived from the bundle's own prefix, which proves parity and non-emptiness but **cannot** prove
+     * the roster is complete — a code the domain emits and neither bundle authors would leave this
+     * green while the case file showed a humanised key. That half is covered where it can be:
+     * `tests/integration/ConclusionSupport.test.ts` drives the store into each readiness state and
+     * asserts the projection never falls back, in both locales. `MissingConclusionRequirementCode` is
+     * a type union with no runtime counterpart, and `src/domain/**` is out of this story's scope, so
+     * exporting one is a later story's change rather than a workaround here.
+     */
+    it('authors every conclusion-readiness line it ships, in both locales', () => {
+        const readinessKeys = Object.keys(en)
+            .filter((key) => key.startsWith('conclusion.missing.')) as (keyof typeof en)[];
+
+        // The derivation must be live: a prefix that matched nothing would make the loop vacuous.
+        expect(readinessKeys.length).toBeGreaterThan(0);
+        readinessKeys.forEach((key) => {
+            expect(en[key].trim().length, `${key} (en)`).toBeGreaterThan(0);
+            expect(fr[key].trim().length, `${key} (fr)`).toBeGreaterThan(0);
+            expect(fr[key], `${key} was never translated`).not.toBe(en[key]);
+        });
+    });
+
+    /**
+     * AC2's four provenance categories, all four of which the debrief must be able to name.
+     *
+     * The shipped Young case authors two artifacts and both are `primary-material`, so **shipped
+     * content exercises one of the four**. The vocabulary is therefore covered by deriving from the
+     * schema's own `.options` rather than from the case — transcribing three Zod enum families instead
+     * of deriving from them was a 2.8 review patch, and this is the same trade one story later.
+     *
+     * The debrief renders `source.provenanceName.*` (the capitalised noun) beside every citation, not
+     * `source.provenance.*` (the lower-case phrase the print view interpolates mid-sentence). Both
+     * families are checked above; this one asserts the debrief's own is complete and distinct.
+     */
+    it('names all four provenance categories the debrief can cite, in both locales', () => {
+        const categories = SourceProvenanceCategorySchema.options;
+        expect(categories.length).toBe(4);
+
+        const labels = categories.map((category) => `source.provenanceName.${category}` as const);
+        labels.forEach((key) => {
+            expect(en[key].trim().length, `${key} (en)`).toBeGreaterThan(0);
+            expect(fr[key].trim().length, `${key} (fr)`).toBeGreaterThan(0);
+            expect(fr[key], `${key} was never translated`).not.toBe(en[key]);
+        });
+        // Four distinct labels, not one repeated: a copy-paste that gave two categories the same noun
+        // would leave a reader unable to tell a reconstruction from a deliberate fiction, which is the
+        // distinction AC2 exists to preserve.
+        expect(new Set(labels.map((key) => fr[key])).size).toBe(categories.length);
+        expect(new Set(labels.map((key) => en[key])).size).toBe(categories.length);
     });
 
     it('keeps the same interpolation parameters in both locales', () => {

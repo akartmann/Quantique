@@ -48,7 +48,12 @@ describe('authoritative Young completion and replay', () => {
 
         const reviewed = completeToReview();
         expect(reviewed.dispatch({ type: 'case.phaseAdvance', nextPhase: 'debrief' })).toMatchObject({ ok: false, error: { code: 'debrief-completion-required' } });
-        expect(reviewed.dispatch({ type: 'case.debriefCompleted', timestamp: '2026-08-05T12:01:59.000Z' })).toMatchObject({ ok: false, error: { code: 'invalid-completion-timestamp' } });
+        // Two distinct codes since Story 2.11 (AC6): a stamp *earlier than the reviewed revision* is
+        // reachable in normal play — a progress import from another device, or a backwards clock
+        // correction between `revision.saved` and the advance click — and its remedy is the device
+        // clock. A malformed stamp keeps the message that describes a malformed stamp.
+        expect(reviewed.dispatch({ type: 'case.debriefCompleted', timestamp: '2026-08-05T12:01:59.000Z' })).toMatchObject({ ok: false, error: { code: 'completion-timestamp-not-later' } });
+        expect(reviewed.dispatch({ type: 'case.debriefCompleted', timestamp: 'not-a-timestamp' })).toMatchObject({ ok: false, error: { code: 'invalid-completion-timestamp' } });
     });
 
     it('requires a saved comparison and reviewed revision before freezing debrief completion', () => {

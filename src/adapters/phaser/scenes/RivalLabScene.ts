@@ -14,7 +14,8 @@ import { RivalLabRenderer } from '../renderers/RivalLabRenderer';
  * show itself, the challenge would be scene-local — invisible to the tests AC4 requires to run through
  * public actions, and lost on reload.
  *
- * It is **not** a `PhasePlaceholderScene`: that is the development marker for scenes not yet built.
+ * It is **not** a routing shell: that was the development marker for scenes not yet built, and Story
+ * 2.11 deleted it once the debrief became the last real scene.
  * The shape here follows `TheoryBoardScene` — build the renderer in `create()`, subscribe, render once,
  * and release everything on `shutdown`.
  *

@@ -1192,6 +1192,63 @@ describe('loadCaseDefinition', () => {
         expect(fetchCase).toHaveBeenNthCalledWith(2, '/cases/young-interference/asset-manifest.json');
     });
 
+    /**
+     * The authored debrief, in both locales (Story 2.11, AC8).
+     *
+     * The debrief is the last surface on `EXPERIENCE.md`'s own list of places the "chrome gets
+     * localized and content does not" defect recurs, and every string checked here is **content** —
+     * `LocalizedText` in `case.json`, resolved by `selectLocalizedDebrief` rather than by `translate`.
+     * The interface half of AC8 is `I18n.test.ts`; the French *widths* are `french-typography.spec.ts`.
+     * Canvas text cannot be read from the DOM, so this is where "asserted present in EN and FR" is
+     * actually met for the room's prose.
+     *
+     * `summary` in particular has been authored in both locales since 1.14.0 and rendered by **nothing**
+     * until this story; a test naming it is how it stops being possible for that to happen quietly.
+     */
+    it('authors every debrief string the canvas renders, in both locales', async () => {
+        const caseContent = await readFile(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf8');
+        const definition = CaseDefinitionSchema.parse(JSON.parse(caseContent));
+        const { debrief } = definition;
+
+        const authored: readonly (readonly [string, LocalizedText])[] = [
+            ['summary', debrief.summary],
+            ['historicalComparison.title', debrief.historicalComparison.title],
+            ['historicalComparison.text', debrief.historicalComparison.text],
+            ['deeperTheory.title', debrief.deeperTheory.title],
+            ['deeperTheory.text', debrief.deeperTheory.text],
+            ['replayLabel', debrief.replayLabel]
+        ];
+
+        authored.forEach(([name, text]) => {
+            expect(text.en.trim().length, `${name} (en)`).toBeGreaterThan(0);
+            expect(text.fr.trim().length, `${name} (fr)`).toBeGreaterThan(0);
+            // A French value byte-identical to its English one is an untranslated placeholder, and
+            // every one of these is a full sentence rather than a cognate or a punctuation template.
+            expect(text.fr, `${name} was never translated`).not.toBe(text.en);
+        });
+
+        // The two cited sources resolve against `contextualArtifacts`, which is what the debrief reads.
+        // `debrief.sourceRefs` is deliberately **not** checked: its two ids match no artifact and the
+        // schema validates them only as non-empty strings, which is Open Question 3 rather than
+        // something to assert either way here.
+        const artifactIds = definition.contextualArtifacts.map(({ id }) => id);
+        debrief.historicalComparison.sourceIds.forEach((sourceId) => {
+            expect(artifactIds, `${sourceId} is cited but not authored`).toContain(sourceId);
+        });
+
+        // The counterfactual warning has to read as one in both locales — it is the only thing telling
+        // a replaying player that what they are building is not the record.
+        expect(debrief.replayLabel.en.toLowerCase()).toContain('not the recorded historical result');
+        expect(debrief.replayLabel.fr.toLowerCase()).toContain('il ne s’agit pas du résultat historique enregistré');
+
+        // And the challenge lines the debrief pages through, for the same reason.
+        definition.rivalLab.critiques.forEach((critique) => {
+            expect(critique.line.en.trim().length, `${critique.id} (en)`).toBeGreaterThan(0);
+            expect(critique.line.fr.trim().length, `${critique.id} (fr)`).toBeGreaterThan(0);
+            expect(critique.line.fr, `${critique.id} was never translated`).not.toBe(critique.line.en);
+        });
+    });
+
     it('returns a validated definition from the only content boundary', async () => {
         const fetchCase = vi.fn()
             .mockResolvedValueOnce(new Response(JSON.stringify(validYoungCase), { status: 200 }))

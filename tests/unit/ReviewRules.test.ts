@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore } from '../../src/core/store/createStore';
-import { selectConsultation, selectDecisionHistory, selectPeerReview } from '../../src/core/store/selectors';
+import { selectConsultation, selectDecisionHistory, selectLocalizedPeerReview, selectPeerReview } from '../../src/core/store/selectors';
+import { en } from '../../src/core/i18n/locales/en';
+import { fr } from '../../src/core/i18n/locales/fr';
+import { CANONICAL_UNAVAILABLE_MESSAGE } from '../../src/domain/review/peerReviewRules';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 import { selectConsultation as chooseConsultation } from '../../src/domain/review/ConsultationRule';
 import { evaluatePeerReview } from '../../src/domain/review/peerReviewRules';
@@ -146,5 +149,111 @@ describe('authored consultation and peer-review rules', () => {
         expect(Object.isFrozen(history[0])).toBe(true);
         store.dispatch({ type: 'theory.conclusionSet', conclusion: 'A revised, bounded statement.' });
         expect(history[0].conclusion).toBe('The evidence proves a bounded result.');
+    });
+});
+
+/**
+ * The peer-review projection the case file reads (Story 2.11, D3).
+ *
+ * `PeerReviewIssue.feedback` and `.revisionPath` are canonical `.en` **by contract**: they are
+ * persisted inside `DecisionHistoryEntry.feedback` and recomputed-and-string-compared on load by
+ * `validateCaseRecordForDefinition`, so emitting the active locale would reject every record saved in
+ * the other language. The retired `ConclusionReviewPanel` rendered them straight to the player, which
+ * is this project's most-repeated defect one layer down.
+ *
+ * Asserted **against a French store**, because that is the only place the two can be told apart: in
+ * English the authored string and the canonical one are the same text, so a projection passing
+ * `issue.feedback` through would look correct.
+ */
+describe('the localized peer-review projection', () => {
+    const reviewedFrenchStore = () => {
+        const store = createStore(createInitialAppState(definition, 'fr'));
+        ['source-1', 'source-2'].forEach((sourceId) => store.dispatch({ type: 'source.inspected', sourceId }));
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
+        store.dispatch({ type: 'prediction.recorded', prediction: 'A tentative pattern may appear.' });
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
+        store.dispatch({ type: 'experiment.run', id: 'one', timestamp: '2026-08-04T12:00:00.000Z' });
+        // A second observation at a **different** throw: the significant-measure gate reads a repeat
+        // at one setting as a replication and correctly holds `experiment → synthesis` shut.
+        store.dispatch({ type: 'apparatus.controlSet', controlId: 'screenDistanceM', value: 3, origin: 'phaser' });
+        store.dispatch({ type: 'experiment.run', id: 'two', timestamp: '2026-08-04T12:01:00.000Z' });
+        expect(store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' })).toEqual({ ok: true, value: undefined });
+        store.dispatch({ type: 'theory.conclusionSet', conclusion: 'The evidence proves a bounded result.' });
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'review' });
+        expect(store.dispatch({ type: 'peerReview.requested' })).toEqual({ ok: true, value: undefined });
+        return store;
+    };
+
+    it('resolves each finding by ruleId to the authored French, and never returns the canonical English', () => {
+        const store = reviewedFrenchStore();
+        const raw = selectPeerReview(store.getState());
+        const projected = selectLocalizedPeerReview(store.getState());
+
+        expect(raw?.status).toBe('reviewed');
+        expect(projected?.status).toBe('reviewed');
+        if (raw?.status !== 'reviewed' || projected?.status !== 'reviewed') throw new Error('the fixture must produce findings');
+        expect(raw.issues.length).toBeGreaterThan(0);
+        expect(projected.issues).toHaveLength(raw.issues.length);
+
+        projected.issues.forEach((issue, index) => {
+            const rule = definition.peerReviewRules.find(({ id }) => id === issue.ruleId)!;
+            expect(issue.ruleId).toBe(raw.issues[index].ruleId);
+            expect(issue.feedback).toBe(rule.feedback.fr);
+            expect(issue.revisionPath).toBe(rule.revisionPath.fr);
+            // The canonical `.en` is what the record persists, and it must not be what a player reads.
+            expect(issue.feedback).not.toBe(raw.issues[index].feedback);
+            expect(issue.revisionPath).not.toBe(raw.issues[index].revisionPath);
+        });
+    });
+
+    /**
+     * A `ruleId` the case no longer authors falls back to the canonical `.en`.
+     *
+     * That is the one place it is the right answer: the alternative is dropping a finding the player's
+     * revision was judged against, and silence about a finding is worse than an untranslated one.
+     */
+    it('falls back to the canonical English for a rule this build no longer authors', () => {
+        const store = reviewedFrenchStore();
+        const raw = selectPeerReview(store.getState());
+        if (raw?.status !== 'reviewed') throw new Error('the fixture must produce findings');
+
+        const degraded = {
+            ...store.getState(),
+            caseDefinition: { ...definition, peerReviewRules: [] } as CaseDefinition
+        };
+        const projected = selectLocalizedPeerReview(degraded);
+        if (projected?.status !== 'reviewed') throw new Error('the projection must survive degraded content');
+
+        expect(projected.issues).toHaveLength(raw.issues.length);
+        expect(projected.issues[0].feedback).toBe(raw.issues[0].feedback);
+    });
+
+    /**
+     * `status: 'unavailable'` resolves the existing `review.unavailable` key rather than the
+     * projection's own `message`, which is `CANONICAL_UNAVAILABLE_MESSAGE` and English by contract.
+     */
+    it('localizes the unavailable status rather than echoing the canonical message', () => {
+        // A case authoring no evaluable rule at all, which is what `hasEvaluableRules` answers with
+        // `unavailable`. Reached by projecting a degraded definition onto a state that is already in
+        // `review`, rather than by walking a second full investigation to get there.
+        const store = reviewedFrenchStore();
+        const degraded = {
+            ...store.getState(),
+            caseDefinition: { ...definition, peerReviewRules: [] } as CaseDefinition,
+            peerReview: { status: 'unavailable' as const, message: CANONICAL_UNAVAILABLE_MESSAGE }
+        };
+
+        const projected = selectLocalizedPeerReview(degraded);
+        expect(projected?.status).toBe('unavailable');
+        if (projected?.status !== 'unavailable') throw new Error('the fixture must be unavailable');
+        expect(projected.message).toBe(fr['review.unavailable']);
+        expect(projected.message).not.toBe(CANONICAL_UNAVAILABLE_MESSAGE);
+        // And the two are kept in sync by convention, which is worth one assertion.
+        expect(en['review.unavailable']).toBe(CANONICAL_UNAVAILABLE_MESSAGE);
+    });
+
+    it('returns nothing at all when no feedback has been asked for', () => {
+        const store = createStore(createInitialAppState(definition, 'fr'));
+        expect(selectLocalizedPeerReview(store.getState())).toBeUndefined();
     });
 });

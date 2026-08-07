@@ -11,6 +11,31 @@ import { BOOK_CLOSE_FADE_MS, BOOK_OPEN_MS, BOOK_TURN_MS } from '../../src/adapte
 // animation changes, and a click inside that window reaches a locked control and fails looking exactly
 // like a dead one.
 import { RUN_ANIMATION_MS } from '../../src/adapters/phaser/renderers/ApparatusRenderer';
+import {
+    advanceToSynthesisControlCentre,
+    KNOB_TRAVEL_RADIUS,
+    knobCentre,
+    notebookCloseControlCentre,
+    notebookControlCentre,
+    notebookSaveControlCentre,
+    notebookSelectionCentre,
+    startTheLightControlCentre
+} from '../../src/adapters/phaser/renderers/apparatusGeometry';
+import {
+    caseFileCloseControlCentre,
+    caseFileObservationPinCentre,
+    caseFileRequestControlCentre,
+    caseFileSaveControlCentre,
+    caseFileSourcePinCentre
+} from '../../src/adapters/phaser/renderers/caseFileGeometry';
+import {
+    advanceControlCentreOnBoard,
+    caseFileOpenControlCentre,
+    lastProposalCardProbe
+} from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import { KNOB_ARC_END_RAD } from '../../src/adapters/phaser/renderers/instrumentView';
+import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
+import { libraryAdvanceControlCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
 
 /**
  * Clicking and observing the routed Phaser surface, shared by every canvas spec (Story 2.8).
@@ -273,4 +298,214 @@ export const clickUntilScene = async (page: Page, point: Readonly<{ x: number; y
         if (await activeScene(page) !== sceneKey) await clickDesign(page, point);
         expect(await activeScene(page)).toBe(sceneKey);
     }).toPass({ timeout: 5_000, intervals: [100, 200, 300, 500] });
+};
+
+// --- The whole-case canvas walk (Story 2.11) --------------------------------------------------------
+
+/**
+ * The Young case, taken from the reading room to the debrief with **canvas clicks only**.
+ *
+ * Extracted here rather than copied, which is the rule this file was created to enforce: `artifactAt`
+ * was copy-pasted between two specs in the very commit that created it, and became a 2.8 review patch.
+ * Two specs need this walk — `canvas-transitions.spec.ts`, which is *about* the transitions, and
+ * `debrief-replay.spec.ts`, which needs to be standing in the debrief before it can say anything — and
+ * two copies are two chances for one to drift into passing while the other fails.
+ *
+ * `youngExperimentHelpers.ts` is the **DOM** walk and is deliberately not the answer: Story 2.12
+ * deletes every control it drives.
+ *
+ * The transitions are asserted **inside** the walk. That is what keeps `canvas-transitions.spec.ts`
+ * honest after the extraction: the property it claims — every forward transition is taken from the
+ * scene the player is standing in — is checked at each step here, rather than reduced to "we ended up
+ * in the debrief somehow".
+ *
+ * Every click target is derived from exported geometry. Nothing here restates a coordinate.
+ */
+
+const WALK_CASE = JSON.parse(
+    readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
+) as { apparatus: { primaryControls: { id: string; max: number }[] } };
+
+/**
+ * Which slot the screen-distance instrument stands in, read from the content rather than fixed at 1.
+ *
+ * The bench gives one slot per authored control in authored order, so a case that listed the two the
+ * other way round would put the drag on the slit spacing — and the run would still record, and the
+ * walk would still reach the theory board, and the spec would pass having varied the wrong thing.
+ */
+const SCREEN_DISTANCE_SLOT = WALK_CASE.apparatus.primaryControls.findIndex(({ id }) => id === 'screenDistanceM');
+if (SCREEN_DISTANCE_SLOT < 0) throw new Error('The authored case must carry a screen-distance control.');
+/** Where a drag to the far end of the travel lands, read from the authored bound rather than as 4. */
+const FURTHEST_THROW = WALK_CASE.apparatus.primaryControls[SCREEN_DISTANCE_SLOT]!.max;
+const SCREEN_DISTANCE_TRAVEL_END = {
+    x: knobCentre(SCREEN_DISTANCE_SLOT).x + (Math.cos(KNOB_ARC_END_RAD) * (KNOB_TRAVEL_RADIUS - 6)),
+    y: knobCentre(SCREEN_DISTANCE_SLOT).y + (Math.sin(KNOB_ARC_END_RAD) * (KNOB_TRAVEL_RADIUS - 6))
+};
+
+/**
+ * What the walk costs in wall-clock milliseconds beyond Playwright's default, so a spec can set its own
+ * budget from what it actually spends rather than from a round number nobody revisits.
+ */
+export const WALK_TO_DEBRIEF_COST_MS = 4 * RUN_STEP_COST_MS;
+
+/** Reads both references off the shelf and leaves the room. `context → prediction`. */
+const readTheReferences = async (page: Page): Promise<void> => {
+    await expectActiveScene(page, 'Library');
+    for (let index = 0; index < ARTIFACT_COUNT; index += 1) {
+        await clickDesign(page, artifactAt(index));
+        await waitForBookToOpen(page);
+        await clickDesign(page, bookCloseControlCentre());
+        await waitForBookToClose(page);
+    }
+    await clickUntilScene(page, libraryAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT), 'Colleagues');
+};
+
+/** Chooses an attributed prediction and moves to the bench. `prediction → experiment`. */
+const chooseThePrediction = async (page: Page): Promise<void> => {
+    await clickDesign(page, lastProposalCardProbe(DESIGN_HEIGHT));
+    await clickDesign(page, advanceControlCentreOnBoard('prediction'));
+    await expectActiveScene(page, 'Laboratory');
+};
+
+/**
+ * Two observations at **different** screen distances, compared and noted. `experiment → synthesis`.
+ *
+ * Different settings because `configurationKey` reads a repeat at one setting as a replication, so
+ * pressing start twice would record two observations and leave the significant-measure gate shut. The
+ * setting is **observed**, never driven: a lost drag would otherwise surface at the transition as a
+ * routing error rather than here.
+ */
+const recordTwoObservations = async (page: Page): Promise<void> => {
+    await startTheLightUntilRecorded(page, startTheLightControlCentre(), 1);
+    await dragDesignUntil(page, knobCentre(SCREEN_DISTANCE_SLOT), SCREEN_DISTANCE_TRAVEL_END, async () => {
+        await expect(page.getByLabel('Screen distance (m)')).toHaveValue(String(FURTHEST_THROW), { timeout: 1_500 });
+    });
+    await startTheLightUntilRecorded(page, startTheLightControlCentre(), 2);
+
+    await clickDesign(page, notebookControlCentre());
+    await waitForInputToSettle(page);
+    await clickDesign(page, notebookSelectionCentre(0));
+    await waitForInputToSettle(page);
+    await clickDesign(page, notebookSelectionCentre(1));
+    await waitForInputToSettle(page);
+    // **No click into the note field.** It is deliberately not interactive — there is no cursor on a
+    // canvas to invite one — so it takes keys from the moment a pair is selected.
+    await page.keyboard.type('Wider');
+    await clickDesign(page, notebookSaveControlCentre());
+    await waitForInputToSettle(page);
+    await clickDesign(page, notebookCloseControlCentre());
+    await waitForInputToSettle(page);
+
+    await clickDesign(page, advanceToSynthesisControlCentre());
+    await expectActiveScene(page, 'TheoryBoard');
+};
+
+/**
+ * Opens the case file, does something in it, and closes it again.
+ *
+ * The overlay suppresses the board while it is up and hands it back on close, so every interaction
+ * with it is bracketed rather than left open — a click meant for the board that landed on the backdrop
+ * would be swallowed, and one meant for the overlay that fell through would choose a conclusion.
+ */
+const inTheCaseFile = async (page: Page, act: () => Promise<void>): Promise<void> => {
+    await clickDesign(page, caseFileOpenControlCentre());
+    await waitForInputToSettle(page);
+    await act();
+    await clickDesign(page, caseFileCloseControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT));
+    await waitForInputToSettle(page);
+};
+
+/**
+ * Chooses the conclusion and pins what it rests on, then asks the reviewers. `synthesis → review`.
+ *
+ * The four pins are `theory.supportRunSelected` and `theory.supportSourceSelected`, which had no canvas
+ * dispatcher at all before Story 2.11 — this is the step that used to be four
+ * `board.getByRole('checkbox').check()` calls into a DOM panel Story 2.12 deletes.
+ */
+const pinTheSupport = async (page: Page): Promise<void> => {
+    await clickDesign(page, lastProposalCardProbe(DESIGN_HEIGHT));
+    await inTheCaseFile(page, async () => {
+        for (let index = 0; index < 2; index += 1) {
+            await clickDesign(page, caseFileObservationPinCentre(index, DESIGN_WIDTH));
+            await waitForInputToSettle(page);
+        }
+        for (let index = 0; index < ARTIFACT_COUNT; index += 1) {
+            await clickDesign(page, caseFileSourcePinCentre(index, DESIGN_WIDTH));
+            await waitForInputToSettle(page);
+        }
+    });
+
+    await clickDesign(page, advanceControlCentreOnBoard('conclusion'));
+    // The theory board hosts `synthesis` **and** `review`, so the scene deliberately does not change
+    // here. That the phase did is proven by what follows: `peerReview.requested` is refused outside
+    // `review`, and `case.debriefCompleted` is refused unless a reviewed revision was saved in it.
+    await expectActiveScene(page, 'TheoryBoard');
+};
+
+/**
+ * Asks for feedback, saves the reviewed revision, and closes the case. `review → debrief`.
+ *
+ * `clickUntilScene`, not a single click, and the reason is the *previous* advance rather than this one:
+ * the board survives `synthesis → review` and its control relabels under the cursor, which starts
+ * `ADVANCE_RELABEL_LOCKOUT_MS` — a deliberate window in which the control ignores clicks so a
+ * double-click cannot skip `review` entirely. A spec clicking at machine speed lands inside it and is
+ * correctly ignored. Retrying is what a player does without noticing, and the helper is bounded, so a
+ * genuinely dead control still fails.
+ */
+const closeTheCase = async (page: Page): Promise<void> => {
+    await inTheCaseFile(page, async () => {
+        await clickDesign(page, caseFileRequestControlCentre(DESIGN_WIDTH));
+        await waitForInputToSettle(page);
+        await clickDesign(page, caseFileSaveControlCentre(DESIGN_WIDTH));
+        await waitForInputToSettle(page);
+
+        /**
+         * A click aimed at the board while the overlay is up must reach nothing.
+         *
+         * The reviewed revision is saved, so the board's advance control would now complete the case
+         * and route to `Debrief` — meaning "the click got through" and "it did not" produce different
+         * routing, which is the technique the 2.8 review settled on after two library specs passed
+         * with their feature deleted.
+         *
+         * **What this proves is the overlay's backdrop, not the scene's suppression.** The backdrop is
+         * a full-canvas interactive rectangle at `CASE_FILE_DEPTH` and Phaser hit-tests topmost-first
+         * among interactive objects, so at every coordinate the overlay covers it swallows the click
+         * whichever way `ColleagueRenderer.setInputEnabled` is set. Verified by mutation: hard-coding
+         * that flag back to `true` leaves this walk green. The suppression's own job — a card rebuilt
+         * mid-overlay not coming back live — is asserted in `ColleagueGeometry.test.ts`, where it is
+         * the only thing acting.
+         */
+        await clickDesign(page, advanceControlCentreOnBoard('conclusion'));
+        await waitForInputToSettle(page);
+        await expectActiveScene(page, 'TheoryBoard');
+    });
+    await clickUntilScene(page, advanceControlCentreOnBoard('conclusion'), 'Debrief');
+};
+
+/**
+ * The walk as far as the theory board, with two observations recorded and compared.
+ *
+ * Its own seam because the board is where the case file lives: a caller that wants to *look at* the
+ * overlay rather than pass through it stops here, and re-deriving the first three steps to get there
+ * is the copy-paste this module exists to prevent. Story 2.11's manual verification pass used it and
+ * was then deleted, so it is module-private until a spec needs it — an exported helper nothing calls
+ * is the "open invitation" the 2.8 review deleted three dead methods over.
+ */
+const walkToTheBoard = async (page: Page): Promise<void> => {
+    await page.goto('/');
+    await readTheReferences(page);
+    await chooseThePrediction(page);
+    await recordTwoObservations(page);
+};
+
+/**
+ * The whole walk. Starts at `/` and leaves the player standing in the debrief.
+ *
+ * Every step is a canvas click; **no DOM control is driven anywhere in it**, which is what Story 2.11
+ * closes and what Story 2.12's completion check asks for.
+ */
+export const walkToDebrief = async (page: Page): Promise<void> => {
+    await walkToTheBoard(page);
+    await pinTheSupport(page);
+    await closeTheCase(page);
 };

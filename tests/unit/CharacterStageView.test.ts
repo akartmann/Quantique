@@ -388,7 +388,17 @@ describe('ADR-006 — the staging path cannot reach the answer', () => {
         'src/adapters/phaser/renderers/CharacterStage.ts',
         'src/adapters/phaser/renderers/LaboratoryDecor.ts',
         'src/adapters/phaser/renderers/figureAppearance.ts',
-        'src/adapters/phaser/renderers/ColleagueRenderer.ts'
+        'src/adapters/phaser/renderers/ColleagueRenderer.ts',
+        // The two surfaces Story 2.11 adds to the theory board's scene. The case file is the one that
+        // matters most: it renders `selectConclusionReadiness`, which is a fact about the player's own
+        // record and carries no defensibility — and it sits one import away from the selector that
+        // does. `caseFileGeometry.ts` is swept for the same reason `LaboratoryDecor` is: it is where a
+        // "mark the defensible one" change would be easiest to write and least visible.
+        'src/adapters/phaser/renderers/CaseFilePresenter.ts',
+        'src/adapters/phaser/renderers/caseFileGeometry.ts',
+        // The debrief reads the *completed* record and never re-evaluates it.
+        'src/adapters/phaser/renderers/DebriefRenderer.ts',
+        'src/adapters/phaser/scenes/debriefGeometry.ts'
     ] as const;
 
     it.each(STAGING_SOURCES)('%s mentions nothing that could reveal the answer', (path) => {

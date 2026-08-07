@@ -4,7 +4,7 @@ baseline_commit: 3bd19b7ca11f3123d6a4e78cda749a650d401f52
 
 # Story 2.11: Debrief scene — historical comparison, recognition, and replay
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -76,82 +76,82 @@ review of 2-8" (AC5), §"Deferred from: code review of 2-7" (AC6), and §"Deferr
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Selectors and error codes the surfaces need (AC2, AC3, AC6).**
-  - [ ] `selectLocalizedRecognition(state, items)` in `src/core/store/selectors.ts`: recognition items resolved through the **eight `recognition.<id>.label` / `.description` keys that already ship in both bundles and that nothing resolves today**. `deriveRecognition` emits canonical English `label`/`description` inside the persisted record and must stay that way (`CaseRecordSchema` re-validates it); the display resolves by stable `id`. **Take the items as an argument rather than reading `state.recognition`** — the debrief needs `completion.recognition` (the snapshot), and a selector that read the live field would show the *replay's* recognition on a completed record (D2). Verify with `grep -rn "'recognition\." src` that this is the first consumer; a dead key shipped in both bundles was a 2.10 review patch.
-  - [ ] `selectLocalizedCritiqueHistory(state)`: over **`completion.critiqueHistory`**, not `state.critiqueHistory` (see D2). Each entry resolves its `critiqueId` against `caseDefinition.rivalLab.critiques[].line` (`LocalizedText`) and the rival's canonical name plus `t('rivalLab.role')` through `formatAttribution`, exactly as `selectLocalizedRivalLabCritique` does. A `critiqueId` a degraded cached `case.json` no longer authors is **dropped**, not rendered as an attributed heading with nothing under it — the same rule that selector states.
-  - [ ] `selectLocalizedPeerReview(state)`: `PeerReviewIssue.feedback` and `.revisionPath` are canonical `.en`, persisted inside `DecisionHistoryEntry.feedback`, and recomputed-and-string-compared on load. **Never render them.** Resolve `caseDefinition.peerReviewRules` by `ruleId` to the authored `LocalizedText`, and resolve `status: 'unavailable'` through the existing `review.unavailable` key rather than `projection.message`. A rule id the case no longer authors falls back to the canonical `.en` string — that is the one place it is the right answer, because the alternative is silence.
-  - [ ] `selectLocalizedDebrief(state)`: `debrief.summary`, `historicalComparison.{title,text}`, its two cited sources (name + provenance category + source type + rights status, all through the existing `source.*` families), `deeperTheory.{title,text}`, `replayLabel`. **`debrief.summary` is authored EN+FR and rendered by nothing today** — this is where it lands. Cite from `historicalComparison.sourceIds`, which the schema validates against `contextualArtifacts`; **do not read `debrief.sourceRefs`**, whose two ids (`young-1801-lecture`, `newton-opticks-1730`) match no artifact and are validated only as non-empty strings (Open Question 3).
-  - [ ] **AC6:** split `reduceDebriefComplete`'s ordering failure out of `invalid-completion-timestamp` into its own code — `completion-timestamp-not-later`, named after the one `reduceTheoryConclusionSubmit` already gets right — copying that treatment verbatim in shape: new code, new `error.*` key in **both** locales with device-clock copy ("Check the device clock, then try again", per `en.ts:267-269`), malformed-stamp message left describing the malformed case. `advanceView.ts` derives `LocalizedErrorCode` from `TranslationKey`, so the new code is type-checked against the bundle for free. Extend `tests/unit/CompletionReplay.test.ts:51`, which currently pins the merged code.
+- [x] **Task 1 — Selectors and error codes the surfaces need (AC2, AC3, AC6).**
+  - [x] `selectLocalizedRecognition(state, items)` in `src/core/store/selectors.ts`: recognition items resolved through the **eight `recognition.<id>.label` / `.description` keys that already ship in both bundles and that nothing resolves today**. `deriveRecognition` emits canonical English `label`/`description` inside the persisted record and must stay that way (`CaseRecordSchema` re-validates it); the display resolves by stable `id`. **Take the items as an argument rather than reading `state.recognition`** — the debrief needs `completion.recognition` (the snapshot), and a selector that read the live field would show the *replay's* recognition on a completed record (D2). Verify with `grep -rn "'recognition\." src` that this is the first consumer; a dead key shipped in both bundles was a 2.10 review patch.
+  - [x] `selectLocalizedCritiqueHistory(state)`: over **`completion.critiqueHistory`**, not `state.critiqueHistory` (see D2). Each entry resolves its `critiqueId` against `caseDefinition.rivalLab.critiques[].line` (`LocalizedText`) and the rival's canonical name plus `t('rivalLab.role')` through `formatAttribution`, exactly as `selectLocalizedRivalLabCritique` does. A `critiqueId` a degraded cached `case.json` no longer authors is **dropped**, not rendered as an attributed heading with nothing under it — the same rule that selector states.
+  - [x] `selectLocalizedPeerReview(state)`: `PeerReviewIssue.feedback` and `.revisionPath` are canonical `.en`, persisted inside `DecisionHistoryEntry.feedback`, and recomputed-and-string-compared on load. **Never render them.** Resolve `caseDefinition.peerReviewRules` by `ruleId` to the authored `LocalizedText`, and resolve `status: 'unavailable'` through the existing `review.unavailable` key rather than `projection.message`. A rule id the case no longer authors falls back to the canonical `.en` string — that is the one place it is the right answer, because the alternative is silence.
+  - [x] `selectLocalizedDebrief(state)`: `debrief.summary`, `historicalComparison.{title,text}`, its two cited sources (name + provenance category + source type + rights status, all through the existing `source.*` families), `deeperTheory.{title,text}`, `replayLabel`. **`debrief.summary` is authored EN+FR and rendered by nothing today** — this is where it lands. Cite from `historicalComparison.sourceIds`, which the schema validates against `contextualArtifacts`; **do not read `debrief.sourceRefs`**, whose two ids (`young-1801-lecture`, `newton-opticks-1730`) match no artifact and are validated only as non-empty strings (Open Question 3).
+  - [x] **AC6:** split `reduceDebriefComplete`'s ordering failure out of `invalid-completion-timestamp` into its own code — `completion-timestamp-not-later`, named after the one `reduceTheoryConclusionSubmit` already gets right — copying that treatment verbatim in shape: new code, new `error.*` key in **both** locales with device-clock copy ("Check the device clock, then try again", per `en.ts:267-269`), malformed-stamp message left describing the malformed case. `advanceView.ts` derives `LocalizedErrorCode` from `TranslationKey`, so the new code is type-checked against the bundle for free. Extend `tests/unit/CompletionReplay.test.ts:51`, which currently pins the merged code.
 
-- [ ] **Task 2 — Phaser-free debrief geometry (AC1, AC8).**
-  - [ ] `src/adapters/phaser/scenes/debriefGeometry.ts`, **importing Phaser not at all** (`libraryGeometry.ts` is the precedent and states why: Vitest and Playwright run in Node and Phaser touches `window` at import time). Re-export `ADVANCE_CONTROL_WIDTH`/`HEIGHT` from the widget rather than restating them.
-  - [ ] Every function takes `canvasWidth` / `canvasHeight`. Nothing closes over `1024` / `768`; the scene reads its own `scale`. `designSurface.ts` exists for the specs.
-  - [ ] Export: the summary band, the historical-comparison band, the cited-sources band, the deeper-theory band (collapsed and expanded), the recognition band, the critique-history band, the counterfactual label band, the replay control bounds, and `debriefAdvanceControlCentre(w, h)`. The two bands whose content is unbounded authored prose are **measured up from the canvas floor**, never placed against a constant above them — that is the defect the 1.11, 1.12, 2.5, 2.6, 2.7, 2.8 and 2.9 reviews each found in a different scene.
-  - [ ] `tests/unit/DebriefGeometry.test.ts`, run against **two canvas sizes** so a memorised dimension fails (2.8's `LibraryGeometry.test.ts` is the pattern): every rectangle inside the canvas, no band overlapping another, the replay control clear of the counterfactual label. **No vacuous assertions** — the 2.7 review rejected four of exactly the shape `expect(y).toBeGreaterThan(0)` on a coordinate built from positive offsets, and the 2.8 review rejected three more that were true by construction.
+- [x] **Task 2 — Phaser-free debrief geometry (AC1, AC8).**
+  - [x] `src/adapters/phaser/scenes/debriefGeometry.ts`, **importing Phaser not at all** (`libraryGeometry.ts` is the precedent and states why: Vitest and Playwright run in Node and Phaser touches `window` at import time). Re-export `ADVANCE_CONTROL_WIDTH`/`HEIGHT` from the widget rather than restating them.
+  - [x] Every function takes `canvasWidth` / `canvasHeight`. Nothing closes over `1024` / `768`; the scene reads its own `scale`. `designSurface.ts` exists for the specs.
+  - [x] Export: the summary band, the historical-comparison band, the cited-sources band, the deeper-theory band (collapsed and expanded), the recognition band, the critique-history band, the counterfactual label band, the replay control bounds, and `debriefAdvanceControlCentre(w, h)`. The two bands whose content is unbounded authored prose are **measured up from the canvas floor**, never placed against a constant above them — that is the defect the 1.11, 1.12, 2.5, 2.6, 2.7, 2.8 and 2.9 reviews each found in a different scene.
+  - [x] `tests/unit/DebriefGeometry.test.ts`, run against **two canvas sizes** so a memorised dimension fails (2.8's `LibraryGeometry.test.ts` is the pattern): every rectangle inside the canvas, no band overlapping another, the replay control clear of the counterfactual label. **No vacuous assertions** — the 2.7 review rejected four of exactly the shape `expect(y).toBeGreaterThan(0)` on a coordinate built from positive offsets, and the 2.8 review rejected three more that were true by construction.
 
-- [ ] **Task 3 — `DebriefRenderer` (AC1, AC2, AC3).**
-  - [ ] `src/adapters/phaser/renderers/DebriefRenderer.ts`, `create()` / `render(state)` / `destroy()`, owning every display object it makes. `RivalLabRenderer` is the closest precedent: one scene, unbounded authored prose, a floor-anchored control, no animation.
-  - [ ] Text created **empty** in `create()` and written in `render(state)` through `createTranslator(locale)`. Never author player-facing copy in `create()`.
-  - [ ] The deeper-theory layer is **optional and collapsed by default** (AC1 says "optional"). The open/closed flag is widget-local and ephemeral — `DialogueBox`'s beat index and `LectureBookRenderer`'s summary toggle are the precedent. **No new `AppState` field**; the 2.8 review ratified exactly this reading (Decision 4).
-  - [ ] Every growable text block gets a clamp that **restores its font size before measuring** — `LibraryRenderer.clampRelationship` shipped without that and shrank permanently across artifacts and locales (2.8 review patch). Shrink to a floor, then crop; state the band's worst case against the content schema's maximum, not against the shipped copy.
-  - [ ] No animation at all is the cheapest correct option. If any is added it inherits the whole contract: subscribe to `prefers-reduced-motion`, register **no** update loop under `reduce`, paint a static frame from `render()`, animate on elapsed time, and release every tween in `destroy()` **including tweens whose target is the renderer itself**.
-  - [ ] Character staging is **out of scope** — `CharacterStage` is not used here. See §Scope boundary.
-  - [ ] **Guard the degraded case.** `selectCompletionSnapshot` is `undefined` outside a completed case, and `debrief` is only reachable through `case.debriefCompleted`, which always writes one — but a restored record carries both the phase and the snapshot from IndexedDB, and a `critiqueId` or `ruleId` a cached `case.json` no longer authors resolves to nothing. Render the authored comparison and deeper theory regardless, omit the block that has no data, and **never throw**: `create()` and `render()` run synchronously inside `dispatch() → notify()`, so a throw advances the phase, skips every later subscriber and strands the router with no visible error (the 1.10 failure mode, reproduced in 2.8's Debug Log).
+- [x] **Task 3 — `DebriefRenderer` (AC1, AC2, AC3).**
+  - [x] `src/adapters/phaser/renderers/DebriefRenderer.ts`, `create()` / `render(state)` / `destroy()`, owning every display object it makes. `RivalLabRenderer` is the closest precedent: one scene, unbounded authored prose, a floor-anchored control, no animation.
+  - [x] Text created **empty** in `create()` and written in `render(state)` through `createTranslator(locale)`. Never author player-facing copy in `create()`.
+  - [x] The deeper-theory layer is **optional and collapsed by default** (AC1 says "optional"). The open/closed flag is widget-local and ephemeral — `DialogueBox`'s beat index and `LectureBookRenderer`'s summary toggle are the precedent. **No new `AppState` field**; the 2.8 review ratified exactly this reading (Decision 4).
+  - [x] Every growable text block gets a clamp that **restores its font size before measuring** — `LibraryRenderer.clampRelationship` shipped without that and shrank permanently across artifacts and locales (2.8 review patch). Shrink to a floor, then crop; state the band's worst case against the content schema's maximum, not against the shipped copy.
+  - [x] No animation at all is the cheapest correct option. If any is added it inherits the whole contract: subscribe to `prefers-reduced-motion`, register **no** update loop under `reduce`, paint a static frame from `render()`, animate on elapsed time, and release every tween in `destroy()` **including tweens whose target is the renderer itself**.
+  - [x] Character staging is **out of scope** — `CharacterStage` is not used here. See §Scope boundary.
+  - [x] **Guard the degraded case.** `selectCompletionSnapshot` is `undefined` outside a completed case, and `debrief` is only reachable through `case.debriefCompleted`, which always writes one — but a restored record carries both the phase and the snapshot from IndexedDB, and a `critiqueId` or `ruleId` a cached `case.json` no longer authors resolves to nothing. Render the authored comparison and deeper theory regardless, omit the block that has no data, and **never throw**: `create()` and `render()` run synchronously inside `dispatch() → notify()`, so a throw advances the phase, skips every later subscriber and strands the router with no visible error (the 1.10 failure mode, reproduced in 2.8's Debug Log).
 
-- [ ] **Task 4 — `DebriefScene` (AC1, AC4).**
-  - [ ] `DebriefScene extends Scene` — **not** `PhasePlaceholderScene`. `LibraryScene` is the reference lifecycle, including the ordering the 2.8 review corrected: `this.events.once('shutdown', …)` **first**, before `registerCanvasBoundsRefresh` and before `store.subscribe`. A throw in the first render otherwise leaks the scroll listener and a subscription that keeps rendering a half-built scene forever, because `SceneRouter`'s catch clears `activeSceneKey` and nothing ever stops it.
-  - [ ] `registerCanvasBoundsRefresh(this)` in `create()`, disposed in `shutdown()`. Exactly one routed scene runs at a time.
-  - [ ] The replay affordance is the existing `AdvanceControl` + `advanceTransitionForPhase('debrief')` → `debrief-replay` → `case.replayStarted`. **Do not build a second control and do not read `debrief.replayLabel` for it**: the control's label is `advance.replay` ("Investigate it again"), an interface string measured by the French whole-string sweep. `replayLabel` is authored prose and is where the counterfactual warning belongs (Task 5).
-  - [ ] Refusals through `TransientMessageSlot` with the `AppState`-identity lifetime and `resolveAdvanceRefusal({ …, colleagueAnswers: false })`. **One rule, not two** — do not write a second precedence path here. `colleagueAnswers: false` is honest: no gate reachable from the debrief has an authored colleague line, and a host routing a gate refusal to a hint slot it does not have answers with nothing, which is the one thing the refusal rule forbids.
-  - [ ] `case.debriefCompleted` is **already** canvas-dispatchable — Story 2.7 put it on the theory board's `review` control as `advance.closeTheCase`. AC4 is satisfied for that half by keeping it working, not by rebuilding it. Say so in the Completion Notes rather than claiming new work.
+- [x] **Task 4 — `DebriefScene` (AC1, AC4).**
+  - [x] `DebriefScene extends Scene` — **not** `PhasePlaceholderScene`. `LibraryScene` is the reference lifecycle, including the ordering the 2.8 review corrected: `this.events.once('shutdown', …)` **first**, before `registerCanvasBoundsRefresh` and before `store.subscribe`. A throw in the first render otherwise leaks the scroll listener and a subscription that keeps rendering a half-built scene forever, because `SceneRouter`'s catch clears `activeSceneKey` and nothing ever stops it.
+  - [x] `registerCanvasBoundsRefresh(this)` in `create()`, disposed in `shutdown()`. Exactly one routed scene runs at a time.
+  - [x] The replay affordance is the existing `AdvanceControl` + `advanceTransitionForPhase('debrief')` → `debrief-replay` → `case.replayStarted`. **Do not build a second control and do not read `debrief.replayLabel` for it**: the control's label is `advance.replay` ("Investigate it again"), an interface string measured by the French whole-string sweep. `replayLabel` is authored prose and is where the counterfactual warning belongs (Task 5).
+  - [x] Refusals through `TransientMessageSlot` with the `AppState`-identity lifetime and `resolveAdvanceRefusal({ …, colleagueAnswers: false })`. **One rule, not two** — do not write a second precedence path here. `colleagueAnswers: false` is honest: no gate reachable from the debrief has an authored colleague line, and a host routing a gate refusal to a hint slot it does not have answers with nothing, which is the one thing the refusal rule forbids.
+  - [x] `case.debriefCompleted` is **already** canvas-dispatchable — Story 2.7 put it on the theory board's `review` control as `advance.closeTheCase`. AC4 is satisfied for that half by keeping it working, not by rebuilding it. Say so in the Completion Notes rather than claiming new work.
 
-- [ ] **Task 5 — The counterfactual label and the preserved record (AC2, AC4).**
-  - [ ] Read `selectReplayState(state).isCounterfactual` and paint the authored `debrief.replayLabel` as the counterfactual warning when it is set. That authored string already reads as a warning in both locales ("…not the recorded historical result" / "…il ne s'agit pas du résultat historique enregistré"); the retired DOM panel used it as a *button* label and hard-coded a separate English-only warning line. Use the authored prose for the warning and the interface key for the control.
-  - [ ] **The warning is only visible on the second pass, and that is the honest reading of AC4.** `reduceReplayStart` sets `isCounterfactual` and moves the phase to `context`, so the debrief shuts down immediately; the flag is next seen when the player completes the replay and returns. Label it there. A *session-wide* counterfactual marker across every scene would be new cross-scene chrome no AC asks for and no scene owns — flagged as Open Question 6 rather than built. Do not attempt it.
-  - [ ] The debrief reads `selectCompletionSnapshot(state)` for the decision, the recognition and the critique history. `reduceDebriefComplete` **deliberately keeps the original snapshot** across a counterfactual replay (`state.replay.isCounterfactual && state.completion ? state.completion : {…}`), so the historical record the debrief shows never changes with the player's later choices. That is AC2's "never rewrites the historical outcome" and AC4's "preserves the completed historical record" — **both hold by the reducer, not by the surface**. Assert it; do not re-implement it.
-  - [ ] "Campaign unlock state" (AC4): there is no campaign state in this build — one case ships and `reduceReplayStart` resets case progress only. Satisfy the clause by asserting `completion` survives `case.replayStarted` and re-completion, and record that reading rather than inventing an unlock field.
+- [x] **Task 5 — The counterfactual label and the preserved record (AC2, AC4).**
+  - [x] Read `selectReplayState(state).isCounterfactual` and paint the authored `debrief.replayLabel` as the counterfactual warning when it is set. That authored string already reads as a warning in both locales ("…not the recorded historical result" / "…il ne s'agit pas du résultat historique enregistré"); the retired DOM panel used it as a *button* label and hard-coded a separate English-only warning line. Use the authored prose for the warning and the interface key for the control.
+  - [x] **The warning is only visible on the second pass, and that is the honest reading of AC4.** `reduceReplayStart` sets `isCounterfactual` and moves the phase to `context`, so the debrief shuts down immediately; the flag is next seen when the player completes the replay and returns. Label it there. A *session-wide* counterfactual marker across every scene would be new cross-scene chrome no AC asks for and no scene owns — flagged as Open Question 6 rather than built. Do not attempt it.
+  - [x] The debrief reads `selectCompletionSnapshot(state)` for the decision, the recognition and the critique history. `reduceDebriefComplete` **deliberately keeps the original snapshot** across a counterfactual replay (`state.replay.isCounterfactual && state.completion ? state.completion : {…}`), so the historical record the debrief shows never changes with the player's later choices. That is AC2's "never rewrites the historical outcome" and AC4's "preserves the completed historical record" — **both hold by the reducer, not by the surface**. Assert it; do not re-implement it.
+  - [x] "Campaign unlock state" (AC4): there is no campaign state in this build — one case ships and `reduceReplayStart` resets case progress only. Satisfy the clause by asserting `completion` survives `case.replayStarted` and re-completion, and record that reading rather than inventing an unlock field.
 
-- [ ] **Task 6 — The case file: an overlay on the theory board (AC5, AC7).**
-  - [ ] `src/adapters/phaser/renderers/CaseFilePresenter.ts` + `src/adapters/phaser/renderers/caseFileGeometry.ts`. An overlay the player opens from `TheoryBoardScene`, owned by the scene, suppressing the board's input while it is up — `NotebookRenderer` (Story 2.10, D3) and `ReferenceBookPresenter` (Story 2.8, D1) are the two established instances of this shape. **The theory board has no band left for this** (§The theory board's space budget). No scene→scene reach-in.
-  - [ ] Contents, in both phases the board hosts:
+- [x] **Task 6 — The case file: an overlay on the theory board (AC5, AC7).**
+  - [x] `src/adapters/phaser/renderers/CaseFilePresenter.ts` + `src/adapters/phaser/renderers/caseFileGeometry.ts`. An overlay the player opens from `TheoryBoardScene`, owned by the scene, suppressing the board's input while it is up — `NotebookRenderer` (Story 2.10, D3) and `ReferenceBookPresenter` (Story 2.8, D1) are the two established instances of this shape. **The theory board has no band left for this** (§The theory board's space budget). No scene→scene reach-in.
+  - [x] Contents, in both phases the board hosts:
     - The recorded observations, each with a pin/unpin affordance → `theory.supportRunSelected` / `theory.supportRunUnselected`. Read `state.theory.selectedRunIds` **first** and dispatch only the transition that changes something — the reducer answers a repeat with `duplicate-theory-run` and `theory-run-not-selected`, and a surface must not provoke a refusal the player did nothing to earn. That rule is stated on `PhaserStoreAdapter.inspectSource` and on `selectComparisonRun`; `NotebookRenderer.toggleSelection` implements it.
     - The inspected references, same treatment → `theory.supportSourceSelected` / `theory.supportSourceUnselected`. Only artifacts in `state.inspectedSourceIds` are offered; the reducer's `uninspected-theory-source` must be unreachable from the surface.
     - **AC7's readiness list:** `selectConclusionReadiness(state).missing`, localized through the existing `conclusion.missing.*` keys by `code` — never `missing[].message`, which is the dev-facing English. This is a fact about the player's own record; it carries no defensibility (`ConclusionReadiness` has no defensible field and the selector that does is a different one). Reaching for `selectDefensibleConclusionProposalIds` here is the ADR-006 violation.
-  - [ ] `review` phase only: request peer feedback → `peerReview.requested`; the returned issues rendered through `selectLocalizedPeerReview`; save the reviewed revision → `revision.saved`, timestamp stamped in the **adapter**, never in the reducer. `reducePeerReviewRequest` refuses outside `review` with `peer-review-unavailable` and `reduceRevisionSave` refuses without reviewed feedback with `revision-review-required` — surface both localized rather than swallowing them.
-  - [ ] Widen `PhaserStoreAdapter` with the six dispatchers (`selectSupportRun` / `unselectSupportRun`, `selectSupportSource` / `unselectSupportSource`, `requestPeerReview`, `saveRevision`). Scenes go through the adapter; none calls `store.dispatch` directly.
-  - [ ] Suppress the board's input at creation **and** on every visibility change, and hand it back on close — the rule `LibraryScene` states and `NotebookRenderer` follows, because a click meant for the overlay that fell through would choose a conclusion.
-  - [ ] **`ColleagueRenderer` has no `setInputEnabled` any more** — the 2.8 review deleted three dead ones (Colleague, TheoryBoard, RivalLab) precisely because they were "an open invitation for a later story to re-wire cross-scene suppression through them", and `applyInputState()` now hard-codes `true` and is called only from `create()`. You must re-add it: an `inputEnabled` field, `applyInputState()` reading it instead of the literal, and a call from `render`/`layoutAndRenderCards` so a rebuilt card cannot come back live under an open overlay. Copy `LibraryRenderer.setInputEnabled` (`:283`) exactly. **Intra-scene only** — the caller is `TheoryBoardScene`'s own presenter callback, never another scene — and it ships with a test, which is what the review asked for in exchange.
-  - [ ] No `matchMedia` / sub-768px check. `LibraryRenderer.applyInputState` has none and the boards have none; only the bench does, and re-deciding that is 2.12's.
-  - [ ] `caseFileGeometry.ts` is Phaser-free, takes the canvas size, and is unit-tested (`tests/unit/CaseFileGeometry.test.ts`). Paging is required if the observation count can exceed the rows one page holds — `NOTEBOOK_ROWS_PER_PAGE` and `notebookRowBand` are the pattern; note that `flow.maximumExperimentCycles` is declared and **read by no reducer**, so there is no cap on `runs` (recorded in `selectSignificantMeasureCount`'s docstring, review 2026-08-06).
-  - [ ] The open control lives in the board's existing right-hand control column, stacked under the submit and advance controls, or the column's geometry moves to make room. Whatever you choose, `advanceControlCentreOnBoard` and `submitConclusionControlCentre` must keep returning what the board actually paints — three specs read them.
+  - [x] `review` phase only: request peer feedback → `peerReview.requested`; the returned issues rendered through `selectLocalizedPeerReview`; save the reviewed revision → `revision.saved`, timestamp stamped in the **adapter**, never in the reducer. `reducePeerReviewRequest` refuses outside `review` with `peer-review-unavailable` and `reduceRevisionSave` refuses without reviewed feedback with `revision-review-required` — surface both localized rather than swallowing them.
+  - [x] Widen `PhaserStoreAdapter` with the six dispatchers (`selectSupportRun` / `unselectSupportRun`, `selectSupportSource` / `unselectSupportSource`, `requestPeerReview`, `saveRevision`). Scenes go through the adapter; none calls `store.dispatch` directly.
+  - [x] Suppress the board's input at creation **and** on every visibility change, and hand it back on close — the rule `LibraryScene` states and `NotebookRenderer` follows, because a click meant for the overlay that fell through would choose a conclusion.
+  - [x] **`ColleagueRenderer` has no `setInputEnabled` any more** — the 2.8 review deleted three dead ones (Colleague, TheoryBoard, RivalLab) precisely because they were "an open invitation for a later story to re-wire cross-scene suppression through them", and `applyInputState()` now hard-codes `true` and is called only from `create()`. You must re-add it: an `inputEnabled` field, `applyInputState()` reading it instead of the literal, and a call from `render`/`layoutAndRenderCards` so a rebuilt card cannot come back live under an open overlay. Copy `LibraryRenderer.setInputEnabled` (`:283`) exactly. **Intra-scene only** — the caller is `TheoryBoardScene`'s own presenter callback, never another scene — and it ships with a test, which is what the review asked for in exchange.
+  - [x] No `matchMedia` / sub-768px check. `LibraryRenderer.applyInputState` has none and the boards have none; only the bench does, and re-deciding that is 2.12's.
+  - [x] `caseFileGeometry.ts` is Phaser-free, takes the canvas size, and is unit-tested (`tests/unit/CaseFileGeometry.test.ts`). Paging is required if the observation count can exceed the rows one page holds — `NOTEBOOK_ROWS_PER_PAGE` and `notebookRowBand` are the pattern; note that `flow.maximumExperimentCycles` is declared and **read by no reducer**, so there is no cap on `runs` (recorded in `selectSignificantMeasureCount`'s docstring, review 2026-08-06).
+  - [x] The open control lives in the board's existing right-hand control column, stacked under the submit and advance controls, or the column's geometry moves to make room. Whatever you choose, `advanceControlCentreOnBoard` and `submitConclusionControlCentre` must keep returning what the board actually paints — three specs read them.
 
-- [ ] **Task 7 — Delete `PhasePlaceholderScene` (AC1).**
-  - [ ] Delete `src/adapters/phaser/scenes/PhasePlaceholderScene.ts` and `src/adapters/phaser/scenes/phasePlaceholderGeometry.ts`. `DebriefScene` was its last subclass; `grep -rn "PhasePlaceholderScene\|phasePlaceholderGeometry" src tests` must come back empty.
-  - [ ] Update `project-context.md` §Engine: the rule "never introduce a scene as a `PhasePlaceholderScene` subclass without a story in the same epic that replaces it" now describes a class that does not exist. Rewrite it as the durable rule it stands for — a placeholder scene needs a replacing story in the same epic — and delete the two `deferred-work.md` items about the shell carrying player-facing behaviour.
-  - [ ] `tests/e2e/canvas-transitions.spec.ts`: `SHELL_ADVANCE` becomes `debriefAdvanceControlCentre(…)`; the comment at `:113-121` predicting exactly this change is updated rather than left describing a class that is gone.
-  - [ ] `npm run typecheck` is the proof no reachable code imports either deleted module.
+- [x] **Task 7 — Delete `PhasePlaceholderScene` (AC1).**
+  - [x] Delete `src/adapters/phaser/scenes/PhasePlaceholderScene.ts` and `src/adapters/phaser/scenes/phasePlaceholderGeometry.ts`. `DebriefScene` was its last subclass; `grep -rn "PhasePlaceholderScene\|phasePlaceholderGeometry" src tests` must come back empty.
+  - [x] Update `project-context.md` §Engine: the rule "never introduce a scene as a `PhasePlaceholderScene` subclass without a story in the same epic that replaces it" now describes a class that does not exist. Rewrite it as the durable rule it stands for — a placeholder scene needs a replacing story in the same epic — and delete the two `deferred-work.md` items about the shell carrying player-facing behaviour.
+  - [x] `tests/e2e/canvas-transitions.spec.ts`: `SHELL_ADVANCE` becomes `debriefAdvanceControlCentre(…)`; the comment at `:113-121` predicting exactly this change is updated rather than left describing a class that is gone.
+  - [x] `npm run typecheck` is the proof no reachable code imports either deleted module.
 
-- [ ] **Task 8 — Localization (AC1, AC2, AC3, AC8).**
-  - [ ] Every new key in **both** `en.ts` and `fr.ts`. `TranslationKey` is derived from `en`, so a missing French key is a `tsc` error — do not work around it.
-  - [ ] New families: `debrief.*` (room chrome, section headings, the deeper-theory toggle, the recognition intro, the critique-history intro, the empty states) and `caseFile.*` (the overlay's chrome, the pin/unpin labels, the readiness heading, the peer-review controls). Nothing in either may name a scene, a phase, or a route (`encodesPath`): "the case file" and "the historical record" are furniture; `Debrief` and `TheoryBoard` are scene keys.
-  - [ ] Authored prose stays in `case.json` as `LocalizedText`: the summary, the comparison, the deeper theory, the critique lines, the peer-review feedback, the replay warning. Interface labels go through `translate`. **Do not mix the two**, and do not move authored prose into `en.ts` — the reasoning is in `ScenarioScript.ts`'s `ScenarioDialogueBeat` docstring.
-  - [ ] Every new fixed-height control goes in `FIXED_HEIGHT_CONTROLS` in `french-typography.spec.ts` — the **whole-string** check. The per-token sweep provably cannot catch a two-line wrap inside a fixed-height rectangle, and the 2.10 review caught `notebook.releaseOneFirst` at 440px against a 364px slot the day it was written. Shorten the copy in both locales rather than relaxing a bound.
-  - [ ] Read the exported font sizes and wrap bounds; do not restate them. Six private `LibraryRenderer` font sizes copied into the sweep were a 2.8 review patch.
-  - [ ] **How AC8's "asserted present in EN and FR" is met:** canvas text cannot be read from the DOM, so do not try to assert it in Playwright. Assert bundle completeness and non-emptiness in `tests/unit/I18n.test.ts` for every new key; assert the authored `debrief` strings carry both locales in `tests/unit/CaseDefinition.test.ts`; assert the French widths in `french-typography.spec.ts`. That is the division `canvas-transitions.spec.ts` documents in its own header.
-  - [ ] **AC2's four provenance categories:** both shipped Young artifacts are `primary-material`, so shipped content exercises one of the four. Cover the vocabulary by deriving from the schema's `.options` — `I18n.test.ts` transcribing three Zod enum families instead of deriving from them was a 2.8 review patch — and add a fixture case in the unit test exercising `reconstruction`, `later-interpretation` and `deliberate-fiction`.
+- [x] **Task 8 — Localization (AC1, AC2, AC3, AC8).**
+  - [x] Every new key in **both** `en.ts` and `fr.ts`. `TranslationKey` is derived from `en`, so a missing French key is a `tsc` error — do not work around it.
+  - [x] New families: `debrief.*` (room chrome, section headings, the deeper-theory toggle, the recognition intro, the critique-history intro, the empty states) and `caseFile.*` (the overlay's chrome, the pin/unpin labels, the readiness heading, the peer-review controls). Nothing in either may name a scene, a phase, or a route (`encodesPath`): "the case file" and "the historical record" are furniture; `Debrief` and `TheoryBoard` are scene keys.
+  - [x] Authored prose stays in `case.json` as `LocalizedText`: the summary, the comparison, the deeper theory, the critique lines, the peer-review feedback, the replay warning. Interface labels go through `translate`. **Do not mix the two**, and do not move authored prose into `en.ts` — the reasoning is in `ScenarioScript.ts`'s `ScenarioDialogueBeat` docstring.
+  - [x] Every new fixed-height control goes in `FIXED_HEIGHT_CONTROLS` in `french-typography.spec.ts` — the **whole-string** check. The per-token sweep provably cannot catch a two-line wrap inside a fixed-height rectangle, and the 2.10 review caught `notebook.releaseOneFirst` at 440px against a 364px slot the day it was written. Shorten the copy in both locales rather than relaxing a bound.
+  - [x] Read the exported font sizes and wrap bounds; do not restate them. Six private `LibraryRenderer` font sizes copied into the sweep were a 2.8 review patch.
+  - [x] **How AC8's "asserted present in EN and FR" is met:** canvas text cannot be read from the DOM, so do not try to assert it in Playwright. Assert bundle completeness and non-emptiness in `tests/unit/I18n.test.ts` for every new key; assert the authored `debrief` strings carry both locales in `tests/unit/CaseDefinition.test.ts`; assert the French widths in `french-typography.spec.ts`. That is the division `canvas-transitions.spec.ts` documents in its own header.
+  - [x] **AC2's four provenance categories:** both shipped Young artifacts are `primary-material`, so shipped content exercises one of the four. Cover the vocabulary by deriving from the schema's `.options` — `I18n.test.ts` transcribing three Zod enum families instead of deriving from them was a 2.8 review patch — and add a fixture case in the unit test exercising `reconstruction`, `later-interpretation` and `deliberate-fiction`.
 
-- [ ] **Task 9 — Tests (AC8).**
-  - [ ] `tests/unit/DebriefGeometry.test.ts`, `tests/unit/CaseFileGeometry.test.ts` (Tasks 2, 6).
-  - [ ] `tests/unit/DebriefRenderer.test.ts` and `tests/unit/CaseFileRenderer.test.ts` through `tests/unit/sceneSlice.ts`. That harness records `text`, `visible`, `alpha`, `destroyed`, `interactive`, `commands` and `clears`, and keys listeners **by identity** — all of which exist because the 2.10 review found the harness itself was the blind spot. Use `pressable()` to press a control the way a player does rather than calling a private method.
-  - [ ] `tests/integration/DebriefSurface.test.ts` — **public actions and selectors only**: completion refused before a reviewed revision and accepted after; the ordering refusal returning the new AC6 code; `case.replayStarted` refused outside `debrief`; after a replay, `completion` unchanged, `runs`/`decisionHistory`/`critiqueHistory` cleared, `completion.critiqueHistory` intact; re-completion after a counterfactual replay leaving `completion` byte-identical.
-  - [ ] `tests/integration/ConclusionSupport.test.ts` — the four support intents and the two review intents through public actions, including that a re-select is the reducer's refusal (which is why the surface must not dispatch it) and that `selectConclusionReadiness(state).missing` empties as support is pinned. `ReviewFlow.test.ts` and `TheoryBoard.test.ts` already cover the store; what is new is the projection the overlay reads.
-  - [ ] `tests/unit/ReviewRules.test.ts` / a new case: `selectLocalizedPeerReview` resolves by `ruleId` to the authored `LocalizedText` and **never** returns `PeerReviewIssue.feedback`. Assert against a French store so an English leak fails.
-  - [ ] `tests/e2e/debrief-replay.spec.ts` — **rewritten canvas-only**. It currently drives thirteen DOM controls including `Run experiment`; every one of them is deleted by 2.12. Every click target derived from exported geometry. Use `clickUntilScene` where a relabel lockout or an overlay fade is in play (`ADVANCE_RELABEL_LOCKOUT_MS` is 400ms and the theory board survives `synthesis → review`, so a spec clicking at machine speed is correctly ignored — this exact trap cost the 2.8 build a day).
-  - [ ] **Reuse the walk, do not copy it.** `canvas-transitions.spec.ts` and the rewritten `debrief-replay.spec.ts` both need the same canvas journey to the debrief (read both references → leave → choose → two runs at different throws via `startTheLightUntilRecorded` and `dragDesignUntil` → notebook comparison → advance → pin support → peer review → close the case). Extract it into `tests/e2e/canvasHelpers.ts` — `artifactAt` was copy-pasted between two specs in the very commit that created that file to stop exactly this, and it became a 2.8 review patch. `youngExperimentHelpers.ts` is the DOM walk and is not the answer.
-  - [ ] `tests/e2e/canvas-transitions.spec.ts` — remove the four `board.getByRole('checkbox').check()` calls and the two `peerReview` button clicks, replacing them with case-file clicks; update the header table to record that no gating intent is left unowned, and the "So this is honestly…" paragraph, which explicitly says 2.11 closes both rows.
-  - [ ] `npm run typecheck`, `npm test`, `npm run test:e2e`. **Measure the baseline first** — see §Baseline. Record the before/after comparison in the Dev Agent Record, and account for every change in the test count arithmetically the way 2.8's Completion Notes do.
-  - [ ] **Mutation proofs (AC8).** At minimum: the no-dispatch-on-repeat guard in the case file (remove it → an e2e or renderer test must fail); the counterfactual label (force `isCounterfactual` false → a test must fail); the recognition localization (return the canonical `.en` → a French test must fail); the peer-review localization (return `issue.feedback` → a French test must fail); the preserved completion snapshot (drop the `isCounterfactual` branch → an integration test must fail). Record each in a table: guard, mutation, result before, result after.
-  - [ ] Manual at 1280×720, EN and FR, with screenshots: the debrief is legible and un-truncated, no band overlaps another, the deeper-theory layer opens and closes, the counterfactual warning is visible after a replay, the case file opens over the board and hands input back on close, and under `prefers-reduced-motion: reduce` both surfaces paint a static frame with no update loop registered. **Screenshot before claiming rendering work is done** — depth-order and split-scale defects pass every test, and a whole room painted over everything shipped green in 2.9.
+- [x] **Task 9 — Tests (AC8).**
+  - [x] `tests/unit/DebriefGeometry.test.ts`, `tests/unit/CaseFileGeometry.test.ts` (Tasks 2, 6).
+  - [x] `tests/unit/DebriefRenderer.test.ts` and `tests/unit/CaseFileRenderer.test.ts` through `tests/unit/sceneSlice.ts`. That harness records `text`, `visible`, `alpha`, `destroyed`, `interactive`, `commands` and `clears`, and keys listeners **by identity** — all of which exist because the 2.10 review found the harness itself was the blind spot. Use `pressable()` to press a control the way a player does rather than calling a private method.
+  - [x] `tests/integration/DebriefSurface.test.ts` — **public actions and selectors only**: completion refused before a reviewed revision and accepted after; the ordering refusal returning the new AC6 code; `case.replayStarted` refused outside `debrief`; after a replay, `completion` unchanged, `runs`/`decisionHistory`/`critiqueHistory` cleared, `completion.critiqueHistory` intact; re-completion after a counterfactual replay leaving `completion` byte-identical.
+  - [x] `tests/integration/ConclusionSupport.test.ts` — the four support intents and the two review intents through public actions, including that a re-select is the reducer's refusal (which is why the surface must not dispatch it) and that `selectConclusionReadiness(state).missing` empties as support is pinned. `ReviewFlow.test.ts` and `TheoryBoard.test.ts` already cover the store; what is new is the projection the overlay reads.
+  - [x] `tests/unit/ReviewRules.test.ts` / a new case: `selectLocalizedPeerReview` resolves by `ruleId` to the authored `LocalizedText` and **never** returns `PeerReviewIssue.feedback`. Assert against a French store so an English leak fails.
+  - [x] `tests/e2e/debrief-replay.spec.ts` — **rewritten canvas-only**. It currently drives thirteen DOM controls including `Run experiment`; every one of them is deleted by 2.12. Every click target derived from exported geometry. Use `clickUntilScene` where a relabel lockout or an overlay fade is in play (`ADVANCE_RELABEL_LOCKOUT_MS` is 400ms and the theory board survives `synthesis → review`, so a spec clicking at machine speed is correctly ignored — this exact trap cost the 2.8 build a day).
+  - [x] **Reuse the walk, do not copy it.** `canvas-transitions.spec.ts` and the rewritten `debrief-replay.spec.ts` both need the same canvas journey to the debrief (read both references → leave → choose → two runs at different throws via `startTheLightUntilRecorded` and `dragDesignUntil` → notebook comparison → advance → pin support → peer review → close the case). Extract it into `tests/e2e/canvasHelpers.ts` — `artifactAt` was copy-pasted between two specs in the very commit that created that file to stop exactly this, and it became a 2.8 review patch. `youngExperimentHelpers.ts` is the DOM walk and is not the answer.
+  - [x] `tests/e2e/canvas-transitions.spec.ts` — remove the four `board.getByRole('checkbox').check()` calls and the two `peerReview` button clicks, replacing them with case-file clicks; update the header table to record that no gating intent is left unowned, and the "So this is honestly…" paragraph, which explicitly says 2.11 closes both rows.
+  - [x] `npm run typecheck`, `npm test`, `npm run test:e2e`. **Measure the baseline first** — see §Baseline. Record the before/after comparison in the Dev Agent Record, and account for every change in the test count arithmetically the way 2.8's Completion Notes do.
+  - [x] **Mutation proofs (AC8).** At minimum: the no-dispatch-on-repeat guard in the case file (remove it → an e2e or renderer test must fail); the counterfactual label (force `isCounterfactual` false → a test must fail); the recognition localization (return the canonical `.en` → a French test must fail); the peer-review localization (return `issue.feedback` → a French test must fail); the preserved completion snapshot (drop the `isCounterfactual` branch → an integration test must fail). Record each in a table: guard, mutation, result before, result after.
+  - [x] Manual at 1280×720, EN and FR, with screenshots: the debrief is legible and un-truncated, no band overlaps another, the deeper-theory layer opens and closes, the counterfactual warning is visible after a replay, the case file opens over the board and hands input back on close, and under `prefers-reduced-motion: reduce` both surfaces paint a static frame with no update loop registered. **Screenshot before claiming rendering work is done** — depth-order and split-scale defects pass every test, and a whole room painted over everything shipped green in 2.9.
 
 ## Dev Notes
 
@@ -549,16 +549,229 @@ among the seven: it passes today and you are rewriting it, so a new failure ther
 
 ### Agent Model Used
 
+Opus 5 (`claude-opus-5[1m]`), via `gds-dev-story`.
+
 ### Implementation Plan
+
+Built in the story's task order, because each task is the previous one's consumer: the selectors and
+the AC6 code split first (nothing renders without them), then the two Phaser-free geometry modules,
+then the surfaces they lay out, then the shell deletion once its last subclass was gone, then the
+localization and the tests.
+
+Two decisions were taken during development that the story left open, and both were forced by
+measurement rather than preference:
+
+**The debrief's lower band is shared between the challenge history and the deeper theory.** The story
+asked for both as separate bands. They do not fit. A shipped French `rivalLab.critiques[].line` is up
+to **404 characters** — three lines across the full 944px room width and *seven* in a 336px column —
+so both need the whole width, and after the two columns and the toggle strip there are 132 design
+pixels left at 1024×768, which holds one of them. The layer is optional and closed by default, so the
+band shows the challenges until the player opens it: a disclosure they drive, not content silently
+overflowing. The arithmetic is in `debriefGeometry.ts`'s header and asserted in its test.
+
+**The challenges are paged, one at a time.** Same measurement: three lines at full width is a readable
+objection and a seventh of one is not. `NotebookRenderer` established paging for exactly this.
 
 ### Debug Log References
 
+**Two defects the manual 1280×720 pass found that no test could see**, which is the reason the story
+demands screenshots before rendering work is called done:
+
+1. **A two-line French reference name painted through its own provenance line in the case file.** Each
+   row's detail was placed against a *constant* offset from the row's top while the title above it grew
+   with French copy — the exact defect seven consecutive reviews have found in a different scene each
+   time. `CaseFilePresenter.stackRow` now clamps the title to one line and places the detail against
+   its **measured** bottom. `tests/unit/sceneSlice.ts` reports a constant `height: 18` for every text
+   object, so the harness cannot distinguish "measured" from "constant" here at all — recorded in the
+   Completion Notes as a harness follow-up rather than papered over with an assertion that would pass
+   either way.
+2. **The recognition labels ran into their status markers.** No gutter between the two, and the French
+   labels ("Rigueur documentaire relevée") wrapped onto a second line inside a fixed 56px row, where
+   the clamp cropped them mid-word. Fixed twice over: a `DEBRIEF_TOGGLE_GAP` gutter, a
+   `DEBRIEF_RECOGNITION_STATUS_WIDTH` of 96 (the strip's 150 was a control's reserve, not a one-word
+   status's), **and** the copy shortened in both locales — the trailing "recorded" / "relevée" was the
+   same word the status column beside it already said.
+
+**One defect the geometry test found before anything rendered:** the case file's reference rows wrapped
+against the *right* column's bound while sitting in the left column, so French names broke earlier than
+the row required. `caseFileRightTextWrap` now reserves no pin (nothing in that column is pinnable) and
+the rows use `caseFileRowTextWrap`.
+
+**One assertion that was proven not to prove what it claimed.** The shared canvas walk clicks the
+board's advance control while the case file is open and asserts the router does not move. Mutating
+`ColleagueRenderer.applyInputState` back to a hard-coded `true` left the whole walk **green**: the
+overlay's backdrop is a full-canvas interactive rectangle at `CASE_FILE_DEPTH`, and Phaser hit-tests
+topmost-first among interactive objects, so it swallows the click either way. The e2e comment now says
+what that click actually proves, and the suppression's own job — a card rebuilt mid-overlay not coming
+back live — is asserted in `ColleagueGeometry.test.ts`, where it is the only thing acting. That
+mutation is caught there.
+
+**Two source-level sweeps fired during development and were answered by rewriting prose, not by
+weakening the sweep:** `CharacterStageView.test.ts`'s ADR-006 sweep (extended to the four new modules)
+rejected `CaseFilePresenter`'s own docstring for naming the defensible-set selector, and the geometry
+suite rejected `DEBRIEF_COMPARISON_BAND_HEIGHT` at 170 against its own stated 171px worst case — the
+`GATE_BAND_HEIGHT` defect the story warns about, caught the day it was written.
+
 ### Completion Notes List
 
+**AC1 — the debrief exists.** `DebriefScene` is a real `Phaser.Scene`; `PhasePlaceholderScene.ts` and
+`phasePlaceholderGeometry.ts` are deleted and `grep -rn "PhasePlaceholderScene\|phasePlaceholderGeometry" src tests`
+returns nothing but two historical mentions in prose. The room renders the authored summary, the
+historical comparison, its cited sources, the optional deeper theory (collapsed by default), the
+recognition account and the challenge history — all in the active locale, no marker anywhere.
+
+**AC2 — it reports the record.** Every projection reads `completion`, never the live fields, so the
+record is fixed at first completion; `reduceDebriefComplete` is what holds that and the tests assert
+it rather than re-implementing it. Provenance category, source type and rights status are named beside
+every citation.
+
+**AC3 — challenge as inquiry, recognition without a score.** The challenge history's heading is "Where
+your claim was tested" — the framing is the heading rather than a disclaimer under it. The recognition
+band carries an explicit "Not a score" intro, reserved unconditionally so the band does not change
+height between a player who recorded everything and one who recorded nothing.
+
+**AC4 — finishing and replaying.** `case.debriefCompleted` was **already** canvas-dispatchable: Story
+2.7 put it on the theory board's `review` control as `advance.closeTheCase`, and this story satisfies
+that half by keeping it working, not by rebuilding it. `case.replayStarted` is the debrief's own
+`AdvanceControl`. "Campaign unlock state" is satisfied by the completed record surviving both the
+replay and the re-completion — there is no campaign state in this build, and that reading is recorded
+rather than answered by inventing an unlock field.
+
+**AC5 — the four assigned intents.** All six (`theory.supportRunSelected` / `Unselected`,
+`theory.supportSourceSelected` / `Unselected`, `peerReview.requested`, `revision.saved`) dispatch from
+the case-file overlay. `canvas-transitions.spec.ts`'s gating-intent table is **empty**, and its walk
+completes the Young case with canvas clicks only. Neither new surface reads the defensible-conclusion
+set; the ADR-006 source sweep now covers all four new modules.
+
+**AC6 — the timestamp split.** `completion-timestamp-not-later`, patterned on
+`critique-timestamp-not-later`, with device-clock copy in both locales. The malformed-stamp message
+keeps describing the malformed case. One reducer change and nothing else.
+
+**AC7 — the readiness list.** `selectLocalizedConclusionReadiness` resolves by requirement `code`
+through the existing `conclusion.missing.*` keys and supplies both interpolated counts, so no call site
+can leave a raw `{count}` on screen. It is in the case file, which is the surface
+`error.conclusion-not-ready`'s copy has been pointing at since Story 2.7.
+
+**AC8 — tests.** See the arithmetic and the mutation table below.
+
+#### Test count, accounted for
+
+| | Files | Tests |
+| --- | --- | --- |
+| Baseline (`3bd19b7`, re-measured) | 61 | 997 |
+| Now | 67 | 1125 |
+
+The 128 new tests: **112** in six new files — `DebriefGeometry` 33, `CaseFileGeometry` 24,
+`CaseFileRenderer` 18, `DebriefRenderer` 16, `DebriefSurface` 12, `ConclusionSupport` 9; **12** new
+`it(...)` in existing files — `ReviewRules` +4, `ColleagueGeometry` +3, `I18n` +3, `CaseDefinition` +1,
+`AdvanceControlGeometry` +4−3; and **4** from extending `CharacterStageView`'s `it.each` source sweep
+to the four new modules. 112 + 12 + 4 = 128.
+
+`npm run test:e2e`: **53 passed / 7 failed**, identical to baseline, and the seven are the same carried
+retired-DOM names. `debrief-replay.spec.ts` was rewritten canvas-only and passes; it is not one of the
+seven.
+
+#### Mutation proofs (AC8)
+
+Each guard broken, the failure confirmed, the guard restored, and the restored suite re-run green.
+
+| Guard | Mutation | Before | Mutated | Restored |
+| --- | --- | --- | --- | --- |
+| Case-file no-dispatch-on-repeat | dispatch `selectSupportRun` unconditionally | pass | fail (caught) | pass |
+| The counterfactual warning | force `isCounterfactual` false | pass | fail (caught) | pass |
+| Recognition localized by id | return the record's canonical `.en` | pass | fail (caught) | pass |
+| Peer review localized by `ruleId` | return `issue.feedback` | pass | fail (caught) | pass |
+| Readiness localized by `code` | return `missing[].message` | pass | fail (caught) | pass |
+| The preserved completion snapshot | drop the `isCounterfactual` branch | pass | fail (caught) | pass |
+| The AC6 error-code split | merge it back into `invalid-completion-timestamp` | pass | fail (caught) | pass |
+| Board suppression under the overlay | hard-code `applyInputState`'s flag to `true` | pass | fail (caught) | pass |
+| The French whole-string sweep | lengthen `caseFile.pin` past its bound | pass | fail (caught) | pass |
+
+The eighth row is the one that matters most: it **survived** the e2e walk first (see the Debug Log) and
+only became detectable once the guard was tested where it is the only thing acting.
+
+#### Manual pass — 1280×720, EN and FR, screenshots taken
+
+The debrief collapsed and expanded, the case file open over the board, the board after close, the
+counterfactual warning on the second pass, and the whole room under `prefers-reduced-motion: reduce`.
+Both defects in the Debug Log came from this pass and were fixed and re-shot. No band overlaps another,
+nothing is truncated, and the reduced-motion frame is identical — neither surface registers an update
+loop, starts a tween, or reads a clock, which is asserted directly as well as photographed.
+
+#### Carried forward
+
+- **`tests/unit/sceneSlice.ts` reports a constant `height: 18` for every text object**, so it cannot
+  see a text placed against a measured neighbour versus a constant — the class of defect the manual
+  pass caught twice in this story. Extending the fake to derive height from the wrapped text and font
+  size would make it visible, and it is a change to a harness three suites share, so it belongs to its
+  own pass rather than to this one.
+- **Open Questions 1 and 2 stand.** `consultation.requested` and `apparatus.reset` are still DOM-only.
+  Neither gates a transition and neither is required to complete a case, so neither blocks ADR-011 —
+  but both need a decision **before Story 2.12 starts**, which is the same thing the 2.10 review said.
+- **Open Question 3 stands.** `debrief.sourceRefs` still cites two ids that match no artifact. Nothing
+  reads it; the debrief cites `historicalComparison.sourceIds`, which the schema cross-checks, and a
+  test pins that it does.
+- Open Questions 4, 5 and 6 were answered as the story proposed: one overlay for both phases, the
+  recognition list in the debrief only, and no session-wide counterfactual marker.
+
 ### File List
+
+**New**
+
+- `src/adapters/phaser/scenes/debriefGeometry.ts`
+- `src/adapters/phaser/renderers/DebriefRenderer.ts`
+- `src/adapters/phaser/renderers/caseFileGeometry.ts`
+- `src/adapters/phaser/renderers/CaseFilePresenter.ts`
+- `tests/unit/DebriefGeometry.test.ts`
+- `tests/unit/DebriefRenderer.test.ts`
+- `tests/unit/CaseFileGeometry.test.ts`
+- `tests/unit/CaseFileRenderer.test.ts`
+- `tests/integration/DebriefSurface.test.ts`
+- `tests/integration/ConclusionSupport.test.ts`
+
+**Deleted**
+
+- `src/adapters/phaser/scenes/PhasePlaceholderScene.ts`
+- `src/adapters/phaser/scenes/phasePlaceholderGeometry.ts`
+
+**Modified**
+
+- `src/adapters/phaser/PhaserStoreAdapter.ts`
+- `src/adapters/phaser/renderers/ColleagueRenderer.ts`
+- `src/adapters/phaser/scenes/ColleaguesScene.ts`
+- `src/adapters/phaser/scenes/DebriefScene.ts`
+- `src/adapters/phaser/scenes/TheoryBoardScene.ts`
+- `src/adapters/phaser/scenes/LaboratoryScene.ts`
+- `src/adapters/phaser/scenes/LibraryScene.ts`
+- `src/adapters/phaser/scenes/RivalLabScene.ts`
+- `src/adapters/phaser/scenes/libraryGeometry.ts`
+- `src/core/store/AppState.ts`
+- `src/core/store/selectors.ts`
+- `src/core/i18n/locales/en.ts`
+- `src/core/i18n/locales/fr.ts`
+- `tests/e2e/canvasHelpers.ts`
+- `tests/e2e/canvas-transitions.spec.ts`
+- `tests/e2e/debrief-replay.spec.ts`
+- `tests/e2e/french-typography.spec.ts`
+- `tests/unit/AdvanceControlGeometry.test.ts`
+- `tests/unit/CaseDefinition.test.ts`
+- `tests/unit/CharacterStageView.test.ts`
+- `tests/unit/ColleagueGeometry.test.ts`
+- `tests/unit/CompletionReplay.test.ts`
+- `tests/unit/I18n.test.ts`
+- `tests/unit/ReviewRules.test.ts`
+- `tests/integration/DialogueAndChoice.test.ts`
+- `_bmad-output/project-context.md`
+- `_bmad-output/implementation-artifacts/deferred-work.md`
+
+**Not touched**, as the scope boundary requires: every `src/ui/*` panel, `src/game/*`, `src/domain/**`,
+`public/cases/**`, `src/schemas/**`, `src/adapters/phaser/SceneRouter.ts`,
+`src/adapters/phaser/renderers/{advanceView,NotebookRenderer}.ts`. No `CaseDefinition` version bump was
+needed — every authored string this story renders was already authored EN+FR at 1.14.0 (D6).
 
 ## Change Log
 
 | Date | Version | Description | Author |
 | --- | --- | --- | --- |
+| 2026-08-07 | 1.0 | Implemented. `DebriefScene` is a real scene and `PhasePlaceholderScene` is deleted; the case-file overlay on the theory board carries the last six DOM-only gating intents and AC7's readiness list; AC6's timestamp code is split; both locales extended; 128 tests added (997 → 1125) with nine guards proven by mutation; e2e unchanged at 53/7. | Game Developer |
 | 2026-08-07 | 0.1 | Story context created from epics.md §Story 2.11, sprint-change-proposal-2026-08-06 §4.1, EXPERIENCE.md v2.0, gdd.md, game-architecture v1.2, project-context v2.1, deferred-work.md (five items, three of which name this story as owner), the 2.8 and 2.10 story files and reviews, and the live source. | Game Scrum Master |

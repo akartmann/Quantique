@@ -5,8 +5,9 @@
  * and `LibraryRenderer` builds display objects, so both import Phaser as a value; Phaser touches
  * `window` at import time and both Vitest and the Playwright specs run in Node. A spec that imported
  * either to derive a click target would fail on the import rather than the assertion.
- * `apparatusGeometry.ts` and `phasePlaceholderGeometry.ts` exist for the same reason and set the
- * precedent; this is the third.
+ * `apparatusGeometry.ts` exists for the same reason and set the precedent, as did the routing shell's
+ * own geometry module before Story 2.11 deleted the shell; `debriefGeometry.ts` and
+ * `caseFileGeometry.ts` are the two that followed this one.
  *
  * **Every function takes the canvas size.** Nothing here closes over `1024` or `768` (AC7): the scene
  * reads its own `scale` and passes it down, so the design dimensions are stated once, by Phaser's

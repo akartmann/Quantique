@@ -136,7 +136,8 @@ describe('authored dialogue beats', () => {
         const authored = CASE_PHASES.filter((phase) => beatsAt(phase).length > 0);
 
         // `context` and `experiment` get theirs from Stories 2.1 and 2.2/2.6; `debrief` from 2.3.
-        // Beats authored for a `PhasePlaceholderScene` would validate and render nowhere.
+        // Beats authored for a scene with no renderer would validate and render nowhere. (The routing
+        // shell that shape referred to was deleted by Story 2.11; the hazard it names has not gone.)
         expect(authored).toEqual(['prediction', 'synthesis', 'review']);
     });
 

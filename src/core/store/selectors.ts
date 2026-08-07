@@ -21,7 +21,7 @@ import type { CasePhase } from '../../domain/cases/CaseProgress';
 import { createCaseRecordProjection } from './CaseRecordProjection';
 import type { Result } from '../errors/Result';
 import type { CaseRecord } from '../../schemas/CaseRecordSchema';
-import type { RecognitionState } from '../../domain/recognition/recognitionRules';
+import type { RecognitionId, RecognitionItem, RecognitionState } from '../../domain/recognition/recognitionRules';
 import { evaluateContextReadiness, evaluatePredictionReadiness, type ContextReadiness, type PredictionReadiness } from '../../domain/cases/contextPredictionReadiness';
 
 export const selectLocale = (state: AppState): Locale => state.locale;
@@ -181,6 +181,32 @@ export const selectSelectedSupportingRuns = (state: AppState): readonly RunRecor
 
 export const selectSelectedSupportingSources = (state: AppState): readonly ContextualArtifact[] =>
     state.theory.selectedSourceIds.flatMap((id) => selectSourceById(state, id) ? [selectSourceById(state, id)!] : []);
+
+/**
+ * What the player's own record is still missing, resolved for display (Story 2.11, AC7).
+ *
+ * Localized **by `code`** through the existing `conclusion.missing.*` keys, never by
+ * `missing[].message` — that field is the dev-facing English the domain pre-formats, and rendering it
+ * is this project's most-repeated defect. The two codes whose authored string interpolates a count get
+ * it from `requirements` here rather than at the call site, so a surface cannot forget one and leave a
+ * raw `{count}` on screen; {@link selectLocalizedError} sets that precedent.
+ *
+ * **It carries no defensibility, and it cannot.** `ConclusionReadiness` has `status` and `missing[]`,
+ * both derived from what the player has recorded; which conclusion the evidence *defends* lives in
+ * {@link selectDefensibleConclusionProposalIds}, a different selector the boards deliberately cannot
+ * reach. ADR-006 bars a surface from holding an opinion about a conclusion, not from reporting the
+ * player's own record — the same reading `LibraryScene` already relies on for `selectContextualReadiness`.
+ */
+export const selectLocalizedConclusionReadiness = (state: AppState): readonly string[] => {
+    const locale = selectLocale(state);
+    const t = createTranslator(locale);
+    const { minimumRuns, minimumSources } = state.caseDefinition.requirements;
+    return Object.freeze(selectConclusionReadiness(state).missing.map(({ code }) => {
+        if (code === 'minimum-runs') return t('conclusion.missing.minimum-runs', { count: minimumRuns });
+        if (code === 'minimum-sources') return t('conclusion.missing.minimum-sources', { count: minimumSources });
+        return t(`conclusion.missing.${code}`);
+    }));
+};
 
 export const selectConclusionReadiness = (state: AppState): ConclusionReadiness => evaluateConclusionReadiness(state.caseDefinition, {
     runs: state.runs,
@@ -474,3 +500,198 @@ export const selectCompletionSnapshot = (state: AppState): CompletionSnapshot | 
 export const selectReplayState = (state: AppState): ReplayState => state.replay;
 
 export const selectPortableCaseRecord = (state: AppState): Result<CaseRecord> => createCaseRecordProjection(state);
+
+// --- The debrief (Story 2.11) -------------------------------------------------------------------
+
+/**
+ * One recognition line, resolved for display.
+ *
+ * `achieved` is carried so a surface can present the whole list as an account rather than only the
+ * items that landed. It is not a score and must never be rendered as one (§Guided adventure): the
+ * design forbids a progress number, and the debrief presents these as things the player *did*.
+ */
+export type LocalizedRecognitionItem = Readonly<{
+    id: RecognitionId;
+    label: string;
+    description: string;
+    achieved: boolean;
+}>;
+
+/**
+ * The recognition account, resolved by stable id against the eight `recognition.<id>.*` keys that
+ * ship in both bundles.
+ *
+ * **The items are an argument, not a read of `state.recognition`.** The debrief shows
+ * `completion.recognition` — the snapshot taken at first completion — and a selector that read the
+ * live field would show the *replay's* recognition on a completed record (D2). Making the caller
+ * name its source is what stops that being a mistake somebody has to remember not to make.
+ *
+ * `deriveRecognition` emits canonical English `label`/`description` inside the persisted
+ * `RecognitionState`, because `validateCaseRecordForDefinition` recomputes and string-compares it on
+ * load — emitting the active locale would reject every record saved in the other language (D3). So
+ * the record keeps its English and the *display* resolves by `id`. The canonical strings on the
+ * argument are deliberately not read here.
+ */
+export const selectLocalizedRecognition = (
+    state: AppState,
+    items: readonly RecognitionItem[]
+): readonly LocalizedRecognitionItem[] => {
+    const t = createTranslator(selectLocale(state));
+    return Object.freeze(items.map((item) => Object.freeze({
+        id: item.id,
+        label: t(`recognition.${item.id}.label`),
+        description: t(`recognition.${item.id}.description`),
+        achieved: item.achieved
+    })));
+};
+
+/** One past challenge, attributed and resolved. Shaped like {@link LocalizedRivalLabCritique}. */
+export type LocalizedCritiqueHistoryEntry = Readonly<{
+    critiqueId: string;
+    speaker: string;
+    line: string;
+}>;
+
+/**
+ * Every challenge the **completed** investigation drew, resolved for display (AC3).
+ *
+ * Over `completion.critiqueHistory`, never `state.critiqueHistory` (D2): `reduceReplayStart` clears
+ * the live list and a re-completion would refill it with the second pass's challenges, so reading it
+ * here would show an empty list after a replay and somebody else's challenges after a re-completion
+ * — both are exactly the rewriting AC2 forbids. Outside a completed case there is nothing to show,
+ * so this is empty rather than a live projection of the current attempt.
+ *
+ * A `critiqueId` a degraded cached `case.json` no longer authors is **dropped**, the same rule
+ * {@link selectLocalizedRivalLabCritique} states: an attributed heading with no line under it is
+ * worse than nothing at all.
+ *
+ * It carries no defensibility field and never can — it projects challenges that were already drawn,
+ * not which conclusion would have drawn none (ADR-006).
+ */
+export const selectLocalizedCritiqueHistory = (state: AppState): readonly LocalizedCritiqueHistoryEntry[] => {
+    const history = selectCompletionSnapshot(state)?.critiqueHistory ?? [];
+    if (history.length === 0) return NO_CRITIQUE_HISTORY;
+    const { rivalLab } = state.caseDefinition;
+    const t = createTranslator(selectLocale(state));
+    // The rival's name is canonical — a proper noun — and only his role resolves through i18n.
+    const speaker = formatAttribution(t, { colleagueName: rivalLab.name, roleLabel: t('rivalLab.role') });
+    const locale = selectLocale(state);
+    return Object.freeze(history.flatMap((entry) => {
+        const critique = rivalLab.critiques.find(({ id }) => id === entry.critiqueId);
+        return critique
+            ? [Object.freeze({ critiqueId: entry.critiqueId, speaker, line: resolveLocalizedText(critique.line, locale) })]
+            : [];
+    }));
+};
+
+const NO_CRITIQUE_HISTORY: readonly LocalizedCritiqueHistoryEntry[] = Object.freeze([]);
+
+/**
+ * The peer-review outcome, resolved for display.
+ *
+ * **`PeerReviewIssue.feedback` and `.revisionPath` are never rendered.** Both are canonical `.en`,
+ * persisted inside `DecisionHistoryEntry.feedback` and recomputed-and-string-compared on load, so
+ * they must not vary with the language (D3) — and the retired `ConclusionReviewPanel` rendered them
+ * straight to the player, which is this project's most-repeated defect. The display resolves
+ * `caseDefinition.peerReviewRules` by `ruleId` to the authored `LocalizedText` instead.
+ *
+ * A `ruleId` the case no longer authors falls back to the canonical `.en`. That is the one place it
+ * is the right answer: the alternative is dropping a finding the player's revision was judged
+ * against, and silence about a finding is worse than an untranslated one.
+ *
+ * `status: 'unavailable'` resolves the existing `review.unavailable` key rather than the projection's
+ * `message`, which is `CANONICAL_UNAVAILABLE_MESSAGE` and English by contract.
+ */
+export type LocalizedPeerReviewIssue = Readonly<{
+    ruleId: string;
+    feedback: string;
+    revisionPath: string;
+}>;
+
+export type LocalizedPeerReview =
+    | Readonly<{ status: 'reviewed'; issues: readonly LocalizedPeerReviewIssue[] }>
+    | Readonly<{ status: 'unavailable'; message: string }>;
+
+export const selectLocalizedPeerReview = (state: AppState): LocalizedPeerReview | undefined => {
+    const projection = selectPeerReview(state);
+    if (!projection) return undefined;
+    const locale = selectLocale(state);
+    if (projection.status === 'unavailable') {
+        return Object.freeze({ status: 'unavailable' as const, message: translate(locale, 'review.unavailable') });
+    }
+    const rules = state.caseDefinition.peerReviewRules;
+    return Object.freeze({
+        status: 'reviewed' as const,
+        issues: Object.freeze(projection.issues.map((issue) => {
+            const rule = rules.find(({ id }) => id === issue.ruleId);
+            return Object.freeze({
+                ruleId: issue.ruleId,
+                feedback: rule ? resolveLocalizedText(rule.feedback, locale) : issue.feedback,
+                revisionPath: rule ? resolveLocalizedText(rule.revisionPath, locale) : issue.revisionPath
+            });
+        }))
+    });
+};
+
+/** One cited source under the historical comparison, with its provenance said out loud (AC2). */
+export type LocalizedDebriefSource = Readonly<{
+    sourceId: string;
+    name: string;
+    /** The four provenance categories, named — `primary artifact`, `reconstruction`, and the rest. */
+    provenance: string;
+    sourceType: string;
+    rightsStatus: string;
+}>;
+
+/** Everything the debrief renders that comes out of authored content, resolved for display. */
+export type LocalizedDebrief = Readonly<{
+    summary: string;
+    historicalComparison: Readonly<{ title: string; text: string; sources: readonly LocalizedDebriefSource[] }>;
+    deeperTheory: Readonly<{ title: string; text: string }>;
+    /**
+     * The authored counterfactual warning. It already reads as one in both locales; the retired DOM
+     * panel used it as a *button* label and hard-coded a separate English-only warning line beside it.
+     * The control's own label is the interface key `advance.replay`, never this.
+     */
+    replayLabel: string;
+}>;
+
+/**
+ * The authored debrief, resolved for display.
+ *
+ * Cites from `historicalComparison.sourceIds`, which the schema cross-checks against
+ * `contextualArtifacts`. **Not `debrief.sourceRefs`**, whose two ids match no artifact and are
+ * validated only as non-empty strings — nothing reads that field, and this is not the story that
+ * decides whether to fix the content or delete it (Open Question 3).
+ *
+ * A cited id that resolves to no artifact is dropped rather than rendered as an empty citation, the
+ * same degraded-content rule the critique history follows. Shipped content cannot reach it; the
+ * schema's cross-check is on the definition, and a degraded cached `case.json` is not.
+ */
+export const selectLocalizedDebrief = (state: AppState): LocalizedDebrief => {
+    const { debrief } = state.caseDefinition;
+    const locale = selectLocale(state);
+    const t = createTranslator(locale);
+    return Object.freeze({
+        summary: resolveLocalizedText(debrief.summary, locale),
+        historicalComparison: Object.freeze({
+            title: resolveLocalizedText(debrief.historicalComparison.title, locale),
+            text: resolveLocalizedText(debrief.historicalComparison.text, locale),
+            sources: Object.freeze(debrief.historicalComparison.sourceIds.flatMap((sourceId) => {
+                const artifact = selectSourceById(state, sourceId);
+                return artifact ? [Object.freeze({
+                    sourceId,
+                    name: resolveLocalizedText(artifact.displayName, locale),
+                    provenance: t(`source.provenanceName.${artifact.provenance.category}`),
+                    sourceType: t(`source.type.${artifact.sourceType}`),
+                    rightsStatus: t(`source.rights.${artifact.rightsStatus}`)
+                })] : [];
+            }))
+        }),
+        deeperTheory: Object.freeze({
+            title: resolveLocalizedText(debrief.deeperTheory.title, locale),
+            text: resolveLocalizedText(debrief.deeperTheory.text, locale)
+        }),
+        replayLabel: resolveLocalizedText(debrief.replayLabel, locale)
+    });
+};

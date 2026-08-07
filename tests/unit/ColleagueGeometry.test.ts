@@ -1,6 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { readFile } from 'node:fs/promises';
 
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { ColleagueRenderer } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import { createPhaserStoreAdapter } from '../../src/adapters/phaser/PhaserStoreAdapter';
+import { createInitialAppState } from '../../src/core/store/AppState';
+import { createStore } from '../../src/core/store/createStore';
+import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
+import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
+import { makeSceneSlice, makeWindowStub } from './sceneSlice';
 import {
+    CASE_FILE_CONTROL_HEIGHT,
+    caseFileOpenControlCentre,
     proposalCardHeight,
     proposalStageArea,
     proposalStageBand,
@@ -127,6 +138,27 @@ describe('proposal board geometry', () => {
     });
 
     /**
+     * The control column grew a third control in Story 2.11 — the way into the case file — and the room
+     * has to clear the whole column, not the two controls it used to carry.
+     *
+     * A figure's head drawn behind the case-file control is the same overlap the 2.9 review found when
+     * the room was measured against a column floor that had stopped being the floor. `controlColumnBottom`
+     * is private, so this drives the room's own top through `proposalStageBandBelowPanel` at the panel
+     * height that puts the column in charge — a short beat, where the panel's bottom is above it.
+     */
+    it('keeps the room clear of the case-file control at the foot of the column', () => {
+        const columnBottom = caseFileOpenControlCentre().y + (CASE_FILE_CONTROL_HEIGHT / 2);
+        // A one-line beat: the shortest the panel ever is, so the column is the binding floor.
+        const band = proposalStageBandBelowPanel('conclusion', DESIGN_HEIGHT, CARD_COUNT, panelBottomFor(1));
+
+        expect(band.top).toBeGreaterThanOrEqual(columnBottom);
+        // And the room still exists at that floor — a column that ate the whole band would pass the
+        // assertion above and stage nobody, which is the 2.9 defect wearing a different hat.
+        expect(band.height).toBeGreaterThan(0);
+        expect(stageAt('conclusion', 1).figures).toHaveLength(CARD_COUNT);
+    });
+
+    /**
      * The guide is bottom-anchored at `cardsTop − GUIDE_TO_CARDS_GAP − height`, so the room's floor has
      * to clear the gap *and* the band. Reserving only the band put a two-line French guide on the
      * boundary with zero slack, and a longer one across the plaques (2.9 review).
@@ -138,5 +170,78 @@ describe('proposal board geometry', () => {
         const twoLineFrenchGuide = Math.round(2 * 15 * 1.3);
 
         expect(cardsTop - band.height).toBeGreaterThanOrEqual(twoLineFrenchGuide);
+    });
+});
+
+/**
+ * The board's input suppression, which is the other half of the case file being an overlay
+ * (Story 2.11, Task 6).
+ *
+ * **It gets its own unit test because the browser cannot prove it.** The overlay's backdrop is a
+ * full-canvas interactive rectangle at `CASE_FILE_DEPTH`, and Phaser hit-tests topmost-first among
+ * interactive objects — so at every coordinate the overlay covers, the backdrop swallows the click
+ * whether or not the board underneath was suppressed. Verified by mutation: hard-coding
+ * `applyInputState`'s flag back to `true` leaves the whole canvas walk green.
+ *
+ * That is exactly why the 2.8 review deleted three dead `setInputEnabled` methods, and it is why this
+ * one had to come back with a test rather than with an argument. What the suppression is actually for
+ * is the part the backdrop does not cover: **a card rebuilt while the overlay is open**. Cards are
+ * re-armed on every `layoutAndRenderCards`, so without the flag a repaint under an open case file
+ * hands the board back its input while the player is still in the overlay.
+ */
+describe('suppressing the board while its case file is open', () => {
+    const stub = makeWindowStub();
+    let youngDefinition: CaseDefinition;
+
+    beforeAll(async () => {
+        const content: unknown = JSON.parse(await readFile('public/cases/young-interference/case.json', 'utf8'));
+        const parsed = CaseDefinitionSchema.safeParse(content);
+        if (!parsed.success) throw new Error('The authored Young case must parse.');
+        youngDefinition = parsed.data as CaseDefinition;
+    });
+
+    beforeEach(() => { vi.stubGlobal('window', stub.window); });
+    afterEach(() => { vi.unstubAllGlobals(); });
+
+    const board = () => {
+        const slice = makeSceneSlice();
+        const store = createStore(createInitialAppState(youngDefinition));
+        const renderer = new ColleagueRenderer(slice.scene, createPhaserStoreAdapter(store), {
+            kind: 'conclusion',
+            openCaseFile: () => undefined
+        });
+        renderer.create();
+        renderer.render(store.getState());
+        return { slice, renderer, store };
+    };
+
+    const armed = (slice: ReturnType<typeof makeSceneSlice>): number =>
+        slice.drawn.filter(({ state }) => state.interactive).length;
+
+    it('disarms every control on the board, and re-arms them on close', () => {
+        const { slice, renderer } = board();
+        const live = armed(slice);
+        expect(live).toBeGreaterThan(0);
+
+        renderer.setInputEnabled(false);
+        expect(armed(slice)).toBe(0);
+
+        renderer.setInputEnabled(true);
+        expect(armed(slice)).toBe(live);
+    });
+
+    /**
+     * The one the backdrop cannot cover: a repaint while the overlay is up must not hand the board
+     * back. Every pin in the case file dispatches, and every dispatch repaints this renderer through
+     * the scene's subscription — so this is the normal case, not an edge one.
+     */
+    it('keeps the board silent across a repaint taken while the overlay is still open', () => {
+        const { slice, renderer, store } = board();
+        renderer.setInputEnabled(false);
+        expect(armed(slice)).toBe(0);
+
+        renderer.render(store.getState());
+
+        expect(armed(slice)).toBe(0);
     });
 });

@@ -9,23 +9,31 @@ import {
 import {
     BOARD_CONTROL_LEFT,
     BOARD_TEXT_WRAP,
+    CASE_FILE_CONTROL_HEIGHT,
+    CASE_FILE_CONTROL_LABEL_WRAP,
     PROPOSAL_SURFACE_LEFT,
     PROPOSAL_SURFACE_WIDTH,
+    SUBMIT_CONTROL_LABEL_WRAP,
     SUBMIT_HEIGHT,
     SUBMIT_WIDTH,
     advanceControlCentreOnBoard,
     boardAdvanceControlLabelWrap,
+    caseFileOpenControlCentre,
     submitConclusionControlCentre
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 // From `apparatusGeometry`, not `ApparatusRenderer`, for the same reason.
 import { SIDE_COLUMN_WIDTH } from '../../src/adapters/phaser/renderers/apparatusGeometry';
-// From `phasePlaceholderGeometry`, not the scene: `PhasePlaceholderScene` extends `Phaser.Scene`, so
-// it imports Phaser as a value and Phaser touches `window` at import time. Vitest runs in Node.
+// From `debriefGeometry`, not the scene: `DebriefScene` extends `Phaser.Scene`, so it imports Phaser
+// as a value and Phaser touches `window` at import time. Vitest runs in Node. This replaces
+// `phasePlaceholderGeometry`, which Story 2.11 deleted along with the shell it laid out.
 import {
-    PLACEHOLDER_MESSAGE_FONT_SIZE,
-    PLACEHOLDER_MESSAGE_TOP_GAP,
-    placeholderAdvanceControlCentre
-} from '../../src/adapters/phaser/scenes/phasePlaceholderGeometry';
+    DEBRIEF_REFUSAL_FONT_SIZE,
+    DEBRIEF_REFUSAL_GAP,
+    debriefAdvanceControlBounds,
+    debriefAdvanceControlCentre,
+    debriefCounterfactualBand,
+    debriefRefusalBand
+} from '../../src/adapters/phaser/scenes/debriefGeometry';
 
 /**
  * Where the advance control lands on the hosts that are **not** the laboratory (Story 2.7).
@@ -66,15 +74,34 @@ describe('the board control column', () => {
         expect(gutter).toBeGreaterThanOrEqual(12);
     });
 
-    it('does not stack the conclusion board\'s two controls on top of one another', () => {
-        // They are different acts — submit the claim, then move on — and the conclusion board is the
-        // only surface that carries both. `SUBMIT_HEIGHT` is read from the renderer rather than
-        // restated: it is the number that pushes the advance control into the second row, so a test
-        // holding its own copy would compute the old floor and pass straight through the collision.
+    it('does not stack the conclusion board\'s three controls on top of one another', () => {
+        // They are three different acts — gather what the claim rests on, submit it, move on — and the
+        // conclusion board is the only surface that carries all three. Every height is read from the
+        // renderer rather than restated: each is the number that pushes the next control into its own
+        // row, so a test holding its own copy would compute the old floor and pass straight through
+        // the collision. The case-file control joined the column in Story 2.11.
         const submitBottom = submitConclusionControlCentre().y + (SUBMIT_HEIGHT / 2);
         const advanceTop = advanceControlCentreOnBoard('conclusion').y - (ADVANCE_CONTROL_HEIGHT / 2);
+        const advanceBottom = advanceControlCentreOnBoard('conclusion').y + (ADVANCE_CONTROL_HEIGHT / 2);
+        const caseFileTop = caseFileOpenControlCentre().y - (CASE_FILE_CONTROL_HEIGHT / 2);
 
         expect(advanceTop).toBeGreaterThanOrEqual(submitBottom);
+        expect(caseFileTop).toBeGreaterThanOrEqual(advanceBottom);
+    });
+
+    /**
+     * The case file's own control, which is what the four support and review intents reach the canvas
+     * through (Story 2.11, AC5). A control drawn outside the column, or at a centre that is not the
+     * middle of the rectangle the board paints, sends every canvas walk to empty space.
+     */
+    it('puts the case-file control in the column, at the middle of the rectangle the board paints', () => {
+        const { x, y } = caseFileOpenControlCentre();
+
+        expect(x).toBe(BOARD_CONTROL_LEFT + (SUBMIT_WIDTH / 2));
+        expect(y - (CASE_FILE_CONTROL_HEIGHT / 2)).toBeGreaterThanOrEqual(0);
+        expect(y + (CASE_FILE_CONTROL_HEIGHT / 2)).toBeLessThan(DESIGN_HEIGHT);
+        // Its label shares the column's width, so it wraps against the same bound the submit does.
+        expect(CASE_FILE_CONTROL_LABEL_WRAP).toBe(SUBMIT_CONTROL_LABEL_WRAP);
     });
 
     it('puts the prediction board\'s control in the row the conclusion board gives to submit', () => {
@@ -99,30 +126,43 @@ describe('the board control column', () => {
     });
 });
 
-describe('the routing shell\'s control', () => {
-    it('sits below the centred development marker rather than over it', () => {
-        const { y } = placeholderAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT);
+/**
+ * The debrief's replay control, which is where the retired routing shell's control went (Story 2.11).
+ *
+ * These three assertions are the shell's own, **re-pointed rather than deleted**: the control stays
+ * inside the canvas, it is horizontally centred and derived from the canvas rather than from a
+ * literal, and there is room for a refusal to be answered without covering anything. What changed is
+ * where the refusal goes — beside the control instead of under it, because the band under it is the
+ * counterfactual warning's and the two are not mutually exclusive. `DebriefGeometry.test.ts` owns the
+ * rest of that room; this file owns the control's placement, the same division it already keeps for
+ * the two boards.
+ */
+describe('the debrief\'s replay control', () => {
+    it('stays inside the canvas, clear of the counterfactual warning below it', () => {
+        const bounds = debriefAdvanceControlBounds(DESIGN_WIDTH, DESIGN_HEIGHT);
 
-        expect(y - (ADVANCE_CONTROL_HEIGHT / 2)).toBeGreaterThan(DESIGN_HEIGHT / 2);
+        expect(bounds.x).toBeGreaterThan(0);
+        expect(bounds.x + ADVANCE_CONTROL_WIDTH).toBeLessThan(DESIGN_WIDTH);
+        expect(bounds.y + ADVANCE_CONTROL_HEIGHT)
+            .toBeLessThanOrEqual(debriefCounterfactualBand(DESIGN_WIDTH, DESIGN_HEIGHT).y);
     });
 
-    it('stays inside the canvas, with room beneath it for a refusal message', () => {
-        const { x, y } = placeholderAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT);
-        // The room actually needed, derived from the message's own gap and font rather than from a
-        // round number chosen to pass: two lines of it, which is what a French `missing-contextual-
-        // sources` error with an interpolated source name takes at this wrap.
-        const messageHeight = PLACEHOLDER_MESSAGE_TOP_GAP + (2 * PLACEHOLDER_MESSAGE_FONT_SIZE);
-
-        expect(x - (ADVANCE_CONTROL_WIDTH / 2)).toBeGreaterThan(0);
-        expect(x + (ADVANCE_CONTROL_WIDTH / 2)).toBeLessThan(DESIGN_WIDTH);
-        expect(DESIGN_HEIGHT - (y + (ADVANCE_CONTROL_HEIGHT / 2))).toBeGreaterThanOrEqual(messageHeight);
+    it('leaves room beside it for a refusal to be answered', () => {
+        const bounds = debriefAdvanceControlBounds(DESIGN_WIDTH, DESIGN_HEIGHT);
+        const refusal = debriefRefusalBand(DESIGN_WIDTH, DESIGN_HEIGHT);
+        // The room actually needed, derived from the message's own font rather than from a round
+        // number chosen to pass: two lines of it, which is what a French `progress-operation-active`
+        // takes at this wrap.
+        expect(refusal.height).toBeGreaterThanOrEqual(2 * DEBRIEF_REFUSAL_FONT_SIZE);
+        expect(refusal.x).toBe(bounds.x + ADVANCE_CONTROL_WIDTH + DEBRIEF_REFUSAL_GAP);
+        expect(refusal.x + refusal.width).toBeLessThanOrEqual(DESIGN_WIDTH);
     });
 
     it('is horizontally centred, derived from the canvas rather than from a literal', () => {
         // Read from `scene.scale` in the scene itself, so the same helper has to answer for any size
         // the design surface is ever given.
-        expect(placeholderAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT).x).toBe(DESIGN_WIDTH / 2);
-        expect(placeholderAdvanceControlCentre(800, 600).x).toBe(400);
+        expect(debriefAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT).x).toBe(DESIGN_WIDTH / 2);
+        expect(debriefAdvanceControlCentre(800, 600).x).toBe(400);
     });
 });
 

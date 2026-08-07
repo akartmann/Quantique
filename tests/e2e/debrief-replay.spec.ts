@@ -1,46 +1,79 @@
 import { expect, test } from '@playwright/test';
 
-test('opens the sourced historical debrief and keeps it intact through counterfactual replay', async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' }).click();
-    await page.getByRole('button', { name: 'Inspect Opticks reference' }).click();
-    await page.getByRole('button', { name: 'Continue to prediction' }).click();
-    await page.getByLabel('Tentative prediction').fill('A larger screen distance may widen the pattern.');
-    await page.getByRole('button', { name: 'Record a prediction' }).click();
-    await page.getByRole('button', { name: 'Continue to experimentation' }).click();
-    await page.getByRole('button', { name: 'Run experiment' }).click();
-    await page.getByLabel('Screen distance (m)').fill('3');
-    await page.getByLabel('Screen distance (m)').press('Enter');
-    await page.getByRole('button', { name: 'Run experiment' }).click();
+import { debriefAdvanceControlCentre } from '../../src/adapters/phaser/scenes/debriefGeometry';
+import {
+    DESIGN_HEIGHT,
+    DESIGN_WIDTH,
+    WALK_TO_DEBRIEF_COST_MS,
+    clickDesign,
+    expectActiveScene,
+    recordedObservations,
+    walkToDebrief
+} from './canvasHelpers';
 
-    const notebook = page.getByRole('region', { name: 'Measurement notebook' });
-    await notebook.getByRole('checkbox', { name: 'Select Observation 1 for comparison' }).check();
-    await notebook.getByRole('checkbox', { name: 'Select Observation 2 for comparison' }).check();
-    await notebook.getByLabel('Comparison note').fill('The recorded spacing differs across these two bounded configurations.');
-    await notebook.getByRole('button', { name: 'Save comparison note' }).click();
+/**
+ * The debrief and the replay, **on the canvas** (Story 2.11, AC8).
+ *
+ * This spec drove thirteen DOM controls until 2.11 — `Run experiment`, four support checkboxes, the
+ * conclusion and limitation fields, the two peer-review buttons and the panel's own replay button —
+ * every one of which Story 2.12 deletes. It is rewritten around {@link walkToDebrief}, which reaches
+ * the debrief with canvas clicks only and asserts each transition on the way. No assertion was deleted
+ * to make it green; each was re-pointed at something the canvas build can actually be held to.
+ *
+ * ## What is asserted here, and what is asserted elsewhere
+ *
+ * **Canvas text cannot be read from the DOM.** So the debrief's own copy — the authored summary, the
+ * historical comparison, the provenance labels, the recognition account, the challenge history, the
+ * counterfactual warning — is asserted where it can be: `DebriefRenderer.test.ts` drives the renderer
+ * through `tests/unit/sceneSlice.ts` and reads the text it actually wrote, `I18n.test.ts` pins the
+ * bundle completeness, `CaseDefinition.test.ts` pins the authored EN+FR, and
+ * `french-typography.spec.ts` measures the French widths. That division is the one
+ * `canvas-transitions.spec.ts` documents in its own header.
+ *
+ * The optional deeper-theory layer is the clearest case of it: opening it changes only painted text,
+ * suppresses nothing, and routes nowhere, so there is no honest DOM signal for it at all — and adding
+ * an observability hook to the product to make a test pass is the thing the 2.8 review explicitly
+ * ruled out. It is covered by mutation in `DebriefRenderer.test.ts` instead.
+ *
+ * What **is** observable here is routing and the still-mounted record projection: that the debrief is
+ * reached at all, that the replay is dispatchable from the canvas, that a replay clears the
+ * investigation, and that it leaves the completed record standing. The last of those is AC2's "never
+ * rewrites the historical outcome" and AC4's "preserves the completed historical record", and it is
+ * the one that would fail if `reduceDebriefComplete`'s counterfactual branch were dropped.
+ */
 
-    const board = page.getByRole('region', { name: 'Theory board' });
-    await board.getByRole('checkbox', { name: 'Select Observation 1 as conclusion support' }).check();
-    await board.getByRole('checkbox', { name: 'Select Observation 2 as conclusion support' }).check();
-    await board.getByRole('checkbox', { name: 'Select Thomas Young’s 1801 lecture record as conclusion support' }).check();
-    await board.getByRole('checkbox', { name: 'Select Opticks reference as conclusion support' }).check();
-    await board.getByLabel('Conclusion', { exact: true }).fill('The two recorded configurations support an interference inference.');
-    await board.getByLabel('Limitation or alternative explanation').fill('These observations do not settle every interpretation of light.');
-    await board.getByRole('button', { name: 'Continue investigation to synthesis' }).click();
-    await board.getByRole('button', { name: 'Request review' }).click();
-    const review = page.getByRole('region', { name: 'Peer review' });
-    await review.getByRole('button', { name: 'Request peer feedback' }).click();
-    await review.getByRole('button', { name: 'Save reviewed revision' }).click();
+test.setTimeout(30_000 + WALK_TO_DEBRIEF_COST_MS);
 
-    const debrief = page.getByRole('region', { name: 'Historical debrief' });
-    await debrief.getByRole('button', { name: 'Open historical debrief' }).click();
-    await expect(debrief.getByRole('heading', { name: 'Young’s record and the earlier Opticks reference' })).toBeVisible();
-    await expect(debrief.getByText('Thomas Young’s 1801 lecture record')).toBeVisible();
-    await debrief.getByText('Optional deeper theory').click();
-    await expect(debrief.getByText(/selected wavelength, slit spacing, and screen distance/)).toBeVisible();
+const DEBRIEF_REPLAY = debriefAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT);
 
-    await debrief.getByRole('button', { name: 'Start counterfactual replay — not the recorded historical result' }).click();
-    await expect(debrief.getByText('Counterfactual replay — not the recorded historical result')).toBeVisible();
-    await expect(debrief.getByText('The two recorded configurations support an interference inference.')).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Measurement notebook' }).locator('.notebook-observation')).toHaveCount(0);
+/** The still-mounted DOM projection of `completion.finalDecision` — the record, observed. */
+const completedConclusion = (page: import('@playwright/test').Page) =>
+    page.getByRole('region', { name: 'Historical debrief' })
+        .getByRole('heading', { name: 'Completed evidence-bounded conclusion' });
+
+test('reaches the debrief with canvas clicks only and keeps the record through a counterfactual replay', async ({ page }) => {
+    await walkToDebrief(page);
+    await expectActiveScene(page, 'Debrief');
+
+    // The case completed, so a snapshot was written. Observed through the record's projection rather
+    // than through canvas text, which cannot be read from here.
+    await expect(completedConclusion(page)).toBeVisible();
+    const recordedDecision = await page.getByRole('region', { name: 'Historical debrief' })
+        .locator('section p').first().textContent();
+    expect(recordedDecision).toBeTruthy();
+
+    // --- the replay, from the canvas -------------------------------------------------------------
+    await clickDesign(page, DEBRIEF_REPLAY);
+    await expectActiveScene(page, 'Library');
+
+    // A replay is a fresh investigation, not a re-reading of the finished one.
+    await expect(recordedObservations(page)).toHaveCount(0);
+
+    // **And the completed record is still there, byte for byte.** `reduceDebriefComplete` keeps the
+    // original snapshot across a counterfactual replay, so the historical record the debrief shows can
+    // never be rewritten by what the player does on the second pass. Held by the reducer, asserted
+    // here rather than re-implemented in a surface.
+    await expect(completedConclusion(page)).toBeVisible();
+    expect(await page.getByRole('region', { name: 'Historical debrief' })
+        .locator('section p').first().textContent()).toBe(recordedDecision);
 });

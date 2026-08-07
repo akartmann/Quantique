@@ -203,14 +203,88 @@ export const en = {
     'source.rights.unavailable': 'Unavailable',
 
     // --- Inquiry recognition (canonical labels stay in the record; display resolves by id) -------
-    'recognition.source-discipline.label': 'Source discipline recorded',
+    // The trailing "recorded" left these labels when the debrief gave them a surface (Story 2.11): the
+    // row's own status column says `Recorded` or `Not this time` beside the label, so carrying it in
+    // both was the same word twice — and the French "relevée" pushed every label onto a second line
+    // inside a fixed row, which the 1280×720 pass caught. Shortened in both locales rather than the
+    // bound relaxed.
+    'recognition.source-discipline.label': 'Source discipline',
     'recognition.source-discipline.description': 'Each reviewed contextual source has been inspected as evidence.',
-    'recognition.replication.label': 'Replication recorded',
+    'recognition.replication.label': 'Replication',
     'recognition.replication.description': 'Two observations use the same setup for comparison.',
-    'recognition.variable-curiosity.label': 'Variable curiosity recorded',
+    'recognition.variable-curiosity.label': 'Variable curiosity',
     'recognition.variable-curiosity.description': 'Two observations use different authored control settings for comparison.',
-    'recognition.calibrated-conclusion.label': 'Calibrated conclusion recorded',
+    'recognition.calibrated-conclusion.label': 'Calibrated conclusion',
     'recognition.calibrated-conclusion.description': 'A reviewed revision makes a bounded claim without an overreach finding.',
+
+    // --- The debrief (Story 2.11) ---------------------------------------------------------------
+    // Room chrome only. The summary, the comparison, the deeper theory and the counterfactual warning
+    // are `LocalizedText` in case.json, like every other string a player reads as content.
+    //
+    // Nothing here names a scene, a phase, or a route (`encodesPath`): "the historical record" and
+    // "the case" are things in the fiction, where `Debrief` is a scene key.
+    'debrief.heading': 'Closing the case against the historical record',
+    'debrief.sources.heading': 'Sources cited in this comparison',
+    // Provenance said out loud beside every citation (AC2). The middle dot is canonical in both
+    // locales; the three values are resolved from the `source.*` families the reading room uses.
+    'debrief.sources.line': '{provenance} · {type} · {rights}',
+    // The optional deeper-theory layer's state label. Short on purpose: it shares a fixed-height strip
+    // with the authored title beside it, and a wrapped label inside a fixed rectangle clips.
+    'debrief.deeperTheory.show': 'Show more',
+    'debrief.deeperTheory.hide': 'Show less',
+    'debrief.recognition.heading': 'What you recorded along the way',
+    // The framing that keeps four ticked lines from reading as a tally. The design forbids a score,
+    // and a list of achievements with no framing is one by another name (AC3).
+    'debrief.recognition.intro': 'Not a score. An account of the practices this investigation shows.',
+    'debrief.recognition.achieved': 'Recorded',
+    'debrief.recognition.notRecorded': 'Not this time',
+    // Inquiry, not failure (AC3) — carried by the heading itself rather than by a disclaimer under it.
+    // "Where your claim was tested" is what a challenge *was*; a heading naming the objections and a
+    // line underneath explaining that they do not count against you is the same fact said twice, and
+    // the second half is the one that sounds defensive.
+    'debrief.critiques.heading': 'Where your claim was tested',
+    // The paged counter lives in the heading, so the row carries one interface string rather than a
+    // heading and a separate counter sharing a measured budget with two controls.
+    'debrief.critiques.headingCounted': 'Where your claim was tested — {index} of {total}',
+    'debrief.critiques.empty': 'No challenge was raised against the conclusion you submitted. Nothing was scored either way.',
+    'debrief.critiques.earlier': 'Earlier',
+    'debrief.critiques.later': 'Later',
+    'debrief.record.unavailable': 'This record has no completed investigation attached to it.',
+
+    // --- The case file (Story 2.11) ---------------------------------------------------------------
+    // The overlay the theory board hosts, carrying the four support/review intents that had no canvas
+    // dispatcher and the readiness list `error.conclusion-not-ready` promises (AC5, AC7).
+    //
+    // "The case file" is a thing on the desk; `TheoryBoard` is a scene key. Nothing here names a scene,
+    // a phase, or a route.
+    'caseFile.open': 'Open the case file',
+    'caseFile.heading': 'The case file',
+    'caseFile.guide': 'Pin the observations and references your conclusion rests on. Pinning changes nothing else, and you can unpin at any time.',
+    'caseFile.close': 'Close the case file',
+    'caseFile.observations.heading': 'Recorded observations',
+    'caseFile.observations.empty': 'No observation recorded yet.',
+    'caseFile.observation': 'Observation {order}',
+    'caseFile.observation.detail': '{slitSpacing} · {screenDistance} · {result}',
+    'caseFile.sources.heading': 'References you have read',
+    'caseFile.sources.empty': 'No reference read yet.',
+    'caseFile.source.detail': '{type} · {provenance}',
+    // Both fixed-height labels on the same control, so both are in the whole-string French sweep.
+    'caseFile.pin': 'Pin as support',
+    'caseFile.unpin': 'Unpin',
+    'caseFile.page.earlier': 'Earlier',
+    'caseFile.page.later': 'Later',
+    'caseFile.page.counter': '{from}–{to} of {total}',
+    // AC7: the copy in `error.conclusion-not-ready` says the theory board shows what is missing. This
+    // is where it does. It reports the player's own record and never which conclusion it defends.
+    'caseFile.readiness.heading': 'What is still missing',
+    'caseFile.readiness.complete': 'Your record carries everything the review asks for.',
+    'caseFile.review.heading': 'Peer review',
+    'caseFile.review.request': 'Ask for feedback',
+    'caseFile.review.save': 'Save the revision',
+    'caseFile.review.none': 'The reviewers raised nothing on this draft.',
+    'caseFile.review.notRequested': 'No feedback has been asked for on this draft yet.',
+    'caseFile.review.issue': '{feedback} — {revisionPath}',
+    'caseFile.review.saved': 'Reviewed revision saved.',
 
     // --- Colleagues and proposals ---------------------------------------------------------------
     // Colleague *names* are canonical proper nouns authored in case.json; only the role is resolved
@@ -375,6 +449,10 @@ export const en = {
     'error.debrief-completion-required': 'Open the historical debrief only through the reviewed completion action.',
     'error.reviewed-revision-required': 'Save the reviewed revision before opening the historical debrief.',
     'error.invalid-completion-timestamp': 'Provide a valid UTC completion timestamp.',
+    // Split out of `invalid-completion-timestamp` (Story 2.11 AC6), the way
+    // `critique-timestamp-not-later` already is: the malformed-stamp message above keeps describing
+    // the malformed case, and the ordering failure gets device-clock copy the player can act on.
+    'error.completion-timestamp-not-later': 'This completion is stamped earlier than the reviewed revision it closes. Check the device clock, then try again.',
     'error.replay-unavailable': 'Complete the historical debrief before starting a counterfactual replay.',
     'error.invalid-case-transition': 'That step is not available from the current stage of this investigation.',
     'error.invalid-run-controls': 'An observation needs finite snapshots of both apparatus controls.',

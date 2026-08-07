@@ -148,6 +148,42 @@ export const advanceControlCentreOnBoard = (kind: ProposalKind): Readonly<{ x: n
     advanceControlCentre(advanceControlBounds(kind));
 
 /**
+ * The control that opens the case file, third in the conclusion board's column (Story 2.11).
+ *
+ * It goes in the column rather than anywhere else because the column is where this surface already
+ * keeps its acts, and because the board has no band left for one — `caseFileGeometry`'s header has the
+ * arithmetic. Third, under the submit and the advance, because that is the order the three happen in:
+ * gather what the claim rests on, submit it, move on. It costs the room 42px of ceiling, which
+ * {@link controlColumnBottom} accounts for so no figure is staged behind it.
+ *
+ * The prediction board has no case file, so this is a conclusion-board function and takes no kind.
+ */
+export const CASE_FILE_CONTROL_HEIGHT = 34;
+export const CASE_FILE_CONTROL_FONT_SIZE = 15;
+export const CASE_FILE_CONTROL_LABEL_WRAP = SUBMIT_WIDTH - (2 * SUBMIT_LABEL_PADDING);
+
+const caseFileControlBounds = (): Readonly<{ x: number; y: number; width: number; height: number }> => ({
+    x: BOARD_CONTROL_LEFT,
+    y: advanceControlBounds('conclusion').y + ADVANCE_CONTROL_HEIGHT + CONTROL_ROW_GAP,
+    width: SUBMIT_WIDTH,
+    height: CASE_FILE_CONTROL_HEIGHT
+});
+
+export const caseFileOpenControlCentre = (): Readonly<{ x: number; y: number }> => {
+    const { x, y, width, height } = caseFileControlBounds();
+    return { x: x + (width / 2), y: y + (height / 2) };
+};
+
+/**
+ * Which board this renderer is, and — on the conclusion board — how it opens its case file.
+ *
+ * See the constructor for why this is a union rather than an optional callback.
+ */
+export type ColleagueBoard =
+    | Readonly<{ kind: 'prediction' }>
+    | Readonly<{ kind: 'conclusion'; openCaseFile: () => void }>;
+
+/**
  * The width a board's advance label wraps against — derived from the bounds the board actually passes,
  * so the French whole-string check cannot drift onto the widget's default.
  */
@@ -164,8 +200,9 @@ export const boardAdvanceControlLabelWrap = (kind: ProposalKind): number =>
  * instead of stacking. What the floor still bounds is the room's own ceiling, so no figure's head is
  * drawn behind the controls.
  */
-const controlColumnBottom = (kind: ProposalKind): number =>
-    advanceControlBounds(kind).y + ADVANCE_CONTROL_HEIGHT;
+const controlColumnBottom = (kind: ProposalKind): number => kind === 'conclusion'
+    ? caseFileControlBounds().y + CASE_FILE_CONTROL_HEIGHT
+    : advanceControlBounds(kind).y + ADVANCE_CONTROL_HEIGHT;
 
 /**
  * The dialogue panel's width — the surface less the control column, not the whole surface.
@@ -488,6 +525,18 @@ export class ColleagueRenderer {
     /** Conclusion board only: choosing is revisable, submitting is what invites the rival lab. */
     private submitControl?: Phaser.GameObjects.Rectangle;
     private submitLabel?: Phaser.GameObjects.Text;
+    private caseFileControl?: Phaser.GameObjects.Rectangle;
+    private caseFileLabel?: Phaser.GameObjects.Text;
+    /**
+     * Whether this board is taking input, or is suppressed under its own case file (Story 2.11).
+     *
+     * The 2.8 review deleted three dead `setInputEnabled` methods (Colleague, TheoryBoard, RivalLab)
+     * precisely because they were "an open invitation for a later story to re-wire cross-scene
+     * suppression through them", and left {@link applyInputState} hard-coding `true`. This one is
+     * live, **intra-scene only**, and is called by `TheoryBoardScene`'s own presenter callback and by
+     * nothing else. It ships with a test, which is what the review asked for in exchange.
+     */
+    private inputEnabled = true;
     /** Story 2.7: the way on from this board, whichever phase it is currently hosting. */
     private advanceControl?: AdvanceControl;
     /** Story 2.9: the colleagues, full-length, standing in the room above the cards. */
@@ -512,11 +561,26 @@ export class ColleagueRenderer {
      */
     private readonly transientGuide = new TransientMessageSlot<Readonly<{ text: string; tone: 'error' | 'notice' }>>();
 
+    /**
+     * What this board is, and — on the conclusion board only — how it opens its case file.
+     *
+     * A **discriminated union rather than an optional callback** (Story 2.11). The four support and
+     * review intents are dispatched from that overlay and from nowhere else, so a conclusion board
+     * constructed without the wiring would draw no control and leave them unreachable — silently, and
+     * with every unit test still green. `ColleaguesScene` legitimately has no case file, so the
+     * parameter cannot simply be required for both; the union is what makes the compiler ask the right
+     * question of each host. The retired routing shell's `isOverlayVisible` reader was removed rather
+     * than defaulted for exactly this reason, and the 2.7 review is where that was settled.
+     */
     public constructor(
         private readonly scene: Scene,
         private readonly storeAdapter: PhaserStoreAdapter,
-        private readonly kind: ProposalKind
-    ) {}
+        private readonly board: ColleagueBoard
+    ) {
+        this.kind = board.kind;
+    }
+
+    private readonly kind: ProposalKind;
 
     private project(state: AppState): readonly LocalizedProposalProjection[] {
         return this.kind === 'prediction'
@@ -562,6 +626,23 @@ export class ColleagueRenderer {
             })).setOrigin(0.5, 0.5);
             this.submitControl.on('pointerup', () => this.submitConclusion());
             this.objects.push(this.submitControl, this.submitLabel);
+
+            // The way into the case file (Story 2.11). Only the conclusion board has one, and the
+            // union on the constructor is what makes the compiler ask for the wiring.
+            const openCaseFile = this.board.kind === 'conclusion' ? this.board.openCaseFile : undefined;
+            const caseFile = caseFileControlBounds();
+            this.caseFileControl = this.scene.add
+                .rectangle(caseFile.x + (caseFile.width / 2), caseFile.y + (caseFile.height / 2),
+                    caseFile.width, caseFile.height, SUBMIT_FILL)
+                .setOrigin(0.5, 0.5);
+            this.caseFileLabel = this.scene.add.text(
+                caseFile.x + (caseFile.width / 2), caseFile.y + (caseFile.height / 2), '', uiTextStyle({
+                    color: '#f7f4ef', fontSize: `${CASE_FILE_CONTROL_FONT_SIZE}px`,
+                    align: 'center', wordWrap: { width: CASE_FILE_CONTROL_LABEL_WRAP }
+                })
+            ).setOrigin(0.5, 0.5);
+            if (openCaseFile) this.caseFileControl.on('pointerup', openCaseFile);
+            this.objects.push(this.caseFileControl, this.caseFileLabel);
         }
 
         // The widget owns its own display objects and releases them itself, so it is deliberately not
@@ -634,6 +715,7 @@ export class ColleagueRenderer {
         this.guide?.setText(transient?.text ?? this.guideText(state, t));
         this.guide?.setColor(transient?.tone === 'error' ? '#f4d35e' : transient?.tone === 'notice' ? '#f7f4ef' : '#c7d7d9');
         this.submitLabel?.setText(t('theoryBoard.submit'));
+        this.caseFileLabel?.setText(t('caseFile.open'));
         // Resolved from the **live** phase on every render, never captured: this one renderer hosts
         // both `synthesis` and `review` on the theory board, and the two dispatch different actions.
         // Its readiness stays `true` — the store decides on the click, and a board control that
@@ -673,6 +755,9 @@ export class ColleagueRenderer {
         this.guide = undefined;
         this.submitControl = undefined;
         this.submitLabel = undefined;
+        this.caseFileControl = undefined;
+        this.caseFileLabel = undefined;
+        this.inputEnabled = true;
         this.transientGuide.clear();
     }
 
@@ -955,6 +1040,9 @@ export class ColleagueRenderer {
         // never disagree about where the floor is.
         this.paintRoomOnce();
         this.stageFigures(state, t);
+        // A rebuilt card starts inert and would otherwise come back **live** under an open case file.
+        // See {@link applyInputState}.
+        this.applyInputState();
     }
 
     /**
@@ -966,13 +1054,40 @@ export class ColleagueRenderer {
         this.layoutAndRenderCards(state, createTranslator(selectLocale(state)));
     }
 
+    /**
+     * Lets the scene suppress the board while its own case file is open (Story 2.11).
+     *
+     * **Intra-scene**, driven by this scene's own presenter — never a callback from another scene.
+     * `LibraryRenderer.setInputEnabled` is the shape this copies, and the distinction is the whole of
+     * why the 2.8 review was willing to see one of these come back: the retired arrangement had
+     * `LectureBookScene` calling `laboratoryScene.setApparatusInputEnabled(...)` across a boundary.
+     *
+     * It exists because a click meant for the overlay that fell through would **choose a conclusion**
+     * — not a cosmetic problem, a dispatched intent the player did not make.
+     */
+    public setInputEnabled(enabled: boolean): void {
+        this.inputEnabled = enabled;
+        this.applyInputState();
+    }
+
+    /**
+     * Arms or silences every control on the board.
+     *
+     * Called from `create()` **and** from {@link layoutAndRenderCards}, so a card rebuilt under a new
+     * proposal set cannot come back live under an open overlay: a rebuilt card starts inert, and the
+     * old unconditional `true` would have re-armed it regardless of what the scene had asked for.
+     */
     private applyInputState(): void {
-        // No book can be open in this phase since the always-on overlay was retired (Story 2.8), so
-        // there is nothing left to suppress *for* — but the widgets still need enabling on every
-        // relayout, because a card rebuilt under a new proposal set starts inert.
-        this.cards.forEach(({ choice }) => choice.setInputEnabled(true));
-        this.dialogueBox?.setInputEnabled(true);
-        this.advanceControl?.setInputEnabled(true);
-        this.submitControl?.setInteractive({ useHandCursor: true });
+        const enabled = this.inputEnabled;
+        this.cards.forEach(({ choice }) => choice.setInputEnabled(enabled));
+        this.dialogueBox?.setInputEnabled(enabled);
+        this.advanceControl?.setInputEnabled(enabled);
+        if (enabled) {
+            this.submitControl?.setInteractive({ useHandCursor: true });
+            this.caseFileControl?.setInteractive({ useHandCursor: true });
+        } else {
+            this.submitControl?.disableInteractive();
+            this.caseFileControl?.disableInteractive();
+        }
     }
 }

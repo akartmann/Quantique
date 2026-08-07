@@ -10,6 +10,8 @@ import {
     BOARD_GUIDE_MAX_LINES,
     BOARD_GUIDE_WRAP_WIDTH,
     BOARD_TEXT_WRAP,
+    CASE_FILE_CONTROL_FONT_SIZE as BOARD_CASE_FILE_FONT_SIZE,
+    CASE_FILE_CONTROL_LABEL_WRAP as BOARD_CASE_FILE_LABEL_WRAP,
     PROPOSAL_SURFACE_WIDTH,
     SUBMIT_CONTROL_FONT_SIZE,
     SUBMIT_CONTROL_LABEL_WRAP,
@@ -18,6 +20,22 @@ import {
     boardProposalTextWrapWidth,
     DIALOGUE_PANEL_WIDTH
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+// The two surfaces Story 2.11 adds. Both geometry modules are Phaser-free, so this spec reads the
+// bounds the rooms actually draw at rather than restating them — the rule the 2.8 review set after six
+// private `LibraryRenderer` font sizes were copied into this file.
+import {
+    CASE_FILE_CONTROL_FONT_SIZE,
+    caseFileActionLabelWrap,
+    caseFilePageControlLabelWrap,
+    caseFilePinLabelWrap
+} from '../../src/adapters/phaser/renderers/caseFileGeometry';
+import {
+    DEBRIEF_META_FONT_SIZE,
+    DEBRIEF_PAGE_CONTROL_FONT_SIZE,
+    DEBRIEF_TOGGLE_FONT_SIZE,
+    debriefPageControlLabelWrap,
+    debriefToggleStateWrap
+} from '../../src/adapters/phaser/scenes/debriefGeometry';
 // From `apparatusGeometry`, not `ApparatusRenderer`: that renderer imports Phaser as a *value*
 // (`BlendModes`), Phaser touches `window` at import time, and these specs run in Node.
 import {
@@ -936,7 +954,31 @@ test('fits every French fixed-height control label on one line', async ({ page }
         // reason this whole-string sweep exists (review 2026-08-07).
         { key: 'notebook.note.saved', fontSize: NOTEBOOK_ROW_META_FONT_SIZE, bound: NOTEBOOK_STATUS_TEXT_WRAP },
         { key: 'notebook.pairRequired', fontSize: NOTEBOOK_ROW_META_FONT_SIZE, bound: NOTEBOOK_STATUS_TEXT_WRAP },
-        { key: 'notebook.releaseOneFirst', fontSize: NOTEBOOK_ROW_META_FONT_SIZE, bound: NOTEBOOK_STATUS_TEXT_WRAP }
+        { key: 'notebook.releaseOneFirst', fontSize: NOTEBOOK_ROW_META_FONT_SIZE, bound: NOTEBOOK_STATUS_TEXT_WRAP },
+        // The debrief (Story 2.11). The deeper-theory strip is a fixed-height control sharing its row
+        // with the authored title beside it, so its state label has its own reserved width and must fit
+        // one French line inside it — a wrap here would put the label across the title. The two paging
+        // controls and the two recognition markers are the same shape: a reserved rectangle whose height
+        // does not grow.
+        { key: 'debrief.deeperTheory.show', fontSize: DEBRIEF_TOGGLE_FONT_SIZE, bound: debriefToggleStateWrap() },
+        { key: 'debrief.deeperTheory.hide', fontSize: DEBRIEF_TOGGLE_FONT_SIZE, bound: debriefToggleStateWrap() },
+        { key: 'debrief.critiques.earlier', fontSize: DEBRIEF_PAGE_CONTROL_FONT_SIZE, bound: debriefPageControlLabelWrap() },
+        { key: 'debrief.critiques.later', fontSize: DEBRIEF_PAGE_CONTROL_FONT_SIZE, bound: debriefPageControlLabelWrap() },
+        { key: 'debrief.recognition.achieved', fontSize: DEBRIEF_META_FONT_SIZE, bound: debriefToggleStateWrap() },
+        { key: 'debrief.recognition.notRecorded', fontSize: DEBRIEF_META_FONT_SIZE, bound: debriefToggleStateWrap() },
+        // The case file (Story 2.11). Every one of these labels a rectangle of fixed height: the pin
+        // beside each row, the two paging controls, the two review actions, and the way out.
+        { key: 'caseFile.pin', fontSize: CASE_FILE_CONTROL_FONT_SIZE, bound: caseFilePinLabelWrap() },
+        { key: 'caseFile.unpin', fontSize: CASE_FILE_CONTROL_FONT_SIZE, bound: caseFilePinLabelWrap() },
+        { key: 'caseFile.page.earlier', fontSize: CASE_FILE_CONTROL_FONT_SIZE, bound: caseFilePageControlLabelWrap() },
+        { key: 'caseFile.page.later', fontSize: CASE_FILE_CONTROL_FONT_SIZE, bound: caseFilePageControlLabelWrap() },
+        { key: 'caseFile.review.request', fontSize: CASE_FILE_CONTROL_FONT_SIZE, bound: caseFileActionLabelWrap() },
+        { key: 'caseFile.review.save', fontSize: CASE_FILE_CONTROL_FONT_SIZE, bound: caseFileActionLabelWrap() },
+        { key: 'caseFile.close', fontSize: CASE_FILE_CONTROL_FONT_SIZE, bound: caseFileActionLabelWrap() },
+        // The way *in*, which is the board's control rather than the overlay's — a different font size
+        // and a different bound, so it is measured against what the board paints and not against the
+        // overlay's actions.
+        { key: 'caseFile.open', fontSize: BOARD_CASE_FILE_FONT_SIZE, bound: BOARD_CASE_FILE_LABEL_WRAP }
     ] as const;
 
     // Interpolated where the drawn label is: the three wavelength choices each carry a number, and

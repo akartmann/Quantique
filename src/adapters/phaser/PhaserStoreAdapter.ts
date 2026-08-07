@@ -112,6 +112,43 @@ export type PhaserStoreAdapter = Readonly<{
      * errors rather than swallowing them. A note replaces the existing note for the same pair.
      */
     saveComparisonNote: (note: string) => ReturnType<AppStore['dispatch']>;
+    /**
+     * Pinning a recorded observation to the conclusion as support, and taking it off again
+     * (Story 2.11, AC5).
+     *
+     * Until this existed the only dispatcher of `theory.supportRunSelected` /
+     * `theory.supportRunUnselected` was the retired `src/ui/theory/TheoryBoard.ts` — two of the four
+     * gating intents the 2.8 review assigned to this story (ADR-011).
+     *
+     * The caller is expected to have read `state.theory.selectedRunIds` first, the same rule
+     * {@link inspectSource} and {@link selectComparisonRun} state: the reducer answers a repeat with
+     * `duplicate-theory-run` and an absent one with `theory-run-not-selected`, and both are correct
+     * answers to a genuinely duplicated dispatch — but a surface must not provoke a refusal the player
+     * did nothing to earn.
+     */
+    selectSupportRun: (runId: string) => ReturnType<AppStore['dispatch']>;
+    unselectSupportRun: (runId: string) => ReturnType<AppStore['dispatch']>;
+    /**
+     * The same, for an inspected reference. Only artifacts already in `state.inspectedSourceIds` may be
+     * offered: the reducer's `uninspected-theory-source` must be unreachable from the surface.
+     */
+    selectSupportSource: (sourceId: string) => ReturnType<AppStore['dispatch']>;
+    unselectSupportSource: (sourceId: string) => ReturnType<AppStore['dispatch']>;
+    /**
+     * Asking the reviewers what they make of the draft (Story 2.11, AC5).
+     *
+     * Refused outside the `review` phase with `peer-review-unavailable`, which the surface localizes
+     * rather than swallows. Note that `reduceRevisionSave` **clears** `peerReview` on success, so
+     * asking again after a save is a fresh request rather than a no-op.
+     */
+    requestPeerReview: () => ReturnType<AppStore['dispatch']>;
+    /**
+     * Saving the reviewed revision. Refused without reviewed feedback with `revision-review-required`.
+     *
+     * The timestamp is stamped **here**, never in the reducer: a reducer that read the clock would not
+     * be a pure function of its arguments, and every other timestamped action follows the same rule.
+     */
+    saveRevision: () => ReturnType<AppStore['dispatch']>;
     subscribe: AppStore['subscribe'];
 }>;
 
@@ -158,5 +195,13 @@ export const createPhaserStoreAdapter = (store: AppStore): PhaserStoreAdapter =>
     selectComparisonRun: (runId) => store.dispatch({ type: 'comparison.runSelected', runId }),
     unselectComparisonRun: (runId) => store.dispatch({ type: 'comparison.runUnselected', runId }),
     saveComparisonNote: (note) => store.dispatch({ type: 'comparison.noteSaved', note }),
+    selectSupportRun: (runId) => store.dispatch({ type: 'theory.supportRunSelected', runId }),
+    unselectSupportRun: (runId) => store.dispatch({ type: 'theory.supportRunUnselected', runId }),
+    selectSupportSource: (sourceId) => store.dispatch({ type: 'theory.supportSourceSelected', sourceId }),
+    unselectSupportSource: (sourceId) => store.dispatch({ type: 'theory.supportSourceUnselected', sourceId }),
+    requestPeerReview: () => store.dispatch({ type: 'peerReview.requested' }),
+    // Stamped here for the reason above: `reduceRevisionSave` is a pure function of the state and the
+    // action, and it stays one.
+    saveRevision: () => store.dispatch({ type: 'revision.saved', timestamp: new Date().toISOString() }),
     subscribe: store.subscribe
 });

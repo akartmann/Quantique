@@ -10,7 +10,7 @@ import { ReferenceBookPresenter } from '../renderers/ReferenceBookPresenter';
 /**
  * The reading room: where the `context` phase actually happens (Story 2.8).
  *
- * It is **not** a `PhasePlaceholderScene` any more. It was one across two epics while Stories 1.5 and
+ * It is **not** a routing shell any more. It was one across two epics while Stories 1.5 and
  * 2.1 were marked done, because both delivered their reading through the retired `CuratedRecord` DOM
  * panel and an always-running `LectureBookScene` overlay — the shape of defect the 2026-08-06
  * correction and ADR-011 exist to prevent. The lifecycle here follows `LaboratoryScene`: the
@@ -37,8 +37,8 @@ export class LibraryScene extends Scene {
         // Registered before anything it releases exists. A throw anywhere below would otherwise
         // leak the scroll listener and a store subscription that keeps rendering a half-built scene:
         // `SceneRouter` catches the throw and clears `activeSceneKey`, so nothing ever stops this scene
-        // and nothing ever fires the handler that would have disposed them. `PhasePlaceholderScene`
-        // has always had this order; these two did not.
+        // and nothing ever fires the handler that would have disposed them. The retired routing
+        // shell always had this order; these two did not.
         this.events.once('shutdown', this.shutdown, this);
 
         const presenter = new ReferenceBookPresenter(

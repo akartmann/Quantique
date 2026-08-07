@@ -52,7 +52,7 @@ export class LaboratoryScene extends Scene {
         // Registered before anything it releases exists. A throw anywhere below would otherwise
         // leak the scroll listener and a store subscription that keeps rendering a half-built scene:
         // `SceneRouter` catches the throw and clears `activeSceneKey`, so nothing ever stops this scene
-        // and nothing ever fires the handler that would have disposed them. `PhasePlaceholderScene`
+        // and nothing ever fires the handler that would have disposed them. the retired routing shell
         // has always had this order; these two did not.
         this.events.once('shutdown', this.shutdown, this);
 

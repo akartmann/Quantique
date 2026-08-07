@@ -789,7 +789,17 @@ const reduceDebriefComplete = (state: AppState, timestamp: string): Result<AppSt
         return failure('reviewed-revision-required', 'Save the reviewed revision before opening the historical debrief.');
     }
     if (new Date(timestamp).getTime() < new Date(finalDecision.timestamp).getTime()) {
-        return failure('invalid-completion-timestamp', 'Provide a completion timestamp no earlier than the saved reviewed revision.');
+        // A distinct code from the malformed case above, exactly as `reduceTheoryConclusionSubmit`
+        // already distinguishes `critique-timestamp-not-later` (Story 2.11 AC6; deferred from the 2.7
+        // review, which named this story as the owner).
+        //
+        // The two are different refusals with different remedies, and the player supplies neither
+        // timestamp — the adapter stamps both. Telling someone to "provide a valid UTC completion
+        // timestamp" for a control that takes no input is a message they cannot act on, and it
+        // describes a field they have never seen. This ordering failure is reachable in normal play
+        // through a progress import from another device, or a backwards clock correction between
+        // `revision.saved` and the advance click, so its copy names the device clock instead.
+        return failure('completion-timestamp-not-later', 'Provide a completion timestamp no earlier than the saved reviewed revision.');
     }
     const transition = advanceCasePhase({ definition: state.caseDefinition, phase: state.phase }, 'debrief');
     if (!transition.ok) return transition;
