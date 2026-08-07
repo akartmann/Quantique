@@ -538,6 +538,15 @@ describe('CaseDefinitionSchema', () => {
         expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
     });
 
+    // This catches removal of the rival-specific manifest lookup; unlike a colleague portrait,
+    // Arthur is not in `colleagues[]`, so the cast loop cannot protect this reference.
+    it('rejects a rival portrait that is missing from the authored manifest', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        (definition.rivalLab as Record<string, unknown>).portraitAssetId = 'missing-rival-portrait';
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
+
     it('accepts a nested all-of predicate within the bounded depth', () => {
         const definition = cloneValidCase();
         definition.conclusionProposals = definition.conclusionProposals.map((proposal, index) => index === 0

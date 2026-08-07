@@ -308,6 +308,17 @@ describe('portable case records', () => {
         }
     );
 
+    // This catches an over-broad 1.16.0 compatibility allowlist: 1.1.0 predates the first
+    // compatible saved-progress contract, so accepting it would make the bundled portrait update
+    // silently reinterpret an unsupported record.
+    it('rejects a 1.1.0 record against the 1.16.0 presentational portrait definition', () => {
+        const portraitDefinition = { ...definition, version: '1.16.0' } as CaseDefinition;
+        const parsed = CaseRecordSchema.parse({ ...validRecord, caseDefinitionVersion: '1.1.0' });
+
+        expect(validateCaseRecordForDefinition(parsed, portraitDefinition))
+            .toMatchObject({ ok: false, error: { code: 'incompatible-case-record' } });
+    });
+
     it('still rejects a record from an unrelated definition version', () => {
         const localized = { ...definition, version: '1.6.0' } as CaseDefinition;
         const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: '0.9.0' });

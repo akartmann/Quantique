@@ -3,6 +3,11 @@ import { expect, test } from '@playwright/test';
 import { en } from '../../src/core/i18n/locales/en';
 import { fr } from '../../src/core/i18n/locales/fr';
 import {
+    PROGRESS_DATABASE_NAME,
+    PROGRESS_DATABASE_VERSION,
+    PROGRESS_STORE_NAME
+} from '../../src/adapters/persistence/IndexedDbRepository';
+import {
     WALK_TO_DEBRIEF_COST_MS,
     recordedComparisonNotes,
     recordedObservations,
@@ -15,6 +20,31 @@ const recordedPrediction = (page: import('@playwright/test').Page) =>
         .locator('section')
         .filter({ has: page.getByRole('heading', { name: en['print.prediction.heading'], exact: true }) })
         .getByRole('definition');
+
+const THEA_PORTRAIT_PATH = '/cases/young-interference/assets/characters/thea-young.png';
+
+/** Waits on the serialized autosave itself instead of guessing how long IndexedDB needs. */
+const waitForSavedBoardProgress = (page: import('@playwright/test').Page) => page.waitForFunction(async ({ databaseName, databaseVersion, storeName }) => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open(databaseName, databaseVersion);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+    try {
+        const record = await new Promise<{ phase?: unknown; comparison?: { notes?: unknown[] } } | undefined>((resolve, reject) => {
+            const request = database.transaction(storeName, 'readonly').objectStore(storeName).get('young-interference');
+            request.onsuccess = () => resolve(request.result as { phase?: unknown; comparison?: { notes?: unknown[] } } | undefined);
+            request.onerror = () => reject(request.error);
+        });
+        return record?.phase === 'synthesis' && record.comparison?.notes?.length === 1;
+    } finally {
+        database.close();
+    }
+}, {
+    databaseName: PROGRESS_DATABASE_NAME,
+    databaseVersion: PROGRESS_DATABASE_VERSION,
+    storeName: PROGRESS_STORE_NAME
+});
 
 /**
  * AC2's release gate: the interface language is right after an offline reload, not just online.
@@ -108,8 +138,17 @@ test('restores canvas-recorded progress after an offline reload, with no manual 
     await expect(page.getByRole('button', { name: en['boot.enter'] })).toBeVisible();
     await page.waitForFunction(async () => {
         await navigator.serviceWorker.ready;
-        return true;
+        return navigator.serviceWorker.controller !== null;
     });
+
+    // The first load registers the worker. Reload online once it controls this page, then observe the
+    // real preloader response for an authored portrait before taking the network away.
+    const onlinePortraitResponse = page.waitForResponse((response) =>
+        new URL(response.url()).pathname === THEA_PORTRAIT_PATH && response.status() === 200
+    );
+    await page.reload();
+    await onlinePortraitResponse;
+    await expect(page.getByRole('button', { name: en['boot.enter'] })).toBeVisible();
 
     // Two observations, a comparison note, and a prediction — all recorded with canvas clicks only.
     await walkToTheBoard(page);
@@ -117,12 +156,17 @@ test('restores canvas-recorded progress after an offline reload, with no manual 
     const savedPrediction = await recordedPrediction(page).textContent();
     expect(savedPrediction).toBeTruthy();
 
-    // A moment for the last autosave to reach IndexedDB. The write is serialized through a promise
-    // chain rather than awaited by the dispatch, so there is genuinely nothing to poll in the DOM.
-    await page.waitForTimeout(500);
+    // The write is serialized through a promise chain rather than awaited by a canvas dispatch. Poll
+    // the persisted record's consequence rather than adding a load-sensitive sleep before offline.
+    await waitForSavedBoardProgress(page);
 
     await context.setOffline(true);
+    const offlinePortraitResponse = page.waitForResponse((response) =>
+        new URL(response.url()).pathname === THEA_PORTRAIT_PATH && response.status() === 200
+    );
     await page.reload();
+    const warmedPortraitResponse = await offlinePortraitResponse;
+    expect(warmedPortraitResponse.fromServiceWorker()).toBe(true);
 
     const entryButton = page.getByRole('button', { name: en['boot.enter'] });
     await expect(entryButton).toBeVisible();
