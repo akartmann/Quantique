@@ -250,7 +250,18 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // review). It is a *validation* change with no progress-bearing effect: the shipped artifacts
         // already satisfied it, so no saved record can encode a state the new rule would reject, and
         // `inspectedSourceIds` means exactly what it did before.
-        || (definition.version === '1.13.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0'].includes(record.caseDefinitionVersion));
+        || (definition.version === '1.13.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0'].includes(record.caseDefinitionVersion))
+        // 1.14.0 adds the optional authored `figure` vocabulary — how each colleague and the rival are
+        // built, posed and groomed (Story 2.9). Purely presentational and wholly additive: every field
+        // and the block itself are optional, a case authoring none still gets people who differ because
+        // the role implies the pose, and nothing in it is read by the evaluator, the gates, or any
+        // projection a record encodes. A record saved at any earlier version means precisely what it
+        // meant before; the only thing that changed is what the reader sees standing in the room.
+        //
+        // It gets a bump at all because the *content* of `case.json` changed. Two different files both
+        // claiming 1.13.0 would make `caseDefinitionVersion` — which `CaseRecordProjection` stamps into
+        // every export — unable to tell them apart, which is the one job that field has (2.9 review).
+        || (definition.version === '1.14.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }

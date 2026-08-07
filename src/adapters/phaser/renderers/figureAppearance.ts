@@ -186,9 +186,36 @@ export type GarmentTones = Readonly<{
     highlight: number;
 }>;
 
-export const garmentTones = (accent: number): GarmentTones => Object.freeze({
-    base: shade(accent, 0.18),
-    deep: shade(accent, 0.46),
-    linen: tint(accent, 0.72),
-    highlight: tint(accent, 0.34)
-});
+/**
+ * The band an accent is brought into before the ramp is derived from it.
+ *
+ * Clamping the direction of each mix stopped the ramp from *inverting* at the ends. It did not stop it
+ * from **collapsing** there, and the "every accent" ordering test hid that by asserting `≤`: a white
+ * accent tints to white at every amount, so `linen` and `highlight` came out identical, and a black one
+ * shades to black, so `deep` and `base` did. Four tones become three, the shirt front and the collar
+ * vanish into the coat, and the figure reverts to precisely the flat cut-out this whole module exists
+ * to prevent — for a `#ffffff` that `CaseDefinitionSchema` accepts perfectly happily.
+ *
+ * Leaving headroom at both ends is what makes the ordering **strict** for every accent rather than for
+ * the ones that were tried. The band is wide enough that no shipped accent moves — the darkest channel
+ * across the five authored figures is `0x22` and the lightest `0xc9` — so this costs the case nothing
+ * and costs a future author only the two extremes, which were never going to read as cloth anyway
+ * (2.9 review).
+ */
+const WORKING_FLOOR = 26;
+const WORKING_CEILING = 229;
+const intoWorkingBand = (color: number): number => {
+    const channel = (shift: number): number =>
+        Math.max(WORKING_FLOOR, Math.min(WORKING_CEILING, (color >> shift) & 0xff));
+    return (channel(16) << 16) | (channel(8) << 8) | channel(0);
+};
+
+export const garmentTones = (accent: number): GarmentTones => {
+    const workable = intoWorkingBand(accent);
+    return Object.freeze({
+        base: shade(workable, 0.18),
+        deep: shade(workable, 0.46),
+        linen: tint(workable, 0.72),
+        highlight: tint(workable, 0.34)
+    });
+};

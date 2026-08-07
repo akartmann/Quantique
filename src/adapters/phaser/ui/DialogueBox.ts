@@ -198,7 +198,11 @@ export class DialogueBox {
         beats: readonly DialogueBeatView[],
         t: Translator,
         conversationId: string,
-        accents: SpeakerAccents = {}
+        // Required, not defaulted to `{}`. It carries the whole speaker-colour feature, so a host that
+        // forgot it would compile, run, and quietly print four voices in one gold — which is exactly
+        // the "default a required wiring argument to a no-op" trap `ProposalChoice`'s own docstring
+        // names two files away (2.9 review).
+        accents: SpeakerAccents
     ): void {
         this.loadBeats(beats, conversationId);
         this.accents = accents;

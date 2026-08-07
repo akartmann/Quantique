@@ -112,8 +112,13 @@ const CAST: readonly StageCastMember[] = [
 const BAND = { top: 120, height: FIGURE_MAX_HEIGHT + figureLabelHeight() + 20 } as const;
 const AREA = { x: 40, width: 944 } as const;
 const t = createTranslator('en');
-const stage = (over: Partial<{ speakerColleagueId: string; selectedColleagueId: string }> = {}) =>
-    ({ band: BAND, area: AREA, t, ...over });
+const stage = (
+    over: Partial<{ speakerColleagueId: string; selectedColleagueId: string; cast: readonly StageCastMember[] }> = {}
+) => ({ band: BAND, area: AREA, cast: CAST, t, ...over });
+const RIVAL_CAST: readonly StageCastMember[] = [
+    { colleagueId: 'rival-lab', accentColor: 0x8c3b3b, name: 'Mr. Arthur Bell', roleLabel: 'Rival laboratory' }
+];
+
 /** Bell's own band, sized from the constants his renderer declares rather than restated here. */
 const RIVAL_BAND = { top: 78, height: RIVAL_FIGURE_MAX_HEIGHT + figureLabelHeight() + 20 } as const;
 
@@ -138,13 +143,17 @@ const mount = (build: 'colleague' | 'rival' = 'colleague') => {
         }
     } as unknown as Scene;
 
-    const subject = new CharacterStage(scene, {
-        build,
-        // The rival's own size, read from the renderer that declares it rather than restated here.
-        ...(build === 'rival' ? { maxFigure: { width: RIVAL_FIGURE_MAX_WIDTH, height: RIVAL_FIGURE_MAX_HEIGHT } } : {})
-    });
-    // Creation order per figure: graphics, name, role.
-    return { stage: subject, graphics, texts, tweens, killed, name: (i: number) => texts[i * 2]!, role: (i: number) => texts[(i * 2) + 1]! };
+    // **No `maxFigure`, deliberately** — `build` alone must settle the rival's proportions. Passing it
+    // here would let the class lose its own default and the suite would never notice, which is half of
+    // how the rival came to be drawn at 24% of his space in the first place.
+    const subject = new CharacterStage(scene, { build });
+    // Creation order per figure: graphics, name, role, badge.
+    return {
+        stage: subject, graphics, texts, tweens, killed,
+        name: (i: number) => texts[i * 3]!,
+        role: (i: number) => texts[(i * 3) + 1]!,
+        badge: (i: number) => texts[(i * 3) + 2]!
+    };
 };
 
 beforeEach(() => {
@@ -305,7 +314,7 @@ describe('CharacterStage staging', () => {
         const ui = mount();
         ui.stage.create(CAST);
 
-        ui.stage.render({ band: { top: 120, height: 50 }, area: AREA, t });
+        ui.stage.render({ band: { top: 120, height: 50 }, area: AREA, cast: CAST, t });
 
         expect(ui.graphics.every(({ visible }) => !visible)).toBe(true);
         expect(ui.texts.every(({ visible }) => !visible)).toBe(true);
@@ -366,9 +375,9 @@ describe('CharacterStage staging', () => {
     it('names the rival and his role on his own plaque', () => {
         prefersReduce = true;
         const ui = mount('rival');
-        ui.stage.create([{ colleagueId: 'rival-lab', accentColor: 0x8c3b3b, name: 'Mr. Arthur Bell', roleLabel: 'Rival laboratory' }]);
+        ui.stage.create(RIVAL_CAST);
 
-        ui.stage.render({ band: RIVAL_BAND, area: { x: 784, width: 200 }, speakerColleagueId: 'rival-lab', t });
+        ui.stage.render({ band: RIVAL_BAND, area: { x: 784, width: 200 }, speakerColleagueId: 'rival-lab', cast: RIVAL_CAST, t });
 
         expect([ui.name(0).text, ui.role(0).text]).toEqual(['Mr. Arthur Bell', 'Rival laboratory']);
     });
@@ -385,9 +394,9 @@ describe('CharacterStage staging', () => {
     it('draws the rival at full size when his band has room for it', () => {
         prefersReduce = true;
         const ui = mount('rival');
-        ui.stage.create([{ colleagueId: 'rival-lab', accentColor: 0x8c3b3b, name: 'Mr. Arthur Bell', roleLabel: 'Rival laboratory' }]);
+        ui.stage.create(RIVAL_CAST);
 
-        ui.stage.render({ band: RIVAL_BAND, area: { x: 784, width: 200 }, speakerColleagueId: 'rival-lab', t });
+        ui.stage.render({ band: RIVAL_BAND, area: { x: 784, width: 200 }, speakerColleagueId: 'rival-lab', cast: RIVAL_CAST, t });
 
         expect(ui.graphics[0]!.scale).toBe(1);
     });

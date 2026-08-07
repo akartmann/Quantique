@@ -1,5 +1,7 @@
 import type { Scene } from 'phaser';
 
+import { figureLabelHeight, MIN_LEGIBLE_FIGURE_HEIGHT } from './characterStageView';
+
 /**
  * The optics laboratory the colleagues stand in (Story 2.9, design revision).
  *
@@ -73,11 +75,16 @@ const BACK_WALL_FRACTION = 0.62;
  * The shortest strip the room can be composed into and still read as a room.
  *
  * Below it the props are drawn but nothing survives the scaling: at 60px the two sash windows are nine
- * pixels tall and the blackboard is a bright horizontal line. Matched to
- * `MIN_LEGIBLE_FIGURE_HEIGHT` plus the plaque, because the two thresholds answer the same question —
- * a band this short holds no cast either, and a room with no one in it has nothing to be a room *for*.
+ * pixels tall and the blackboard is a bright horizontal line.
+ *
+ * **Derived from the cast's own threshold, not copied from it.** The two answer the same question — a
+ * band this short holds no cast either, and a room with no one in it has nothing to be a room *for* —
+ * and the comment used to say so while the number was hand-written as `130` against a real sum of 131.
+ * At exactly 130 the room composed and the cast was withheld: a fully painted laboratory with nobody in
+ * it, the one state the argument says is impossible. `LaboratoryDecor` imported nothing from the
+ * resolver, so the two could never track each other (2.9 review).
  */
-const MIN_COMPOSABLE_HEIGHT = 130;
+const MIN_COMPOSABLE_HEIGHT = MIN_LEGIBLE_FIGURE_HEIGHT + figureLabelHeight();
 
 /** Back wall, furniture, lamp wash, vignette — the four depths {@link LaboratoryDecor.create} fills. */
 const LAYER_COUNT = 4;
@@ -127,12 +134,18 @@ export class LaboratoryDecor {
      * the prediction board (a tall strip) and the conclusion board (a short one) without a second set
      * of numbers.
      */
-    public create(canvasWidth: number, floorY: number, visibleTop = 0): void {
-        const height = Math.max(0, floorY - visibleTop);
-        if (height <= 0 || canvasWidth <= 0) return;
-
+    public create(canvasWidth: number, floorY: number, visibleTop = 0): boolean {
+        // Cleared **before** the degenerate guard, not after it. The guard used to return first, which
+        // left a previous paint on screen and the layer cursor wherever it had stopped — so a second
+        // call with a shrinking band showed a room composed for a band it no longer occupied.
         this.cursor = 0;
         this.layers.forEach((layer) => layer.clear());
+
+        const height = Math.max(0, floorY - visibleTop);
+        // Reported rather than silent, so the owner's paint-once latch can tell "painted" from "had
+        // nothing to paint into" and retry on a later render when the band is healthy again.
+        if (height <= 0 || canvasWidth <= 0) return false;
+
         const roomTop = visibleTop;
         const wallBottom = roomTop + (height * BACK_WALL_FRACTION);
         const back = this.layer();
@@ -148,7 +161,9 @@ export class LaboratoryDecor {
         if (height < MIN_COMPOSABLE_HEIGHT) {
             graphicsFillTo(back, canvasWidth, floorY);
             this.paintVignette(this.layer(), canvasWidth, roomTop, floorY);
-            return;
+            // Flat wall *is* a paint. The strip is legitimately short and will not get taller, so the
+            // owner should stop asking — unlike the zero-height case above.
+            return true;
         }
         // Flat wall all the way to the top of the canvas, then the composed room inside the strip the
         // player can actually see. The dialogue panel covers the upper part of this surface, and a room
@@ -168,6 +183,7 @@ export class LaboratoryDecor {
         const light = this.layer();
         this.paintRadialGlow(light, canvasWidth * 0.16, wallBottom, height * 1.1, 0.012, 14);
         this.paintVignette(this.layer(), canvasWidth, roomTop, floorY);
+        return true;
     }
 
     public destroy(): void {

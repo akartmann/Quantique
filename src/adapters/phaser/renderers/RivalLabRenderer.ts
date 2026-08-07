@@ -2,7 +2,8 @@ import type { Scene } from 'phaser';
 
 import type { PhaserStoreAdapter } from '../PhaserStoreAdapter';
 import { uiTextStyle } from '../textStyles';
-import { CharacterStage, RIVAL_FIGURE_MAX_HEIGHT, RIVAL_FIGURE_MAX_WIDTH } from './CharacterStage';
+import { CharacterStage } from './CharacterStage';
+import type { StageCastMember } from './characterStageView';
 import { resolveFigureAppearance } from './figureAppearance';
 import { LaboratoryDecor } from './LaboratoryDecor';
 import type { AppState } from '../../../core/store/AppState';
@@ -67,8 +68,35 @@ const ACCENT_FALLBACK = 0x8c3b3b;
 export const RIVAL_LAB_STAGE_COLUMN_WIDTH = 200;
 /** Between the figure's feet and the canvas floor, matching the margin everything else respects. */
 const STAGE_FLOOR_MARGIN = CANVAS_BOTTOM_MARGIN;
-/** Below the heading row, so he stands in the room rather than in front of the title. */
-const STAGE_TOP = 78;
+/**
+ * The floor under Bell's band when the heading has not been measured yet — `create()` builds the
+ * heading empty, so there is nothing to measure until the first `render`.
+ *
+ * From the first render on the top is **measured** from the heading's wrapped height, like every other
+ * object on this surface. It was a bare constant, which is the "object placed against a constant while
+ * the object above it grew with French copy" defect this file's own `layout` docstring records being
+ * found twice: a heading translation wrapping to two lines put its bottom 16px into the composed room
+ * while the band stayed where it was (2.9 review).
+ */
+const STAGE_TOP_FLOOR = 78;
+/** Between the heading's measured bottom and the top of the room. */
+const STAGE_TOP_GAP = 16;
+
+/**
+ * The opaque panel the objection is read on.
+ *
+ * The room is painted across the **full canvas width** — it is a room, and a room with a rectangle cut
+ * out of it is not one — so without this the prose ran straight over two lit sash windows and a
+ * brass-framed blackboard. Every other surface in this game escapes that by accident: the boards' prose
+ * lives inside `DialogueBox`'s opaque panel and inside opaque cards, and this one had neither. Obscuring
+ * the objection is named in this file's own header as the one thing this surface must never do, and a
+ * chalk diagram behind sixteen-point text obscures it (2.9 review).
+ *
+ * It stops where Bell's column starts, so he stands in the room and the reader reads off the wall.
+ */
+const PROSE_PANEL_FILL = 0x14343d;
+const PROSE_PANEL_ALPHA = 0.94;
+const PROSE_PANEL_PADDING = 14;
 
 /**
  * The id Bell is staged under.
@@ -136,6 +164,8 @@ export class RivalLabRenderer {
     private controlLabel?: Phaser.GameObjects.Text;
     /** Shown in place of the guide line until the next render, so a refused click is not silent. */
     private transientError?: string;
+    /** The wall the objection is read off, so the room behind it never competes with the words. */
+    private prosePanel?: Phaser.GameObjects.Rectangle;
     /** Story 2.9: Mr. Arthur Bell, staged as a character rather than named in a speaker slot alone. */
     private characterStage?: CharacterStage;
     /** His laboratory. Painted once, reads nothing, never repaints. */
@@ -155,6 +185,13 @@ export class RivalLabRenderer {
         this.decor.create(this.scene.scale.width, band.top + band.height, band.top);
 
         const wrapWidth = rivalLabTextWrapWidth();
+        // Before every text and after the room, because creation order is the only depth mechanism
+        // here: the wall goes over the laboratory and under the words. Sized in `layout`, against the
+        // same measured bottom the control is anchored to.
+        this.prosePanel = this.scene.add.rectangle(0, 0, 1, 1, PROSE_PANEL_FILL)
+            .setOrigin(0, 0)
+            .setAlpha(PROSE_PANEL_ALPHA);
+        this.objects.push(this.prosePanel);
         this.accent = this.scene.add.rectangle(RIVAL_LAB_SURFACE_LEFT, HEADING_Y, ACCENT_WIDTH, CONTROL_HEIGHT, ACCENT_FALLBACK).setOrigin(0, 0);
         // Every string is created empty and written in `render`: `create()` runs once, and the locale
         // can change at any time.
@@ -183,28 +220,17 @@ export class RivalLabRenderer {
         // about his colour, and neither path carries anything about which conclusion the evidence
         // supports. It owns its own objects and releases them itself, so it is not pushed onto
         // `this.objects`.
-        const { rivalLab } = this.storeAdapter.getState().caseDefinition;
         this.characterStage = new CharacterStage(this.scene, {
+            // `build` alone now settles his proportions — `figureSizeForBuild` reads it, so a caller
+            // cannot ask for a rival and separately get a colleague's height wrong.
             build: 'rival',
-            maxFigure: { width: RIVAL_FIGURE_MAX_WIDTH, height: RIVAL_FIGURE_MAX_HEIGHT },
             // His plaque is read at the same size as the speaker line it stands in for: it is most of a
             // surface away from the attribution at the far left, and his column is wide enough that
             // there is nothing to save by shrinking it.
             nameFontSize: RIVAL_LAB_SPEAKER_FONT_SIZE,
             roleFontSize: RIVAL_LAB_SPEAKER_FONT_SIZE - 2
         });
-        this.characterStage.create([{
-            colleagueId: RIVAL_LAB_STAGE_FIGURE_ID,
-            accentColor: Number.parseInt(rivalLab.accentColor.slice(1), 16),
-            name: rivalLab.name,
-            // Resolved here rather than in the stage, exactly as a colleague's is — and through
-            // `rivalLab.role`, never `colleague.role.*`, because he is not one of them (AC4).
-            roleLabel: createTranslator(selectLocale(this.storeAdapter.getState()))('rivalLab.role'),
-            // Resolved through `'rival'`, which is not a `ColleagueRole` and cannot be mistaken for
-            // one: he holds no role on the team, and the default pose that falls out of it — arms
-            // folded, waiting to be convinced — is his character note rather than a job.
-            appearance: resolveFigureAppearance('rival', rivalLab.figure)
-        }]);
+        this.characterStage.create(this.stageCast());
 
         this.control.on('pointerup', () => this.requestRevision());
         this.objects.push(this.accent, this.heading, this.speaker, this.body, this.guide, this.control, this.controlLabel);
@@ -235,8 +261,35 @@ export class RivalLabRenderer {
         this.characterStage?.render({
             band: this.stageBand(),
             area: rivalLabStageColumn(),
-            speakerColleagueId: RIVAL_LAB_STAGE_FIGURE_ID
+            speakerColleagueId: RIVAL_LAB_STAGE_FIGURE_ID,
+            cast: this.stageCast(),
+            t
         });
+    }
+
+    /**
+     * Bell, as a cast of one — built from the authored `rivalLab` record and **never** from
+     * `colleagues[]`, never through `selectColleagueById`, and staged under an id that does not exist in
+     * that collection (AC4, D3). `rivalLab.accentColor` is the same field
+     * `selectLocalizedRivalLabCritique` returns, so the figure and the critique cannot disagree about
+     * his colour, and neither path carries anything about which conclusion the evidence supports.
+     *
+     * Re-resolved on every render, because `rivalLab.role` is interface copy and the locale can change.
+     */
+    private stageCast(): readonly StageCastMember[] {
+        const { rivalLab } = this.storeAdapter.getState().caseDefinition;
+        const t = createTranslator(selectLocale(this.storeAdapter.getState()));
+        return [{
+            colleagueId: RIVAL_LAB_STAGE_FIGURE_ID,
+            accentColor: Number.parseInt(rivalLab.accentColor.slice(1), 16),
+            name: rivalLab.name,
+            // Through `rivalLab.role`, never `colleague.role.*`, because he is not one of them (AC4).
+            roleLabel: t('rivalLab.role'),
+            // Resolved through `'rival'`, which is not a `ColleagueRole` and cannot be mistaken for
+            // one: he holds no role on the team, and the default pose that falls out of it — arms
+            // folded, waiting to be convinced — is his character note rather than a job.
+            appearance: resolveFigureAppearance('rival', rivalLab.figure)
+        }];
     }
 
     /**
@@ -247,7 +300,11 @@ export class RivalLabRenderer {
      * would have no ceiling.
      */
     private stageBand(): Readonly<{ top: number; height: number }> {
-        return { top: STAGE_TOP, height: this.scene.scale.height - STAGE_TOP - STAGE_FLOOR_MARGIN };
+        const top = Math.max(
+            STAGE_TOP_FLOOR,
+            HEADING_Y + (this.heading?.height ?? 0) + STAGE_TOP_GAP
+        );
+        return { top, height: Math.max(0, this.scene.scale.height - top - STAGE_FLOOR_MARGIN) };
     }
 
     public destroy(): void {
@@ -302,6 +359,16 @@ export class RivalLabRenderer {
         this.controlLabel?.setPosition(TEXT_LEFT + (CONTROL_WIDTH / 2), controlY + (CONTROL_HEIGHT / 2));
         this.accent?.setPosition(RIVAL_LAB_SURFACE_LEFT, HEADING_Y)
             .setSize(ACCENT_WIDTH, controlY + CONTROL_HEIGHT - HEADING_Y);
+
+        // The wall spans everything the reader reads, from above the heading to below the control, and
+        // stops where Bell's column starts. Bounded by the *same* `controlY` the control is anchored
+        // to, so an objection long enough to reach the clamp cannot run off the panel it is read on.
+        const panelTop = HEADING_Y - PROSE_PANEL_PADDING;
+        this.prosePanel?.setPosition(RIVAL_LAB_SURFACE_LEFT - PROSE_PANEL_PADDING, panelTop)
+            .setSize(
+                RIVAL_LAB_SURFACE_WIDTH - RIVAL_LAB_STAGE_COLUMN_WIDTH + PROSE_PANEL_PADDING,
+                controlY + CONTROL_HEIGHT + PROSE_PANEL_PADDING - panelTop
+            );
     }
 
     private requestRevision(): void {

@@ -369,10 +369,26 @@ describe('ADR-006 — the staging path cannot reach the answer', () => {
         'defensible'
     ] as const;
 
+    /**
+     * Every module that decides what the reader sees standing in the room.
+     *
+     * `figureAppearance.ts` was missing until the 2.9 review, which is the worst kind of gap in a sweep
+     * like this: it is new, it is imported by both the renderer and the board, and what it resolves is
+     * precisely *what each figure looks like* — the one place a "mark the defensible one" change would
+     * be easiest to write and least visible.
+     *
+     * `ColleagueRenderer.ts` is the deliberate addition beyond the drawing modules. It is the only file
+     * here that touches the store at all, so it is the only realistic place a defensibility selector
+     * could actually be wired *into* staging — the three below have no way to reach one. Its prose has
+     * to avoid the forbidden words for the same reason `characterStageView.ts`'s does, which is a small
+     * cost for closing the one door that is not already locked.
+     */
     const STAGING_SOURCES = [
         'src/adapters/phaser/renderers/characterStageView.ts',
         'src/adapters/phaser/renderers/CharacterStage.ts',
-        'src/adapters/phaser/renderers/LaboratoryDecor.ts'
+        'src/adapters/phaser/renderers/LaboratoryDecor.ts',
+        'src/adapters/phaser/renderers/figureAppearance.ts',
+        'src/adapters/phaser/renderers/ColleagueRenderer.ts'
     ] as const;
 
     it.each(STAGING_SOURCES)('%s mentions nothing that could reveal the answer', (path) => {

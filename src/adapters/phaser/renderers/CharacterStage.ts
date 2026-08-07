@@ -2,6 +2,7 @@ import type { Scene } from 'phaser';
 
 import { bookTextStyle, uiTextStyle } from '../textStyles';
 import {
+    FIGURE_BADGE_FONT_SIZE,
     FIGURE_MAX_HEIGHT,
     FIGURE_MAX_WIDTH,
     FIGURE_NAME_FONT_SIZE,
@@ -94,27 +95,52 @@ export type CharacterStageOptions = Readonly<{
      * Passed **through to the resolver** rather than applied here, and that is load-bearing: the two
      * halves have to agree on one maximum or the figure is placed at one size and drawn at another.
      * Getting that wrong once already drew the rival at 24% of the space he occupied.
+     *
+     * **It defaults from the build** ({@link figureSizeForBuild}) rather than from the colleague
+     * constants, so `build: 'rival'` and the rival's proportions cannot be set independently and then
+     * disagree. That was the remaining half of the same defect: the size was made to agree across the
+     * resolver/renderer seam, but a caller could still ask for a rival and forget to say how big one
+     * is, and the class would have drawn him at a colleague's height on a plinth scaled to it.
      */
     maxFigure?: StageFigureSize;
-    /** Whether the plaque under each figure is drawn. The rival carries only his name. */
-    showRole?: boolean;
     nameFontSize?: number;
     roleFontSize?: number;
+    badgeFontSize?: number;
 }>;
 
-/** What `render` needs that the resolver does not: the band, the speaker, and a translator. */
+/** The natural size of each build, so `build` alone is enough to place a figure correctly. */
+export const figureSizeForBuild = (build: CharacterStageBuild): StageFigureSize => build === 'rival'
+    ? { width: RIVAL_FIGURE_MAX_WIDTH, height: RIVAL_FIGURE_MAX_HEIGHT }
+    : { width: FIGURE_MAX_WIDTH, height: FIGURE_MAX_HEIGHT };
+
+/** What `render` needs that the resolver does not: the band, the speaker, the cast, and a translator. */
 export type CharacterStageRender = Readonly<{
     band: CharacterStageInput['band'];
     area: CharacterStageInput['area'];
     speakerColleagueId?: string;
     selectedColleagueId?: string;
     /**
-     * Retained for symmetry with every other renderer here, and deliberately unused: this class holds
-     * no locale and writes no interface copy. The name is a canonical proper noun and the role arrives
-     * already resolved by the caller, which is the only way a widget that knows nothing about the store
-     * can carry either.
+     * The cast, re-resolved by the owner on every render.
+     *
+     * It used to be passed once to `create()` and never again, which made two things wrong at once: a
+     * locale change left every plaque in the old language, because the role is interface copy that had
+     * already been resolved and was never re-set; and a scene hosting two phases — the theory board
+     * hosts `synthesis` and `review` — kept the cast it derived at create time, so a beat spoken by
+     * somebody outside that set could never be staged.
+     *
+     * The display objects are still built once and only rebuilt if the *set* of people changes, so the
+     * common case is three string writes and no fill commands (2.9 review).
      */
-    t?: Translator;
+    cast: readonly StageCastMember[];
+    /**
+     * Writes the one piece of interface copy on this surface: the speaking marker, which is AC2's
+     * **label** and the reason the speaker is not identified by scale and colour alone.
+     *
+     * It was declared and deliberately unused for two revisions, while `stage.speaking` sat authored in
+     * both locales and rendered by nothing. Required rather than optional, because a stage that cannot
+     * translate is a stage that cannot satisfy AC2.
+     */
+    t: Translator;
 }>;
 
 type Figure = {
@@ -122,6 +148,7 @@ type Figure = {
     graphics: Phaser.GameObjects.Graphics;
     name: Phaser.GameObjects.Text;
     role: Phaser.GameObjects.Text;
+    badge: Phaser.GameObjects.Text;
 };
 
 /**
@@ -130,6 +157,8 @@ type Figure = {
  */
 const NAME_COLOR = '#e8bc63';
 const ROLE_COLOR = '#a89478';
+/** The speaking marker, in the lamp's own warm white so it reads as lit rather than as another name. */
+const BADGE_COLOR = '#f7f4ef';
 
 const SHADOW = 0x000000;
 /** The contact shadow pooled under a figure's feet, which is what puts it *on* the floor. */
@@ -148,6 +177,19 @@ const GLASS = 0xbfe0e6;
 /** The appearance a cast member drawn before this vocabulary existed still gets. */
 const FALLBACK_APPEARANCE = resolveFigureAppearance('lead');
 
+/**
+ * Writes a string only when it differs from the one already drawn.
+ *
+ * `Text.setText` re-renders the object's texture whether or not the string changed, and this stage
+ * repaints on every store notification and every dialogue advance — so an unconditional write is a
+ * dozen texture redraws per dispatch for content that changes on a locale switch and a speaker change
+ * and at no other time. The project's performance rule is that a render path allocates nothing and
+ * redraws nothing it does not have to.
+ */
+const setTextIfChanged = (target: Phaser.GameObjects.Text, value: string): void => {
+    if (target.text !== value) target.setText(value);
+};
+
 export class CharacterStage {
     private readonly figures: Figure[] = [];
     private readonly reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -162,12 +204,17 @@ export class CharacterStage {
         private readonly options: CharacterStageOptions
     ) {}
 
+    /** One maximum, read by the renderer and passed to the resolver, defaulted from the build. */
+    private get maxFigure(): StageFigureSize {
+        return this.options.maxFigure ?? figureSizeForBuild(this.options.build);
+    }
+
     private get maxWidth(): number {
-        return this.options.maxFigure?.width ?? FIGURE_MAX_WIDTH;
+        return this.maxFigure.width;
     }
 
     private get maxHeight(): number {
-        return this.options.maxFigure?.height ?? FIGURE_MAX_HEIGHT;
+        return this.maxFigure.height;
     }
 
     /**
@@ -191,27 +238,50 @@ export class CharacterStage {
      * inert control under a live hand cursor, which is the defect class the 1.12 review found in
      * `DialogueBox`. The figures are scenery that identifies; the cards below are the controls.
      *
-     * The name and the role are written **here**, not in `render`, and that is the one deliberate
-     * exception to "create empty, populate in render". Both arrive already resolved: the name is a
-     * canonical proper noun from `case.json` that no locale changes, and the role was resolved through
-     * the i18n layer by the owner, which rebuilds this stage when the cast changes. Writing them in
-     * `render` would mean re-setting four unchanged strings on every dialogue advance.
+     * **Every string is created empty and written in `render`**, like every other surface in this
+     * codebase and for the reason every other one states: `create()` runs once and the locale can
+     * change at any time. This class used to write the name and the role here, on the argument that the
+     * name is a proper noun and the owner rebuilds the stage when the cast changes — the first half is
+     * true and the second was not, so a locale change left four plaques reading `Instrument maker`
+     * under French copy (2.9 review).
      */
     public create(cast: readonly StageCastMember[]): void {
+        this.buildFigures(cast);
+        this.reducedMotionQuery.addEventListener('change', this.onReducedMotionChange);
+    }
+
+    /**
+     * Strokes one figure per cast member. Called by `create`, and again by `render` only when the set of
+     * people has actually changed — a rebuild is fill commands, and fill commands are what this class
+     * exists to do exactly once.
+     */
+    private buildFigures(cast: readonly StageCastMember[]): void {
+        this.releaseFigures();
         cast.forEach((member) => {
             const graphics = this.scene.add.graphics();
             this.paintFigure(graphics, member.accentColor, member.appearance ?? FALLBACK_APPEARANCE);
 
-            const name = this.scene.add.text(0, 0, member.name, bookTextStyle({
+            const name = this.scene.add.text(0, 0, '', bookTextStyle({
                 color: NAME_COLOR, fontSize: `${this.nameFontSize}px`, align: 'center'
             })).setOrigin(0.5, 0);
-            const role = this.scene.add.text(0, 0, this.options.showRole === false ? '' : member.roleLabel, uiTextStyle({
+            const role = this.scene.add.text(0, 0, '', uiTextStyle({
                 color: ROLE_COLOR, fontSize: `${this.roleFontSize}px`, align: 'center'
             })).setOrigin(0.5, 0);
+            const badge = this.scene.add.text(0, 0, '', uiTextStyle({
+                color: BADGE_COLOR, fontSize: `${this.badgeFontSize}px`, align: 'center'
+            })).setOrigin(0.5, 0);
 
-            this.figures.push({ member, graphics, name, role });
+            this.figures.push({ member, graphics, name, role, badge });
         });
-        this.reducedMotionQuery.addEventListener('change', this.onReducedMotionChange);
+        // A rebuild re-measures at the new slot width, so the cached bound must not suppress it.
+        this.labelWrapWidth = undefined;
+    }
+
+    /** Whether this stage is already drawing exactly these people, in this order. */
+    private stagesSameCast(cast: readonly StageCastMember[]): boolean {
+        return cast.length === this.figures.length
+            && cast.every((member, index) => this.figures[index]?.member.colleagueId === member.colleagueId
+                && this.figures[index]?.member.accentColor === member.accentColor);
     }
 
     private get nameFontSize(): number {
@@ -222,18 +292,27 @@ export class CharacterStage {
         return this.options.roleFontSize ?? FIGURE_ROLE_FONT_SIZE;
     }
 
-    public render({ band, area, speakerColleagueId, selectedColleagueId, t }: CharacterStageRender): void {
-        this.lastRender = { band, area, speakerColleagueId, selectedColleagueId, t };
+    private get badgeFontSize(): number {
+        return this.options.badgeFontSize ?? FIGURE_BADGE_FONT_SIZE;
+    }
+
+    public render({ band, area, speakerColleagueId, selectedColleagueId, cast, t }: CharacterStageRender): void {
+        this.lastRender = { band, area, speakerColleagueId, selectedColleagueId, cast, t };
+        // Only when the people themselves changed. A dialogue advance, a selection, a resize and a
+        // reduced-motion toggle all land here and none of them is a reason to re-stroke a silhouette.
+        if (!this.stagesSameCast(cast)) this.buildFigures(cast);
+
         const view = resolveCharacterStage({
-            cast: this.figures.map(({ member }) => member),
+            cast,
             speakerColleagueId,
             selectedColleagueId,
             band,
             area,
             motionAllowed: this.motionAllowed,
-            maxFigure: this.options.maxFigure,
+            maxFigure: this.maxFigure,
             nameFontSize: this.nameFontSize,
-            roleFontSize: this.roleFontSize
+            roleFontSize: this.roleFontSize,
+            badgeFontSize: this.badgeFontSize
         });
 
         // Applied to every plaque when the bound changes and to none when it has not. `setStyle`
@@ -246,10 +325,11 @@ export class CharacterStage {
 
         // Whatever the resolver withheld is hidden rather than left wherever it last stood — a stage
         // below the legibility floor shows an empty room, not four dots.
-        this.figures.slice(view.figures.length).forEach(({ graphics, name, role }) => {
+        this.figures.slice(view.figures.length).forEach(({ graphics, name, role, badge }) => {
             graphics.setVisible(false);
             name.setVisible(false);
             role.setVisible(false);
+            badge.setVisible(false);
         });
 
         view.figures.forEach((figure, index) => {
@@ -259,8 +339,28 @@ export class CharacterStage {
             target.role.setVisible(true);
             this.applyEmphasis(target, figure, view.transitionMs);
 
+            // Written through the translator, because both are interface-facing: the role is a
+            // translated label and the marker is a translated word.
+            //
+            // **Only when the string actually changed.** `Text.setText` re-renders the object's whole
+            // texture, and a board re-stages on every store notification *and* every dialogue advance —
+            // so writing three unchanged strings per figure unconditionally put twelve texture redraws
+            // on a path that had none, and cost enough wall-clock to push `canvas-transitions` past its
+            // timeout under a loaded machine. Guarding the write keeps the locale correct (the whole
+            // point of moving these out of `create`) at the cost of a string compare.
+            setTextIfChanged(target.name, figure.name);
+            setTextIfChanged(target.role, figure.roleLabel);
             target.name.setPosition(figure.labelX, figure.nameY);
             target.role.setPosition(figure.labelX, figure.roleY);
+
+            // **AC2's label.** The speaker is foregrounded by position (the lift), by scale, *and* by
+            // this word — three signals, none of which is a colour, so a reader who cannot separate
+            // the four accents loses nothing. Its height is reserved on every plaque and its text is
+            // written on one, so nothing moves when the speaker changes.
+            setTextIfChanged(target.badge, figure.isSpeaker ? t('stage.speaking') : '');
+            target.badge.setPosition(figure.labelX, figure.badgeY);
+            target.badge.setVisible(figure.isSpeaker);
+
             // The speaker's plaque comes up to full strength with them; the rest hold at a legible
             // floor rather than fading with the figure. Diegetic never means hidden: a receded
             // colleague is still someone the reader must be able to name (EXPERIENCE.md §HUD).
@@ -269,6 +369,7 @@ export class CharacterStage {
             if (rewrap) {
                 target.name.setStyle({ wordWrap: { width: figure.labelWrapWidth } });
                 target.role.setStyle({ wordWrap: { width: figure.labelWrapWidth } });
+                target.badge.setStyle({ wordWrap: { width: figure.labelWrapWidth } });
             }
         });
     }
@@ -280,6 +381,15 @@ export class CharacterStage {
      * is stroked at its natural size, so the scale that lands it in its band is
      * `min(width / max, height / max)` and the emphasis multiplies it. Both maxima are read from the
      * resolver's exported constants, so neither number lives in two places.
+     *
+     * **The figure's own tweens are killed first, on both paths.** A board re-stages on every store
+     * notification *and* every dialogue advance, so without this a reader advancing quickly through a
+     * conversation stacked several 180ms tweens on the same four properties of the same `Graphics`,
+     * each interpolating from a different start toward a different target, and the figures fought
+     * rather than moved. The reduced-motion path needs it just as much and for a sharper reason: a
+     * tween started before the OS setting was toggled goes on writing to `x`/`y`/`scale`/`alpha` for
+     * up to 180ms *after* the reader asked for no motion, painting over the static frame that had just
+     * been written (2.9 review).
      */
     private applyEmphasis(figure: Figure, staged: StagedFigure, transitionMs: number): void {
         const fit = Math.min(staged.width / this.maxWidth, staged.height / this.maxHeight);
@@ -287,6 +397,7 @@ export class CharacterStage {
         const y = staged.y - staged.lift;
 
         figure.graphics.setVisible(true);
+        this.scene.tweens.killTweensOf(figure.graphics);
 
         if (transitionMs === 0) {
             // Reduced motion: the targets are written straight in. No tween is started and no loop is
@@ -316,16 +427,23 @@ export class CharacterStage {
     public destroy(): void {
         this.reducedMotionQuery.removeEventListener('change', this.onReducedMotionChange);
         this.scene.tweens.killTweensOf(this);
-        this.figures.forEach(({ graphics, name, role }) => {
+        this.releaseFigures();
+        this.lastRender = undefined;
+    }
+
+    /** Every display object and tween a figure owns. Shared by `destroy` and by a cast rebuild. */
+    private releaseFigures(): void {
+        this.figures.forEach(({ graphics, name, role, badge }) => {
             this.scene.tweens.killTweensOf(graphics);
             this.scene.tweens.killTweensOf(name);
             this.scene.tweens.killTweensOf(role);
+            this.scene.tweens.killTweensOf(badge);
             graphics.destroy();
             name.destroy();
             role.destroy();
+            badge.destroy();
         });
         this.figures.length = 0;
-        this.lastRender = undefined;
         this.labelWrapWidth = undefined;
     }
 
@@ -401,6 +519,8 @@ export class CharacterStage {
         return {
             width,
             height,
+            gowned,
+            isRival,
             floor,
             headRadius,
             headY,
@@ -495,9 +615,11 @@ export class CharacterStage {
         m: FigureMetrics,
         skinTone: number
     ): void {
-        const shoulderDepth = m.height * (m.hemHalf > m.width * 0.45 ? 0.045 : 0.05);
+        // Read from the metrics, never recovered from them — see {@link FigureMetrics.gowned}. A
+        // fuller-hemmed build (a gown, or the rival's long coat) carries a slightly shallower yoke.
+        const shoulderDepth = m.height * (m.gowned || m.isRival ? 0.045 : 0.05);
         const chestY = m.shoulderY + shoulderDepth;
-        const gowned = m.waistHalf < m.width * 0.25;
+        const gowned = m.gowned;
 
         // The neck, in **skin** — it is a neck. Painted in a shade of the coat it left a dark bar under
         // every chin and the head read as floating a little above the shoulders.
@@ -772,6 +894,17 @@ export class CharacterStage {
 type FigureMetrics = Readonly<{
     width: number;
     height: number;
+    /**
+     * The two categorical facts every painter needs, carried rather than recovered.
+     *
+     * `paintTorso` used to re-derive both from measurements — `waistHalf < width * 0.25` for the build,
+     * `hemHalf > width * 0.45` for the shoulder depth — recovering a fact that was known one frame
+     * earlier from a coefficient that straddles an unrelated threshold. Widening a gowned figure's waist
+     * to a quarter of her width in a tuning pass would have flipped `gowned` to false and painted a
+     * frock coat over her skirt, with nothing in the suite to fail (2.9 review).
+     */
+    gowned: boolean;
+    isRival: boolean;
     /** Where this figure's own feet rest — below zero for the rival, who stands on a plinth. */
     floor: number;
     headRadius: number;

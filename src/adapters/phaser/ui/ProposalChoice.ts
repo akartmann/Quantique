@@ -54,6 +54,22 @@ export type ProposalChoiceGutters = Readonly<{
     markerGutter?: number;
 }>;
 
+/**
+ * Where the stated limitation is drawn — in the card, or by the host somewhere else (Story 2.9 review).
+ *
+ * `'in-card'` is the default and is what every host drew before, so a host that passes nothing is
+ * unchanged. `'suppressed'` means the widget renders no limitation at all and the **host has taken
+ * responsibility for showing it**; it is not a way to hide authored content, and a host that suppresses
+ * without drawing it elsewhere has dropped a claim's caveat on the floor.
+ *
+ * It exists because the limitation is the most expensive thing on the conclusion board: reserving two
+ * 13px lines in every one of four cards costs ≈140px of a 768px surface that does not scroll, which is
+ * the whole reason the cast could not stand there. `ColleagueRenderer` suppresses it and writes the
+ * **chosen** proposal's limitation into the guide slot instead — a band that is already reserved, sits
+ * directly above the cards, and has nothing to say once a choice has been made.
+ */
+export type LimitationMode = 'in-card' | 'suppressed';
+
 const ATTRIBUTION_TOP = 10;
 const BODY_TOP = 32;
 /**
@@ -62,14 +78,16 @@ const BODY_TOP = 32;
  * roughly three pixels of slack against today's French copy — one extra wrapped line, from a copy edit
  * or a longer future translation, drew the two strings on top of each other (1.11 review).
  *
- * **Two claim lines, matching the card budget that was actually measured** (see `MIN_CARD_HEIGHT` in
- * `ColleagueRenderer`): attribution + a two-line claim at 16px + a two-line limitation at 13px is
- * ≈114px against a card of 121–126px. A *third* claim line adds ≈21px and pushes the limitation to
- * ≈135px — past the card's bottom edge, and because nothing here clips against the card, the overflow
- * paints into `CARD_GAP` and onto the **next** colleague's card, attaching a stated limitation to the
- * wrong claim. This was 3 until the 1.12 review; the cards were 143px tall before this story shrank
- * them to make room for the dialogue panel, and the line bound was not lowered with them. Keeping it
- * at 2 makes the overflow unreachable by construction rather than something a clamp has to catch.
+ * **Two claim lines, matching the card budget that was actually measured** (see
+ * `PROPOSAL_CARD_HEIGHT` in `ColleagueRenderer`): attribution at y+10 and a two-line claim at 16px from
+ * y+32 is ≈74px against a card of 88px. A *third* claim line adds ≈21px and runs past the card's bottom
+ * edge, and because nothing here clips against the card, the overflow paints into `CARD_GAP` and onto
+ * the **next** colleague's card, attaching a claim's tail to the wrong author. This was 3 until the
+ * 1.12 review. Keeping it at 2 makes the overflow unreachable by construction rather than something a
+ * clamp has to catch.
+ *
+ * The limitation used to share this budget and no longer does on the board that authors one — see
+ * {@link LimitationMode} for where it went and what it bought.
  *
  * Exported since Story 2.9 so `french-typography.spec.ts` can assert the longest French claim still
  * wraps within it at the board's real bound, rather than restating `2` beside a constant it would then
@@ -126,6 +144,8 @@ export type ProposalChoiceOptions = Readonly<{
     width: number;
     height: number;
     accentColor: number;
+    /** Defaults to `'in-card'`: a host that passes nothing draws exactly what it drew before. */
+    limitationMode?: LimitationMode;
     /** The owner dispatches. The widget does not know the store exists. */
     onChoose: () => void;
 } & ProposalChoiceGutters>;
@@ -227,7 +247,10 @@ export class ProposalChoice {
         this.attribution?.setText(formatAttribution(t, projection)).setY(this.top + ATTRIBUTION_TOP);
         this.body?.setText(projection.text).setY(this.top + BODY_TOP);
         if (this.limitation && this.body) {
-            this.limitation.setText(projection.limitation === undefined
+            // `'suppressed'` draws nothing here because the host draws it elsewhere — see
+            // {@link LimitationMode}. The object still exists and is still positioned, so switching
+            // modes at runtime needs no rebuild and an empty string draws nothing either way.
+            this.limitation.setText(projection.limitation === undefined || this.options.limitationMode === 'suppressed'
                 ? ''
                 : t('proposal.limitation', { limitation: projection.limitation }));
             // Under the body's *measured* height, never anchored to the card's bottom edge.

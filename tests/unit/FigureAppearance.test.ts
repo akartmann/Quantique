@@ -126,28 +126,72 @@ describe('garmentTones', () => {
         expect(luminance(tones.highlight)).toBeLessThan(luminance(tones.linen));
     });
 
-    /** Every authored accent gets that ordering, not just the four this case happens to ship. */
-    it.each([0x000000, 0xffffff, 0xc9a227, 0x9c6b98, 0x8c3b3b, 0x0000ff])(
-        'holds the ordering for #%s',
+    /**
+     * Every accent gets that ordering **strictly**, including the two extremes.
+     *
+     * This assertion used to be `≤`, which is the same shape of hole as a tautology: it passed while a
+     * white accent collapsed `linen` and `highlight` onto each other and a black one collapsed `deep`
+     * and `base`, leaving three tones where the module promises four and a figure that reads as the
+     * flat cut-out the promise exists to prevent. `#ffffff` and `#000000` are both schema-legal, so
+     * this is a case an author can write, not a hypothetical.
+     */
+    it.each([0x000000, 0xffffff, 0xc9a227, 0x9c6b98, 0x8c3b3b, 0x0000ff, 0x00ff00])(
+        'holds the ordering strictly for #%s',
         (accent) => {
             const tones = garmentTones(accent);
-            expect(luminance(tones.deep)).toBeLessThanOrEqual(luminance(tones.base));
-            expect(luminance(tones.base)).toBeLessThanOrEqual(luminance(tones.highlight));
-            expect(luminance(tones.highlight)).toBeLessThanOrEqual(luminance(tones.linen));
+            expect(luminance(tones.deep)).toBeLessThan(luminance(tones.base));
+            expect(luminance(tones.base)).toBeLessThan(luminance(tones.highlight));
+            expect(luminance(tones.highlight)).toBeLessThan(luminance(tones.linen));
         }
     );
+
+    it('keeps all four tones distinguishable, at every accent', () => {
+        [0x000000, 0xffffff, 0xc9a227, 0x0000ff].forEach((accent) => {
+            const { base, deep, linen, highlight } = garmentTones(accent);
+            expect(new Set([base, deep, linen, highlight]).size).toBe(4);
+        });
+    });
 
     /**
      * Channels are mixed and clamped, never added.
      *
      * `colour + 0x101010` is the version of this that looks correct on four authored accents and turns
-     * the fifth bright green, because a channel already near 0xff carries into the one above it. Pure
-     * white tinted further is still a colour, and pure black shaded further is still black.
+     * the fifth bright green, because a channel already near 0xff carries into the one above it.
+     *
+     * **Asserted per channel against the source colour**, not against `0xff`. The previous version
+     * masked with `& 0xff` and asserted the result was `≤ 0xff`, which is true of every possible input
+     * including the carry bug it named — and asserted `shade(0x000000, 1) >= 0`, which is true of every
+     * possible implementation. Two of its three assertions could not fail (2.9 review).
      */
-    it('clamps rather than wrapping at the ends of each channel', () => {
-        expect(tint(0xffffff, 1)).toBeLessThanOrEqual(0xffffff);
-        expect(shade(0x000000, 1)).toBeGreaterThanOrEqual(0);
-        // The green channel of `#00ff00` pushed to its ceiling must not spill into red.
-        expect((tint(0x00ff00, 1) >> 16) & 0xff).toBeLessThanOrEqual(0xff);
+    it.each([
+        ['tint', tint as (c: number, a: number) => number, (from: number, to: number) => to >= from],
+        ['shade', shade as (c: number, a: number) => number, (from: number, to: number) => to <= from]
+    ] as const)('moves every channel in the direction %s names, and no other', (_name, fn, ordered) => {
+        [0x00ff00, 0xffffff, 0x000000, 0x4f8a8b, 0xff0000].forEach((color) => {
+            const result = fn(color, 1);
+            ([16, 8, 0] as const).forEach((shift) => {
+                const from = (color >> shift) & 0xff;
+                const to = (result >> shift) & 0xff;
+                expect(ordered(from, to)).toBe(true);
+            });
+        });
+    });
+
+    /**
+     * Every channel lands **exactly** where the mix says, which is the only form of this assertion a
+     * carry bug cannot survive: `colour + 0x101010` overshoots by the carried bit and is caught here
+     * even where it happens to stay inside `0xff`.
+     */
+    it('lands each channel exactly on its own mix, with nothing carried from the one below', () => {
+        const channels = (color: number) => [(color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff];
+        // The lamp and the shadow the two functions mix toward, at full amount.
+        const lamplight = channels(0xffd9a0);
+        const deepShade = channels(0x0d1216);
+
+        [0x00ff00, 0x4f8a8b, 0xc9a227].forEach((color) => {
+            const from = channels(color);
+            expect(channels(tint(color, 1))).toEqual(from.map((v, i) => Math.max(v, lamplight[i]!)));
+            expect(channels(shade(color, 1))).toEqual(from.map((v, i) => Math.min(v, deepShade[i]!)));
+        });
     });
 });

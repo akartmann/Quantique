@@ -9,7 +9,8 @@ import {
     resolveCharacterStage,
     type StageCastMember
 } from '../../src/adapters/phaser/renderers/characterStageView';
-import { translate } from '../../src/core/i18n/translate';
+import { createTranslator, translate } from '../../src/core/i18n/translate';
+import { boardProposerIds, resolveStageCast } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore, type AppStore } from '../../src/core/store/createStore';
 import {
@@ -94,28 +95,23 @@ const advanceTo = (store: AppStore, phase: 'prediction' | 'synthesis' | 'review'
 const BAND = { top: 120, height: FIGURE_MAX_HEIGHT + figureLabelHeight() + 20 } as const;
 const AREA = { x: 40, width: 944 } as const;
 
-/** The board's cast: proposal order, resolved the way `ColleagueRenderer.stageCast` resolves it. */
+/**
+ * The board's cast — through the **production** resolver, not a copy of it.
+ *
+ * This helper used to re-implement `ColleagueRenderer.stageCast` line for line, which meant it could
+ * not fail on any change to the thing it was named after: swapping the prediction proposals for the
+ * conclusion ones in the real method left every assertion here green, because the real method never
+ * ran. `resolveStageCast` was extracted so this reads the rule instead of restating it (2.9 review).
+ */
 const boardCast = (store: AppStore, kind: 'prediction' | 'conclusion'): readonly StageCastMember[] => {
     const state = store.getState();
-    const authored = kind === 'prediction'
-        ? state.caseDefinition.predictionProposals
-        : state.caseDefinition.conclusionProposals;
     const scene = state.caseDefinition.scenarioScript.scenes.find(({ phase }) => phase === selectCasePhase(state));
 
-    return presentColleagueIds({
-        proposerIds: authored.map(({ colleagueId }) => colleagueId),
+    return resolveStageCast({
+        colleagues: selectColleagues(state),
+        proposerIds: boardProposerIds(state.caseDefinition, kind),
         speakerIds: (scene?.dialogueBeats ?? []).map(({ speakerId }) => speakerId),
-        castIds: selectColleagues(state).map(({ id }) => id)
-    }).map((colleagueId) => {
-        const colleague = selectColleagues(state).find(({ id }) => id === colleagueId)!;
-        return {
-            colleagueId,
-            accentColor: colleague.portrait.kind === 'silhouette'
-                ? Number.parseInt(colleague.portrait.accentColor.slice(1), 16)
-                : 0,
-            name: colleague.name,
-            roleLabel: translate(selectLocale(state), `colleague.role.${colleague.role}`)
-        };
+        t: createTranslator(selectLocale(state))
     });
 };
 
@@ -284,5 +280,56 @@ describe('locale', () => {
         // The speaker *ids* are locale-independent, which is what makes staging work in both.
         expect(selectDialogueBeats(french.getState()).map(({ speakerId }) => speakerId))
             .toEqual(selectDialogueBeats(english.getState()).map(({ speakerId }) => speakerId));
+    });
+});
+
+describe('degraded content', () => {
+    /**
+     * The path the copied helper could not reach, and the one that matters most.
+     *
+     * `ColleagueRenderer.create()` runs synchronously inside `dispatch() → notify()`, so a throw here
+     * would advance the phase, skip every later subscriber, and break `dispatch`'s `Result` contract
+     * (1.10 review). The old test helper resolved colleagues with a non-null assertion, so it asserted
+     * the exact opposite of what production does: it would have thrown where production degrades, and
+     * nothing covered the difference (2.9 review).
+     */
+    it('stages a proposer the cast no longer authors, without throwing', () => {
+        const store = advanceTo(storeAt(), 'prediction');
+        const t = createTranslator(selectLocale(store.getState()));
+        const colleagues = selectColleagues(store.getState());
+
+        const cast = resolveStageCast({
+            colleagues,
+            proposerIds: [...colleagues.map(({ id }) => id), 'a-colleague-this-build-dropped'],
+            speakerIds: [],
+            t
+        });
+
+        const orphan = cast.find(({ colleagueId }) => colleagueId === 'a-colleague-this-build-dropped');
+        expect(orphan).toBeDefined();
+        // A stand-in label rather than a blank plaque, the same one the dialogue attribution falls back
+        // to, and a legible neutral accent rather than a parse of `undefined`.
+        expect(orphan!.name).toBe(t('colleague.unattributedSpeaker'));
+        expect(Number.isFinite(orphan!.accentColor)).toBe(true);
+        // And it still gets a figure to draw: a plain standing pose, never `undefined`.
+        expect(orphan!.appearance).toBeDefined();
+    });
+
+    /** A speaker who authored no proposal is present, which is what `presentColleagueIds` is for. */
+    it('adds a beat speaker who authored nothing to the room', () => {
+        const store = advanceTo(storeAt(), 'prediction');
+        const colleagues = selectColleagues(store.getState());
+        const [first, ...rest] = colleagues;
+
+        const cast = resolveStageCast({
+            colleagues,
+            proposerIds: rest.map(({ id }) => id),
+            speakerIds: [first!.id],
+            t: createTranslator(selectLocale(store.getState()))
+        });
+
+        expect(cast.map(({ colleagueId }) => colleagueId)).toContain(first!.id);
+        // Proposal order first, then the speaker who authored nothing — a stable reading order.
+        expect(cast[cast.length - 1]!.colleagueId).toBe(first!.id);
     });
 });

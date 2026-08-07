@@ -103,9 +103,12 @@ export const FIGURE_SIDE_INSET = 10;
  * withheld, and the colleague's identity rests where it already also lives — the attribution line on
  * their own card.
  *
- * This is a **stated limitation of the current card layout, not a preference**: freeing the stated
- * limitation from the card (showing it for the chosen proposal only) would return ~140px and let the
- * cast stand on both boards.
+ * **Both boards clear it as of the 2.9 review.** They did not before: the conclusion board's cards each
+ * reserved two lines for a stated limitation, which cost ≈112px and left 44px of room — so the cast was
+ * withheld there in every case, for every panel height, and `synthesis` and `review` played out with
+ * nobody on stage. The limitation moved out of the card and into the guide slot (`LimitationMode`),
+ * which returned the board to the same 316px band the prediction board has. `ColleagueGeometry.test.ts`
+ * asserts the margin against the real geometry so this cannot regress silently again.
  */
 export const MIN_LEGIBLE_FIGURE_HEIGHT = 96;
 
@@ -120,18 +123,33 @@ export const MIN_LEGIBLE_FIGURE_HEIGHT = 96;
  */
 export const FIGURE_NAME_FONT_SIZE = 12;
 export const FIGURE_ROLE_FONT_SIZE = 11;
+/**
+ * The speaking marker's own size — the third plaque line, and AC2's **label**.
+ *
+ * Smaller than the role, because it is a state and not an identity. Its height is reserved on every
+ * plaque and its text is written on one, so the plaque does not change height when the speaker changes
+ * and no figure grows or shrinks as a conversation advances.
+ */
+export const FIGURE_BADGE_FONT_SIZE = 10;
 const NAME_LINE_HEIGHT = 1.35;
 const ROLE_LINE_HEIGHT = 1.35;
+const BADGE_LINE_HEIGHT = 1.35;
 export const figureNameHeight = (fontSize: number = FIGURE_NAME_FONT_SIZE): number =>
     Math.round(fontSize * NAME_LINE_HEIGHT);
 export const figureRoleHeight = (fontSize: number = FIGURE_ROLE_FONT_SIZE): number =>
     Math.round(fontSize * ROLE_LINE_HEIGHT);
-/** The whole plaque: both lines, plus the gap between the figure's feet and the first of them. */
+export const figureBadgeHeight = (fontSize: number = FIGURE_BADGE_FONT_SIZE): number =>
+    Math.round(fontSize * BADGE_LINE_HEIGHT);
+/** The whole plaque: all three lines, plus the gap between the figure's feet and the first of them. */
 export const FIGURE_LABEL_GAP = 4;
 export const figureLabelHeight = (
     nameFontSize: number = FIGURE_NAME_FONT_SIZE,
-    roleFontSize: number = FIGURE_ROLE_FONT_SIZE
-): number => FIGURE_LABEL_GAP + figureNameHeight(nameFontSize) + figureRoleHeight(roleFontSize);
+    roleFontSize: number = FIGURE_ROLE_FONT_SIZE,
+    badgeFontSize: number = FIGURE_BADGE_FONT_SIZE
+): number => FIGURE_LABEL_GAP
+    + figureNameHeight(nameFontSize)
+    + figureRoleHeight(roleFontSize)
+    + figureBadgeHeight(badgeFontSize);
 
 // --- Emphasis ---------------------------------------------------------------------------------
 
@@ -188,10 +206,11 @@ export type StagedFigure = Readonly<{
     alpha: number;
     /** Upward, so a positive lift raises the figure. Subtracted from `y` by the renderer. */
     lift: number;
-    /** The name-and-role plaque, centred on the same slot. */
+    /** The plaque, centred on the same slot: name, role, and the speaking marker under them. */
     labelX: number;
     nameY: number;
     roleY: number;
+    badgeY: number;
     labelWrapWidth: number;
     isSpeaker: boolean;
     isSelected: boolean;
@@ -227,6 +246,7 @@ export type CharacterStageInput = Readonly<{
     maxFigure?: StageFigureSize;
     nameFontSize?: number;
     roleFontSize?: number;
+    badgeFontSize?: number;
 }>;
 
 const emphasisFor = (
@@ -261,30 +281,46 @@ export const resolveCharacterStage = ({
     motionAllowed,
     maxFigure = DEFAULT_FIGURE_SIZE,
     nameFontSize = FIGURE_NAME_FONT_SIZE,
-    roleFontSize = FIGURE_ROLE_FONT_SIZE
+    roleFontSize = FIGURE_ROLE_FONT_SIZE,
+    badgeFontSize = FIGURE_BADGE_FONT_SIZE
 }: CharacterStageInput): CharacterStageView => {
     const hasSpeaker = speakerColleagueId !== undefined
         && cast.some(({ colleagueId }) => colleagueId === speakerColleagueId);
 
-    const labelHeight = figureLabelHeight(nameFontSize, roleFontSize);
+    const labelHeight = figureLabelHeight(nameFontSize, roleFontSize, badgeFontSize);
     const floorY = band.top + band.height - labelHeight;
-    // What is left of the band once the plaque has its two lines. The figure stands in that.
+    // What is left of the band once the plaque has its three lines. The figure stands in that.
     const available = Math.max(0, floorY - band.top);
     const slotWidth = cast.length > 0 ? area.width / cast.length : area.width;
 
     const height = Math.max(0, Math.min(maxFigure.height, available));
-    // Nothing at all rather than something illegible. The caller still paints its room; it simply has
-    // nobody in it.
-    if (height < Math.min(MIN_LEGIBLE_FIGURE_HEIGHT, maxFigure.height)) {
-        return Object.freeze({ figures: Object.freeze([]), floorY, transitionMs: motionAllowed ? EMPHASIS_TWEEN_MS : 0 });
-    }
     // Proportions are kept as the figure shrinks, so a squeezed band gets a smaller person rather than
     // a squat one — and a narrow slot narrows the person rather than letting neighbours overlap.
+    //
+    // A degenerate `maxFigure` would divide by zero here, so the ratio falls back to the natural one:
+    // a host that passes a zero dimension gets a figure that is merely small, not one drawn at `NaN`
+    // scale by the renderer downstream.
+    const ratio = maxFigure.height > 0 && maxFigure.width > 0
+        ? maxFigure.width / maxFigure.height
+        : FIGURE_MAX_WIDTH / FIGURE_MAX_HEIGHT;
     const width = Math.max(0, Math.min(
         maxFigure.width,
         slotWidth - (2 * FIGURE_SIDE_INSET),
-        height * (maxFigure.width / maxFigure.height)
+        height * ratio
     ));
+
+    // Nothing at all rather than something illegible. The caller still paints its room; it simply has
+    // nobody in it.
+    //
+    // **Both dimensions, not just the height.** The width clamps to zero as soon as a slot is no wider
+    // than its two side insets, and a height-only gate let that through: the renderer then fitted at
+    // `min(0, …)`, drew four figures at scale zero, and left four plaques standing on the floor line
+    // naming people who were not there (2.9 review). The width bound is proportional to the height
+    // bound so one threshold governs both.
+    const minWidth = Math.min(MIN_LEGIBLE_FIGURE_HEIGHT, maxFigure.height) * ratio;
+    if (height < Math.min(MIN_LEGIBLE_FIGURE_HEIGHT, maxFigure.height) || width < minWidth) {
+        return Object.freeze({ figures: Object.freeze([]), floorY, transitionMs: motionAllowed ? EMPHASIS_TWEEN_MS : 0 });
+    }
 
     const figures = cast.map((member, index) => {
         const centreX = area.x + (slotWidth * (index + 0.5));
@@ -304,6 +340,7 @@ export const resolveCharacterStage = ({
             labelX: centreX,
             nameY: floorY + FIGURE_LABEL_GAP,
             roleY: floorY + FIGURE_LABEL_GAP + figureNameHeight(nameFontSize),
+            badgeY: floorY + FIGURE_LABEL_GAP + figureNameHeight(nameFontSize) + figureRoleHeight(roleFontSize),
             labelWrapWidth: slotWidth,
             isSpeaker,
             isSelected

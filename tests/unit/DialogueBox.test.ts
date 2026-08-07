@@ -129,7 +129,7 @@ describe('DialogueBox reading position', () => {
     it('opens on the first beat and counts from one', () => {
         const ui = mount();
 
-        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis');
+        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis', {});
 
         expect(ui.body.text).toBe('Line a.');
         expect(ui.counter.text).toBe('1 / 3');
@@ -138,7 +138,7 @@ describe('DialogueBox reading position', () => {
 
     it('advances one beat per click and repaints before reporting', () => {
         const ui = mount();
-        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis');
+        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis', {});
 
         ui.click();
 
@@ -151,20 +151,20 @@ describe('DialogueBox reading position', () => {
     /** The property the story states most emphatically: the owner re-renders on every notification. */
     it('keeps the reader in place when re-rendered with the same conversation', () => {
         const ui = mount();
-        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis');
+        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis', {});
         ui.click();
 
-        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis');
+        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis', {});
 
         expect(ui.counter.text).toBe('2 / 3');
     });
 
     it('keeps the reader in place across a locale change', () => {
         const ui = mount();
-        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis');
+        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis', {});
         ui.click();
 
-        ui.box.render(beats('a', 'b', 'c'), createTranslator('fr'), 'synthesis');
+        ui.box.render(beats('a', 'b', 'c'), createTranslator('fr'), 'synthesis', {});
 
         expect(ui.counter.text).toBe('2 / 3');
         expect(ui.controlLabel.text).toBe('Continuer');
@@ -177,11 +177,11 @@ describe('DialogueBox reading position', () => {
      */
     it('restarts the conversation when the phase changes even though the beat ids are identical', () => {
         const ui = mount();
-        ui.box.render(beats('intro', 'close'), t, 'synthesis');
+        ui.box.render(beats('intro', 'close'), t, 'synthesis', {});
         ui.click();
         expect(ui.counter.text).toBe('2 / 2');
 
-        ui.box.render(beats('intro', 'close'), t, 'review');
+        ui.box.render(beats('intro', 'close'), t, 'review', {});
 
         expect(ui.counter.text).toBe('1 / 2');
         expect(ui.body.text).toBe('Line intro.');
@@ -189,12 +189,12 @@ describe('DialogueBox reading position', () => {
 
     it('clamps the index when the same conversation arrives shorter', () => {
         const ui = mount();
-        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis');
+        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis', {});
         ui.click();
         ui.click();
         expect(ui.counter.text).toBe('3 / 3');
 
-        ui.box.render(beats('a'), t, 'synthesis');
+        ui.box.render(beats('a'), t, 'synthesis', {});
 
         // Never past the end, and never reading `undefined.text`.
         expect(ui.counter.text).toBe('1 / 1');
@@ -215,7 +215,7 @@ describe('DialogueBox reading position', () => {
 describe('DialogueBox.getCurrentBeat', () => {
     it('reports the beat on screen, and follows the reader', () => {
         const ui = mount();
-        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis');
+        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis', {});
         expect(ui.box.getCurrentBeat()?.speakerId).toBe('colleague-a');
 
         ui.click();
@@ -231,7 +231,7 @@ describe('DialogueBox.getCurrentBeat', () => {
     it('already reports the new beat when onAdvance fires', () => {
         const seen: (string | undefined)[] = [];
         const ui = mount(() => seen.push(ui.box.getCurrentBeat()?.speakerId));
-        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis');
+        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis', {});
 
         ui.click();
 
@@ -240,22 +240,22 @@ describe('DialogueBox.getCurrentBeat', () => {
 
     it('resets to the first beat when the conversation changes', () => {
         const ui = mount();
-        ui.box.render(beats('intro', 'close'), t, 'synthesis');
+        ui.box.render(beats('intro', 'close'), t, 'synthesis', {});
         ui.click();
         expect(ui.box.getCurrentBeat()?.speakerId).toBe('colleague-close');
 
-        ui.box.render(beats('intro', 'close'), t, 'review');
+        ui.box.render(beats('intro', 'close'), t, 'review', {});
 
         expect(ui.box.getCurrentBeat()?.speakerId).toBe('colleague-intro');
     });
 
     it('follows the defensive clamp when the same conversation arrives shorter', () => {
         const ui = mount();
-        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis');
+        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis', {});
         ui.click();
         ui.click();
 
-        ui.box.render(beats('a'), t, 'synthesis');
+        ui.box.render(beats('a'), t, 'synthesis', {});
 
         expect(ui.box.getCurrentBeat()?.speakerId).toBe('colleague-a');
     });
@@ -263,7 +263,7 @@ describe('DialogueBox.getCurrentBeat', () => {
     /** A scene that authors no conversation foregrounds nobody, and the owner has nothing to guard. */
     it('reports nothing when no conversation is authored', () => {
         const ui = mount();
-        ui.box.render([], t, 'context');
+        ui.box.render([], t, 'context', {});
 
         expect(ui.box.getCurrentBeat()).toBeUndefined();
     });
@@ -272,7 +272,7 @@ describe('DialogueBox.getCurrentBeat', () => {
 describe('DialogueBox completion', () => {
     it('labels the last beat as the end while it is still being read', () => {
         const ui = mount();
-        ui.box.render(beats('a', 'b'), t, 'synthesis');
+        ui.box.render(beats('a', 'b'), t, 'synthesis', {});
 
         ui.click();
 
@@ -290,7 +290,7 @@ describe('DialogueBox completion', () => {
      */
     it('responds observably to the click that completes a single-beat conversation', () => {
         const ui = mount();
-        ui.box.render(beats('only'), t, 'synthesis');
+        ui.box.render(beats('only'), t, 'synthesis', {});
 
         const fillBefore = ui.control.fill;
         const alphaBefore = ui.controlLabel.alpha;
@@ -318,7 +318,7 @@ describe('DialogueBox completion', () => {
         } as unknown as Scene;
         const box = new DialogueBox(scene, { x: 40, y: 118, width: 944, onComplete: () => { completions += 1; } });
         box.create();
-        box.render(beats('only'), t, 'synthesis');
+        box.render(beats('only'), t, 'synthesis', {});
 
         rects[1].handlers.pointerup?.();
         rects[1].handlers.pointerup?.();
@@ -330,7 +330,7 @@ describe('DialogueBox completion', () => {
     it('reports complete and takes no vertical space when no conversation is authored', () => {
         const ui = mount();
 
-        ui.box.render([], t, 'context');
+        ui.box.render([], t, 'context', {});
 
         expect(ui.box.isComplete()).toBe(true);
         // The owner lays out exactly as it would with no dialogue box at all.
@@ -340,11 +340,11 @@ describe('DialogueBox completion', () => {
 
     it('restarts as incomplete when a new conversation arrives after one finished', () => {
         const ui = mount();
-        ui.box.render(beats('only'), t, 'synthesis');
+        ui.box.render(beats('only'), t, 'synthesis', {});
         ui.click();
         expect(ui.box.isComplete()).toBe(true);
 
-        ui.box.render(beats('a', 'b'), t, 'review');
+        ui.box.render(beats('a', 'b'), t, 'review', {});
 
         expect(ui.box.isComplete()).toBe(false);
         expect(ui.counter.text).toBe('1 / 2');
@@ -355,7 +355,7 @@ describe('DialogueBox completion', () => {
 describe('DialogueBox input suppression', () => {
     it('drops the advance control while the overlaying reference book is open', () => {
         const ui = mount();
-        ui.box.render(beats('a', 'b'), t, 'synthesis');
+        ui.box.render(beats('a', 'b'), t, 'synthesis', {});
         expect(ui.control.interactive).toBe(true);
 
         ui.box.setInputEnabled(false);
@@ -371,7 +371,7 @@ describe('DialogueBox input suppression', () => {
         const ui = mount();
         ui.box.setInputEnabled(false);
 
-        ui.box.render(beats('a', 'b'), t, 'synthesis');
+        ui.box.render(beats('a', 'b'), t, 'synthesis', {});
 
         expect(ui.control.interactive).toBe(false);
     });
@@ -382,13 +382,13 @@ describe('DialogueBox input suppression', () => {
 
         // No display objects yet: every path is optional-chained rather than throwing. `create()` runs
         // inside dispatch -> notify, so a throw would advance the phase and break dispatch's contract.
-        expect(() => box.render(beats('a'), t, 'synthesis')).not.toThrow();
+        expect(() => box.render(beats('a'), t, 'synthesis', {})).not.toThrow();
         expect(() => box.setInputEnabled(false)).not.toThrow();
 
         box.create();
         box.destroy();
 
-        expect(() => box.render(beats('a'), t, 'synthesis')).not.toThrow();
+        expect(() => box.render(beats('a'), t, 'synthesis', {})).not.toThrow();
         expect(() => box.destroy()).not.toThrow();
     });
 });

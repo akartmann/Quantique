@@ -4,7 +4,14 @@ import type { PhaserStoreAdapter, ProposalKind } from '../PhaserStoreAdapter';
 import { uiTextStyle } from '../textStyles';
 import { AdvanceControl, ADVANCE_CONTROL_HEIGHT, advanceControlCentre, advanceControlLabelWrap } from '../ui/AdvanceControl';
 import { DialogueBox, dialogueAdvanceControlCentre } from '../ui/DialogueBox';
-import { ProposalChoice, proposalMarkerWrap, proposalTextWrapWidth } from '../ui/ProposalChoice';
+import {
+    ProposalChoice,
+    proposalMarkerWrap,
+    proposalTextWrapWidth,
+    PROPOSAL_CONTENT_INSET,
+    PROPOSAL_MARKER_GUTTER,
+    type ProposalChoiceGutters
+} from '../ui/ProposalChoice';
 import { advanceTransitionForPhase, resolveAdvanceRefusal } from './advanceView';
 import { CharacterStage } from './CharacterStage';
 import { presentColleagueIds, type StageCastMember } from './characterStageView';
@@ -35,9 +42,13 @@ import type { Colleague } from '../../../domain/cases/ColleagueCast';
  * line, the transient error on a refused click, and the localized projection lookups. What moved into
  * the widgets is presentation, and every guard moved with it.
  *
- * **It never reads the defensible-conclusion set.** That set belongs to the evaluator and the later
- * rival-lab critique; a surface that could see it could mark the "right" answer, which ADR-006 and
- * Story 1.11 AC3 both rule out.
+ * **It never reads which conclusion the evidence supports.** That belongs to the evaluator and the
+ * later rival-lab critique; a surface that could see it could mark the "right" answer, which ADR-006
+ * and Story 1.11 AC3 both rule out. `CharacterStageView.test.ts` sweeps this file at source level for
+ * the selector and field names that would carry it, which is why the terms themselves do not appear in
+ * this prose — the same trade `characterStageView.ts` makes, and for the same reason: an argument in a
+ * comment is not an assertion, and a sweep that has to make exceptions is a sweep that will make one
+ * too many.
  *
  * Construction is cheap and defensive on purpose: `create()` runs synchronously inside
  * `dispatch() → notify()`, so a throw here would advance the phase, skip every later subscriber, and
@@ -227,62 +238,120 @@ export const lastProposalCardProbe = (
  * clamp's whole failure mode rather than bounding it, and it is strictly better for the reader: the
  * thing they must click stops being the thing that gets squeezed.
  *
- * ## The card heights, measured rather than guessed
+ * ## The card height, measured rather than guessed
  *
- * From `ProposalChoice`'s own layout: attribution at y+10, body at y+32 wrapping to at most
- * `BODY_MAX_LINES` at 16px (≈42px), and — conclusion only — a stated limitation under the body's
- * measured height, at most `LIMITATION_MAX_LINES` at 13px (≈34px), plus a bottom inset. A prediction
- * card therefore needs ≈84px and a conclusion card ≈114px, and the two boards get different numbers
- * because they genuinely hold different content. Sharing one number is what made the cards 119px tall
- * on a board that needed 84.
+ * From `ProposalChoice`'s own layout: attribution at y+10 (≈20px, bottom at 30), and a body at y+32
+ * wrapping to at most `BODY_MAX_LINES` at 16px (≈42px, bottom at 74), plus a bottom inset — **84px**,
+ * and the same on both boards.
  *
- * ## What the room gets
+ * The inset was 14px and is 10. That is not tidying: the four cards are the largest single claim on
+ * this surface, and every pixel of inset is multiplied by four and taken straight out of the room. The
+ * 16px it returns is what lets the cast survive a **three-line** beat rather than only the one- and
+ * two-line beats today's French copy happens to produce — which is the standing rule on this surface,
+ * that a layout is measured against the copy it could be given and not the copy it has.
  *
- * Prediction: 768 − 16 − (4 × 92 + 3 × 8) = **360px**. Conclusion: 768 − 16 − (4 × 120 + 3 × 8) =
- * **240px**. The dialogue panel overlays the top of that, the figures stand on the floor line at the
- * bottom of it, and the guide line — which doubles as the refusal slot — sits just above the cards.
+ * The two boards used to differ, because a conclusion card also reserved two 13px lines for the stated
+ * limitation and so needed ≈116px. That reservation was the single most expensive thing on this
+ * surface: ≈112px of a 768px canvas that does not scroll, spent four times over to show three
+ * limitations nobody has chosen. It is what made the conclusion board unable to host the cast at all —
+ * see {@link proposalStageBand} for the arithmetic — and the 2.9 review is where that was measured
+ * rather than argued. The limitation now leaves the card entirely (`LimitationMode`) and the **chosen**
+ * proposal's limitation is written into the guide slot, which was already reserved and has nothing to
+ * say once a choice has been made.
+ *
+ * `proposalCardHeight` still takes the board kind even though both answers are the same today: the two
+ * boards genuinely hold different content and a later story may re-separate them, and one function with
+ * one number is cheaper to re-split than two constants that must be kept equal.
+ *
+ * ## What the room gets, at 768px with four cards
+ *
+ * Card block `4 × 84 + 3 × 10` = **366**. Reserved below the room: the guide band (40), its gap to the
+ * cards (8), and the room's own clearance above the guide (6) — **54**. So the band is
+ * `768 − 16 − 366 − 54` = **332px on both boards**, of which the dialogue panel overlays the top, and
+ * what is left has to clear the three-line plaque (49) plus the legibility floor (96). That holds for a
+ * beat of up to three wrapped lines on both boards and gives out at four, which is the documented trade
+ * rather than a bug: the cast is withheld entirely rather than drawn as four dots.
+ *
+ * **None of these numbers are asserted here.** `ColleagueGeometry.test.ts` drives the real functions at
+ * the real canvas size, because this arithmetic was wrong in the previous revision of this very comment
+ * — it used 92/120 for card heights that were 88/116, an 8px gap that was 10, and omitted the guide
+ * reservation entirely — and three thresholds elsewhere were justified against those wrong totals.
  *
  * ## And the cards get their full width back
  *
- * With the figures in the room rather than in the cards, `contentInset` and `markerGutter` return to
- * the widget's defaults and the text wrap goes back to **744px** from the 714 the column had cost.
- * The longest French claim gains about eighteen characters of headroom it did not have.
+ * With the figures in the room rather than in the cards, `contentInset` and `markerGutter` are the
+ * widget's defaults and the text wrap is **744px**.
  */
-export const PREDICTION_CARD_HEIGHT = 88;
-export const CONCLUSION_CARD_HEIGHT = 116;
-export const proposalCardHeight = (kind: ProposalKind): number =>
-    kind === 'conclusion' ? CONCLUSION_CARD_HEIGHT : PREDICTION_CARD_HEIGHT;
+export const PROPOSAL_CARD_HEIGHT = 84;
+export const proposalCardHeight = (_kind: ProposalKind): number => PROPOSAL_CARD_HEIGHT;
 
 /** Between the room's floor line and the guide line below it. */
 const STAGE_TO_CARDS_GAP = 6;
 /**
  * The band reserved between the room and the cards for the guide line.
  *
- * Reserved rather than measured, because the room is painted **once** in `create()` and the guide's
- * wrapped height is not known until the first `render` — and an unreserved guide is drawn straight
- * across the name plaques, which is what the first pass of this layout did. Two lines of French at
- * 15px, which is the taller of the two cases the shipped copy produces.
+ * Reserved rather than measured, because the room is painted **once** and the guide's wrapped height is
+ * not known until the first `render` — and an unreserved guide is drawn straight across the name
+ * plaques, which is what the first pass of this layout did. Two lines of French at 15px (≈39px), which
+ * is the taller of the cases the shipped copy produces at the guide's full-surface 944px wrap: the
+ * generic guide, a transient refusal, and — since the 2.9 review — the chosen proposal's stated
+ * limitation, whose longest French string wraps to two lines at that bound.
+ *
+ * **{@link GUIDE_TO_CARDS_GAP} is reserved alongside it and was not**, which is the defect the review
+ * found: the guide is bottom-anchored at `cardsTop − gap − height`, so it needs `40 + 8`, and reserving
+ * only 40 put a two-line French guide on the boundary with zero slack and a longer one across the
+ * plaques. {@link proposalStageBand} is the one place the two are added, so they cannot drift apart.
  */
 const GUIDE_BAND_HEIGHT = 40;
+
+/**
+ * The guide slot's own typography, exported so the French checks measure what the board draws.
+ *
+ * It carries three different things — the standing guide, a transient refusal, and (on the conclusion
+ * board) the chosen proposal's stated limitation — and all three are bounded by the same reserved two
+ * lines. The limitation is the long one, so it is the one the truncation guard actually turns on.
+ */
+export const BOARD_GUIDE_FONT_SIZE = 15;
+export const BOARD_GUIDE_WRAP_WIDTH = CARD_WIDTH;
+/** What {@link GUIDE_BAND_HEIGHT} reserves, stated as lines so a spec can count them. */
+export const BOARD_GUIDE_MAX_LINES = 2;
 /** Between the dialogue panel's measured bottom and the top of the space the figures may occupy. */
 const STAGE_UNDER_PANEL_GAP = 8;
 
 /**
+ * The gutters this board passes its cards — **one object, read by the widget and by the specs alike**.
+ *
+ * The indirection below only works if it resolves the same values the board actually hands the widget.
+ * It did not: `boardProposalTextWrapWidth` called `proposalTextWrapWidth(width)` with no gutter
+ * argument, so it returned the *widget's defaults* while claiming to be the board's resolved bound. The
+ * two agree today, which is precisely the state `SUBMIT_WIDTH` and `ADVANCE_CONTROL_WIDTH` were in
+ * right up until one of them moved and a spec went on measuring a rectangle nothing painted. Passing
+ * this constant to both the card and the helper is what makes the claim true rather than currently
+ * accurate (2.9 review).
+ */
+export const PROPOSAL_CARD_GUTTERS: ProposalChoiceGutters = Object.freeze({
+    contentInset: PROPOSAL_CONTENT_INSET,
+    markerGutter: PROPOSAL_MARKER_GUTTER
+});
+
+/**
  * The bound the board actually draws its card text at, exported so a spec reads it rather than the
  * widget's default.
- *
- * The two are the same number again now that the figure column is gone, which is exactly why this
- * indirection stays: `SUBMIT_WIDTH` and `ADVANCE_CONTROL_WIDTH` were also the same number, right up
- * until one of them moved and a spec went on measuring a rectangle nothing painted.
  */
-export const boardProposalTextWrapWidth = (): number => proposalTextWrapWidth(PROPOSAL_SURFACE_WIDTH);
-export const boardProposalMarkerWrap = (): number => proposalMarkerWrap();
+export const boardProposalTextWrapWidth = (): number =>
+    proposalTextWrapWidth(PROPOSAL_SURFACE_WIDTH, PROPOSAL_CARD_GUTTERS);
+export const boardProposalMarkerWrap = (): number =>
+    proposalMarkerWrap(PROPOSAL_CARD_GUTTERS.markerGutter);
 
 /**
  * The band of canvas the room occupies, measured up from the cards rather than down from the chrome.
  *
  * Total over the card count, so a case authoring three proposals gets a taller room rather than a gap
  * where a fourth would have been.
+ *
+ * The three reservations below the room are added in **one place** so the room's floor and the guide's
+ * bottom-anchored position cannot disagree: the guide band itself, the gap it is anchored above the
+ * cards by, and the room's clearance above it.
  */
 export const proposalStageBand = (
     kind: ProposalKind,
@@ -291,8 +360,35 @@ export const proposalStageBand = (
 ): Readonly<{ top: number; height: number }> => {
     const cards = Math.max(cardCount, 1);
     const cardsBlock = (cards * proposalCardHeight(kind)) + ((cards - 1) * CARD_GAP);
-    const floor = canvasHeight - CANVAS_BOTTOM_MARGIN - cardsBlock - GUIDE_BAND_HEIGHT - STAGE_TO_CARDS_GAP;
+    const belowRoom = GUIDE_BAND_HEIGHT + GUIDE_TO_CARDS_GAP + STAGE_TO_CARDS_GAP;
+    const floor = canvasHeight - CANVAS_BOTTOM_MARGIN - cardsBlock - belowRoom;
     return { top: 0, height: Math.max(0, floor) };
+};
+
+/**
+ * The band left for the room once the dialogue panel has covered the top of it.
+ *
+ * Pure and exported so a spec can drive the **real** geometry at the real card count and canvas size.
+ * It was inlined in a private method, and every staging test fabricated a band instead — which is how
+ * the conclusion board shipped unable to stage anybody at any panel height with a green suite
+ * (2.9 review). `ColleagueGeometry.test.ts` is what that omission cost.
+ *
+ * `panelBottom` is measured, and the control column is a floor under it: the panel no longer stacks
+ * below the column, so the room is the one thing that still has to clear both, and a figure's head
+ * drawn behind the submit control would be exactly the overlap the layout rules forbid.
+ */
+export const proposalStageBandBelowPanel = (
+    kind: ProposalKind,
+    canvasHeight: number,
+    cardCount: number,
+    panelBottom: number
+): Readonly<{ top: number; height: number }> => {
+    const band = proposalStageBand(kind, canvasHeight, cardCount);
+    const top = Math.min(
+        Math.max(panelBottom + STAGE_UNDER_PANEL_GAP, controlColumnBottom(kind) + STAGE_UNDER_PANEL_GAP),
+        band.top + band.height
+    );
+    return { top, height: Math.max(0, band.top + band.height - top) };
 };
 
 /** The horizontal extent the figures are spread across: the full proposal surface. */
@@ -324,6 +420,63 @@ const appearanceOf = (colleague: Colleague | undefined): FigureAppearance => res
     colleague?.portrait.kind === 'silhouette' ? colleague.portrait.figure : undefined
 );
 
+/**
+ * Who stands in the room, and how each of them is drawn — as a pure function over authored content.
+ *
+ * Extracted from `ColleagueRenderer.stageCast` because the integration test had **copied** it. A test
+ * that re-implements the thing it is testing asserts only that the copy agrees with itself: swapping
+ * the prediction proposals for the conclusion ones inside the private method broke nothing, because
+ * the private method was never executed. The copy had also quietly diverged where it mattered most —
+ * it resolved colleagues with a non-null assertion where production degrades — so the one path whose
+ * docstring warns that a throw would advance the phase had no coverage at all (2.9 review).
+ *
+ * Cheap and defensive, because `create()` runs synchronously inside `dispatch() → notify()`: a
+ * proposal whose `colleagueId` no longer resolves gets the same neutral accent its card stripe does and
+ * a stand-in label — never an exception.
+ */
+/**
+ * Which proposals a board attributes, in the order it draws them.
+ *
+ * One line, exported for one reason: it is the line the mutation test needs. With the board's cast
+ * resolution extracted but *this* still restated in the spec, swapping the two arrays inside the
+ * renderer would still have broken nothing — the copy would simply have agreed with itself one level
+ * up. Reading the same function is what makes "prediction is `thea, elias, marianne, samuel` and
+ * conclusion is `marianne, elias, thea, samuel`" an assertion about the board rather than about the
+ * spec's own arithmetic.
+ */
+export const boardProposerIds = (
+    caseDefinition: Readonly<{
+        predictionProposals: readonly Readonly<{ colleagueId: string }>[];
+        conclusionProposals: readonly Readonly<{ colleagueId: string }>[];
+    }>,
+    kind: ProposalKind
+): readonly string[] => (kind === 'prediction'
+    ? caseDefinition.predictionProposals
+    : caseDefinition.conclusionProposals).map(({ colleagueId }) => colleagueId);
+
+export const resolveStageCast = ({ colleagues, proposerIds, speakerIds, t }: Readonly<{
+    colleagues: readonly Colleague[];
+    /** In proposal order, which is the left-to-right reading order the two boards genuinely differ in. */
+    proposerIds: readonly string[];
+    speakerIds: readonly string[];
+    t: Translator;
+}>): readonly StageCastMember[] => presentColleagueIds({
+    proposerIds,
+    speakerIds,
+    castIds: colleagues.map(({ id }) => id)
+}).map((colleagueId) => {
+    const colleague = colleagues.find(({ id }) => id === colleagueId);
+    return {
+        colleagueId,
+        accentColor: accentOf(colleague),
+        // Canonical proper noun, and the role resolved through the i18n layer — the same pair the
+        // card's attribution line draws, so the plaque and the card cannot disagree.
+        name: colleague?.name ?? t('colleague.unattributedSpeaker'),
+        roleLabel: colleague ? t(`colleague.role.${colleague.role}`) : '',
+        appearance: appearanceOf(colleague)
+    };
+});
+
 type ProposalCard = Readonly<{ proposalId: string; choice: ProposalChoice }>;
 
 export class ColleagueRenderer {
@@ -345,7 +498,7 @@ export class ColleagueRenderer {
     /**
      * Shown in place of the guide line so a refused click is not silent, and — for the opposite case —
      * so a submission that draws no challenge is not silent either. The acknowledgement is deliberately
-     * presentation-only: the defensible branch of `theory.conclusionSubmitted` changes nothing in the
+     * presentation-only: the unchallenged branch of `theory.conclusionSubmitted` changes nothing in the
      * store, and AC3 pins that it must not, so saying so here is what keeps the control's success path
      * from reading as a dead button without moving the phase (2.5 review).
      *
@@ -394,7 +547,11 @@ export class ColleagueRenderer {
         // slot a refused click is answered in, so it belongs beside the thing that was clicked — and
         // moving it out of the top stack is part of what bought the room its height. It wraps against
         // the full surface here, because nothing shares its row.
-        this.guide = this.scene.add.text(CARD_LEFT, 0, '', uiTextStyle({ color: '#c7d7d9', fontSize: '15px', wordWrap: { width: CARD_WIDTH } }));
+        this.guide = this.scene.add.text(CARD_LEFT, 0, '', uiTextStyle({
+            color: '#c7d7d9',
+            fontSize: `${BOARD_GUIDE_FONT_SIZE}px`,
+            wordWrap: { width: BOARD_GUIDE_WRAP_WIDTH }
+        }));
         this.objects.push(this.heading, this.guide);
 
         if (this.kind === 'conclusion') {
@@ -434,30 +591,31 @@ export class ColleagueRenderer {
                 width: CARD_WIDTH,
                 height,
                 accentColor: this.accentFor(state, proposal.proposalId),
+                ...PROPOSAL_CARD_GUTTERS,
+                // The conclusion board draws the chosen proposal's limitation in the guide slot
+                // instead — see {@link guideText}. Passed explicitly on both boards so the mode is a
+                // stated property of the surface rather than something a prediction card gets away
+                // with because it authors no limitation to suppress.
+                limitationMode: this.kind === 'conclusion' ? 'suppressed' : 'in-card',
                 onChoose: () => this.chooseProposal(proposal.proposalId)
             });
             choice.create();
             this.cards.push({ proposalId: proposal.proposalId, choice });
         });
 
-        // **After the cards, deliberately** — and this is the one ordering decision on this surface
-        // that is not free. Creation order is the only depth mechanism these renderers use, and the
-        // figure column is reserved *inside* each card, out of its content inset. A card paints an
-        // opaque background across its whole width, column included, so a stage created first is a
-        // stage nobody can see: the figures were drawn, positioned and tweened correctly, and every
-        // one of them sat behind a rectangle. That is what a screenshot at 1280×720 found and what no
-        // assertion in this suite could have.
+        // **After the cards, deliberately.** Creation order is the only depth mechanism these
+        // renderers use, and the first pass of this layout created the stage first — which put every
+        // figure behind an opaque card background. The figures were resolved, positioned and tweened
+        // correctly the whole time and not one of them was visible. A screenshot at 1280×720 found
+        // that; no assertion in this suite could have.
         //
-        // Drawing them on top is safe for the two things depth usually threatens:
-        //
-        // - **Card text.** What protects it is the reserved inset, not the order. The column ends
-        //   exactly where the text begins ({@link PROPOSAL_CARD_GUTTERS}), so a figure has nothing to
-        //   overlap — and if a future geometry change made them overlap, the truncation guard and the
-        //   visible result would both say so immediately.
-        // - **Clicks.** Phaser hit-tests topmost-first among **interactive** objects only, and a
-        //   figure is never made interactive (see `CharacterStage.create`). An inert object above a
-        //   card cannot swallow the click that chooses it — which is precisely why that rule is a rule
-        //   and not a preference.
+        // It is safe on top because the figures do not share space with the cards at all any more:
+        // they stand in the room *above* the card block ({@link proposalStageBand}), and the room's
+        // floor is derived from the same card geometry the cards are laid out from, so the two cannot
+        // disagree about where one ends and the other begins. Clicks are safe for a second, independent
+        // reason — Phaser hit-tests topmost-first among **interactive** objects only, and a figure is
+        // never made interactive (see `CharacterStage.create`), so an inert object over a card could
+        // not swallow its click even if the geometry did overlap.
         //
         // Like `advanceControl`, the stage owns its display objects and releases them itself, so it is
         // deliberately **not** pushed onto `this.objects`.
@@ -473,7 +631,7 @@ export class ColleagueRenderer {
         // Reading the slot is what spends it: the message survives every repaint of the state it was
         // set against, and clears on the first render carrying a new one (AC5).
         const transient = this.transientGuide.read(state);
-        this.guide?.setText(transient?.text ?? t(this.kind === 'prediction' ? 'colleagues.guide' : 'theoryBoard.guide'));
+        this.guide?.setText(transient?.text ?? this.guideText(state, t));
         this.guide?.setColor(transient?.tone === 'error' ? '#f4d35e' : transient?.tone === 'notice' ? '#f7f4ef' : '#c7d7d9');
         this.submitLabel?.setText(t('theoryBoard.submit'));
         // Resolved from the **live** phase on every render, never captured: this one renderer hosts
@@ -531,32 +689,18 @@ export class ColleagueRenderer {
      * the beat speakers, and the whole cast are the same four people, so the derivation is not
      * observable today — it goes through the shared pure function anyway so 3.4 replaces one call.
      *
-     * Cheap and defensive, because `create()` runs synchronously inside `dispatch() → notify()`: a
-     * throw here would advance the phase, skip every later subscriber, and break `dispatch`'s `Result`
-     * contract (1.10 review). A proposal whose `colleagueId` no longer resolves gets the same
-     * `NEUTRAL_ACCENT` its card stripe does, and an empty name — never an exception.
+     * The resolution itself lives in {@link resolveStageCast}, which is pure and exported: this method
+     * is only the store lookup that feeds it. What that split buys is a test that drives the real rule
+     * instead of a copy of it.
      */
     private stageCast(state: AppState, t: Translator): readonly StageCastMember[] {
-        const authored = this.kind === 'prediction'
-            ? state.caseDefinition.predictionProposals
-            : state.caseDefinition.conclusionProposals;
         const scene = state.caseDefinition.scenarioScript.scenes.find(({ phase }) => phase === selectCasePhase(state));
 
-        return presentColleagueIds({
-            proposerIds: authored.map(({ colleagueId }) => colleagueId),
+        return resolveStageCast({
+            colleagues: state.caseDefinition.colleagues,
+            proposerIds: boardProposerIds(state.caseDefinition, this.kind),
             speakerIds: (scene?.dialogueBeats ?? []).map(({ speakerId }) => speakerId),
-            castIds: state.caseDefinition.colleagues.map(({ id }) => id)
-        }).map((colleagueId) => {
-            const colleague = state.caseDefinition.colleagues.find(({ id }) => id === colleagueId);
-            return {
-                colleagueId,
-                accentColor: accentOf(colleague),
-                // Canonical proper noun, and the role resolved through the i18n layer — the same pair
-                // the card's attribution line draws, so the plaque and the card cannot disagree.
-                name: colleague?.name ?? t('colleague.unattributedSpeaker'),
-                roleLabel: colleague ? t(`colleague.role.${colleague.role}`) : '',
-                appearance: appearanceOf(colleague)
-            };
+            t
         });
     }
 
@@ -572,22 +716,32 @@ export class ColleagueRenderer {
      * is what `speakerId` on the projection is for. A beat attributed to a colleague this build no
      * longer authors resolves to nobody, and the resolver foregrounds nobody rather than throwing.
      *
+     * **A finished conversation has no speaker.** `advance()` past the last beat sets `completed` and
+     * never moves the index, so `getCurrentBeat()` goes on returning the final beat forever — which
+     * held one colleague foregrounded and the other three at 55% opacity for the rest of the phase,
+     * long after anybody was talking. `isComplete()` exists for exactly this distinction and reading it
+     * restores the uniform neutral the resolver documents for "nobody speaking" (2.9 review).
+     *
      * The **selected** colleague goes in too, and that is what carries AC3 now that the figures stand
      * in a row rather than beside their own card: choosing a proposal brings its author forward. It is
      * the player's own choice reflected back, never an evaluation of it — nothing here can see which
      * conclusion the evidence supports, and `CharacterStageView.test.ts` asserts that at source level.
      */
-    private stageFigures(state: AppState): void {
+    private stageFigures(state: AppState, t: Translator): void {
         const selectedId = this.selectedId(state);
         const authored = this.kind === 'prediction'
             ? state.caseDefinition.predictionProposals
             : state.caseDefinition.conclusionProposals;
 
+        const speaking = this.dialogueBox !== undefined && !this.dialogueBox.isComplete();
+
         this.characterStage?.render({
             band: this.stageBand(),
             area: proposalStageArea(),
-            speakerColleagueId: this.dialogueBox?.getCurrentBeat()?.speakerId,
-            selectedColleagueId: authored.find(({ id }) => id === selectedId)?.colleagueId
+            speakerColleagueId: speaking ? this.dialogueBox?.getCurrentBeat()?.speakerId : undefined,
+            selectedColleagueId: authored.find(({ id }) => id === selectedId)?.colleagueId,
+            cast: this.stageCast(state, t),
+            t
         });
     }
 
@@ -602,12 +756,16 @@ export class ColleagueRenderer {
      * Once is enough because neither bound moves afterwards. The floor is derived from the card count,
      * which is fixed for a case; the ceiling is the panel's *first* measured bottom, and a later beat
      * that wraps one line further lowers the figures rather than the room.
+     *
+     * **The flag is set by the paint, not before it.** It used to latch first, so a first render whose
+     * band came out degenerate — a panel tall enough to fill it — painted nothing at all, and no later
+     * render ever retried even once the panel had shrunk back. `create` reports whether it composed,
+     * and only a composed room counts as painted (2.9 review).
      */
     private paintRoomOnce(): void {
         if (this.roomPainted || !this.decor) return;
-        this.roomPainted = true;
         const band = this.stageBand();
-        this.decor.create(this.scene.scale.width, band.top + band.height, band.top);
+        this.roomPainted = this.decor.create(this.scene.scale.width, band.top + band.height, band.top);
     }
 
     /**
@@ -618,18 +776,12 @@ export class ColleagueRenderer {
      * which is exactly the trade the inverted layout was for, and it costs the cards nothing.
      */
     private stageBand(): Readonly<{ top: number; height: number }> {
-        const band = proposalStageBand(this.kind, this.scene.scale.height, this.cards.length);
-        // Below the panel *and* below the control column: the panel no longer stacks under the column,
-        // so the room is the one thing that still has to clear both, and a figure's head drawn behind
-        // the submit control would be exactly the overlap the layout rules forbid.
-        const top = Math.min(
-            Math.max(
-                (this.dialogueBox?.getBottomY() ?? DIALOGUE_TOP) + STAGE_UNDER_PANEL_GAP,
-                controlColumnBottom(this.kind) + STAGE_UNDER_PANEL_GAP
-            ),
-            band.top + band.height
+        return proposalStageBandBelowPanel(
+            this.kind,
+            this.scene.scale.height,
+            this.cards.length,
+            this.dialogueBox?.getBottomY() ?? DIALOGUE_TOP
         );
-        return { top, height: Math.max(0, band.top + band.height - top) };
     }
 
     /**
@@ -649,6 +801,32 @@ export class ColleagueRenderer {
                 colleague.id,
                 colleague.portrait.kind === 'silhouette' ? colleague.portrait.accentColor : ''
             ]));
+    }
+
+    /**
+     * What the guide slot says when no transient message has claimed it.
+     *
+     * On the conclusion board a chosen proposal's **stated limitation** takes the slot, because the
+     * limitation left the card (`LimitationMode`) and this is where it went. The trade is deliberate
+     * and it is what let the cast stand on this board at all: reserving two 13px lines in each of four
+     * cards cost ≈112px of a surface with none to spare, to show three caveats attached to claims the
+     * player has not chosen. Shown here it sits directly above the cards, at the moment it is actually
+     * load-bearing — you are about to submit this claim, and this is what you would be conceding with
+     * it.
+     *
+     * The generic guide is what it replaces, and losing it is no loss: `theoryBoard.guide` says to
+     * choose a conclusion and then submit it, which has stopped being news by the time one is chosen.
+     * A refusal still outranks both — it is the answer to something the player just did.
+     */
+    private guideText(state: AppState, t: Translator): string {
+        const fallback = t(this.kind === 'prediction' ? 'colleagues.guide' : 'theoryBoard.guide');
+        if (this.kind !== 'conclusion') return fallback;
+        const selectedId = this.selectedId(state);
+        if (selectedId === undefined) return fallback;
+        const limitation = this.project(state).find(({ proposalId }) => proposalId === selectedId)?.limitation;
+        // A conclusion proposal whose limitation a degraded case no longer carries falls back rather
+        // than printing a label with nothing after it.
+        return limitation === undefined ? fallback : t('proposal.limitation', { limitation });
     }
 
     /** The accent is the one thing the localized projection does not carry, because it is not text. */
@@ -776,7 +954,7 @@ export class ColleagueRenderer {
         // Re-staged in the same pass, from the same measured geometry, so the room and the cards can
         // never disagree about where the floor is.
         this.paintRoomOnce();
-        this.stageFigures(state);
+        this.stageFigures(state, t);
     }
 
     /**
