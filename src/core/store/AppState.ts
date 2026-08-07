@@ -453,44 +453,20 @@ const reduceSourceInspection = (state: AppState, sourceId: string): Result<AppSt
     return { ok: true, value: freezeState({ ...state, inspectedSourceIds: [...state.inspectedSourceIds, sourceId], consultation: undefined, peerReview: undefined, rivalLabCritique: undefined }) };
 };
 
-const reducePredictionRecord = (state: AppState, prediction: string): Result<AppState> => {
-    const readiness = evaluateContextReadiness(state.caseDefinition, state.inspectedSourceIds);
-    if (readiness.status === 'incomplete') {
-        return failure('missing-contextual-sources', `Inspect ${readiness.missingArtifactLabels[0]} before recording a prediction.`);
-    }
-    const normalized = prediction.trim();
-    if (!normalized) return failure('invalid-prediction', 'Enter a tentative prediction before recording it.');
-    // The attribution survives exactly as long as it stays true. Editing a proposal's words drops it
-    // — otherwise the record would claim a colleague wrote text they did not, and the consistency
-    // check would reject it on load. Re-recording them *unchanged* keeps it: the DOM panel offers the
-    // chosen proposal's canonical text straight back in the textarea, so clearing unconditionally let
-    // "Record a prediction" silently un-choose a proposal without changing a single byte.
-    // Short-circuits on the ID: with nothing chosen there is no attribution to preserve, and the
-    // authored sets need never be consulted.
-    const chosen = state.selectedPredictionProposalId === undefined
-        ? undefined
-        : state.caseDefinition.predictionProposals.find(({ id }) => id === state.selectedPredictionProposalId);
-    return {
-        ok: true,
-        value: freezeState({
-            ...state,
-            prediction: normalized,
-            selectedPredictionProposalId: chosen?.text.en === normalized ? state.selectedPredictionProposalId : undefined,
-            consultation: undefined,
-            peerReview: undefined,
-            rivalLabCritique: undefined
-        })
-    };
-};
-
 /**
  * The chosen proposal's canonical `.en` text becomes `prediction`, because that field is what every
  * phase gate, saved record, and printed page already reads — `evaluatePredictionReadiness`,
  * `DecisionHistoryEntry`, and `validateCaseRecordForDefinition` among them. Writing the *active*
  * locale here would make a French player's saved record fail revalidation in English.
  *
- * The context gate is the same one `reducePredictionRecord` applies: the choice is a prediction by
- * another route, not a way around the sources.
+ * **This is now the only writer of `prediction`** (Story 2.12). The free-text `reducePredictionRecord`
+ * it used to share the field with is deleted along with its panel, and it took two rules with it: the
+ * `invalid-prediction` guard, which had nothing left to guard once every prediction comes from an
+ * authored proposal, and the "editing a proposal's words drops the attribution" rule, which was only
+ * ever needed because two writers could disagree about the same field.
+ *
+ * The context gate stays, and stays here: a choice is a prediction by another route, not a way around
+ * the sources.
  */
 const reducePredictionProposalChosen = (state: AppState, proposalId: string): Result<AppState> => {
     const proposal = state.caseDefinition.predictionProposals.find(({ id }) => id === proposalId);
@@ -518,31 +494,6 @@ const withTheory = (state: AppState, theory: TheoryBoardDraft): Result<AppState>
     ok: true,
     value: freezeState({ ...state, theory, consultation: undefined, peerReview: undefined, rivalLabCritique: undefined })
 });
-
-/**
- * The free-text counterpart of {@link reducePredictionRecord}'s clearing rule, for the conclusion —
- * and, the same way, it only clears when the text has actually stopped matching the chosen proposal.
- * Typing a character into the textarea and deleting it again must not cost the attribution.
- */
-const withHandWrittenTheory = (state: AppState, theory: TheoryBoardDraft): Result<AppState> => {
-    const chosen = state.selectedConclusionProposalId === undefined
-        ? undefined
-        : state.caseDefinition.conclusionProposals.find(({ id }) => id === state.selectedConclusionProposalId);
-    const keepsAttribution = chosen !== undefined
-        && chosen.claim.en === theory.conclusion
-        && chosen.limitation.en === theory.limitation;
-    return {
-        ok: true,
-        value: freezeState({
-            ...state,
-            theory,
-            selectedConclusionProposalId: keepsAttribution ? state.selectedConclusionProposalId : undefined,
-            consultation: undefined,
-            peerReview: undefined,
-            rivalLabCritique: undefined
-        })
-    };
-};
 
 /**
  * Records the choice, and only the choice. It deliberately does not advance the phase, evaluate
@@ -871,8 +822,6 @@ export const reduceAppState = (state: AppState, action: AppAction): Result<AppSt
             return reduceSaveComparisonNote(state, action.note);
         case 'source.inspected':
             return reduceSourceInspection(state, action.sourceId);
-        case 'prediction.recorded':
-            return reducePredictionRecord(state, action.prediction);
         case 'prediction.proposalChosen':
             return reducePredictionProposalChosen(state, action.proposalId);
         case 'theory.supportRunSelected':
@@ -883,10 +832,6 @@ export const reduceAppState = (state: AppState, action: AppAction): Result<AppSt
             return reduceTheorySupportSource(state, action.sourceId, true);
         case 'theory.supportSourceUnselected':
             return reduceTheorySupportSource(state, action.sourceId, false);
-        case 'theory.conclusionSet':
-            return withHandWrittenTheory(state, { ...state.theory, conclusion: action.conclusion });
-        case 'theory.limitationSet':
-            return withHandWrittenTheory(state, { ...state.theory, limitation: action.limitation });
         case 'theory.conclusionProposalChosen':
             return reduceTheoryConclusionProposalChosen(state, action.proposalId);
         case 'theory.conclusionSubmitted':

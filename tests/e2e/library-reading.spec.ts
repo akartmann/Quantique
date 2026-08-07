@@ -11,7 +11,9 @@ import {
     artifactAt,
     clickDesign,
     clickUntilScene,
+    enterTheLaboratory,
     expectActiveScene,
+    recordedSources,
     waitForBookToClose,
     waitForInputToSettle,
     waitForBookToOpen,
@@ -65,7 +67,9 @@ const readReference = async (page: Parameters<typeof clickDesign>[0], index: num
 
 test('reads both references and leaves the room, without touching a DOM control', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: en['boot.title'] })).toBeVisible();
+    // Subsumes the boot-title assertion this line used to carry: `enterTheLaboratory` waits on the same
+    // hydrated heading before it clicks, and the heading is gone once the frame is dismissed.
+    await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
     for (let index = 0; index < ARTIFACT_COUNT; index += 1) {
@@ -84,6 +88,7 @@ test('reads both references and leaves the room, without touching a DOM control'
 
 test('re-opens a reference already on the record, without refusing it', async ({ page }) => {
     await page.goto('/');
+    await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
     // AC2's "re-opening an already-inspected artifact is a no-op success, never an error the surface
@@ -134,6 +139,7 @@ test('reveals and dismisses the reference summary from the book itself', async (
     page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
 
     await page.goto('/');
+    await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
     await readReference(page, 1);
@@ -173,12 +179,29 @@ test('opens and closes the reference book under reduced motion', async ({ page }
     // walk with none of the timing the animated path needs.
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
+    await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
-    // Every reference but the last, opened and closed with no animation wait at all.
+    /**
+     * Every reference but the last, opened and closed with no animation wait at all.
+     *
+     * The retry is **not** an animation wait, and adding one would defeat this test: under `reduce`
+     * there is no tween, and running the walk without the animated path's timing is the whole subject.
+     * What it recovers from is a click Phaser dropped because it had not yet processed the previous
+     * frame — after which the room correctly holds a reader who has not read everything, and the failure
+     * surfaces at the exit below as a room that refuses to be left, five seconds of bounded retry that
+     * could never help, and no sign of the click that was actually lost. That was this suite's most
+     * frequent flake under three-engine concurrency, and it predates Story 2.12.
+     *
+     * The condition is the record's own count of readings, so a shelf that stopped recording still
+     * fails — here, where the cause is.
+     */
     for (let index = 0; index < ARTIFACT_COUNT - 1; index += 1) {
-        await clickDesign(page, artifactAt(index));
-        await clickDesign(page, BOOK_CLOSE);
+        await expect(async () => {
+            await clickDesign(page, artifactAt(index));
+            await clickDesign(page, BOOK_CLOSE);
+            await expect(recordedSources(page)).toHaveCount(index + 1, { timeout: 1_000 });
+        }).toPass({ timeout: 15_000, intervals: [150, 300, 600, 900] });
     }
 
     // The last is left open, and the way out — unlocked by the readings above — must be covered by it.
@@ -188,17 +211,27 @@ test('opens and closes the reference book under reduced motion', async ({ page }
     // `waitForInputToSettle` is not an animation wait — under `reduce` there is no tween to wait out,
     // which is the whole point of this test. It is the two frames Phaser needs to apply the hit-area
     // change, without which the next click races the suppression it is meant to observe.
-    await clickDesign(page, artifactAt(ARTIFACT_COUNT - 1));
+    await expect(async () => {
+        await clickDesign(page, artifactAt(ARTIFACT_COUNT - 1));
+        await expect(recordedSources(page)).toHaveCount(ARTIFACT_COUNT, { timeout: 1_000 });
+    }).toPass({ timeout: 15_000, intervals: [150, 300, 600, 900] });
     await waitForInputToSettle(page);
     await clickDesign(page, LEAVE_THE_ROOM);
     await expectActiveScene(page, 'Library');
 
     await clickDesign(page, BOOK_CLOSE);
+    // The same two frames the open needed, for the same reason and stated once above: closing hands the
+    // room's hit areas back, and Phaser applies that on its next pass. `clickUntilScene` retries, but a
+    // first click inside that window is a click the room legitimately swallows — and on Firefox, where
+    // frames are longer, it was landing there often enough to exhaust the retry (Story 2.12; the flake
+    // predates this story and reproduces on its baseline).
+    await waitForInputToSettle(page);
     await clickUntilScene(page, LEAVE_THE_ROOM, 'Colleagues');
 });
 
 test('refuses to leave the room with nothing read, and stays where it was', async ({ page }) => {
     await page.goto('/');
+    await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
     // The control is live, the click reaches it, and the router stays put. Whether the refusal also
@@ -212,6 +245,7 @@ test('refuses to leave the room with nothing read, and stays where it was', asyn
 
 test('does not let a click meant for the reference book leave the room underneath it', async ({ page }) => {
     await page.goto('/');
+    await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
     // Every reference is read first, so the advance would otherwise succeed — which is what makes this

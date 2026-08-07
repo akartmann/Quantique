@@ -3,56 +3,51 @@ import { expect, test } from '@playwright/test';
 
 import { en } from '../../src/core/i18n/locales/en';
 
-test('has no automated accessibility violations in the boot shell, Curated Record, notebook comparison, or exposed Theory Board', async ({ page }) => {
+/**
+ * Axe over the surfaces that still exist (Story 2.12, §Spec fallout).
+ *
+ * **Reduced, not deleted.** ADR-008 de-scoped accessibility acceptance as a release gate, and the
+ * project rule that followed it is explicit: keep the existing a11y specs, add no new parity
+ * assertions, and delete none without saying what covers them now. What this file used to scan was
+ * eight DOM panels; all eight are gone, and with them the eight `include()` calls. What is left is
+ * everything that still ships outside the canvas — the boot frame, the facilitator disclosure, and
+ * ADR-007's printable record — and every one of them is scanned here.
+ *
+ * The results are **supporting evidence only** and must never be recorded as a gate in
+ * `docs/validation/young-technical-evidence.md`.
+ *
+ * The canvas itself is deliberately not scanned. Axe reads the accessibility tree, a `<canvas>` has
+ * none, and asserting that an element with no semantics has no semantic violations is the decorative
+ * kind of check this project's testing rules single out.
+ */
+test('has no automated accessibility violations in the surfaces that remain outside the canvas', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('button', { name: 'Enter laboratory' })).toBeVisible();
+    await expect(page.getByRole('button', { name: en['boot.enter'] })).toBeVisible();
 
-    const results = await new AxeBuilder({ page }).include('#boot-shell').analyze();
+    const bootShell = await new AxeBuilder({ page }).include('#boot-shell').analyze();
+    expect(bootShell.violations).toEqual([]);
 
-    expect(results.violations).toEqual([]);
+    // ADR-007's portable record, mounted on every normal-route session and the one non-Phaser surface
+    // the architecture keeps. It is a projection: it dispatches nothing, so there is nothing to drive
+    // before scanning it.
+    await expect(page.getByRole('article', { name: en['print.ariaLabel'] })).toBeAttached();
+    const printRecord = await new AxeBuilder({ page }).include('.case-record-print-view').analyze();
+    expect(printRecord.violations).toEqual([]);
+});
 
-    const curatedRecord = page.getByRole('region', { name: 'Curated Record' });
-    await curatedRecord.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' }).click();
-    const curatedRecordResults = await new AxeBuilder({ page }).include('.curated-record').analyze();
+/**
+ * The reduced-motion guard, which survives the a11y de-scope.
+ *
+ * It is the retained no-flashing / photosensitivity requirement rather than an accessibility-parity
+ * assertion, and `project-context.md` names it as a standing requirement in as many words. Asserted
+ * where it is observable: the routed scene really starts under `reduce`, so the boot path does not
+ * depend on an animation that never runs.
+ */
+test('boots and routes under prefers-reduced-motion', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
 
-    expect(curatedRecordResults.violations).toEqual([]);
-
-    const contextPredictionResults = await new AxeBuilder({ page }).include('.case-context-prediction').analyze();
-
-    expect(contextPredictionResults.violations).toEqual([]);
-
-    const recordObservation = page.getByRole('button', { name: 'Record prepared observation' });
-    await recordObservation.click();
-    await recordObservation.click();
-    await page.getByRole('checkbox', { name: 'Select Observation 1 for comparison' }).check();
-    await page.getByRole('checkbox', { name: 'Select Observation 2 for comparison' }).check();
-
-    const notebookResults = await new AxeBuilder({ page })
-        .include('.measurement-notebook')
-        .include('.run-comparison')
-        .analyze();
-
-    expect(notebookResults.violations).toEqual([]);
-
-    await curatedRecord.getByRole('button', { name: 'Inspect Opticks reference' }).click();
-    const theoryBoardResults = await new AxeBuilder({ page }).include('.theory-board').analyze();
-
-    expect(theoryBoardResults.violations).toEqual([]);
-
-    const reviewSurfaceResults = await new AxeBuilder({ page }).include('.review-panel').analyze();
-
-    expect(reviewSurfaceResults.violations).toEqual([]);
-
-    const recognitionResults = await new AxeBuilder({ page }).include('.inquiry-recognition-panel').analyze();
-
-    expect(recognitionResults.violations).toEqual([]);
-
-    const portabilityResults = await new AxeBuilder({ page })
-        .include('.case-progress-panel')
-        .include('.case-record-print-view')
-        .analyze();
-
-    expect(portabilityResults.violations).toEqual([]);
+    await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', 'Library');
 });
 
 /**

@@ -228,17 +228,84 @@ export const caseFileCloseControlCentre = (
     return Object.freeze({ x: x + (width / 2), y: y + (height / 2) });
 };
 
-/** A refused pin, a refused request, a saved revision — answered beside the way out. */
-export const caseFileStatusBand = (canvasWidth: number, canvasHeight: number): CaseFileRect => {
-    const close = caseFileCloseControlBand(canvasWidth, canvasHeight);
-    const left = close.x + close.width + CASE_FILE_BAND_GAP;
+/**
+ * The three things a player can do with the record itself (Story 2.12, Task 2 / AC3).
+ *
+ * They are here, in the bottom row beside the way out, because the case file **is** the record: the
+ * left column is the observations and references it holds, and exporting, importing or printing it is
+ * an act on the whole thing rather than on a row. `CaseProgressPanel` owned all three and is deleted;
+ * ADR-007's print *view* was retained by the epic's AC1 with nothing left to open it, which is the gap
+ * D1 names.
+ *
+ * ADR-001 is not strained by this (D2). ADR-007 makes the print/export **surface** the sole non-Phaser
+ * exemption and says that surface dispatches nothing; it says nothing about the trigger, and a canvas
+ * control calling an adapter is the same shape as the bench calling `PhaserStoreAdapter`.
+ *
+ * The row spends the width left after the close control exactly, so the three cannot drift apart from
+ * the panel edge as the margin changes.
+ */
+export const CASE_FILE_RECORD_CONTROL_COUNT = 3;
+
+const recordRowLeft = (): number => innerLeft() + CASE_FILE_CLOSE_WIDTH + CASE_FILE_BAND_GAP;
+
+/**
+ * Floored, so the row lands on whole pixels.
+ *
+ * The remainder — never more than {@link CASE_FILE_RECORD_CONTROL_COUNT} − 1 px — is left as air at the
+ * right-hand end rather than absorbed by the last control, which would make one of three visibly wider
+ * for a reason nothing on screen explains.
+ */
+export const caseFileRecordControlWidth = (canvasWidth: number): number => Math.floor(
+    (innerLeft() + innerWidth(canvasWidth) - recordRowLeft()
+        - ((CASE_FILE_RECORD_CONTROL_COUNT - 1) * CASE_FILE_ACTION_GAP)) / CASE_FILE_RECORD_CONTROL_COUNT
+);
+
+export const caseFileRecordControlBand = (
+    index: number,
+    canvasWidth: number,
+    canvasHeight: number
+): CaseFileRect => {
+    const width = caseFileRecordControlWidth(canvasWidth);
     return Object.freeze({
-        x: left,
-        y: close.y,
-        width: Math.max(1, innerLeft() + innerWidth(canvasWidth) - left),
-        height: close.height
+        x: recordRowLeft() + (index * (width + CASE_FILE_ACTION_GAP)),
+        y: caseFileCloseControlBand(canvasWidth, canvasHeight).y,
+        width,
+        height: CASE_FILE_CLOSE_HEIGHT
     });
 };
+
+export const caseFileRecordControlCentre = (
+    index: number,
+    canvasWidth: number,
+    canvasHeight: number
+): Readonly<{ x: number; y: number }> => {
+    const { x, y, width, height } = caseFileRecordControlBand(index, canvasWidth, canvasHeight);
+    return Object.freeze({ x: x + (width / 2), y: y + (height / 2) });
+};
+
+/** The bound a record-action label wraps to — fixed height, so it must fit one French line. */
+export const caseFileRecordControlLabelWrap = (canvasWidth: number): number =>
+    caseFileRecordControlWidth(canvasWidth) - (2 * CASE_FILE_ACTION_PADDING);
+
+/**
+ * How many lines the status line is given.
+ *
+ * **Two, on its own band, spanning the panel** (Story 2.12). It used to be a single 36px line squeezed
+ * beside the way out, and the 2.11 review had already flagged that it renders arbitrary
+ * `selectLocalizedError` output into it — a French `completion-timestamp-not-later` is 121 characters.
+ * The record row now occupies the space it was borrowing, so rather than shrink it to nothing it moved
+ * above the row and got the width it needed all along.
+ */
+export const CASE_FILE_STATUS_LINES = 2;
+export const CASE_FILE_STATUS_HEIGHT = CASE_FILE_STATUS_LINES * caseFileLineHeight(CASE_FILE_META_FONT_SIZE);
+
+/** A refused pin, a refused request, a saved revision, a failed export — answered above the way out. */
+export const caseFileStatusBand = (canvasWidth: number, canvasHeight: number): CaseFileRect => Object.freeze({
+    x: innerLeft(),
+    y: caseFileCloseControlBand(canvasWidth, canvasHeight).y - CASE_FILE_ACTION_GAP - CASE_FILE_STATUS_HEIGHT,
+    width: innerWidth(canvasWidth),
+    height: CASE_FILE_STATUS_HEIGHT
+});
 
 const contentTop = (canvasWidth: number): number => {
     const guide = caseFileGuideBand(canvasWidth);
@@ -246,7 +313,7 @@ const contentTop = (canvasWidth: number): number => {
 };
 
 const contentBottom = (canvasWidth: number, canvasHeight: number): number =>
-    caseFileCloseControlBand(canvasWidth, canvasHeight).y - CASE_FILE_BAND_GAP;
+    caseFileStatusBand(canvasWidth, canvasHeight).y - CASE_FILE_BAND_GAP;
 
 const leftColumnWidth = (canvasWidth: number): number =>
     innerWidth(canvasWidth) - CASE_FILE_COLUMN_GAP - CASE_FILE_RIGHT_COLUMN_WIDTH;
@@ -444,17 +511,89 @@ export const caseFileRequestControlCentre = (canvasWidth: number): Readonly<{ x:
 export const caseFileSaveControlCentre = (canvasWidth: number): Readonly<{ x: number; y: number }> =>
     centreOf(caseFileSaveControlBand(canvasWidth));
 
+// --- The right column, in the phases peer review is not up: the consultation ----------------------------
+
+/**
+ * The consultation, in the band the peer-review pane occupies in `review` (Story 2.12, D4).
+ *
+ * ## Why the same band, and not one of its own
+ *
+ * Measured. The right column runs from {@link caseFileReadinessBand}'s bottom to the content floor —
+ * 224px at 1024×768 — and the peer-review pane already spends 210 of it. There is no second band. But
+ * `renderPeerReview` hides its whole pane outside `review`, so in `synthesis` that band is empty, and
+ * the two panes are the same question asked of different colleagues at different moments: the
+ * consultation points at what the draft is still missing, the peer review answers a draft already put
+ * up. Only one of them can be live, so only one of them needs the room.
+ *
+ * ## Why it is taller than the peer-review reserve
+ *
+ * The consultation is four authored blocks — `nextStep` plus FR22's three progressive-help layers — and
+ * the longest shipped French `technicalDetail` is 100 characters against
+ * {@link caseFileRightTextWrap}. Eight lines is the honest worst case for four two-line blocks, and the
+ * band is defined as *the rest of the column* rather than as a number, with
+ * {@link CASE_FILE_CONSULTATION_MIN_HEIGHT} as the floor {@link caseFileContentFits} enforces. Stating a
+ * height here and hoping it held is the reserve-that-cannot-hold-its-content defect the 2.11 review
+ * found sixteen times.
+ */
+export const CASE_FILE_CONSULTATION_LINES = 8;
+export const CASE_FILE_CONSULTATION_MIN_HEIGHT = CASE_FILE_SECTION_HEIGHT + CASE_FILE_TITLE_GAP
+    + CASE_FILE_ACTION_HEIGHT + CASE_FILE_ACTION_GAP
+    + (CASE_FILE_CONSULTATION_LINES * caseFileLineHeight(CASE_FILE_META_FONT_SIZE));
+
+export const caseFileConsultationBand = (canvasWidth: number, canvasHeight: number): CaseFileRect => {
+    const readiness = caseFileReadinessBand(canvasWidth);
+    const y = readiness.y + readiness.height + CASE_FILE_BAND_GAP;
+    return Object.freeze({
+        x: readiness.x,
+        y,
+        width: CASE_FILE_RIGHT_COLUMN_WIDTH,
+        height: Math.max(0, contentBottom(canvasWidth, canvasHeight) - y)
+    });
+};
+
+/** The control that asks for one, at the top of its band — the peer-review pane's own shape. */
+export const caseFileConsultControlBand = (canvasWidth: number, canvasHeight: number): CaseFileRect => {
+    const band = caseFileConsultationBand(canvasWidth, canvasHeight);
+    return Object.freeze({
+        x: band.x,
+        y: band.y + CASE_FILE_SECTION_HEIGHT + CASE_FILE_TITLE_GAP,
+        width: CASE_FILE_ACTION_WIDTH,
+        height: CASE_FILE_ACTION_HEIGHT
+    });
+};
+
+export const caseFileConsultControlCentre = (
+    canvasWidth: number,
+    canvasHeight: number
+): Readonly<{ x: number; y: number }> => centreOf(caseFileConsultControlBand(canvasWidth, canvasHeight));
+
+/** What the authored guidance is read in, under the control that asked for it. */
+export const caseFileConsultationTextBand = (canvasWidth: number, canvasHeight: number): CaseFileRect => {
+    const band = caseFileConsultationBand(canvasWidth, canvasHeight);
+    const control = caseFileConsultControlBand(canvasWidth, canvasHeight);
+    const y = control.y + control.height + CASE_FILE_ACTION_GAP;
+    return Object.freeze({
+        x: band.x,
+        y,
+        width: band.width,
+        height: Math.max(0, band.y + band.height - y)
+    });
+};
+
 /**
  * The floor the tallest column reaches, so a test can prove the whole overlay fits above the way out.
  *
  * Derived from the two columns rather than stated, because which one is taller is a consequence of
- * their reserves and not something to be written down twice.
+ * their reserves and not something to be written down twice. The consultation band is deliberately
+ * **not** in this maximum: it is defined as the remainder of its own column, so including it would make
+ * the comparison tautological. {@link caseFileContentFits} checks it against its own reserve instead.
  */
 export const caseFileContentFloor = (canvasWidth: number): number => Math.max(
     caseFileSourcesBand(canvasWidth).y + caseFileSourcesBand(canvasWidth).height,
     caseFilePeerReviewBand(canvasWidth).y + caseFilePeerReviewBand(canvasWidth).height
 );
 
-/** Whether the reserves fit between the guide and the way out on this canvas. */
+/** Whether the reserves fit between the guide and the status line on this canvas. */
 export const caseFileContentFits = (canvasWidth: number, canvasHeight: number): boolean =>
-    caseFileContentFloor(canvasWidth) <= contentBottom(canvasWidth, canvasHeight);
+    caseFileContentFloor(canvasWidth) <= contentBottom(canvasWidth, canvasHeight)
+    && caseFileConsultationBand(canvasWidth, canvasHeight).height >= CASE_FILE_CONSULTATION_MIN_HEIGHT;

@@ -7,7 +7,46 @@ import {
     boardDialogueAdvanceControlCentre,
     lastProposalCardProbe
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
-import { DESIGN_HEIGHT, DESIGN_WIDTH, canvas, clickDesign } from './canvasHelpers';
+import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
+import { libraryAdvanceControlCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
+import { en } from '../../src/core/i18n/locales/en';
+import { BOOT_NOTICE_MS } from '../../src/ui/BootShell';
+import {
+    ARTIFACT_COUNT,
+    DESIGN_HEIGHT,
+    DESIGN_WIDTH,
+    artifactAt,
+    canvas,
+    clickDesign,
+    clickUntilScene,
+    enterTheLaboratory,
+    waitForBookToClose,
+    waitForBookToOpen
+} from './canvasHelpers';
+
+/**
+ * Reaches the colleague board with canvas clicks only (Story 2.12).
+ *
+ * The context gate used to be satisfied through the retired `CuratedRecord` panel's inspect buttons and
+ * `CaseContextAndPrediction`'s "Continue to prediction". Both are deleted; the reading room and its
+ * advance control are what a player has.
+ */
+const reachTheColleagues = async (page: import('@playwright/test').Page): Promise<void> => {
+    for (let index = 0; index < ARTIFACT_COUNT; index += 1) {
+        await clickDesign(page, artifactAt(index));
+        await waitForBookToOpen(page);
+        await clickDesign(page, bookCloseControlCentre());
+        await waitForBookToClose(page);
+    }
+    await clickUntilScene(page, libraryAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT), 'Colleagues');
+};
+
+/** What the retained printable record says the prediction is — the store field, projected. */
+const recordedPrediction = (page: import('@playwright/test').Page) =>
+    page.getByRole('article', { name: en['print.ariaLabel'] })
+        .locator('section')
+        .filter({ has: page.getByRole('heading', { name: en['print.prediction.heading'], exact: true }) })
+        .getByRole('definition');
 
 /**
  * AC1's advance control, exercised on the canvas — the only place it can be.
@@ -61,19 +100,27 @@ const panelShot = async (page: import('@playwright/test').Page): Promise<Buffer>
 
 test('advances the authored conversation on the canvas without touching the investigation', async ({ page }) => {
     await page.goto('/');
+    await enterTheLaboratory(page);
 
-    // The DOM record is used only to satisfy the context gate. It no longer opens anything: Story 2.8
-    // retired the always-on book overlay, so this panel records the inspection and draws nothing over
-    // the canvas. The `clickDesign(BOOK_CLOSE)` that used to follow was deleted with it — with no book
-    // to dismiss, that click would land on live canvas at (512, 678), and a stray click on a proposal
-    // board is exactly the kind of side effect the 2.7 review called out.
-    await page.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' }).click();
-    await page.getByRole('button', { name: 'Inspect Opticks reference' }).click();
-    await page.getByRole('button', { name: 'Continue to prediction' }).click();
-    await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', 'Colleagues');
+    await reachTheColleagues(page);
 
-    const prediction = page.getByLabel('Tentative prediction');
-    await expect(prediction).toHaveValue('');
+    // The record says no prediction is chosen yet. Read from ADR-007's retained print view, which
+    // replaced the deleted context panel's textarea as the only DOM projection of the store.
+    const prediction = recordedPrediction(page);
+    await expect(prediction).toHaveText(en['print.prediction.empty']);
+
+    /**
+     * The entry notice has expired before the first pixel is compared.
+     *
+     * This is the only spec in the suite that compares canvas pixels, and `page.screenshot` captures the
+     * *composited page* — so anything the browser draws over the clip band is in the shot. The entry
+     * confirmation is a fixed bar across the top of the viewport that clears itself after
+     * `BOOT_NOTICE_MS`, and the dialogue band sits under it: without this wait, a shot taken while it
+     * was up and a shot taken after it went differed, and the "nothing changed yet" assertion below
+     * failed on firefox and webkit while passing on the faster chromium.
+     */
+    await expect(page.locator('#boot-status')).toBeEmpty({ timeout: BOOT_NOTICE_MS + 2_000 });
+
     const firstBeat = await panelShot(page);
 
     // A click that misses the control must not satisfy the repaint assertion below, so prove the shot is
@@ -88,16 +135,14 @@ test('advances the authored conversation on the canvas without touching the inve
     }).toPass();
     // And advancing is not choosing. The advance control sits above the cards, so a click falling
     // through to one — or a card whose hit area still covered the panel — would adopt a proposal here.
-    await expect(prediction).toHaveValue('');
+    await expect(prediction).toHaveText(en['print.prediction.empty']);
 });
 
 test('keeps choosing a proposal working after the conversation has moved the cards', async ({ page }) => {
     await page.goto('/');
+    await enterTheLaboratory(page);
 
-    await page.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' }).click();
-    await page.getByRole('button', { name: 'Inspect Opticks reference' }).click();
-    await page.getByRole('button', { name: 'Continue to prediction' }).click();
-    await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', 'Colleagues');
+    await reachTheColleagues(page);
 
     // Advance first, so the cards have been re-laid-out at least once before anything is clicked.
     await clickDesign(page, ADVANCE);
@@ -107,13 +152,13 @@ test('keeps choosing a proposal working after the conversation has moved the car
     // is the observable proof a card was hit.
     await clickDesign(page, CARD);
 
-    const prediction = page.getByLabel('Tentative prediction');
-    await expect(prediction).not.toHaveValue('');
+    const prediction = recordedPrediction(page);
+    await expect(prediction).not.toHaveText(en['print.prediction.empty']);
     // Adopted verbatim from the authored set, not blended or partially written.
     const authored = await page.evaluate(async () => {
         const response = await fetch('/cases/young-interference/case.json');
         const definition = await response.json() as { predictionProposals: { text: { en: string } }[] };
         return definition.predictionProposals.map(({ text }) => text.en);
     });
-    expect(authored).toContain(await prediction.inputValue());
+    expect(authored).toContain((await prediction.textContent())?.trim());
 });

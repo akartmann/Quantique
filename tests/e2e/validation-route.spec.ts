@@ -1,7 +1,20 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import {
+    PROGRESS_DATABASE_NAME,
+    PROGRESS_DATABASE_VERSION,
+    PROGRESS_STORE_NAME
+} from '../../src/adapters/persistence/IndexedDbRepository';
+import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
 import { en } from '../../src/core/i18n/locales/en';
 import { fr } from '../../src/core/i18n/locales/fr';
+import {
+    artifactAt,
+    clickDesign,
+    enterTheLaboratory,
+    waitForBookToClose,
+    waitForBookToOpen
+} from './canvasHelpers';
 
 /**
  * AC4: the moderated validation route grants Young access without touching campaign locks or player
@@ -18,8 +31,17 @@ import { fr } from '../../src/core/i18n/locales/fr';
 
 const YOUNG_CASE_ID = 'young-interference';
 
-/** The `if (repository)` gate in `main.ts` is what keeps both of these off the validation route. */
-const PROGRESS_REGION = 'Save, export, import, and print';
+/**
+ * The retained printable record (ADR-007), which the `if (repository)` gate in `main.ts` mounts on the
+ * normal route and not on the validation route.
+ *
+ * It is the last of the two surfaces this file used to check for. The other — the progress panel — is
+ * deleted, and asserting its absence became true on every route in the same commit, which is precisely
+ * the "an assertion that is true everywhere proves nothing" AC5 names. So the absence below is always
+ * paired with the **presence** of the same surface on the normal route: one of the two has to fail if
+ * the gate stops working, whichever way it breaks.
+ */
+const printableRecord = (page: Page) => page.getByRole('article', { name: en['print.ariaLabel'] });
 
 const expectActiveScene = async (page: Page, sceneKey: string): Promise<void> => {
     await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', sceneKey);
@@ -36,23 +58,23 @@ const expectActiveScene = async (page: Page, sceneKey: string): Promise<void> =>
  */
 const readStoredYoungRecord = (page: Page): Promise<string | undefined> =>
     page.evaluate(
-        (caseId) =>
+        ({ caseId, databaseName, databaseVersion, storeName }) =>
             new Promise<string | undefined>((resolve, reject) => {
-                const request = indexedDB.open('quantique-progress', 1);
+                const request = indexedDB.open(databaseName, databaseVersion);
                 request.onupgradeneeded = () => {
-                    if (!request.result.objectStoreNames.contains('case-records')) {
-                        request.result.createObjectStore('case-records');
+                    if (!request.result.objectStoreNames.contains(storeName)) {
+                        request.result.createObjectStore(storeName);
                     }
                 };
                 request.onerror = () => reject(request.error ?? new Error('IndexedDB open failed.'));
                 request.onsuccess = () => {
                     const database = request.result;
-                    if (!database.objectStoreNames.contains('case-records')) {
+                    if (!database.objectStoreNames.contains(storeName)) {
                         database.close();
                         resolve(undefined);
                         return;
                     }
-                    const read = database.transaction('case-records', 'readonly').objectStore('case-records').get(caseId);
+                    const read = database.transaction(storeName, 'readonly').objectStore(storeName).get(caseId);
                     read.onsuccess = () => {
                         const stored: unknown = read.result;
                         database.close();
@@ -64,24 +86,46 @@ const readStoredYoungRecord = (page: Page): Promise<string | undefined> =>
                     };
                 };
             }),
-        YOUNG_CASE_ID
+        {
+            caseId: YOUNG_CASE_ID,
+            databaseName: PROGRESS_DATABASE_NAME,
+            databaseVersion: PROGRESS_DATABASE_VERSION,
+            storeName: PROGRESS_STORE_NAME
+        }
     );
 
 /**
- * Seeds a real saved record through the only save affordance the product currently has. The progress
- * panel is retiring, but its presence on the normal route and absence on the validation route is
- * precisely the isolation contract under test — and the *proof* below reads IndexedDB directly, so it
- * survives the panel's deletion even though the seeding step will need a new home.
+ * Seeds a real saved record **through the canvas** (Story 2.12, AC5).
+ *
+ * It used to press the retired progress panel's "Save progress" button. There is no manual save any
+ * more: `attachAutosave` writes on every state change, so the seeding path is simply *playing* — one
+ * reference taken off the reading room's shelf dispatches `source.inspected`, and the write follows.
+ *
+ * That makes this a stronger precondition than the one it replaces rather than a weaker one: it
+ * exercises the autosave the offline release gate depends on, so a run that reaches the assertions
+ * below has already proved the relocation works.
  */
 const seedSavedProgressOnNormalRoute = async (page: Page): Promise<string> => {
     await page.goto('/');
-    await page.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' }).click();
-    const progress = page.getByRole('region', { name: PROGRESS_REGION });
-    await progress.getByRole('button', { name: 'Save progress' }).click();
-    await expect(progress.getByRole('status', { name: 'Progress status' })).toHaveText('Progress saved on this device.');
+    await enterTheLaboratory(page);
+    await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', 'Library');
 
-    const seeded = await readStoredYoungRecord(page);
-    expect(seeded, 'the normal route must have persisted a record to isolate against').toBeDefined();
+    await clickDesign(page, artifactAt(0));
+    await waitForBookToOpen(page);
+    await clickDesign(page, bookCloseControlCentre());
+    await waitForBookToClose(page);
+
+    // The write is serialized through a promise chain rather than awaited by the dispatch, so it is
+    // polled for rather than assumed — and a seed that never arrives fails here, where the cause is,
+    // instead of turning the isolation comparison below into `undefined === undefined`.
+    let seeded: string | undefined;
+    await expect(async () => {
+        seeded = await readStoredYoungRecord(page);
+        expect(seeded, 'the normal route must have persisted a record to isolate against').toBeDefined();
+    }).toPass({ timeout: 5_000, intervals: [100, 200, 400, 800] });
+    // And it holds the reading that was just recorded, so "unchanged" below is a claim about content
+    // rather than about an empty record that could not have changed.
+    expect(seeded).toContain('young-lecture-1801');
     return seeded as string;
 };
 
@@ -93,18 +137,33 @@ test('runs an isolated Young validation session that leaves the saved learner re
     // The retained boot frame, which is the non-Phaser surface the architecture keeps.
     const entryButton = page.getByTestId('enter-laboratory');
     await expect(entryButton).toBeVisible();
-    await expect(entryButton).toHaveText(en['boot.enter']);
-    await entryButton.click();
-    await expect(page.locator('#boot-status')).toHaveText(en['boot.status.ready']);
 
-    // The facilitator disclosure, resolved through the i18n layer rather than hardcoded.
+    /**
+     * The facilitator disclosure, resolved through the i18n layer rather than hardcoded — and asserted
+     * **before** entry, which is where it is now shown.
+     *
+     * It rides on the boot frame, and since Story 2.12 the frame is dismissed when the session starts
+     * rather than standing beside the canvas for its duration. That is the right place for it: this is a
+     * consent notice ("the application does not collect session responses"), and a consent notice is
+     * read before the thing it consents to, not over the top of it. AC4's "on every render of the
+     * validation route" is satisfied — it is mounted on every render of the route — but the *duration*
+     * of its visibility did change, so it is called out here and in the story's completion notes rather
+     * than left for a reader to infer from a moved assertion.
+     */
     await expect(page.getByRole('region', { name: en['validation.session.title'] })).toContainText(
         en['validation.session.noCollection']
     );
 
-    // Product isolation: neither progress surface is mounted, because no repository was constructed.
-    await expect(page.getByRole('region', { name: PROGRESS_REGION })).toHaveCount(0);
-    await expect(page.getByRole('article', { name: en['print.ariaLabel'] })).toHaveCount(0);
+    // **Not** `toHaveText(en['boot.enter'])`: `index.html` ships that exact string as pre-hydration
+    // placeholder markup (ADR-010), so the assertion passed whether or not the app ever booted — the
+    // vacuous check AC5 calls out. The status line is JS-only, so it is the one that can fail; the
+    // French case below is where the label itself is proved to have been rewritten.
+    await entryButton.click();
+    await expect(page.locator('#boot-status')).toHaveText(en['boot.status.ready']);
+
+    // Product isolation: the printable record is not mounted, because no repository was constructed.
+    // Paired with its presence on the normal route below, so neither half is true on every route.
+    await expect(printableRecord(page)).toHaveCount(0);
 
     // No later case is unlocked, relocked, or exposed — there is no campaign machinery to leak.
     await expect(page.getByRole('link', { name: /Morley|Hafele|Delft/i })).toHaveCount(0);
@@ -113,10 +172,15 @@ test('runs an isolated Young validation session that leaves the saved learner re
     // A real, live session on a fresh state: the routed canvas starts in the Young context phase and
     // advances with the investigation, so the interaction below is not a no-op.
     await expectActiveScene(page, 'Library');
-    await page.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' }).click();
-    await page.getByRole('button', { name: 'Inspect Opticks reference' }).click();
-    await page.getByRole('button', { name: 'Continue to prediction' }).click();
-    await expectActiveScene(page, 'Colleagues');
+    for (let index = 0; index < 2; index += 1) {
+        await clickDesign(page, artifactAt(index));
+        await waitForBookToOpen(page);
+        await clickDesign(page, bookCloseControlCentre());
+        await waitForBookToClose(page);
+    }
+    // The same acts that seeded a record on the normal route. If the validation route had a repository,
+    // this is exactly where it would have written one.
+    await expectActiveScene(page, 'Library');
 
     // Nothing the session did reached the store the normal route owns. Compared once rather than
     // retried: `toPass` would settle on the first matching read and so could step over a write still
@@ -135,9 +199,11 @@ test('runs an isolated Young validation session that leaves the saved learner re
     // restore is otherwise silent: `main.ts` falls back to `initialState` behind a polite status
     // message. So assert restored *content*, on the retained print view (ADR-007) rather than a
     // retiring panel: it lists inspected sources, and a fresh state renders the empty placeholder.
-    const printRecord = page.getByRole('article', { name: en['print.ariaLabel'] });
-    await expect(printRecord).toContainText('Thomas Young’s 1801 lecture record');
-    await expect(printRecord).not.toContainText(en['print.sources.empty']);
+    // The other half of the isolation pair: mounted here, absent there. An `if (repository)` gate that
+    // stopped working in either direction fails one of the two.
+    await expect(printableRecord(page)).toHaveCount(1);
+    await expect(printableRecord(page)).toContainText('Thomas Young’s 1801 lecture record');
+    await expect(printableRecord(page)).not.toContainText(en['print.sources.empty']);
 });
 
 /**
@@ -156,6 +222,10 @@ test.describe('French browser', () => {
 
         const disclosure = page.getByRole('region', { name: fr['validation.session.title'] });
         await expect(disclosure.getByRole('heading', { name: fr['validation.session.title'] })).toBeVisible();
+        // The entry label really was rewritten by `renderBootShellText`, which is what the English case
+        // cannot show: `index.html` ships the English string as static markup, so only the French one
+        // can tell hydration from placeholder.
+        await expect(page.getByTestId('enter-laboratory')).toHaveText(fr['boot.enter']);
         await expect(disclosure).toContainText(fr['validation.session.facilitatorHeld']);
         await expect(disclosure).toContainText(fr['validation.session.noCollection']);
         await expect(page.locator('html')).toHaveAttribute('lang', 'fr');

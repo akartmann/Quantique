@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { createAppStateFromCaseRecord, createInitialAppState, type AppState } from '../../src/core/store/AppState';
+import { createAppStateFromCaseRecord, createInitialAppState, reduceAppState, type AppState } from '../../src/core/store/AppState';
 import { createStore, type AppStore } from '../../src/core/store/createStore';
 import {
     selectColleagueById,
@@ -104,35 +104,33 @@ describe('prediction proposal selection', () => {
         expect(store.getState()).toBe(before);
     });
 
-    it('applies the same context-readiness gate as a free-text prediction', () => {
+    it('applies the context-readiness gate the free-text path used to carry', () => {
         const store = createStore(createInitialAppState(definition));
 
         expect(store.dispatch({ type: 'prediction.proposalChosen', proposalId: definition.predictionProposals[0].id }))
             .toMatchObject({ ok: false, error: { code: 'missing-contextual-sources' } });
     });
 
-    it('clears the proposal ID when a free-text prediction is recorded over it', () => {
+    /**
+     * The attribution and the text can no longer disagree, because nothing else writes the text.
+     *
+     * Two tests used to live here — "a free-text prediction clears the proposal ID" and "re-recording
+     * the proposal's own words unchanged keeps it". Both were about `prediction.recorded`, which Story
+     * 2.12 deleted, and both are correctly gone: with one writer there is no way to desynchronise an ID
+     * from its text at all. What replaces them is the stronger statement the deletion actually bought.
+     */
+    it('leaves the attribution and the text able to come only from the same proposal', () => {
         const store = storeAtPrediction();
-        store.dispatch({ type: 'prediction.proposalChosen', proposalId: definition.predictionProposals[0].id });
 
-        store.dispatch({ type: 'prediction.recorded', prediction: 'A hand-written prediction.' });
-
-        expect(selectSelectedPredictionProposalId(store.getState())).toBeUndefined();
-        expect(store.getState().prediction).toBe('A hand-written prediction.');
-    });
-
-    // The DOM panel offers the chosen proposal's canonical text straight back in its textarea, so
-    // "Record a prediction" is one click away from re-recording it byte-for-byte. Clearing there made
-    // the surface silently un-choose a proposal without a single character changing.
-    it('keeps the proposal ID when the recorded text is the proposal’s own, unchanged', () => {
-        const store = storeAtPrediction();
-        const [first] = definition.predictionProposals;
-        store.dispatch({ type: 'prediction.proposalChosen', proposalId: first.id });
-
-        expect(store.dispatch({ type: 'prediction.recorded', prediction: first.text.en })).toEqual({ ok: true, value: undefined });
-
-        expect(selectSelectedPredictionProposalId(store.getState())).toBe(first.id);
-        expect(store.getState().prediction).toBe(first.text.en);
+        definition.predictionProposals.forEach((proposal) => {
+            expect(store.dispatch({ type: 'prediction.proposalChosen', proposalId: proposal.id }))
+                .toEqual({ ok: true, value: undefined });
+            const state = store.getState();
+            const attributed = definition.predictionProposals
+                .find(({ id }) => id === selectSelectedPredictionProposalId(state));
+            expect(attributed).toBeDefined();
+            expect(state.prediction).toBe(attributed!.text.en);
+        });
     });
 });
 
@@ -175,33 +173,51 @@ describe('conclusion proposal selection', () => {
         expect(store.getState()).toBe(before);
     });
 
-    it.each([
-        ['theory.conclusionSet', { type: 'theory.conclusionSet', conclusion: 'A hand-written conclusion.' } as const],
-        ['theory.limitationSet', { type: 'theory.limitationSet', limitation: 'A hand-written limitation.' } as const]
-    ])('clears the proposal ID when %s writes over it', (_description, action) => {
+    /**
+     * D5: the claim and its limitation are written **together**, from one proposal. No blend, no
+     * partial write.
+     *
+     * This is the invariant Story 2.12 had to re-home rather than delete. Its only proof was a DOM probe
+     * in `tests/e2e/scene-router.spec.ts:112-126`, which typed into the retired theory board's two
+     * textareas and read them back — so the property survived the panel and its evidence did not.
+     *
+     * It replaces the two `theory.conclusionSet` / `theory.limitationSet` suites that stood here.
+     * Those proved that free text *cleared* the attribution and that re-writing the proposal's own
+     * words *kept* it; both rules existed only because two writers shared one pair of fields. There is
+     * one writer now, and this is what that buys: for every authored proposal, and after any sequence of
+     * choices, `conclusion` and `limitation` both come from the proposal the ID names — never one from
+     * this proposal and the other from the last one.
+     */
+    it('writes the claim and its limitation together, from the one proposal it attributes', () => {
         const store = storeAtReview();
-        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: definition.conclusionProposals[0].id });
 
-        store.dispatch(action);
-
-        expect(selectSelectedConclusionProposalId(store.getState())).toBeUndefined();
+        // Every proposal in turn, and then back to the first: a partial write would show as a claim
+        // from one proposal beside a limitation left behind by another.
+        [...definition.conclusionProposals, definition.conclusionProposals[0]].forEach((proposal) => {
+            expect(store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: proposal.id }))
+                .toEqual({ ok: true, value: undefined });
+            const state = store.getState();
+            const attributed = definition.conclusionProposals
+                .find(({ id }) => id === selectSelectedConclusionProposalId(state));
+            expect(attributed).toBeDefined();
+            expect(state.theory.conclusion).toBe(attributed!.claim.en);
+            expect(state.theory.limitation).toBe(attributed!.limitation.en);
+        });
     });
 
-    // Setting the same text back — which typing a character into the textarea and deleting it again
-    // does — must not cost the attribution.
-    it.each([
-        ['theory.conclusionSet', 'claim' as const],
-        ['theory.limitationSet', 'limitation' as const]
-    ])('keeps the proposal ID when %s rewrites the proposal’s own text unchanged', (actionType, field) => {
+    /** And a refused choice leaves the pair exactly as it was, rather than half-applied. */
+    it('leaves the pair untouched when the choice is refused', () => {
         const store = storeAtReview();
         const [first] = definition.conclusionProposals;
         store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: first.id });
+        const before = store.getState();
 
-        store.dispatch(actionType === 'theory.conclusionSet'
-            ? { type: 'theory.conclusionSet', conclusion: first[field].en }
-            : { type: 'theory.limitationSet', limitation: first[field].en });
+        expect(store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: 'conclusion-invented' }))
+            .toMatchObject({ ok: false, error: { code: 'unknown-conclusion-proposal' } });
 
-        expect(selectSelectedConclusionProposalId(store.getState())).toBe(first.id);
+        expect(store.getState()).toBe(before);
+        expect(store.getState().theory.conclusion).toBe(first.claim.en);
+        expect(store.getState().theory.limitation).toBe(first.limitation.en);
     });
 
     // The store is the authority on when a conclusion can be chosen, not whichever scene is mounted.
@@ -290,14 +306,29 @@ describe('record round trip', () => {
         expect(restored.theory.conclusion).toBe(definition.conclusionProposals[0].claim.en);
     });
 
+    /**
+     * Records written before the proposals existed still load.
+     *
+     * The state used to be built by dispatching a free-text prediction; with that action deleted, the
+     * un-attributed record is constructed directly, which is the only way one can arrive now — out of a
+     * file exported by an older build. Dropping this test with the action would have retired the
+     * backward-compatibility guarantee along with the way of producing the input.
+     */
     it('restores a record that carries no proposal IDs at all', () => {
         const store = storeAtPrediction();
-        store.dispatch({ type: 'prediction.recorded', prediction: 'A hand-written prediction.' });
+        store.dispatch({ type: 'prediction.proposalChosen', proposalId: definition.predictionProposals[0].id });
+        const withoutAttribution = {
+            ...store.getState(),
+            prediction: 'A prediction from a build before the proposals existed.',
+            selectedPredictionProposalId: undefined,
+            selectedConclusionProposalId: undefined
+        };
 
-        const restored = restore(store.getState());
+        const restored = restore(withoutAttribution);
 
         expect(selectSelectedPredictionProposalId(restored)).toBeUndefined();
         expect(selectSelectedConclusionProposalId(restored)).toBeUndefined();
+        expect(restored.prediction).toBe('A prediction from a build before the proposals existed.');
     });
 
     it('clears both proposal IDs when a counterfactual replay resets progress', () => {
@@ -417,15 +448,25 @@ describe('conclusion attribution in the saved revision', () => {
         expect(store.getState().decisionHistory[0]).toMatchObject({ conclusionProposalId: 'conclusion-spacing-varies' });
     });
 
-    it('leaves it absent for a hand-written conclusion', () => {
+    /**
+     * The field stays optional, because saved revisions from before the proposals existed still carry
+     * no ID — and the debrief and print view read it.
+     *
+     * It used to be produced by writing a free text conclusion, which is no longer possible. Nothing
+     * live can now save a revision without an attribution, so what is left to pin is that the *reader*
+     * still copes: `reduceRevisionSave` must not invent an ID for a draft that has none.
+     */
+    it('leaves it absent for a draft that carries no attribution', () => {
         const store = storeAtReview();
-        store.dispatch({ type: 'theory.conclusionSet', conclusion: 'A hand-written conclusion, bounded to this bench.' });
-        store.dispatch({ type: 'theory.limitationSet', limitation: 'It covers only the settings recorded here.' });
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: definition.conclusionProposals[0].id });
         store.dispatch({ type: 'theory.reviewRequested' });
         store.dispatch({ type: 'peerReview.requested' });
-        store.dispatch({ type: 'revision.saved', timestamp: '2026-08-06T12:10:00.000Z' });
+        const unattributed = { ...store.getState(), selectedConclusionProposalId: undefined };
 
-        expect(store.getState().decisionHistory[0].conclusionProposalId).toBeUndefined();
+        const saved = reduceAppState(unattributed, { type: 'revision.saved', timestamp: '2026-08-06T12:10:00.000Z' });
+
+        expect(saved.ok).toBe(true);
+        expect(saved.ok && saved.value.decisionHistory[0].conclusionProposalId).toBeUndefined();
     });
 
     it('survives a counterfactual replay, which clears the live selection', () => {

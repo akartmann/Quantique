@@ -28,6 +28,7 @@ import {
     CASE_FILE_META_FONT_SIZE,
     caseFileActionLabelWrap,
     caseFilePageControlLabelWrap,
+    caseFileRecordControlLabelWrap,
     caseFilePinLabelWrap,
     caseFileRightTextWrap
 } from '../../src/adapters/phaser/renderers/caseFileGeometry';
@@ -50,6 +51,10 @@ import {
 } from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import { advanceControlLabelWrap } from '../../src/adapters/phaser/ui/AdvanceControl';
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../../src/adapters/phaser/designSurface';
+import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
+import {
+    artifactAt, clickDesign, enterTheLaboratory, waitForBookToClose, waitForBookToOpen
+} from './canvasHelpers';
 // The room's own type sizes, read from the renderer that draws them rather than restated. The 2.8
 // review found six of them copied into this table as literals — the same shape of defect that
 // produced `CONTROL_INNER_WIDTH = 134` and that AC7 exists to close.
@@ -93,7 +98,7 @@ import {
     INSTRUMENT_READOUT_WRAP,
     NOTEBOOK_ACTION_FONT_SIZE,
     NOTEBOOK_ACTION_LABEL_WRAP,
-    NOTEBOOK_CONTROL_LABEL_WRAP,
+    BENCH_CONTROL_LABEL_WRAP,
     NOTEBOOK_GUIDE_FONT_SIZE,
     NOTEBOOK_HEADING_FONT_SIZE,
     NOTEBOOK_NOTE_FONT_SIZE,
@@ -106,7 +111,6 @@ import {
     NOTEBOOK_ROW_TEXT_WRAP,
     NOTEBOOK_STATUS_TEXT_WRAP,
     NOTEBOOK_SELECT_WIDTH,
-    START_CONTROL_LABEL_WRAP,
     WAVELENGTH_CHOICE_FONT_SIZE,
     WAVELENGTH_CHOICE_LABEL_WRAP,
     WAVELENGTH_COLUMN_WIDTH,
@@ -955,12 +959,15 @@ test('fits every fixed-height control label on one line, in French and in Englis
         // The choice marker, at the gutter the board actually resolves rather than the widget's default.
         { key: 'proposal.selected', fontSize: PROPOSAL_MARKER_FONT_SIZE, bound: CARD_MARKER_WRAP },
         { key: 'proposal.choose', fontSize: PROPOSAL_MARKER_FONT_SIZE, bound: CARD_MARKER_WRAP },
-        // The bench (Story 2.10). Every one of these labels a rectangle of fixed height — the two
-        // controls the bench is operated from, the three wavelength choices, and the notebook's own
-        // chrome — so a French label that wrapped to two lines would be clipped by its own control.
-        { key: 'lab.start', fontSize: BENCH_CONTROL_FONT_SIZE, bound: START_CONTROL_LABEL_WRAP },
-        { key: 'lab.start.running', fontSize: BENCH_CONTROL_FONT_SIZE, bound: START_CONTROL_LABEL_WRAP },
-        { key: 'lab.notebook.open', fontSize: BENCH_CONTROL_FONT_SIZE, bound: NOTEBOOK_CONTROL_LABEL_WRAP },
+        // The bench (Story 2.10; the reset joins the row in 2.12). Every one of these labels a rectangle
+        // of fixed height — the three controls the bench is operated from, the three wavelength choices,
+        // and the notebook's own chrome — so a French label that wrapped past its reserve would be
+        // clipped by its own control. The row is now divided from one width, so there is one bound here
+        // rather than three that agreed by coincidence.
+        { key: 'lab.start', fontSize: BENCH_CONTROL_FONT_SIZE, bound: BENCH_CONTROL_LABEL_WRAP },
+        { key: 'lab.start.running', fontSize: BENCH_CONTROL_FONT_SIZE, bound: BENCH_CONTROL_LABEL_WRAP },
+        { key: 'lab.notebook.open', fontSize: BENCH_CONTROL_FONT_SIZE, bound: BENCH_CONTROL_LABEL_WRAP },
+        { key: 'lab.reset', fontSize: BENCH_CONTROL_FONT_SIZE, bound: BENCH_CONTROL_LABEL_WRAP },
         { key: 'lab.wavelength.fixed', fontSize: WAVELENGTH_CHOICE_FONT_SIZE, bound: WAVELENGTH_CHOICE_LABEL_WRAP },
         { key: 'lab.wavelength.comparison', fontSize: WAVELENGTH_CHOICE_FONT_SIZE, bound: WAVELENGTH_CHOICE_LABEL_WRAP },
         { key: 'lab.wavelength.comparisonLocked', fontSize: WAVELENGTH_CHOICE_FONT_SIZE, bound: WAVELENGTH_CHOICE_LABEL_WRAP },
@@ -1002,6 +1009,16 @@ test('fits every fixed-height control label on one line, in French and in Englis
         { key: 'caseFile.review.request', fontSize: CASE_FILE_CONTROL_FONT_SIZE, bound: caseFileActionLabelWrap() },
         { key: 'caseFile.review.save', fontSize: CASE_FILE_CONTROL_FONT_SIZE, bound: caseFileActionLabelWrap() },
         { key: 'caseFile.close', fontSize: CASE_FILE_CONTROL_FONT_SIZE, bound: caseFileActionLabelWrap() },
+        // The consult control (Story 2.12, D4), which is an action of the same shape as the two review
+        // ones above it and shares their reserve.
+        { key: 'caseFile.consultation.request', fontSize: CASE_FILE_CONTROL_FONT_SIZE, bound: caseFileActionLabelWrap() },
+        // The three record actions (Story 2.12, Task 2). Fixed-height rectangles in the bottom row,
+        // measured against **their own** derived width rather than the overlay's action width — the row
+        // spends what the close control leaves, so borrowing a looser bound would check a rectangle
+        // nothing paints (the defect the 2.11 review found on the recognition status).
+        { key: 'caseFile.record.export', fontSize: CASE_FILE_CONTROL_FONT_SIZE, bound: caseFileRecordControlLabelWrap(DESIGN_WIDTH) },
+        { key: 'caseFile.record.import', fontSize: CASE_FILE_CONTROL_FONT_SIZE, bound: caseFileRecordControlLabelWrap(DESIGN_WIDTH) },
+        { key: 'caseFile.record.print', fontSize: CASE_FILE_CONTROL_FONT_SIZE, bound: caseFileRecordControlLabelWrap(DESIGN_WIDTH) },
         // The way *in*, which is the board's control rather than the overlay's — a different font size
         // and a different bound, so it is measured against what the board paints and not against the
         // overlay's actions.
@@ -1073,36 +1090,52 @@ test('fits every French book control inside its fixed button width', async ({ pa
     expect(overflowing).toEqual([]);
 });
 
-test('lays the French boot frame and Curated Record out without horizontal overflow', async ({ page }) => {
+/**
+ * The French DOM that still exists lays out without horizontal overflow.
+ *
+ * Re-pointed from the deleted `CuratedRecord` panel to what is left outside the canvas after Story
+ * 2.12: the boot frame and ADR-007's printable record. Both carry real French copy — the record's
+ * section headings and its authored source names — so this is still a measurement of French text in a
+ * bounded frame rather than of an empty page.
+ */
+test('lays the French boot frame and printable record out without horizontal overflow', async ({ page }) => {
     await page.goto('/');
 
     await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
     await expect(page.getByRole('button', { name: fr['boot.enter'] })).toBeVisible();
-    const curatedRecord = page.getByRole('region', { name: fr['curatedRecord.heading'] });
-    await expect(curatedRecord.getByRole('heading', { name: fr['curatedRecord.heading'] })).toBeVisible();
-    await expect(curatedRecord.getByText(fr['source.marker.primary-material'])).toHaveCount(2);
+    const record = page.getByRole('article', { name: fr['print.ariaLabel'] });
+    await expect(record.getByRole('heading', { name: fr['print.observations.heading'] })).toBeVisible();
+    await expect(record.getByRole('heading', { name: fr['print.conclusion.heading'] })).toBeVisible();
 
     const overflows = await page.evaluate(() =>
         document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(overflows).toBe(false);
 });
 
-test('opens the reference book in French and states that its pages are a translation', async ({ page }) => {
+/**
+ * The reference book opens in the French reading room, and the reading is recorded in French.
+ *
+ * The DOM attribution block this asserted against belonged to `CaseContextAndPrediction`, which is
+ * deleted (Story 2.12). Its three string assertions — that the pages are a translation, that the source
+ * of record stays the English text, and that the bibliographic citation is canonical — are **not**
+ * dropped: they are authored content, and `CaseDefinition.test.ts` checks them against `case.json` in
+ * both locales, where they can be read exactly.
+ *
+ * What only a browser can say, and what is asserted here, is that the book really opens on the canvas
+ * under a French browser and that closing it leaves a reading on the record — in French.
+ */
+test('opens the reference book in the French reading room and records the reading', async ({ page }) => {
     await page.goto('/');
+    await enterTheLaboratory(page);
+    await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', 'Library');
 
-    const record = page.getByRole('region', { name: fr['curatedRecord.heading'] });
-    await record.getByRole('button', { name: 'Examiner Référence à l’Opticks' }).click();
+    await clickDesign(page, artifactAt(1));
+    await waitForBookToOpen(page);
+    await clickDesign(page, bookCloseControlCentre());
+    await waitForBookToClose(page);
 
-    // The DOM attribution block is the readable proof that the book projection resolved in French:
-    // `publishLectureBook` builds the book's title, source label, summary and pages from that locale.
-    const attribution = page.getByRole('region', { name: 'Young context and prediction' })
-        .getByRole('group', { name: 'Lire la référence à l’Opticks — source attribution' });
-    await expect(attribution).toBeVisible();
-    // Rewritten for the French reader: these pages are a translation, not the transcription.
-    await expect(attribution).toContainText('Traduction française réalisée pour ce jeu');
-    await expect(attribution).toContainText('la source de référence demeure le texte anglais original');
-    // The bibliographic citation of record stays canonical and still points at the English source.
-    await expect(attribution.getByRole('link', { name: /archive facsimile/ }))
-        .toHaveAttribute('href', 'https://archive.org/details/opticksortreatis1730newt');
+    const record = page.getByRole('article', { name: fr['print.ariaLabel'] });
+    await expect(record).not.toContainText(fr['print.sources.empty']);
+    await expect(record).toContainText('Opticks');
     await expect(page.locator('#game-container canvas')).toBeVisible();
 });

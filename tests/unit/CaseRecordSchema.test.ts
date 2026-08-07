@@ -272,6 +272,30 @@ describe('portable case records', () => {
         expect(state.value.prediction).toBe('Hand-edited afterwards.');
     });
 
+    /**
+     * The 1.15.0 clause, and the reason it is not a rubber stamp (Story 2.12, D6).
+     *
+     * 1.15.0 changes no authored field — the bump is the code-side contract change that removed the
+     * three free-text actions. What has to keep working is the direction that matters: a record saved
+     * by an older build, carrying a hand-written prediction with **no** proposal ID, still loads.
+     * Rejecting it would discard a saved investigation on upgrade, which is the NFR12 failure every
+     * clause in this allowlist exists to avoid.
+     */
+    it('accepts records from every earlier version at 1.15.0, including un-attributed ones', () => {
+        const current = { ...definition, version: '1.15.0' } as CaseDefinition;
+        ['1.2.0', '1.7.0', '1.13.0', '1.14.0'].forEach((saved) => {
+            const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: saved });
+            expect(parsed.success, saved).toBe(true);
+            if (!parsed.success) return;
+            expect(validateCaseRecordForDefinition(parsed.data, current), saved).toMatchObject({ ok: true });
+        });
+        // And a version this clause does not list is still refused, so the clause is a list rather than
+        // an "anything older" waiver.
+        const older = CaseRecordSchema.parse({ ...validRecord, caseDefinitionVersion: '1.1.0' });
+        expect(validateCaseRecordForDefinition(older, current))
+            .toMatchObject({ ok: false, error: { code: 'incompatible-case-record' } });
+    });
+
     it('still rejects a record from an unrelated definition version', () => {
         const localized = { ...definition, version: '1.6.0' } as CaseDefinition;
         const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: '0.9.0' });

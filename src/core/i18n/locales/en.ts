@@ -20,6 +20,10 @@ export const en = {
     'boot.status.ready': 'Laboratory shell ready.',
     'boot.status.savedProgressUnusable': 'Saved progress could not be used. A fresh investigation is ready.',
     'boot.status.savedProgressUnavailable': 'Saved progress is unavailable right now. The investigation is ready to continue.',
+    // NFR12, in the region the other two persistence messages already speak from (Story 2.12). The
+    // autosave used to report into `CaseProgressPanel`'s status text; deleting that panel without
+    // re-homing this would have made a failed save silent, which is the one thing NFR12 forbids.
+    'boot.status.saveFailed': 'Progress could not be saved on this device right now. Your current work is unchanged.',
 
     // --- Validation session -----------------------------------------------------------------------
     // Facilitator-facing chrome on the moderated `?mode=validation` route. App-owned interface text,
@@ -58,10 +62,15 @@ export const en = {
     'lab.pattern.recorded': 'Recorded interference pattern: bright bands are {spacing} apart in the saved Young model result.',
     'lab.wavelengthMode.minimum': 'minimum',
     'lab.wavelengthMode.advanced': 'advanced',
-    // The bench's own controls (Story 2.10). Both are fixed-height hit targets, so both are in the
-    // whole-string French sweep — a label that wraps to two lines inside a 44px rectangle clips.
+    // The bench's own controls (Story 2.10; the reset joins them in 2.12). All three are fixed-height
+    // hit targets, so all three are in the whole-string French sweep — a label that wraps past the
+    // rectangle's own reserve clips, and a per-token sweep provably cannot see that.
     'lab.start': 'Start the light',
     'lab.notebook.open': 'Measurement notebook',
+    // Story 2.2's "reset is immediate and does not erase saved observations", finally reachable from the
+    // canvas (Story 2.12, D3). It names what it puts back — the setup — rather than the phase or scene
+    // it stands in, which is the `encodesPath` rule.
+    'lab.reset': 'Reset the setup',
     // The optional wavelength comparison, chosen in-scene (AC7). The advanced choices stay locked
     // until two fixed-550 nm observations exist; a click on a locked one is answered by
     // `error.advanced-wavelength-locked`, which already existed in both bundles.
@@ -291,6 +300,24 @@ export const en = {
     'caseFile.review.issue': '{feedback} — {revisionPath}',
     'caseFile.review.saved': 'Reviewed revision saved.',
     'caseFile.review.clearedBySupport': 'Your support changed, so the feedback on this draft was cleared.',
+    // The consultation (Story 2.12, D4), in the band the peer-review pane holds during review. FR22's
+    // three progressive-help layers plus the authored next step. The prose itself is `LocalizedText` in
+    // `case.json` and is resolved by rule id — these are only the labels that introduce each layer.
+    'caseFile.consultation.heading': 'Ask a colleague',
+    'caseFile.consultation.request': 'Ask what is missing',
+    'caseFile.consultation.notRequested': 'Nobody has been asked about this draft yet.',
+    'caseFile.consultation.nextStep': 'Next step: {text}',
+    'caseFile.consultation.observation': 'What they notice: {text}',
+    'caseFile.consultation.plainLanguage': 'In plain terms: {text}',
+    'caseFile.consultation.technicalDetail': 'In more detail: {text}',
+    // The record itself (Story 2.12, Task 2). Fixed-height controls, so all three are in the
+    // whole-string French sweep. `CaseProgressPanel` was the only caller of all three adapters.
+    'caseFile.record.export': 'Export the case file',
+    'caseFile.record.import': 'Open a saved file',
+    'caseFile.record.print': 'Print the case file',
+    'caseFile.record.exported': 'Case file exported as a portable record.',
+    'caseFile.record.imported': 'Case file opened and saved on this device.',
+    'caseFile.record.printed': 'Printable case file opened.',
 
     // --- Colleagues and proposals ---------------------------------------------------------------
     // Colleague *names* are canonical proper nouns authored in case.json; only the role is resolved
@@ -422,7 +449,6 @@ export const en = {
     'error.source-not-eligible': 'That source cannot be inspected as verified evidence right now. Try another contextual source.',
     'error.duplicate-inspected-source': 'That source is already recorded as inspected.',
     'error.missing-contextual-sources': 'Inspect {label} before continuing.',
-    'error.invalid-prediction': 'Enter a tentative prediction before recording it.',
     'error.unknown-prediction-proposal': 'That prediction is not one of the proposals on offer.',
     'error.unknown-conclusion-proposal': 'That conclusion is not one of the proposals on offer.',
     'error.conclusion-phase-unavailable': 'Reach the theory board before choosing a conclusion.',

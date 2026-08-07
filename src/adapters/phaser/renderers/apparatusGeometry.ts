@@ -281,34 +281,64 @@ export const wavelengthChoiceCentre = (index: number): Readonly<{ x: number; y: 
 });
 
 /**
- * The two controls the bench is actually operated from: the one that starts the light, and the one
- * that opens the notebook.
+ * The three controls the bench is actually operated from: the one that starts the light, the one that
+ * opens the notebook, and the one that puts the setup back (Story 2.12, D3).
  *
- * Both fixed-height, so both are in `french-typography.spec.ts`'s **whole-string** sweep. A per-token
- * sweep provably cannot see a two-word French label wrapping to two lines inside a 44px rectangle,
- * and that is recorded in three previous reviews.
+ * All three fixed-height, so all three are in `french-typography.spec.ts`'s **whole-string** sweep. A
+ * per-token sweep provably cannot see a two-word French label wrapping to two lines inside a fixed
+ * rectangle, and that is recorded in three previous reviews.
+ *
+ * ## Why the row was re-cut rather than extended
+ *
+ * The row used to be two 240px controls at x 40 and 296, ending at 536, with 124px left before
+ * {@link BENCH_RIGHT}. `Réinitialiser le banc` is 21 characters and needs roughly 170px of wrap to
+ * hold two lines at {@link BENCH_CONTROL_FONT_SIZE}; 100px of usable wrap would have taken it to three
+ * and cropped it — the defect class the 2.11 review found sixteen times in one story. So the row is
+ * divided evenly instead: three controls of {@link BENCH_CONTROL_WIDTH} with {@link BENCH_CONTROL_GAP}
+ * between them, spending exactly `BENCH_LEFT … BENCH_RIGHT` and nothing more.
+ *
+ * The height went 44 → 50 for the same reason and with the same arithmetic: two lines at 15px is
+ * `2 × ceil(15 × 1.35)` = 42px, which fits inside 44 only if the label is painted with a single pixel
+ * of air above and below it. 50 leaves a 4px margin on each side, and `704 + 50 = 754` still clears the
+ * 768px floor. `ApparatusGeometry.test.ts` pins both bounds rather than trusting this comment.
  */
 export const BENCH_CONTROL_ROW_Y = 704;
-export const BENCH_CONTROL_HEIGHT = 44;
+export const BENCH_CONTROL_HEIGHT = 50;
 export const BENCH_CONTROL_FONT_SIZE = 15;
 export const BENCH_CONTROL_PADDING = 12;
-export const START_CONTROL_LEFT = BENCH_LEFT;
-export const START_CONTROL_WIDTH = 240;
-export const NOTEBOOK_CONTROL_LEFT = START_CONTROL_LEFT + START_CONTROL_WIDTH + 16;
-export const NOTEBOOK_CONTROL_WIDTH = 240;
-export const START_CONTROL_LABEL_WRAP = START_CONTROL_WIDTH - (2 * BENCH_CONTROL_PADDING);
-export const NOTEBOOK_CONTROL_LABEL_WRAP = NOTEBOOK_CONTROL_WIDTH - (2 * BENCH_CONTROL_PADDING);
+export const BENCH_CONTROL_GAP = 16;
+export const BENCH_CONTROL_COUNT = 3;
+/** The row divides the bench evenly, so the three controls end exactly on {@link BENCH_RIGHT}. */
+export const BENCH_CONTROL_WIDTH =
+    (BENCH_RIGHT - BENCH_LEFT - ((BENCH_CONTROL_COUNT - 1) * BENCH_CONTROL_GAP)) / BENCH_CONTROL_COUNT;
+export const benchControlLeft = (index: number): number =>
+    BENCH_LEFT + (index * (BENCH_CONTROL_WIDTH + BENCH_CONTROL_GAP));
+export const START_CONTROL_LEFT = benchControlLeft(0);
+export const NOTEBOOK_CONTROL_LEFT = benchControlLeft(1);
+export const RESET_CONTROL_LEFT = benchControlLeft(2);
+/** One bound, because the three controls are one row of one width — not three that agree by accident. */
+export const BENCH_CONTROL_LABEL_WRAP = BENCH_CONTROL_WIDTH - (2 * BENCH_CONTROL_PADDING);
 
-const benchControlCentre = (left: number, width: number): Readonly<{ x: number; y: number }> => ({
-    x: left + (width / 2),
+const benchControlCentre = (left: number): Readonly<{ x: number; y: number }> => ({
+    x: left + (BENCH_CONTROL_WIDTH / 2),
     y: BENCH_CONTROL_ROW_Y + (BENCH_CONTROL_HEIGHT / 2)
 });
 
 export const startTheLightControlCentre = (): Readonly<{ x: number; y: number }> =>
-    benchControlCentre(START_CONTROL_LEFT, START_CONTROL_WIDTH);
+    benchControlCentre(START_CONTROL_LEFT);
 
 export const notebookControlCentre = (): Readonly<{ x: number; y: number }> =>
-    benchControlCentre(NOTEBOOK_CONTROL_LEFT, NOTEBOOK_CONTROL_WIDTH);
+    benchControlCentre(NOTEBOOK_CONTROL_LEFT);
+
+/**
+ * The control that puts the apparatus back to its authored defaults (Story 2.12, D3).
+ *
+ * `reduceApparatusReset` sets every primary control to its `defaultValue` and the wavelength to
+ * 550 nm / minimum, and touches **nothing else** — Story 2.2's shipped acceptance criterion is
+ * "reset is immediate and does not erase saved observations", and the reducer already honours it.
+ */
+export const resetControlCentre = (): Readonly<{ x: number; y: number }> =>
+    benchControlCentre(RESET_CONTROL_LEFT);
 
 /**
  * Where a refused start or a refused wavelength is answered.
@@ -408,20 +438,13 @@ export const benchObjectBands = (controls: readonly PrimaryControl[]): readonly 
             // index, so a case authoring one more comparison grows this band rather than overflowing it.
             bottom: wavelengthChoiceTop(WAVELENGTH_CHOICE_COUNT_BOUND) + WAVELENGTH_CHOICE_HEIGHT
         },
-        {
-            name: 'start the light',
-            left: START_CONTROL_LEFT,
-            right: START_CONTROL_LEFT + START_CONTROL_WIDTH,
+        ...(['start the light', 'the notebook control', 'the reset control'] as const).map((name, index) => ({
+            name,
+            left: benchControlLeft(index),
+            right: benchControlLeft(index) + BENCH_CONTROL_WIDTH,
             top: controlRowTop,
             bottom: controlRowTop + BENCH_CONTROL_HEIGHT
-        },
-        {
-            name: 'the notebook control',
-            left: NOTEBOOK_CONTROL_LEFT,
-            right: NOTEBOOK_CONTROL_LEFT + NOTEBOOK_CONTROL_WIDTH,
-            top: controlRowTop,
-            bottom: controlRowTop + BENCH_CONTROL_HEIGHT
-        },
+        })),
         {
             /**
              * The region the result readout and the bench message share, and the band this sweep was

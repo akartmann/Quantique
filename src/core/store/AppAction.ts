@@ -49,13 +49,15 @@ export type SourceInspectedAction = Readonly<{
     sourceId: string;
 }>;
 
-export type PredictionRecordedAction = Readonly<{
-    type: 'prediction.recorded';
-    prediction: string;
-}>;
-
 /**
- * The 1-of-4 attributed prediction choice (Story 1.11). Revisable by design: re-dispatching with
+ * The 1-of-4 attributed prediction choice (Story 1.11), and since Story 2.12 the **only** way a
+ * prediction is written.
+ *
+ * `prediction.recorded` — free text out of the retired `CaseContextAndPrediction` panel — was removed
+ * rather than given a canvas dispatcher. Keeping both paths live is the "free text must clear the
+ * proposal ID" hazard: two writers for one field, one of which has to remember to un-attribute what the
+ * other attributed. With no free-text path there is no way to desynchronise the ID from the text at
+ * all, so the rule it needed disappears with it. Revisable by design: re-dispatching with
  * any authored proposal replaces the choice and never fails on "already chosen".
  */
 export type PredictionProposalChosenAction = Readonly<{
@@ -83,18 +85,15 @@ export type TheorySupportSourceUnselectAction = Readonly<{
     sourceId: string;
 }>;
 
-export type TheoryConclusionSetAction = Readonly<{
-    type: 'theory.conclusionSet';
-    conclusion: string;
-}>;
-
-export type TheoryLimitationSetAction = Readonly<{
-    type: 'theory.limitationSet';
-    limitation: string;
-}>;
-
 /**
- * The 1-of-4 attributed conclusion choice (Story 1.11). It records the choice and nothing else: the
+ * The 1-of-4 attributed conclusion choice (Story 1.11), and since Story 2.12 the only way `conclusion`
+ * and `limitation` are written — `theory.conclusionSet` and `theory.limitationSet` went with the
+ * retired theory board, for the reason {@link PredictionProposalChosenAction} states.
+ *
+ * It writes the claim **and** its limitation together, out of one authored proposal. No blend, no
+ * partial write: a state carrying one proposal's claim beside another's limitation was only ever
+ * reachable through the two free-text actions, and `tests/integration/ProposalSelection.test.ts` is
+ * where that invariant is now proven. It records the choice and nothing else: the
  * evidence gate, the defensibility critique, and the unlock timing belong to Stories 2.3/2.5/2.6.
  */
 export type TheoryConclusionProposalChosenAction = Readonly<{
@@ -159,14 +158,11 @@ export type AppAction = ApparatusControlSetAction
     | ComparisonRunUnselectAction
     | ComparisonNoteSaveAction
     | SourceInspectedAction
-    | PredictionRecordedAction
     | PredictionProposalChosenAction
     | TheorySupportRunSelectAction
     | TheorySupportRunUnselectAction
     | TheorySupportSourceSelectAction
     | TheorySupportSourceUnselectAction
-    | TheoryConclusionSetAction
-    | TheoryLimitationSetAction
     | TheoryConclusionProposalChosenAction
     | TheoryConclusionSubmittedAction
     | RivalLabRevisionRequestedAction

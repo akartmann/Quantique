@@ -1,11 +1,13 @@
 import type { Scene } from 'phaser';
 
 import { decimalPlaces, formatMeasurement, formatRecordedValue } from '../../../core/i18n/formatNumber';
-import { createTranslator, type Translator } from '../../../core/i18n/translate';
+import { createTranslator, type TranslationKey, type Translator } from '../../../core/i18n/translate';
 import { resolveLocalizedText } from '../../../core/i18n/resolveLocalizedText';
 import type { AppState } from '../../../core/store/AppState';
+import type { Result } from '../../../core/errors/Result';
 import {
     selectCasePhase,
+    selectConsultation,
     selectContextualArtifacts,
     selectInspectedSourceIds,
     selectLocale,
@@ -17,6 +19,7 @@ import {
 } from '../../../core/store/selectors';
 import type { ContextualArtifact } from '../../../domain/cases/CaseDefinition';
 import type { RunRecord } from '../../../domain/evidence/RunRecord';
+import type { CaseRecordOperations } from '../../persistence/caseRecordOperations';
 import type { PhaserStoreAdapter } from '../PhaserStoreAdapter';
 import { uiTextStyle } from '../textStyles';
 import {
@@ -35,6 +38,7 @@ import {
     CASE_FILE_PIN_WIDTH,
     CASE_FILE_READINESS_ROWS,
     CASE_FILE_READINESS_ROW_HEIGHT,
+    CASE_FILE_RECORD_CONTROL_COUNT,
     CASE_FILE_ROWS_PER_PAGE,
     CASE_FILE_ROW_FONT_SIZE,
     CASE_FILE_ROW_INSET_X,
@@ -44,6 +48,9 @@ import {
     CASE_FILE_SOURCE_ROWS,
     caseFileActionLabelWrap,
     caseFileCloseControlBand,
+    caseFileConsultControlBand,
+    caseFileConsultationBand,
+    caseFileConsultationTextBand,
     caseFileGuideBand,
     caseFileGuideTextWrap,
     caseFileHeadingBand,
@@ -58,7 +65,10 @@ import {
     caseFilePinLabelWrap,
     caseFileReadinessBand,
     caseFileReadinessRowBand,
+    caseFileRecordControlBand,
+    caseFileRecordControlLabelWrap,
     caseFileRequestControlBand,
+    caseFileRightTextWrap,
     caseFileRowPinBand,
     caseFileRowTextWrap,
     caseFileSaveControlBand,
@@ -151,6 +161,15 @@ export type CaseFilePresenterOptions = Readonly<{
      * own board input from this — an intra-scene call, never a reach into another scene.
      */
     onVisibilityChange: (visible: boolean) => void;
+    /**
+     * Export, import and print, when the session has a repository to do them against (Story 2.12).
+     *
+     * **Optional, and absent means the row is simply not drawn** — the rule `ApparatusRenderer`'s
+     * `openReference` states: a surface that cannot do a thing must not be made to look as though it
+     * can. The validation route constructs no repository and therefore passes none of this, which is how
+     * the isolation `validation-route.spec.ts` asserts survives the retirement of the progress panel.
+     */
+    record?: CaseRecordOperations;
 }>;
 
 export class CaseFilePresenter {
@@ -176,9 +195,23 @@ export class CaseFilePresenter {
     private issues?: Phaser.GameObjects.Text;
     private saveSurface?: Phaser.GameObjects.Rectangle;
     private saveLabel?: Phaser.GameObjects.Text;
+    private consultHeading?: Phaser.GameObjects.Text;
+    private consultSurface?: Phaser.GameObjects.Rectangle;
+    private consultLabel?: Phaser.GameObjects.Text;
+    private consultation?: Phaser.GameObjects.Text;
+    private readonly recordSurfaces: Phaser.GameObjects.Rectangle[] = [];
+    private readonly recordLabels: Phaser.GameObjects.Text[] = [];
     private closeSurface?: Phaser.GameObjects.Rectangle;
     private closeLabel?: Phaser.GameObjects.Text;
     private statusLine?: Phaser.GameObjects.Text;
+    /**
+     * Whether an import is in flight.
+     *
+     * Renderer-local and ephemeral, like the page index: it means nothing five seconds later, and a
+     * store field for it would be persisted, exported and re-validated. It exists because the chooser is
+     * asynchronous and a second press while the first is open would open a second chooser.
+     */
+    private importInFlight = false;
 
     private visible = false;
     /**
@@ -267,13 +300,41 @@ export class CaseFilePresenter {
         this.saveSurface = this.actionControl(caseFileSaveControlBand(width), () => this.saveRevision());
         this.saveLabel = this.actionLabel(caseFileSaveControlBand(width));
 
+        // The consultation shares the peer-review band, because only one of them is ever live — see
+        // `caseFileConsultationBand`. Built here rather than on open, like everything else in this
+        // overlay: `create()` runs inside `dispatch() → notify()` and construction stays cheap.
+        const consultationBand = caseFileConsultationBand(width, height);
+        this.consultHeading = this.text(consultationBand.x, consultationBand.y,
+            CASE_FILE_SECTION_FONT_SIZE, SECTION_COLOR, consultationBand.width);
+        this.consultSurface = this.actionControl(caseFileConsultControlBand(width, height),
+            () => this.requestConsultation());
+        this.consultLabel = this.actionLabel(caseFileConsultControlBand(width, height));
+        const consultationText = caseFileConsultationTextBand(width, height);
+        this.consultation = this.text(consultationText.x, consultationText.y,
+            CASE_FILE_META_FONT_SIZE, BODY_COLOR, caseFileRightTextWrap());
+
         const close = caseFileCloseControlBand(width, height);
         this.closeSurface = this.actionControl(close, () => this.close());
         this.closeLabel = this.actionLabel(close);
+
+        // Export, import and print — only when the session has a repository to do them against.
+        if (this.options.record) {
+            for (let index = 0; index < CASE_FILE_RECORD_CONTROL_COUNT; index += 1) {
+                const band = caseFileRecordControlBand(index, width, height);
+                this.recordSurfaces.push(this.actionControl(band, () => this.runRecordAction(index)));
+                this.recordLabels.push(this.scene.add.text(
+                    band.x + (band.width / 2), band.y + (band.height / 2), '',
+                    uiTextStyle({
+                        color: BODY_COLOR, fontSize: `${CASE_FILE_CONTROL_FONT_SIZE}px`,
+                        align: 'center', wordWrap: { width: caseFileRecordControlLabelWrap(width) }
+                    })
+                ).setOrigin(0.5, 0.5));
+            }
+        }
+
         const statusBand = caseFileStatusBand(width, height);
         this.statusLine = this.text(
-            statusBand.x, statusBand.y + ((statusBand.height - 18) / 2),
-            CASE_FILE_META_FONT_SIZE, STATUS_COLOR, statusBand.width
+            statusBand.x, statusBand.y, CASE_FILE_META_FONT_SIZE, STATUS_COLOR, statusBand.width
         );
 
         // One depth for the whole overlay, applied in one place, so nothing can be added later and left
@@ -323,13 +384,15 @@ export class CaseFilePresenter {
         this.clamp(this.heading, CASE_FILE_HEADING_FONT_SIZE, CASE_FILE_HEADING_HEIGHT);
         this.clamp(this.guide, CASE_FILE_ROW_FONT_SIZE, CASE_FILE_GUIDE_HEIGHT);
         this.clamp(this.statusLine, CASE_FILE_META_FONT_SIZE, caseFileStatusBand(width, this.scene.scale.height).height);
-        [this.observationsHeading, this.sourcesHeading, this.readinessHeading, this.reviewHeading]
+        [this.observationsHeading, this.sourcesHeading, this.readinessHeading, this.reviewHeading, this.consultHeading]
             .forEach((headingText) => this.clamp(headingText, CASE_FILE_SECTION_FONT_SIZE, CASE_FILE_SECTION_HEIGHT));
 
         this.renderObservations(state, t, width);
         this.renderSources(state, t, width);
         this.renderReadiness(state, t);
         this.renderPeerReview(state, t);
+        this.renderConsultation(state, t);
+        this.renderRecordActions(t);
     }
 
     public destroy(): void {
@@ -342,7 +405,11 @@ export class CaseFilePresenter {
         this.readinessRows.length = 0;
         [this.earlierSurface, this.earlierLabel, this.laterSurface, this.laterLabel,
             this.requestSurface, this.requestLabel, this.saveSurface, this.saveLabel,
+            this.consultSurface, this.consultLabel,
+            ...this.recordSurfaces, ...this.recordLabels,
             this.closeSurface, this.closeLabel].forEach((object) => object?.destroy());
+        this.recordSurfaces.length = 0;
+        this.recordLabels.length = 0;
         this.objects.forEach((object) => object.destroy());
         this.objects.length = 0;
         this.backdrop = undefined; this.heading = undefined; this.guide = undefined;
@@ -352,9 +419,12 @@ export class CaseFilePresenter {
         this.laterSurface = undefined; this.laterLabel = undefined; this.pageCounter = undefined;
         this.requestSurface = undefined; this.requestLabel = undefined; this.issues = undefined;
         this.saveSurface = undefined; this.saveLabel = undefined;
+        this.consultHeading = undefined; this.consultSurface = undefined;
+        this.consultLabel = undefined; this.consultation = undefined;
         this.closeSurface = undefined; this.closeLabel = undefined; this.statusLine = undefined;
         this.visible = false;
         this.pageIndex = 0;
+        this.importInFlight = false;
         this.status.clear();
     }
 
@@ -550,6 +620,65 @@ export class CaseFilePresenter {
         this.clamp(this.issues, CASE_FILE_META_FONT_SIZE, caseFileIssuesBand(this.scene.scale.width).height);
     }
 
+    /**
+     * The consultation, in the phases the peer-review pane is not up (Story 2.12, D4 / AC8).
+     *
+     * Until this existed the only dispatcher of `consultation.requested` was the retired
+     * `src/ui/review/ConsultationPanel.ts` (ADR-011). Retiring the intent instead would have been the
+     * *larger* change, not the smaller one: it would strand `consultationRules` in `case.json`,
+     * `selectConsultation` in the domain, the `consultation` state field four reducers clear, and its
+     * persisted projection — and it would drop FR22's authored three-layer guidance, which no canvas
+     * surface carries.
+     *
+     * **Localized by rule id, never by canonical field.** `selectConsultation` returns authored
+     * `LocalizedText`; the retired panel rendered `.en` directly, and carrying that across would ship a
+     * French player an English colleague. That is the project's most-repeated defect (D3 of Story 2.11).
+     *
+     * `reduceConsultationRequest` refuses with `consultation-unavailable` when no authored rule applies
+     * to the current evidence — which is a genuine answer ("there is nothing further to say"), so the
+     * control stays armed and the refusal is surfaced localized rather than the control drawn dead.
+     */
+    private renderConsultation(state: AppState, t: Translator): void {
+        // The band the peer-review pane owns in `review`. One of the two, never both.
+        const shows = selectCasePhase(state) !== 'review';
+        [this.consultHeading, this.consultSurface, this.consultLabel, this.consultation]
+            .forEach((object) => object?.setVisible(shows));
+        if (!shows) {
+            this.consultSurface?.disableInteractive();
+            return;
+        }
+        this.consultHeading?.setText(t('caseFile.consultation.heading'));
+        this.consultLabel?.setText(t('caseFile.consultation.request'));
+        this.armControl(this.consultSurface, true);
+
+        const consultation = selectConsultation(state);
+        const locale = selectLocale(state);
+        this.consultation?.setText(consultation
+            ? [
+                t('caseFile.consultation.nextStep', { text: resolveLocalizedText(consultation.nextStep, locale) }),
+                t('caseFile.consultation.observation', { text: resolveLocalizedText(consultation.layers.observation, locale) }),
+                t('caseFile.consultation.plainLanguage', { text: resolveLocalizedText(consultation.layers.plainLanguage, locale) }),
+                t('caseFile.consultation.technicalDetail', { text: resolveLocalizedText(consultation.layers.technicalDetail, locale) })
+            ].join('\n')
+            : t('caseFile.consultation.notRequested'));
+        this.clamp(this.consultation, CASE_FILE_META_FONT_SIZE,
+            caseFileConsultationTextBand(this.scene.scale.width, this.scene.scale.height).height);
+    }
+
+    /**
+     * Export, import and print — the three the deleted `CaseProgressPanel` was the only caller of.
+     *
+     * The import control goes dead while its chooser is open rather than being left live to open a
+     * second one. Nothing else here has a state that makes it unavailable: exporting and printing read
+     * the record and never dispatch, so there is no gate for them to fail.
+     */
+    private renderRecordActions(t: Translator): void {
+        const labels = ['caseFile.record.export', 'caseFile.record.import', 'caseFile.record.print'] as const;
+        this.recordLabels.forEach((label, index) => label.setText(t(labels[index]!)));
+        this.recordSurfaces.forEach((surface, index) =>
+            this.armControl(surface, !(index === 1 && this.importInFlight)));
+    }
+
     // --- The intents ------------------------------------------------------------------------------------
 
     /**
@@ -583,6 +712,55 @@ export class CaseFilePresenter {
     private requestPeerReview(): void {
         const state = this.storeAdapter.getState();
         this.report(state, this.storeAdapter.requestPeerReview());
+    }
+
+    private requestConsultation(): void {
+        const state = this.storeAdapter.getState();
+        this.report(state, this.storeAdapter.requestConsultation());
+    }
+
+    /**
+     * Export, import, print — by the index of the control that was pressed.
+     *
+     * **No `Result` is discarded.** Each of the three is answered in the status slot, success or
+     * failure: an export that silently did nothing is indistinguishable from a dead control, which is
+     * the rule `report()` states and the bench broke in 2.10.
+     */
+    private runRecordAction(index: number): void {
+        const operations = this.options.record;
+        if (!operations) return;
+        if (index === 0) {
+            this.announce(operations.exportRecord(), 'caseFile.record.exported');
+            return;
+        }
+        if (index === 2) {
+            this.announce(operations.printRecord(), 'caseFile.record.printed');
+            return;
+        }
+        if (this.importInFlight) return;
+        this.importInFlight = true;
+        this.render(this.storeAdapter.getState());
+        void operations.importRecord()
+            .then((result) => {
+                // `undefined` means the player closed the chooser without picking anything. That is not
+                // an outcome to report: answering it would tell somebody who cancelled that something
+                // went wrong.
+                if (result) this.announce(result, 'caseFile.record.imported');
+            })
+            .finally(() => {
+                this.importInFlight = false;
+                this.render(this.storeAdapter.getState());
+            });
+    }
+
+    /** Writes the outcome of a record action into the status slot, in the live locale. */
+    private announce(result: Result<void>, successKey: TranslationKey): void {
+        const state = this.storeAdapter.getState();
+        this.status.set(
+            result.ok ? createTranslator(selectLocale(state))(successKey) : selectLocalizedError(state, result.error),
+            state
+        );
+        this.render(state);
     }
 
     private saveRevision(): void {
@@ -640,6 +818,8 @@ export class CaseFilePresenter {
             ...this.objects,
             this.earlierSurface, this.earlierLabel, this.laterSurface, this.laterLabel,
             this.requestSurface, this.requestLabel, this.saveSurface, this.saveLabel,
+            this.consultSurface, this.consultLabel,
+            ...this.recordSurfaces, ...this.recordLabels,
             this.closeSurface, this.closeLabel,
             // `title` and `detail` are on `this.objects` already — listing them here as well returned
             // each one twice, so depth and visibility were set twice per object and `destroy` ran twice.
@@ -660,7 +840,8 @@ export class CaseFilePresenter {
         else this.backdrop?.disableInteractive();
         if (!this.visible) {
             [...this.observationRows, ...this.sourceRows].forEach((row) => row.pinSurface.disableInteractive());
-            [this.earlierSurface, this.laterSurface, this.requestSurface, this.saveSurface, this.closeSurface]
+            [this.earlierSurface, this.laterSurface, this.requestSurface, this.saveSurface,
+                this.consultSurface, ...this.recordSurfaces, this.closeSurface]
                 .forEach((object) => object?.disableInteractive());
         } else {
             this.closeSurface?.setInteractive({ useHandCursor: true });

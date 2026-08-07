@@ -40,9 +40,10 @@ import {
     HINT_SPEAKER_FONT_SIZE,
     HINT_SPEAKER_GAP,
     HINT_TEXT_WRAP,
-    NOTEBOOK_CONTROL_LABEL_WRAP,
+    BENCH_CONTROL_LABEL_WRAP,
+    BENCH_CONTROL_WIDTH,
     NOTEBOOK_CONTROL_LEFT,
-    NOTEBOOK_CONTROL_WIDTH,
+    RESET_CONTROL_LEFT,
     REFERENCE_CONTROL_FONT_SIZE,
     REFERENCE_CONTROL_GAP,
     REFERENCE_CONTROL_LABEL_WRAP,
@@ -54,9 +55,7 @@ import {
     SCREEN_LABEL_Y,
     SIDE_COLUMN_LEFT,
     SIDE_COLUMN_WIDTH,
-    START_CONTROL_LABEL_WRAP,
     START_CONTROL_LEFT,
-    START_CONTROL_WIDTH,
     referenceShelfFloor,
     screenXForDistance
 } from './apparatusGeometry';
@@ -196,6 +195,8 @@ export class ApparatusRenderer {
     private startLabel?: Phaser.GameObjects.Text;
     private notebookSurface?: Phaser.GameObjects.Rectangle;
     private notebookLabel?: Phaser.GameObjects.Text;
+    private resetSurface?: Phaser.GameObjects.Rectangle;
+    private resetLabel?: Phaser.GameObjects.Text;
     private benchMessage?: Phaser.GameObjects.Text;
     /**
      * Which instrument the arrow keys reach (D4).
@@ -213,7 +214,7 @@ export class ApparatusRenderer {
      * but not free, and because the capture must be released exactly as often as it is taken.
      */
     private arrowKeysCaptured = false;
-    /** What `updatePhoneReadOnlyMode` last decided; the one fact `benchInteractive()` reads. */
+    /** What `updateBenchInputState` last decided; the one fact `benchInteractive()` reads. */
     private benchInputEnabled = false;
     /**
      * Whether the light is crossing the bench right now.
@@ -343,8 +344,10 @@ export class ApparatusRenderer {
         this.objects.push(this.resultReadout);
         this.createSideColumn();
         this.createReferenceShelf();
-        this.updatePhoneReadOnlyMode();
-        window.addEventListener('resize', this.updatePhoneReadOnlyMode);
+        // No `resize` listener. It existed only to re-evaluate the sub-768px media query, which Story
+        // 2.12 removed (see {@link updateBenchInputState}); input state now depends on nothing outside
+        // this renderer, so re-running it on every resize would be work with no input to react to.
+        this.updateBenchInputState();
 
         // No loop registers here. Under reduced motion none ever registers at all, and `render()`
         // paints the resolved frame directly (AC9).
@@ -416,7 +419,6 @@ export class ApparatusRenderer {
     }
 
     public destroy(): void {
-        window.removeEventListener('resize', this.updatePhoneReadOnlyMode);
         this.reducedMotionQuery.removeEventListener('change', this.onReducedMotionChange);
         // A `keydown` listener on `scene.input.keyboard` outlives this renderer if it is not removed,
         // and so does the arrow-key capture, which would go on swallowing page scrolling.
@@ -442,6 +444,7 @@ export class ApparatusRenderer {
         this.advanceControl = undefined; this.wavelengthChooser = undefined;
         this.startSurface = undefined; this.startLabel = undefined;
         this.notebookSurface = undefined; this.notebookLabel = undefined; this.benchMessage = undefined;
+        this.resetSurface = undefined; this.resetLabel = undefined;
         this.hintBackground = undefined; this.hintSpeaker = undefined; this.hintLine = undefined;
         this.referenceHeading = undefined; this.referenceShelfFills = undefined; this.referenceControls.length = 0; this.hintPanelTop = undefined;
         this.advanceRefused = false; this.transientError.clear(); this.benchError.clear();
@@ -453,7 +456,7 @@ export class ApparatusRenderer {
     /** An overlay temporarily owns pointer interaction without changing laboratory state. */
     public setInputEnabled(enabled: boolean): void {
         this.inputEnabled = enabled;
-        this.updatePhoneReadOnlyMode();
+        this.updateBenchInputState();
     }
 
     // --- The bench ------------------------------------------------------------------------------
@@ -487,31 +490,19 @@ export class ApparatusRenderer {
             this.wavelengthChooser.create();
         }
 
-        this.startSurface = this.scene.add
-            .rectangle(START_CONTROL_LEFT, BENCH_CONTROL_ROW_Y, START_CONTROL_WIDTH, BENCH_CONTROL_HEIGHT, START_FILL)
-            .setOrigin(0, 0);
-        this.startLabel = this.scene.add.text(
-            START_CONTROL_LEFT + (START_CONTROL_WIDTH / 2),
-            BENCH_CONTROL_ROW_Y + (BENCH_CONTROL_HEIGHT / 2),
-            '',
-            uiTextStyle({ color: '#10252c', fontSize: `${BENCH_CONTROL_FONT_SIZE}px`, align: 'center', wordWrap: { width: START_CONTROL_LABEL_WRAP } })
-        ).setOrigin(0.5, 0.5);
-        this.startSurface.on('pointerup', () => this.startTheLight());
-        this.objects.push(this.startSurface, this.startLabel);
+        [this.startSurface, this.startLabel] = this.benchControl(START_CONTROL_LEFT, START_FILL, '#10252c',
+            () => this.startTheLight());
 
         if (this.options.openNotebook) {
-            this.notebookSurface = this.scene.add
-                .rectangle(NOTEBOOK_CONTROL_LEFT, BENCH_CONTROL_ROW_Y, NOTEBOOK_CONTROL_WIDTH, BENCH_CONTROL_HEIGHT, BENCH_CONTROL_FILL)
-                .setOrigin(0, 0);
-            this.notebookLabel = this.scene.add.text(
-                NOTEBOOK_CONTROL_LEFT + (NOTEBOOK_CONTROL_WIDTH / 2),
-                BENCH_CONTROL_ROW_Y + (BENCH_CONTROL_HEIGHT / 2),
-                '',
-                uiTextStyle({ color: '#f7f4ef', fontSize: `${BENCH_CONTROL_FONT_SIZE}px`, align: 'center', wordWrap: { width: NOTEBOOK_CONTROL_LABEL_WRAP } })
-            ).setOrigin(0.5, 0.5);
-            this.notebookSurface.on('pointerup', () => this.options.openNotebook?.());
-            this.objects.push(this.notebookSurface, this.notebookLabel);
+            [this.notebookSurface, this.notebookLabel] = this.benchControl(
+                NOTEBOOK_CONTROL_LEFT, BENCH_CONTROL_FILL, '#f7f4ef', () => this.options.openNotebook?.());
         }
+
+        // The way back to the authored setup (Story 2.12, D3). Unconditional, unlike the notebook: it
+        // needs no host collaboration, and Story 2.2's "reset is immediate" acceptance criterion is
+        // shipped and `done` — a bench without it leaves that criterion satisfied by nothing.
+        [this.resetSurface, this.resetLabel] = this.benchControl(
+            RESET_CONTROL_LEFT, BENCH_CONTROL_FILL, '#f7f4ef', () => this.resetApparatus());
 
         // Bottom-anchored for the same reason the colleague hint is: a localized refusal is a sentence,
         // French runs longer, and this surface does not scroll — so it grows upward into empty space.
@@ -519,6 +510,39 @@ export class ApparatusRenderer {
             color: '#f4d35e', fontSize: `${BENCH_MESSAGE_FONT_SIZE}px`, wordWrap: { width: BENCH_MESSAGE_WRAP }
         })).setOrigin(0, 1);
         this.objects.push(this.benchMessage);
+    }
+
+    /**
+     * One surface-and-label pair in the bench's control row.
+     *
+     * Extracted when the row went from two controls to three (Story 2.12): three inline copies of the
+     * same eight lines is three places for a wrap bound or a row `y` to drift, and the row is now
+     * divided from one width by {@link benchControlLeft} rather than from three literals.
+     */
+    private benchControl(
+        left: number,
+        fill: number,
+        labelColor: string,
+        onPress: () => void
+    ): [Phaser.GameObjects.Rectangle, Phaser.GameObjects.Text] {
+        const surface = this.scene.add
+            .rectangle(left, BENCH_CONTROL_ROW_Y, BENCH_CONTROL_WIDTH, BENCH_CONTROL_HEIGHT, fill)
+            .setOrigin(0, 0);
+        // Authored empty and written in `render`: `create()` runs once and the locale can change.
+        const label = this.scene.add.text(
+            left + (BENCH_CONTROL_WIDTH / 2),
+            BENCH_CONTROL_ROW_Y + (BENCH_CONTROL_HEIGHT / 2),
+            '',
+            uiTextStyle({
+                color: labelColor,
+                fontSize: `${BENCH_CONTROL_FONT_SIZE}px`,
+                align: 'center',
+                wordWrap: { width: BENCH_CONTROL_LABEL_WRAP }
+            })
+        ).setOrigin(0.5, 0.5);
+        surface.on('pointerup', onPress);
+        this.objects.push(surface, label);
+        return [surface, label];
     }
 
     private renderBench(state: AppState, t: Translator): void {
@@ -555,7 +579,8 @@ export class ApparatusRenderer {
         this.startLabel?.setText(this.runInFlight ? t('lab.start.running') : t('lab.start'));
         this.startSurface?.setFillStyle(this.runInFlight ? START_FILL_RUNNING : START_FILL);
         this.notebookLabel?.setText(t('lab.notebook.open'));
-        this.updatePhoneReadOnlyMode();
+        this.resetLabel?.setText(t('lab.reset'));
+        this.updateBenchInputState();
     }
 
     /**
@@ -593,6 +618,35 @@ export class ApparatusRenderer {
         const result = this.storeAdapter.setWavelength(wavelengthNm);
         if (result.ok) return;
         this.refuse(result.error);
+    }
+
+    /**
+     * Puts the apparatus back to its authored setup (Story 2.12, D3 — `apparatus.reset`).
+     *
+     * **The no-op guard is load-bearing, and it is `chooseWavelength`'s** (review 2026-08-07).
+     * `reduceApparatusReset` cannot fail: it mints a new frozen state unconditionally. Because
+     * `transientMessage.ts` anchors on state object identity, a press that changes nothing would still
+     * expire the bench refusal or the colleague hint the player was reading — the exact defect the
+     * already-selected wavelength chip caused for a whole session in 2.10.
+     *
+     * What it deliberately does **not** do is clear `consultation`, `peerReview` or `rivalLabCritique`,
+     * because the reducer does not: Story 2.2's shipped criterion is "reset is immediate and does not
+     * erase saved observations", and 2.10 recorded the cost of a control that quietly discarded standing
+     * colleague state. The reducer touches control values and the wavelength; this dispatches it and
+     * asserts nothing further.
+     */
+    private resetApparatus(): void {
+        if (!this.benchInteractive()) return;
+        const state = this.storeAdapter.getState();
+        const atDefaults = state.caseDefinition.apparatus.primaryControls
+            .every((control) => state.activeControlValues[control.id] === control.defaultValue);
+        if (atDefaults && state.selectedWavelengthNm === 550 && state.selectedWavelengthMode === 'minimum') return;
+        // `reduceApparatusReset` has no failure branch today, and the refusal is surfaced anyway rather
+        // than the `Result` discarded: `createStore` refuses *every* action with
+        // `progress-operation-active` while an export or import holds the lock, so this is reachable now
+        // that the case file can export and import (Task 2).
+        const result = this.storeAdapter.resetApparatus();
+        if (!result.ok) this.refuse(result.error);
     }
 
     private refuse(error: Readonly<{ code: string; message: string }>): void {
@@ -659,14 +713,15 @@ export class ApparatusRenderer {
     };
 
     /**
-     * Whether the bench accepts input at all: not suppressed, not on a phone, not mid-run.
+     * Whether the bench accepts input at all: not suppressed by an overlay, and not mid-run.
      *
-     * Reads the flag `updatePhoneReadOnlyMode` last computed rather than asking `matchMedia` again
-     * (review 2026-08-07). Two copies of the sub-768 px rule meant a change to one would not reach the
-     * other — Task 3 asks for one `inputMode` field checked in one place — and it put a DOM read on every
-     * keydown and every start or wavelength press, in a file §Performance holds to no DOM work in a
-     * render path. `updatePhoneReadOnlyMode` already runs on `create()`, on every `render()`, on
-     * `setInputEnabled` and on `resize`, which is every moment the answer can change.
+     * Reads the flag {@link updateBenchInputState} last computed rather than re-deriving the rule at each
+     * call site (review 2026-08-07): two copies meant a change to one would not reach the other, and the
+     * copy here read `matchMedia` on every keydown and every start or wavelength press, in a file
+     * §Performance holds to no DOM work in a render path. The DOM read is gone with the sub-768px rule
+     * itself (Story 2.12, D7); the single-flag discipline it motivated stays, because the run lock still
+     * has to be answered the same way in four places. `updateBenchInputState` runs on `create()`, on
+     * every `render()` and on `setInputEnabled`, which is every moment the answer can change.
      */
     private benchInteractive(): boolean {
         return this.benchInputEnabled;
@@ -1165,21 +1220,36 @@ export class ApparatusRenderer {
         // Re-applied because visibility just changed: a control this pass hid must not stay clickable,
         // and one it revealed must not stay inert. One rule for input state, re-run, rather than a
         // second copy of it inline here.
-        this.updatePhoneReadOnlyMode();
+        this.updateBenchInputState();
     }
 
     /**
      * The one place input state is decided, for every control on this surface.
      *
-     * It keeps its name and its sub-768px rule untouched — that decision is Story 2.12's and there are
-     * four entries in `deferred-work.md` about it already — and gains the run lock, so the bench is
-     * consistent with itself rather than acquiring a second, competing gate (AC6). The advance control
-     * and the reference shelf are deliberately **not** locked during a run: neither can change the
-     * setup a run was recorded against, and taking the way out away mid-animation would be a new
-     * restriction nothing asked for.
+     * ## The sub-768px suppression is gone (Story 2.12, AC7 / D7)
+     *
+     * This used to `&& !window.matchMedia('(max-width: 767px)').matches`, which is why it was called
+     * `updateBenchInputState`. Four `deferred-work.md` entries — 2.6, 2.7, 2.8 and 2.11's scope
+     * boundary — deferred the decision here, and each preserved an inconsistency rather than extend it:
+     * this renderer suppressed the step controls, the advance control **and** the reference shelf from
+     * one flag, while `LibraryRenderer`, the boards and the debrief suppressed nothing at all.
+     *
+     * It is decided in one direction and applied everywhere: **the affordances stay available.** The
+     * flag's stated purpose was preventing accidental *mutation* on a phone, and it had grown to block
+     * *reading* — the reference shelf, whose own docstring says reading here dispatches nothing and
+     * changes no progression. NFR4 makes phones reading-only, so blocking reading inverts it. And with
+     * the DOM panels retired there is no fallback surface, so suppressing the advance control left a
+     * player on a narrow viewport in a phase they could not leave, which is the precise failure ADR-011
+     * exists to prevent. No "unsupported viewport" message is authored either, because nothing is
+     * suppressed for one to explain.
+     *
+     * What survives is the run lock, so the bench is consistent with itself rather than carrying a
+     * second, competing gate (2.10, AC6). The advance control and the reference shelf are deliberately
+     * **not** locked during a run: neither can change the setup a run was recorded against, and taking
+     * the way out away mid-animation would be a new restriction nothing asked for.
      */
-    private readonly updatePhoneReadOnlyMode = (): void => {
-        const enabled = this.inputEnabled && !window.matchMedia('(max-width: 767px)').matches;
+    private readonly updateBenchInputState = (): void => {
+        const enabled = this.inputEnabled;
         const benchEnabled = enabled && !this.runInFlight;
         // The single fact every other guard on this surface reads, so the rule is decided once here
         // rather than re-derived wherever it is needed.
@@ -1190,13 +1260,10 @@ export class ApparatusRenderer {
         else this.syncArrowCapture();
         this.instruments.forEach((instrument) => instrument.setInputEnabled(benchEnabled));
         this.wavelengthChooser?.setInputEnabled(benchEnabled);
-        if (benchEnabled) {
-            this.startSurface?.setInteractive({ useHandCursor: true });
-            this.notebookSurface?.setInteractive({ useHandCursor: true });
-        } else {
-            this.startSurface?.disableInteractive();
-            this.notebookSurface?.disableInteractive();
-        }
+        [this.startSurface, this.notebookSurface, this.resetSurface].forEach((surface) => {
+            if (benchEnabled) surface?.setInteractive({ useHandCursor: true });
+            else surface?.disableInteractive();
+        });
         // The advance control follows the overlay suppression. Without it, a click meant for the
         // reference book's page controls falls through to it and moves the player out of the
         // laboratory — the same defect the book overlay caused on the proposal cards (1.12 review).

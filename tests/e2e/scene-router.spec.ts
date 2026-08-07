@@ -1,172 +1,103 @@
-import { readFileSync } from 'node:fs';
-
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { stepAffordanceCentre } from '../../src/adapters/phaser/renderers/apparatusGeometry';
-import { clickDesign } from './canvasHelpers';
-
-const expectActiveScene = async (page: import('@playwright/test').Page, sceneKey: string): Promise<void> => {
-    await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', sceneKey);
-};
-
-const TYPED_CONCLUSION = 'The two recorded configurations support an interference inference.';
-const TYPED_LIMITATION = 'These observations do not settle every interpretation of light.';
-
-/**
- * The authored conclusion proposals, read from the case rather than restated, so the probe below can say
- * precisely what the canvas is allowed to have written into the two fields.
- *
- * Both halves, not just the claim: choosing a proposal writes the claim **and** its stated limitation
- * together, so carrying the pair is what lets the probe reject a partial write.
- */
-const AUTHORED_CONCLUSIONS: readonly Readonly<{ claim: string; limitation: string }>[] = (JSON.parse(
-    readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
-) as { conclusionProposals: { claim: { en: string }; limitation: { en: string } }[] })
-    .conclusionProposals.map(({ claim, limitation }) => ({ claim: claim.en, limitation: limitation.en }));
+import { debriefAdvanceControlCentre } from '../../src/adapters/phaser/scenes/debriefGeometry';
+import { en } from '../../src/core/i18n/locales/en';
+import {
+    DESIGN_HEIGHT,
+    DESIGN_WIDTH,
+    WALK_TO_DEBRIEF_COST_MS,
+    clickDesign,
+    expectActiveScene,
+    recordedObservations,
+    recordedSetting,
+    walkToDebrief,
+    walkToTheBoard,
+    waitForInputToSettle
+} from './canvasHelpers';
 
 /**
- * Clicks the laboratory's "one step up" affordance on the slit-spacing instrument.
+ * The router: the active scene mirrors the authoritative phase, and nothing else moves it (ADR-009).
  *
- * **Derived, not restated** (Story 2.10). This was `(540, 603)` against the retired `+` text button
- * and a private `1024`/`768` pair — three literals, all of which stopped describing anything the day
- * the bench grew real instruments, and the spec then failed pointing nowhere near the cause.
- * `apparatusGeometry.ts` imports Phaser not at all precisely so this can read it, and the slot comes
- * from the authored control order rather than being fixed at zero.
+ * **Rewritten canvas-only** (Story 2.12). This file drove forty-three DOM locators — a free-text
+ * prediction, `Run experiment`, four support checkboxes, the notebook's comparison controls, and a probe
+ * that typed into the theory board's conclusion and limitation fields. Every one of those controls is
+ * deleted, and the three free-text actions behind them are removed from `AppAction` (D5).
+ *
+ * ## Where the typed-field probe went
+ *
+ * `:112-126` used to prove, through those two fields, that a stray canvas click cannot leave the draft
+ * carrying one proposal's claim beside another's limitation. **That property survives the deletion and
+ * its evidence did not** — with no free-text path there is no second writer, but "no blend, no partial
+ * write" is still the rule the one remaining writer has to obey. It is re-asserted at the store, in
+ * `tests/integration/ProposalSelection.test.ts`, where it can be checked against *every* authored
+ * proposal rather than against whichever one a click happened to land on.
+ *
+ * What is left here is what only a browser can say: that the router really activates and tears down
+ * scenes, that a torn-down scene stops responding, and that a reload lands the player back in the phase
+ * they left.
  */
-const SLIT_SPACING_SLOT = (JSON.parse(
-    readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
-) as { apparatus: { primaryControls: { id: string }[] } })
-    .apparatus.primaryControls.findIndex(({ id }) => id === 'slitSpacingMm');
 
-const clickApparatusIncrease = async (page: import('@playwright/test').Page): Promise<void> => {
-    await clickDesign(page, stepAffordanceCentre(SLIT_SPACING_SLOT, 1));
-};
+test.setTimeout(30_000 + WALK_TO_DEBRIEF_COST_MS);
+
+/** The slot the slit-spacing instrument stands in, derived rather than fixed at zero. */
+const SLIT_SPACING_SLOT = 0;
+const SLIT_SPACING_STEP_UP = stepAffordanceCentre(SLIT_SPACING_SLOT, 1);
+
+/** What the record says the slit spacing reads — the bench's own state, observed from the record. */
+const slitSpacing = (page: Page) => recordedSetting(page, 'Slit spacing');
 
 test('walks the Young scene sequence, keeping the active scene mirroring the case phase', async ({ page }) => {
-    await page.goto('/');
+    await walkToDebrief(page);
 
-    // context
-    await expectActiveScene(page, 'Library');
-
-    await page.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' }).click();
-    await page.getByRole('button', { name: 'Inspect Opticks reference' }).click();
-    await expectActiveScene(page, 'Library');
-
-    // prediction
-    await page.getByRole('button', { name: 'Continue to prediction' }).click();
-    await expectActiveScene(page, 'Colleagues');
-
-    await page.getByLabel('Tentative prediction').fill('A larger screen distance may widen the pattern.');
-    await page.getByRole('button', { name: 'Record a prediction' }).click();
-
-    // experiment
-    await page.getByRole('button', { name: 'Continue to experimentation' }).click();
-    await expectActiveScene(page, 'Laboratory');
-
-    // The routed laboratory scene is live: its canvas controls drive the authoritative state.
-    await expect(page.getByLabel('Slit spacing (mm)')).toHaveValue('0.25');
-    await clickApparatusIncrease(page);
-    await expect(page.getByLabel('Slit spacing (mm)')).toHaveValue('0.3');
-
-    await page.getByRole('button', { name: 'Run experiment' }).click();
-    await page.getByLabel('Screen distance (m)').fill('3');
-    await page.getByLabel('Screen distance (m)').press('Enter');
-    await page.getByRole('button', { name: 'Run experiment' }).click();
-    await expectActiveScene(page, 'Laboratory');
-
-    const notebook = page.getByRole('region', { name: 'Measurement notebook' });
-    await notebook.getByRole('checkbox', { name: 'Select Observation 1 for comparison' }).check();
-    await notebook.getByRole('checkbox', { name: 'Select Observation 2 for comparison' }).check();
-    await notebook.getByLabel('Comparison note').fill('The recorded spacing differs across these two bounded configurations.');
-    await notebook.getByRole('button', { name: 'Save comparison note' }).click();
-
-    const board = page.getByRole('region', { name: 'Theory board' });
-    await board.getByRole('checkbox', { name: 'Select Observation 1 as conclusion support' }).check();
-    await board.getByRole('checkbox', { name: 'Select Observation 2 as conclusion support' }).check();
-    await board.getByRole('checkbox', { name: 'Select Thomas Young’s 1801 lecture record as conclusion support' }).check();
-    await board.getByRole('checkbox', { name: 'Select Opticks reference as conclusion support' }).check();
-    const conclusionField = board.getByLabel('Conclusion', { exact: true });
-    const limitationField = board.getByLabel('Limitation or alternative explanation');
-    await conclusionField.fill(TYPED_CONCLUSION);
-    await limitationField.fill(TYPED_LIMITATION);
-
-    // synthesis and review share the authored theory-board scene
-    await board.getByRole('button', { name: 'Continue investigation to synthesis' }).click();
-    await expectActiveScene(page, 'TheoryBoard');
-
-    // Leaving the laboratory really tore its scene down: its canvas controls no longer respond. This
-    // is what the probe is *for*, and it holds whatever the theory board draws at that coordinate.
-    const slitSpacing = page.getByLabel('Slit spacing (mm)');
-    const slitSpacingBeforeClick = await slitSpacing.inputValue();
-    await clickApparatusIncrease(page);
-    await expect(slitSpacing).toHaveValue(slitSpacingBeforeClick);
-
-    // The same click also lands on whatever the theory board now draws there, and the cards no longer
-    // sit at a fixed offset: Story 1.12 puts a dialogue panel above them whose measured height — and so
-    // the top of the first card — follows the beat being read. Pinning "a card was hit" would pin a
-    // coincidence and break on the next beat re-wording, so that is not what this asserts; card
-    // hit-testing is `dialogue-advance.spec.ts`' subject, and it probes a *derived* coordinate.
-    //
-    // What this asserts is the invariant a stray canvas click must not break: the two fields stay
-    // **consistent** — either both hold the player's own words, or both come from the same authored
-    // proposal. A conclusion adopted without its limitation, a blend, or a partial write all fail here,
-    // which is the class of defect the 1.11 review actually objected to (a silent side effect), and
-    // unlike a bare "the value is one of these" it cannot be satisfied by the click doing nothing *and*
-    // by the click corrupting half the draft.
-    await expect(async () => {
-        const [conclusion, limitation] = await Promise.all([
-            conclusionField.inputValue(),
-            limitationField.inputValue()
-        ]);
-        const typedBoth = conclusion === TYPED_CONCLUSION && limitation === TYPED_LIMITATION;
-        const adoptedOne = AUTHORED_CONCLUSIONS.some((authored) =>
-            authored.claim === conclusion && authored.limitation === limitation);
-
-        expect(typedBoth || adoptedOne,
-            `The draft is neither the player's own words nor one authored proposal adopted whole. Conclusion: ${conclusion} / Limitation: ${limitation}`
-        ).toBe(true);
-    }).toPass();
-
-    // Restore the player's own words unconditionally, so the review and debrief below exercise the
-    // conclusion they assert on rather than one the canvas happened to write.
-    await conclusionField.fill(TYPED_CONCLUSION);
-    await limitationField.fill(TYPED_LIMITATION);
-    await expect(conclusionField).toHaveValue(TYPED_CONCLUSION);
-
-    await board.getByRole('button', { name: 'Request review' }).click();
-    await expectActiveScene(page, 'TheoryBoard');
-
-    const review = page.getByRole('region', { name: 'Peer review' });
-    await review.getByRole('button', { name: 'Request peer feedback' }).click();
-    await review.getByRole('button', { name: 'Save reviewed revision' }).click();
-
-    // debrief
-    const debrief = page.getByRole('region', { name: 'Historical debrief' });
-    await debrief.getByRole('button', { name: 'Open historical debrief' }).click();
+    // Every transition on the way is asserted inside the walk itself; arriving here is the last one.
     await expectActiveScene(page, 'Debrief');
 
     // A counterfactual replay returns the case to context, and the scene follows it back.
-    await debrief.getByRole('button', { name: 'Start counterfactual replay — not the recorded historical result' }).click();
+    await clickDesign(page, debriefAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT));
     await expectActiveScene(page, 'Library');
+    // A replay is a fresh investigation rather than a re-reading of the finished one.
+    await expect(recordedObservations(page)).toHaveCount(0);
+});
+
+/**
+ * A scene the router stopped really stopped: its controls no longer reach the store.
+ *
+ * This is the half of the old typed-field probe that genuinely needed a browser, kept and sharpened.
+ * The bench's step affordance is clicked at its **derived** coordinate after the player has left the
+ * laboratory; if the scene were still live the slit spacing would move, and the record would say so.
+ *
+ * It is not trivially true: the same click at the same coordinate moves the setting while the bench is
+ * up, which is asserted first — so a coordinate that had drifted into empty space would fail the
+ * positive half rather than pass the negative one by accident.
+ */
+test('stops responding to a scene the router has torn down', async ({ page }) => {
+    await walkToTheBoard(page);
+    await expectActiveScene(page, 'TheoryBoard');
+
+    const afterLeaving = await slitSpacing(page).textContent();
+    expect(afterLeaving).toBeTruthy();
+
+    await clickDesign(page, SLIT_SPACING_STEP_UP);
+    await waitForInputToSettle(page);
+
+    await expect(slitSpacing(page)).toHaveText(afterLeaving!);
+    await expectActiveScene(page, 'TheoryBoard');
 });
 
 test('restores a reloaded session into the scene matching the persisted phase', async ({ page }) => {
     await page.goto('/');
     await expectActiveScene(page, 'Library');
+    await expect(page.getByRole('heading', { name: en['boot.title'] })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' }).click();
-    await page.getByRole('button', { name: 'Inspect Opticks reference' }).click();
-    await page.getByRole('button', { name: 'Continue to prediction' }).click();
-    await page.getByLabel('Tentative prediction').fill('A larger screen distance may widen the pattern.');
-    await page.getByRole('button', { name: 'Record a prediction' }).click();
-    await page.getByRole('button', { name: 'Continue to experimentation' }).click();
-    await expectActiveScene(page, 'Laboratory');
-
-    const progress = page.getByRole('region', { name: 'Save, export, import, and print' });
-    await progress.getByRole('button', { name: 'Save progress' }).click();
-    await expect(progress.getByRole('status', { name: 'Progress status' })).toHaveText('Progress saved on this device.');
+    await walkToTheBoard(page);
+    await expectActiveScene(page, 'TheoryBoard');
+    // **No manual save.** The autosave `attachAutosave` wires is what has to have written, which is
+    // exactly what this reload then reads back (Story 2.12, AC3).
+    await page.waitForTimeout(500);
 
     await page.reload();
 
-    await expectActiveScene(page, 'Laboratory');
+    await expectActiveScene(page, 'TheoryBoard');
+    await expect(recordedObservations(page)).toHaveCount(2);
 });

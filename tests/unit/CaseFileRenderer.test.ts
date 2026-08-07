@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import { CaseFilePresenter } from '../../src/adapters/phaser/renderers/CaseFilePresenter';
 import { CASE_FILE_ROWS_PER_PAGE } from '../../src/adapters/phaser/renderers/caseFileGeometry';
+import type { CaseRecordOperations } from '../../src/adapters/persistence/caseRecordOperations';
 import { createPhaserStoreAdapter } from '../../src/adapters/phaser/PhaserStoreAdapter';
 import { en } from '../../src/core/i18n/locales/en';
 import { fr } from '../../src/core/i18n/locales/fr';
@@ -63,11 +64,12 @@ type Harness = Readonly<{ slice: SceneSlice; presenter: CaseFilePresenter; store
  * "the row now reads Unpin" assertion below fail against correct code — which is exactly what it did
  * the first time this file was written.
  */
-const mount = (store: AppStore, open = true): Harness => {
+const mount = (store: AppStore, open = true, record?: CaseRecordOperations): Harness => {
     const slice = makeSceneSlice();
     const visibility: boolean[] = [];
     const presenter = new CaseFilePresenter(slice.scene, createPhaserStoreAdapter(store), {
-        onVisibilityChange: (visible) => visibility.push(visible)
+        onVisibilityChange: (visible) => visibility.push(visible),
+        record
     });
     presenter.create();
     store.subscribe(() => presenter.render(store.getState()));
@@ -79,9 +81,10 @@ const mount = (store: AppStore, open = true): Harness => {
  * Where each control sits in `pressable()`, which returns them in **creation order**.
  *
  * `CaseFilePresenter.create()` builds: the observation rows, the two paging controls, the reference
- * rows, then request, save and close. Named here rather than as literals so a reordering of that
- * method fails loudly on the name rather than silently pressing the neighbouring control — the trap
- * `NotebookRenderer.test.ts` records having fallen into.
+ * rows, then request, save, consult, close, and — only when the session has a repository — the three
+ * record actions. Named here rather than as literals so a reordering of that method fails loudly on the
+ * name rather than silently pressing the neighbouring control — the trap `NotebookRenderer.test.ts`
+ * records having fallen into.
  */
 const SOURCE_ROWS = 2;
 const EARLIER = CASE_FILE_ROWS_PER_PAGE;
@@ -89,7 +92,9 @@ const LATER = EARLIER + 1;
 const FIRST_SOURCE_PIN = LATER + 1;
 const REQUEST = FIRST_SOURCE_PIN + SOURCE_ROWS;
 const SAVE = REQUEST + 1;
-const CLOSE = SAVE + 1;
+const CONSULT = SAVE + 1;
+const CLOSE = CONSULT + 1;
+const FIRST_RECORD_ACTION = CLOSE + 1;
 
 const observationPin = (harness: Harness, index: number) => harness.slice.pressable()[index];
 const sourcePin = (harness: Harness, index: number) => harness.slice.pressable()[FIRST_SOURCE_PIN + index];
@@ -420,5 +425,177 @@ describe('the case file', () => {
         expect(harness.slice.drawn.length).toBeGreaterThan(0);
         harness.presenter.destroy();
         expect(harness.slice.drawn.filter(({ state }) => !state.destroyed)).toEqual([]);
+    });
+});
+
+/**
+ * The consultation, in the band the peer-review pane leaves empty outside `review` (Story 2.12, D4).
+ *
+ * `consultation.requested` had no canvas dispatcher at all — `src/ui/review/ConsultationPanel.ts` was
+ * the only one, and it is deleted. These press the control the way a player does rather than
+ * dispatching the action, because a store test would have been green all along while the intent stayed
+ * unreachable, which is the gap ADR-011 exists for.
+ */
+describe('the case file consultation', () => {
+    beforeEach(() => { vi.stubGlobal('window', stub.window); });
+    afterEach(() => { vi.unstubAllGlobals(); });
+
+    it('asks for a consultation and renders all four authored parts', () => {
+        const harness = mount(storeAtTheBoard(0));
+        expect(harness.store.getState().consultation).toBeUndefined();
+
+        press(harness, CONSULT);
+
+        const consultation = harness.store.getState().consultation;
+        expect(consultation).toBeDefined();
+        const shown = harness.slice.texts();
+        const rule = definition.consultationRules.find(({ id }) => id === consultation!.ruleId)!;
+        [rule.nextStep, rule.layers.observation, rule.layers.plainLanguage, rule.layers.technicalDetail]
+            .forEach((authored) => {
+                expect(shown.some((text) => text.includes(authored.en)), authored.en).toBe(true);
+            });
+    });
+
+    /**
+     * The authored prose comes out in the player's language, not in the canonical field.
+     *
+     * The retired panel rendered `consultation.layers.observation.en` directly. Carrying that across
+     * would have shipped a French player an English colleague — the project's most-repeated defect, and
+     * the one D3 of Story 2.11 was written about.
+     */
+    it('renders the authored guidance in French, never the canonical English field', () => {
+        const harness = mount(storeAtTheBoard(0, 'fr'));
+
+        press(harness, CONSULT);
+
+        const rule = definition.consultationRules
+            .find(({ id }) => id === harness.store.getState().consultation!.ruleId)!;
+        const shown = harness.slice.texts();
+        expect(shown.some((text) => text.includes(rule.layers.plainLanguage.fr))).toBe(true);
+        expect(shown.some((text) => text.includes(rule.layers.plainLanguage.en))).toBe(false);
+        expect(shown).toContain(fr['caseFile.consultation.request']);
+    });
+
+    /** A refusal is answered rather than swallowed: `consultation-unavailable` is a real answer. */
+    it('surfaces the localized refusal when no authored consultation applies', () => {
+        const store = storeAtTheBoard(2);
+        // Every authored predicate satisfied: two observations at different throws, both sources read,
+        // and a chosen conclusion (which is what writes the limitation the fourth rule looks for).
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: definition.conclusionProposals[0].id });
+        const harness = mount(store);
+
+        press(harness, CONSULT);
+
+        expect(harness.store.getState().consultation).toBeUndefined();
+        expect(harness.slice.texts()).toContain(en['error.consultation-unavailable']);
+    });
+
+    /** One band, one occupant. The peer-review pane owns it in `review`; the consultation owns it before. */
+    it('gives the band to peer review in review, and to the consultation before it', () => {
+        const synthesis = mount(storeAtTheBoard(2));
+        expect(synthesis.slice.pressable()[CONSULT].state.visible).toBe(true);
+        expect(synthesis.slice.pressable()[REQUEST].state.visible).toBe(false);
+
+        const store = storeAtTheBoard(2);
+        ['run-1', 'run-2'].forEach((runId) => store.dispatch({ type: 'comparison.runSelected', runId }));
+        store.dispatch({ type: 'comparison.noteSaved', note: 'The spacing widens with the distance.' });
+        ['run-1', 'run-2'].forEach((runId) => store.dispatch({ type: 'theory.supportRunSelected', runId }));
+        definition.contextualArtifacts.forEach(({ id }) => store.dispatch({ type: 'theory.supportSourceSelected', sourceId: id }));
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: definition.conclusionProposals[0].id });
+        expect(store.dispatch({ type: 'theory.reviewRequested' })).toEqual({ ok: true, value: undefined });
+        const review = mount(store);
+
+        expect(review.slice.pressable()[REQUEST].state.visible).toBe(true);
+        expect(review.slice.pressable()[CONSULT].state.visible).toBe(false);
+        expect(review.slice.pressable()[CONSULT].state.interactive).toBe(false);
+    });
+});
+
+/**
+ * Export, import and print, off the panel that owned all three (Story 2.12, Task 2 / AC3).
+ *
+ * The operations are stubbed rather than real: what is under test here is that the surface reaches
+ * them, arms them, and answers every `Result` — `caseRecordOperations.ts` is where the adapters
+ * themselves are exercised.
+ */
+describe('the case file record actions', () => {
+    beforeEach(() => { vi.stubGlobal('window', stub.window); });
+    afterEach(() => { vi.unstubAllGlobals(); });
+
+    const stubOperations = (overrides: Partial<CaseRecordOperations> = {}): CaseRecordOperations & {
+        calls: string[];
+    } => {
+        const calls: string[] = [];
+        return {
+            calls,
+            exportRecord: () => { calls.push('export'); return { ok: true, value: undefined }; },
+            importRecord: async () => { calls.push('import'); return { ok: true, value: undefined }; },
+            printRecord: () => { calls.push('print'); return { ok: true, value: undefined }; },
+            ...overrides
+        };
+    };
+
+    it('reaches each adapter from its own control and says what happened', async () => {
+        const operations = stubOperations();
+        const harness = mount(storeAtTheBoard(2), true, operations);
+
+        press(harness, FIRST_RECORD_ACTION);
+        expect(harness.slice.texts()).toContain(en['caseFile.record.exported']);
+        press(harness, FIRST_RECORD_ACTION + 2);
+        expect(harness.slice.texts()).toContain(en['caseFile.record.printed']);
+        press(harness, FIRST_RECORD_ACTION + 1);
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(operations.calls).toEqual(['export', 'print', 'import']);
+        expect(harness.slice.texts()).toContain(en['caseFile.record.imported']);
+    });
+
+    /** A failed export is reported, not discarded — the rule `report()` states for every other control. */
+    it('answers a refused export with its localized error', () => {
+        const harness = mount(storeAtTheBoard(2), true, stubOperations({
+            exportRecord: () => ({ ok: false, error: { code: 'export-unavailable', message: 'dev-facing' } })
+        }));
+
+        press(harness, FIRST_RECORD_ACTION);
+
+        expect(harness.slice.texts()).toContain(en['error.export-unavailable']);
+        expect(harness.slice.texts()).not.toContain('dev-facing');
+    });
+
+    /**
+     * A cancelled chooser is not a failure.
+     *
+     * `importRecord` resolves `undefined` when the player picked no file. Reporting that would answer
+     * somebody who deliberately backed out with a message about something going wrong.
+     */
+    it('says nothing when the player closes the chooser without choosing', async () => {
+        const harness = mount(storeAtTheBoard(2), true, stubOperations({
+            importRecord: async () => undefined
+        }));
+
+        press(harness, FIRST_RECORD_ACTION + 1);
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(harness.slice.texts()).not.toContain(en['caseFile.record.imported']);
+        expect(harness.slice.texts()).not.toContain(en['error.invalid-import']);
+        // And the control is live again, rather than left dead behind a chooser that has closed.
+        expect(harness.slice.pressable()[FIRST_RECORD_ACTION + 1].state.interactive).toBe(true);
+    });
+
+    /**
+     * The validation route draws no record row at all.
+     *
+     * `main.ts` builds the operations only inside its `if (repository)` branch, which the validation
+     * route never enters. A row drawn dead would still be a row offering to write to a device the
+     * moderated session must not touch.
+     */
+    it('draws no record row when the session has no repository', () => {
+        const harness = mount(storeAtTheBoard(2));
+
+        expect(harness.slice.pressable()[FIRST_RECORD_ACTION]).toBeUndefined();
+        [en['caseFile.record.export'], en['caseFile.record.import'], en['caseFile.record.print']]
+            .forEach((label) => expect(harness.slice.texts()).not.toContain(label));
     });
 });

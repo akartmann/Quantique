@@ -8,14 +8,9 @@ import { LaboratoryScene } from '../adapters/phaser/scenes/LaboratoryScene';
 import { LibraryScene } from '../adapters/phaser/scenes/LibraryScene';
 import { RivalLabScene } from '../adapters/phaser/scenes/RivalLabScene';
 import { TheoryBoardScene } from '../adapters/phaser/scenes/TheoryBoardScene';
+import type { CaseRecordOperations } from '../adapters/persistence/caseRecordOperations';
 import type { AppStore } from '../core/store/createStore';
 import { RIVAL_LAB_SCENE_KEY, ROUTABLE_SCENE_KEYS, type RoutableSceneKey } from '../domain/cases/ScenarioScript';
-
-/**
- * The presentation type the retiring `CaseContextAndPrediction` panel still imports. Story 2.12 deletes
- * that panel and this re-export with it; until then the path has to keep resolving.
- */
-export type { LectureBookPresentation } from '../adapters/phaser/renderers/LectureBookRenderer';
 
 /**
  * Every routed scene, and nothing else (Story 2.8).
@@ -35,7 +30,7 @@ export type { LectureBookPresentation } from '../adapters/phaser/renderers/Lectu
  *   five other scenes took. It was dropped rather than defaulted: a `() => false` fallback would have
  *   made a wiring omission a compile-time success, which the 2.7 review flagged as its own defect.
  */
-const StartGame = (parent: string, store: AppStore): Game => {
+const StartGame = (parent: string, store: AppStore, record?: CaseRecordOperations): Game => {
     // A Record, not an array of pairs: this is the one place that has to be exhaustive over the
     // *routable* keys, and only the index signature makes the compiler reject a key the router can
     // activate. It is wider than `SceneKey` because the rival lab is routable but not authorable.
@@ -43,7 +38,9 @@ const StartGame = (parent: string, store: AppStore): Game => {
         Library: new LibraryScene(store),
         Colleagues: new ColleaguesScene(store),
         Laboratory: new LaboratoryScene(store),
-        TheoryBoard: new TheoryBoardScene(store),
+        // The only scene that takes the record operations: the case file it hosts *is* the record, and
+        // the row is drawn only when there is a repository behind it (Story 2.12).
+        TheoryBoard: new TheoryBoardScene(store, record),
         Debrief: new DebriefScene(store),
         [RIVAL_LAB_SCENE_KEY]: new RivalLabScene(store)
     };

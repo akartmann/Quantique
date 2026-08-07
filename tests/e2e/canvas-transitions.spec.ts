@@ -45,10 +45,16 @@ import {
  * "every player intent is dispatchable from the canvas", and it deletes the panels those six used to
  * live in; nothing in this walk depends on one any more.
  *
- * Two intents are still DOM-only and are deliberately **not** in the table above, because neither
- * gates a transition and neither is required to complete a case: `consultation.requested`
- * (`src/ui/review/ConsultationPanel.ts`) and `apparatus.reset`. Both are recorded in
- * `deferred-work.md` with a decision owed before Story 2.12 starts.
+ * **The two remaining DOM-only intents are gone too, as of Story 2.12.** They were
+ * `consultation.requested` and `apparatus.reset` — neither gating a transition and neither required to
+ * complete a case, which is why they were never in the table above, and both carrying a decision owed
+ * before this story started. The decisions were taken rather than deferred again: the consultation is a
+ * control on the case-file overlay (D4), and the reset is a control in the bench's own control row
+ * (D3). `theory-board.spec.ts` drives the first and `YoungExperimentBench.test.ts` and
+ * `ApparatusRun.test.ts` the second.
+ *
+ * So there is no player intent left whose only dispatcher is under `src/ui/` — which is ADR-011's
+ * completeness condition, and the condition on which the eleven panels were deleted.
  *
  * ## Where the walk itself lives
  *

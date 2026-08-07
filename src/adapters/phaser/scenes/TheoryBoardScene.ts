@@ -1,6 +1,7 @@
 import { Scene } from 'phaser';
 
 import type { AppStore } from '../../../core/store/createStore';
+import type { CaseRecordOperations } from '../../persistence/caseRecordOperations';
 import { registerCanvasBoundsRefresh } from '../canvasBounds';
 import { createPhaserStoreAdapter } from '../PhaserStoreAdapter';
 import { CaseFilePresenter } from '../renderers/CaseFilePresenter';
@@ -30,7 +31,14 @@ export class TheoryBoardScene extends Scene {
     private colleagueRenderer?: ColleagueRenderer;
     private caseFile?: CaseFilePresenter;
 
-    public constructor(private readonly store: AppStore) {
+    /**
+     * @param record Export, import and print, when the session has a repository. Absent on the
+     * validation route, where the case file simply draws no record row (Story 2.12).
+     */
+    public constructor(
+        private readonly store: AppStore,
+        private readonly record?: CaseRecordOperations
+    ) {
         super('TheoryBoard');
     }
 
@@ -48,7 +56,8 @@ export class TheoryBoardScene extends Scene {
         const caseFile = new CaseFilePresenter(this, adapter, {
             // Intra-scene suppression: this scene's overlay silencing this scene's board. A click meant
             // for the overlay that fell through would choose a conclusion.
-            onVisibilityChange: (visible) => this.colleagueRenderer?.setInputEnabled(!visible)
+            onVisibilityChange: (visible) => this.colleagueRenderer?.setInputEnabled(!visible),
+            record: this.record
         });
         caseFile.create();
         this.caseFile = caseFile;

@@ -2,14 +2,48 @@ import { readFileSync } from 'node:fs';
 
 import { expect, test } from '@playwright/test';
 
-import { lastProposalCardProbe, submitConclusionControlCentre } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import {
+    advanceControlCentreOnBoard,
+    lastProposalCardProbe,
+    submitConclusionControlCentre
+} from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
 import { rivalLabReviseControlCentre } from '../../src/adapters/phaser/renderers/RivalLabRenderer';
-// From `apparatusGeometry`, not `ApparatusRenderer`: that renderer imports Phaser as a *value*
-// (`BlendModes`), Phaser touches `window` at import time, and these specs run in Node.
-import { advanceToSynthesisControlCentre } from '../../src/adapters/phaser/renderers/apparatusGeometry';
+// From `apparatusGeometry`, which imports Phaser not at all, so every click target is derived from the
+// module that places the control rather than restated as a literal.
+import {
+    advanceToSynthesisControlCentre,
+    startTheLightControlCentre,
+    stepAffordanceCentre
+} from '../../src/adapters/phaser/renderers/apparatusGeometry';
+import { libraryAdvanceControlCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
 import { en } from '../../src/core/i18n/locales/en';
 import { fr } from '../../src/core/i18n/locales/fr';
-import { DESIGN_HEIGHT, canvas, clickDesign, expectActiveScene } from './canvasHelpers';
+import {
+    ARTIFACT_COUNT,
+    DESIGN_HEIGHT,
+    DESIGN_WIDTH,
+    WALK_TO_DEBRIEF_COST_MS,
+    artifactAt,
+    canvas,
+    clickDesign,
+    clickUntilScene,
+    enterTheLaboratory,
+    expectActiveScene,
+    recordedObservations,
+    startTheLightUntilRecorded,
+    waitForBookToClose,
+    waitForBookToOpen,
+    waitForInputToSettle
+} from './canvasHelpers';
+
+test.setTimeout(30_000 + WALK_TO_DEBRIEF_COST_MS);
+
+/** Which slot the screen-distance instrument stands in, from the authored control order. */
+const SCREEN_DISTANCE_SLOT = (JSON.parse(
+    readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
+) as { apparatus: { primaryControls: { id: string }[] } })
+    .apparatus.primaryControls.findIndex(({ id }) => id === 'screenDistanceM');
 
 /**
  * AC1 and AC3 on the canvas — the only place the route into and out of the rival lab actually happens.
@@ -31,12 +65,6 @@ const SUBMIT = submitConclusionControlCentre();
 const REVISE = rivalLabReviseControlCentre(DESIGN_HEIGHT);
 const ADVANCE = advanceToSynthesisControlCentre();
 
-/** The curated record is the one localized DOM panel, so its button names are derived per locale. */
-const SOURCE_NAMES = (JSON.parse(
-    readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
-) as { contextualArtifacts: { displayName: { en: string; fr: string } }[] })
-    .contextualArtifacts.map(({ displayName }) => displayName);
-
 
 /**
  * Walks to the theory board on **thin evidence** — no comparison saved, no support selected — which
@@ -49,12 +77,14 @@ const SOURCE_NAMES = (JSON.parse(
  * leaving `conclusion-spacing-varies` (wants a varied `slitSpacingMm`) and `conclusion-both-settings`
  * (wants both) unmet, so every critique path stays exactly as reachable as it was.
  *
- * The advance itself now goes through the **canvas** control rather than the retired DOM panel's
- * "Continue investigation to synthesis" button. That is the affordance a player actually has, and it
- * is the one the gate and the colleague hint are wired to.
+ * **Canvas-only since Story 2.12.** The reading, the prediction and the two runs used to go through
+ * the retired `CuratedRecord`, `CaseContextAndPrediction` and `ApparatusControls` panels, all of which
+ * are deleted. They go through the reading room, the colleague board and the bench now — the same
+ * affordances a player has.
  *
- * `locale` selects the bundle for the one localized DOM panel; the rest of the retired panel set is
- * English-only by design (`docs/i18n-authoring.md`).
+ * `locale` is still a parameter because it selects the bundle the boot heading is asserted against,
+ * which is what proves the browser really resolved the language under test before anything downstream
+ * depends on it.
  */
 const walkToTheoryBoardWithThinEvidence = async (
     page: import('@playwright/test').Page,
@@ -63,35 +93,41 @@ const walkToTheoryBoardWithThinEvidence = async (
     const labels = locale === 'fr' ? fr : en;
     await page.goto('/');
     // Proves the browser really resolved the locale under test before anything downstream depends on
-    // it — the canvas resolves every string through the same store-held locale.
+    // it — the canvas resolves every string through the same store-held locale. Asserted **before**
+    // entry, because the frame that carries this heading is dismissed by it; `enterTheLaboratory`'s own
+    // wait accepts either bundle, so it cannot stand in for a claim about *which* one resolved.
     await expect(page.getByRole('heading', { name: labels['boot.title'] })).toBeVisible();
+    await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
-    // The DOM record is used only to satisfy the context gate on the way to the rival lab. Since Story
-    // 2.8 it opens nothing: the book belongs to the reading room, and this panel records the inspection
-    // and draws nothing over the canvas. The `clickDesign(BOOK_CLOSE)` that used to follow went with
-    // it — with no book to dismiss, that click would land on live canvas instead.
-    for (const displayName of SOURCE_NAMES) {
-        await page.getByRole('button', { name: labels['curatedRecord.inspect'].replace('{name}', displayName[locale]) }).click();
+    // Both references off the shelf in the reading room, which is what records `source.inspected` and
+    // satisfies the context gate.
+    for (let index = 0; index < ARTIFACT_COUNT; index += 1) {
+        await clickDesign(page, artifactAt(index));
+        await waitForBookToOpen(page);
+        await clickDesign(page, bookCloseControlCentre());
+        await waitForBookToClose(page);
     }
+    await clickUntilScene(page, libraryAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT), 'Colleagues');
 
-    await page.getByRole('button', { name: 'Continue to prediction' }).click();
-    await page.getByLabel('Tentative prediction').fill('A larger screen distance may widen the pattern.');
-    await page.getByRole('button', { name: 'Record a prediction' }).click();
-    await page.getByRole('button', { name: 'Continue to experimentation' }).click();
+    await clickDesign(page, CARD);
+    await clickDesign(page, advanceControlCentreOnBoard('prediction'));
     await expectActiveScene(page, 'Laboratory');
 
-    await page.getByRole('button', { name: 'Run experiment' }).click();
+    await startTheLightUntilRecorded(page, startTheLightControlCentre(), 1);
     // The significant-measure gate refuses here, and the canvas answers with a colleague hint rather
     // than moving the player. Asserting the refusal keeps the walk honest: without it, a gate that
     // silently stopped working would still leave this helper passing.
     await clickDesign(page, ADVANCE);
     await expectActiveScene(page, 'Laboratory');
 
-    const screenDistance = page.getByLabel('Screen distance (m)');
-    await screenDistance.focus();
-    await screenDistance.press('ArrowUp');
-    await page.getByRole('button', { name: 'Run experiment' }).click();
+    // One authored step of the screen distance — a different configuration, which is what the gate
+    // counts — through the bench's own discrete affordance.
+    for (let press = 0; press < 4; press += 1) {
+        await clickDesign(page, stepAffordanceCentre(SCREEN_DISTANCE_SLOT, 1));
+        await waitForInputToSettle(page);
+    }
+    await startTheLightUntilRecorded(page, startTheLightControlCentre(), 2);
 
     await clickDesign(page, ADVANCE);
     await expectActiveScene(page, 'TheoryBoard');
@@ -113,9 +149,10 @@ test('routes to the rival lab on an unsupported conclusion and back again on rev
     await clickDesign(page, REVISE);
 
     // Back to the phase's own scene, which never moved: the critique is a beat, not a setback, and the
-    // investigation is exactly where the player left it.
+    // investigation is exactly where the player left it. Observed through the record rather than the
+    // deleted theory-board panel — the two observations that got the player here are still there.
     await expectActiveScene(page, 'TheoryBoard');
-    await expect(page.getByRole('region', { name: 'Theory board' })).toBeVisible();
+    await expect(recordedObservations(page)).toHaveCount(2);
 });
 
 test('leaves the board alone until the conclusion is actually submitted', async ({ page }) => {

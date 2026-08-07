@@ -4,9 +4,30 @@ import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore } from '../../src/core/store/createStore';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 import { createPhaserStoreAdapter } from '../../src/adapters/phaser/PhaserStoreAdapter';
-import { dispatchControlValueFromDom } from '../../src/ui/apparatus/ApparatusControls';
 
 const definition = {
+    // Story 2.12 removed the free-text `prediction.recorded` / `theory.conclusionSet` /
+    // `theory.limitationSet` actions, so a fixture that seeds a prediction or a conclusion has to
+    // carry the authored proposals the surviving actions choose from. Four of each, because
+    // `.length(4)` is the design rather than a minimum.
+    predictionProposals: [0, 1, 2, 3].map((index) => ({
+        id: `prediction-${index}`,
+        colleagueId: 'colleague-1',
+        text: { en: `A patterned result may appear (${index}).`, fr: `Un résultat structuré pourrait apparaître (${index}).` }
+    })),
+    conclusionProposals: [0, 1, 2, 3].map((index) => ({
+        id: `conclusion-${index}`,
+        colleagueId: 'colleague-1',
+        // Index 1 is deliberately overreaching: `peerReviewRules`' `overreach` predicate matches an
+        // authored phrase ("proves" / "prouve"), and the free-text conclusions that used to trigger it
+        // are gone. A fixture that could not produce a finding would make every peer-review test pass
+        // by having nothing to review.
+        claim: index === 1
+            ? { en: 'The evidence proves a bounded result.', fr: 'Les preuves prouvent un résultat délimité.' }
+            : { en: `The observations support a bounded conclusion (${index}).`, fr: `Les observations étayent une conclusion délimitée (${index}).` },
+        limitation: { en: `The observations leave alternative explanations open (${index}).`, fr: `Les observations laissent ouvertes d'autres explications (${index}).` },
+        supportPredicate: { kind: 'minimum-runs', count: 1 }
+    })),
     id: 'young-interference', version: '1.1.0', openingDispute: 'A dispute', prediction: { required: true },
     contextualArtifacts: [
         { id: 'young', displayName: 'Young source', creatorOrOrigin: 'Archive', sourceType: 'lecture-record', provenance: { category: 'primary-material', reference: 'young' }, rightsStatus: 'reviewed', caseRelationship: 'Context.' },
@@ -28,7 +49,7 @@ const enterExperiment = (store: ReturnType<typeof createStore>): void => {
     store.dispatch({ type: 'source.inspected', sourceId: 'young' });
     store.dispatch({ type: 'source.inspected', sourceId: 'newton' });
     store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
-    store.dispatch({ type: 'prediction.recorded', prediction: 'Changing values changes spacing.' });
+    store.dispatch({ type: 'prediction.proposalChosen', proposalId: definition.predictionProposals[0].id });
     store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
 };
 
@@ -58,16 +79,26 @@ describe('authoritative Young experiment actions', () => {
         expect(store.getState().runs[2].modelInputs).toMatchObject({ wavelengthNm: 650, wavelengthMode: 'advanced' });
     });
 
-    it('records byte-identical results after equivalent DOM and Phaser primary-control intents', () => {
-        const domStore = createStore(createInitialAppState(definition));
-        const phaserStore = createStore(createInitialAppState(definition));
-        enterExperiment(domStore); enterExperiment(phaserStore);
-        dispatchControlValueFromDom(domStore, 'slitSpacingMm', 0.15);
-        dispatchControlValueFromDom(domStore, 'screenDistanceM', 3);
-        const adapter = createPhaserStoreAdapter(phaserStore);
-        adapter.setControlValue('slitSpacingMm', 0.15); adapter.setControlValue('screenDistanceM', 3);
-        domStore.dispatch({ type: 'experiment.run', id: 'controlled', timestamp: '2026-08-05T10:00:00.000Z' });
-        phaserStore.dispatch({ type: 'experiment.run', id: 'controlled', timestamp: '2026-08-05T10:00:00.000Z' });
-        expect(JSON.stringify(domStore.getState().runs[0])).toBe(JSON.stringify(phaserStore.getState().runs[0]));
+    /**
+     * The record is a pure function of the values, not of which path set them.
+     *
+     * This used to compare a `dispatchControlValueFromDom` store against a `PhaserStoreAdapter` one —
+     * the DOM-parity contract ADR-001 v1.1 retired on 2026-08-05, and `ApparatusControls.ts` is deleted
+     * (Story 2.12). The **live** property it was really pinning survives and is worth keeping: the
+     * `origin` field the two paths differ by must not reach the run record, or a run recorded by drag
+     * would fail to compare with one recorded by keyboard. The pointer-versus-keyboard half of the same
+     * rule (ADR-012) is covered on the bench by `ApparatusRun.test.ts`.
+     */
+    it('records byte-identical results however the control values were set', () => {
+        const viaAdapter = createStore(createInitialAppState(definition));
+        const viaAction = createStore(createInitialAppState(definition));
+        enterExperiment(viaAdapter); enterExperiment(viaAction);
+        createPhaserStoreAdapter(viaAdapter).setControlValue('slitSpacingMm', 0.15);
+        createPhaserStoreAdapter(viaAdapter).setControlValue('screenDistanceM', 3);
+        viaAction.dispatch({ type: 'apparatus.controlSet', controlId: 'slitSpacingMm', value: 0.15, origin: 'dom' });
+        viaAction.dispatch({ type: 'apparatus.controlSet', controlId: 'screenDistanceM', value: 3, origin: 'dom' });
+        viaAdapter.dispatch({ type: 'experiment.run', id: 'controlled', timestamp: '2026-08-05T10:00:00.000Z' });
+        viaAction.dispatch({ type: 'experiment.run', id: 'controlled', timestamp: '2026-08-05T10:00:00.000Z' });
+        expect(JSON.stringify(viaAdapter.getState().runs[0])).toBe(JSON.stringify(viaAction.getState().runs[0]));
     });
 });

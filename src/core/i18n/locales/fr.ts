@@ -18,6 +18,7 @@ export const fr: Record<TranslationKey, string> = {
     'boot.status.ready': 'Laboratoire prêt.',
     'boot.status.savedProgressUnusable': 'La progression enregistrée n’a pas pu être utilisée. Une nouvelle enquête est prête.',
     'boot.status.savedProgressUnavailable': 'La progression enregistrée est indisponible pour le moment. L’enquête peut se poursuivre.',
+    'boot.status.saveFailed': 'La progression n’a pas pu être enregistrée sur cet appareil. Votre travail en cours est inchangé.',
 
     // --- Validation session -----------------------------------------------------------------------
     'validation.session.title': 'Séance de validation de Young',
@@ -42,10 +43,11 @@ export const fr: Record<TranslationKey, string> = {
     'lab.pattern.recorded': 'Figure d’interférence enregistrée : les franges brillantes sont espacées de {spacing} dans le résultat du modèle de Young enregistré.',
     'lab.wavelengthMode.minimum': 'minimal',
     'lab.wavelengthMode.advanced': 'avancé',
-    // Les deux commandes de la paillasse. Hauteur fixe : le balayage typographique français mesure la
-    // chaîne entière, car une étiquette qui passe à la ligne dans un rectangle de 44 px est tronquée.
+    // Les trois commandes de la paillasse. Hauteur fixe : le balayage typographique français mesure la
+    // chaîne entière, car une étiquette qui passe à la ligne au-delà de sa réserve est tronquée.
     'lab.start': 'Allumer la source',
     'lab.notebook.open': 'Carnet de mesures',
+    'lab.reset': 'Réinitialiser le montage',
     'lab.wavelength.heading': 'Longueur d’onde',
     'lab.wavelength.fixed': '{value} nm — parcours minimal',
     'lab.wavelength.comparison': '{value} nm — comparaison',
@@ -208,6 +210,19 @@ export const fr: Record<TranslationKey, string> = {
     'caseFile.review.issue': '{feedback} — {revisionPath}',
     'caseFile.review.saved': 'Révision relue enregistrée.',
     'caseFile.review.clearedBySupport': 'Votre appui a changé : le retour sur ce brouillon a été effacé.',
+    'caseFile.consultation.heading': 'Demander conseil',
+    'caseFile.consultation.request': 'Demander ce qui manque',
+    'caseFile.consultation.notRequested': 'Personne n’a encore été consulté sur ce brouillon.',
+    'caseFile.consultation.nextStep': 'Étape suivante : {text}',
+    'caseFile.consultation.observation': 'Ce qui est observé : {text}',
+    'caseFile.consultation.plainLanguage': 'En clair : {text}',
+    'caseFile.consultation.technicalDetail': 'Plus en détail : {text}',
+    'caseFile.record.export': 'Exporter le dossier',
+    'caseFile.record.import': 'Ouvrir un dossier',
+    'caseFile.record.print': 'Imprimer le dossier',
+    'caseFile.record.exported': 'Dossier exporté sous forme de relevé transférable.',
+    'caseFile.record.imported': 'Dossier ouvert et enregistré sur cet appareil.',
+    'caseFile.record.printed': 'Dossier imprimable ouvert.',
 
     // --- Colleagues and proposals ---------------------------------------------------------------
     'colleague.role.lead': 'Responsable',
@@ -314,7 +329,6 @@ export const fr: Record<TranslationKey, string> = {
     'error.source-not-eligible': 'Cette source ne peut pas être examinée comme preuve vérifiée pour le moment. Essayez une autre source contextuelle.',
     'error.duplicate-inspected-source': 'Cette source est déjà enregistrée comme examinée.',
     'error.missing-contextual-sources': 'Examinez {label} avant de continuer.',
-    'error.invalid-prediction': 'Saisissez une prédiction provisoire avant de l’enregistrer.',
     'error.unknown-prediction-proposal': 'Cette prédiction ne fait pas partie des propositions offertes.',
     'error.unknown-conclusion-proposal': 'Cette conclusion ne fait pas partie des propositions offertes.',
     'error.conclusion-phase-unavailable': 'Rejoignez le tableau de théorie avant de choisir une conclusion.',

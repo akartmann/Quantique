@@ -261,7 +261,28 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // It gets a bump at all because the *content* of `case.json` changed. Two different files both
         // claiming 1.13.0 would make `caseDefinitionVersion` — which `CaseRecordProjection` stamps into
         // every export — unable to tell them apart, which is the one job that field has (2.9 review).
-        || (definition.version === '1.14.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0'].includes(record.caseDefinitionVersion));
+        || (definition.version === '1.14.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0'].includes(record.caseDefinitionVersion))
+        // 1.15.0 changes **no authored field at all**, and says so rather than implying otherwise.
+        //
+        // Story 2.12 retires the DOM presentation panels. The contract that moved is on the code side:
+        // `prediction.recorded`, `theory.conclusionSet` and `theory.limitationSet` are removed from
+        // `AppAction`, so `prediction`, `theory.conclusion` and `theory.limitation` can now be written
+        // only by choosing an authored proposal. `case.json` is byte-identical to 1.14.0 apart from
+        // this number.
+        //
+        // It is bumped anyway because the epic requires it, and the reason survives inspection: the
+        // *set of states a record can encode* narrowed. A record saved by an older build can carry a
+        // hand-written `prediction` with no `selectedPredictionProposalId`, or a conclusion and a
+        // limitation that came from different places. Those records must keep loading — that is NFR12 —
+        // and they do, because nothing in this change re-derives or re-validates those three fields
+        // against the proposal sets. `validateCaseRecordForDefinition` checks a *present* proposal ID
+        // against its proposal's text and always has; an absent one is still absent, and still fine.
+        //
+        // The canonical English strings this function recomputes and compares — `peerReviewRules`'
+        // `feedback` and `revisionPath`, and the proposal claims and limitations — are byte-identical
+        // to 1.14.0. Verified by diffing the file, not assumed: the 2.8 review asked for this allowlist
+        // to be kept honest rather than widened on the assumption that they are.
+        || (definition.version === '1.15.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }

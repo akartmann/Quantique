@@ -13,6 +13,28 @@ import { createTheoryBoardDraft } from '../../src/domain/theory/conclusionReadin
 import { createRunRecord } from '../../src/domain/evidence/RunRecord';
 
 const definition = {
+    // Story 2.12 removed the free-text `prediction.recorded` / `theory.conclusionSet` /
+    // `theory.limitationSet` actions, so a fixture that seeds a prediction or a conclusion has to
+    // carry the authored proposals the surviving actions choose from. Four of each, because
+    // `.length(4)` is the design rather than a minimum.
+    predictionProposals: [0, 1, 2, 3].map((index) => ({
+        id: `prediction-${index}`,
+        colleagueId: 'colleague-1',
+        text: { en: `A patterned result may appear (${index}).`, fr: `Un résultat structuré pourrait apparaître (${index}).` }
+    })),
+    conclusionProposals: [0, 1, 2, 3].map((index) => ({
+        id: `conclusion-${index}`,
+        colleagueId: 'colleague-1',
+        // Index 1 is deliberately overreaching: `peerReviewRules`' `overreach` predicate matches an
+        // authored phrase ("proves" / "prouve"), and the free-text conclusions that used to trigger it
+        // are gone. A fixture that could not produce a finding would make every peer-review test pass
+        // by having nothing to review.
+        claim: index === 1
+            ? { en: 'The evidence proves a bounded result.', fr: 'Les preuves prouvent un résultat délimité.' }
+            : { en: `The observations support a bounded conclusion (${index}).`, fr: `Les observations étayent une conclusion délimitée (${index}).` },
+        limitation: { en: `The observations leave alternative explanations open (${index}).`, fr: `Les observations laissent ouvertes d'autres explications (${index}).` },
+        supportPredicate: { kind: 'minimum-runs', count: 1 }
+    })),
     id: 'young-interference', prediction: { required: true }, requirements: { minimumRuns: 2, minimumSources: 2, minimumSignificantRuns: 2 },
     significanceRule: { criticalControlIds: ['slitSpacingMm', 'screenDistanceM'] },
     colleagueHints: [],
@@ -122,7 +144,7 @@ describe('authored consultation and peer-review rules', () => {
         ['source-1', 'source-2'].forEach((sourceId) => store.dispatch({ type: 'source.inspected', sourceId }));
         expect(selectConsultation(store.getState())).toBeUndefined();
         store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
-        store.dispatch({ type: 'prediction.recorded', prediction: 'A tentative pattern may appear.' });
+        store.dispatch({ type: 'prediction.proposalChosen', proposalId: definition.predictionProposals[0].id });
         store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
         store.dispatch({ type: 'experiment.run', id: 'one', timestamp: '2026-08-04T12:00:00.000Z' });
         store.dispatch({ type: 'apparatus.controlSet', controlId: 'screenDistanceM', value: 3, origin: 'dom' });
@@ -131,9 +153,8 @@ describe('authored consultation and peer-review rules', () => {
         store.dispatch({ type: 'comparison.noteSaved', note: 'The recorded spacing differs across configurations.' });
         ['one', 'two'].forEach((runId) => store.dispatch({ type: 'theory.supportRunSelected', runId }));
         ['source-1', 'source-2'].forEach((sourceId) => store.dispatch({ type: 'theory.supportSourceSelected', sourceId }));
-        store.dispatch({ type: 'theory.conclusionSet', conclusion: 'The evidence proves a bounded result.' });
-        store.dispatch({ type: 'theory.limitationSet', limitation: 'Other explanations remain possible.' });
         store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' });
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: definition.conclusionProposals[1].id });
         store.dispatch({ type: 'theory.reviewRequested' });
         expect(store.dispatch({ type: 'peerReview.requested' })).toEqual({ ok: true, value: undefined });
         const peerReview = selectPeerReview(store.getState());
@@ -145,10 +166,11 @@ describe('authored consultation and peer-review rules', () => {
         expect(store.dispatch({ type: 'revision.saved', timestamp: '2026-08-04T14:00:00.000Z' })).toMatchObject({ ok: false, error: { code: 'revision-review-required' } });
         const history = selectDecisionHistory(store.getState());
         expect(history).toHaveLength(1);
-        expect(history[0]).toMatchObject({ version: 1, priorConclusion: '', conclusion: 'The evidence proves a bounded result.' });
+        expect(history[0]).toMatchObject({ version: 1, priorConclusion: '', conclusion: definition.conclusionProposals[1].claim.en });
         expect(Object.isFrozen(history[0])).toBe(true);
-        store.dispatch({ type: 'theory.conclusionSet', conclusion: 'A revised, bounded statement.' });
-        expect(history[0].conclusion).toBe('The evidence proves a bounded result.');
+        // A later choice must not reach back into the frozen snapshot the revision already made.
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: definition.conclusionProposals[0].id });
+        expect(history[0].conclusion).toBe(definition.conclusionProposals[1].claim.en);
     });
 });
 
@@ -170,7 +192,7 @@ describe('the localized peer-review projection', () => {
         const store = createStore(createInitialAppState(definition, 'fr'));
         ['source-1', 'source-2'].forEach((sourceId) => store.dispatch({ type: 'source.inspected', sourceId }));
         store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
-        store.dispatch({ type: 'prediction.recorded', prediction: 'A tentative pattern may appear.' });
+        store.dispatch({ type: 'prediction.proposalChosen', proposalId: definition.predictionProposals[0].id });
         store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
         store.dispatch({ type: 'experiment.run', id: 'one', timestamp: '2026-08-04T12:00:00.000Z' });
         // A second observation at a **different** throw: the significant-measure gate reads a repeat
@@ -178,7 +200,7 @@ describe('the localized peer-review projection', () => {
         store.dispatch({ type: 'apparatus.controlSet', controlId: 'screenDistanceM', value: 3, origin: 'phaser' });
         store.dispatch({ type: 'experiment.run', id: 'two', timestamp: '2026-08-04T12:01:00.000Z' });
         expect(store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' })).toEqual({ ok: true, value: undefined });
-        store.dispatch({ type: 'theory.conclusionSet', conclusion: 'The evidence proves a bounded result.' });
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: definition.conclusionProposals[0].id });
         store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'review' });
         expect(store.dispatch({ type: 'peerReview.requested' })).toEqual({ ok: true, value: undefined });
         return store;

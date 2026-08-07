@@ -14,6 +14,28 @@ import { createRunRecord } from '../../src/domain/evidence/RunRecord';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 
 const caseDefinition = {
+    // Story 2.12 removed the free-text `prediction.recorded` / `theory.conclusionSet` /
+    // `theory.limitationSet` actions, so a fixture that seeds a prediction or a conclusion has to
+    // carry the authored proposals the surviving actions choose from. Four of each, because
+    // `.length(4)` is the design rather than a minimum.
+    predictionProposals: [0, 1, 2, 3].map((index) => ({
+        id: `prediction-${index}`,
+        colleagueId: 'colleague-1',
+        text: { en: `A patterned result may appear (${index}).`, fr: `Un résultat structuré pourrait apparaître (${index}).` }
+    })),
+    conclusionProposals: [0, 1, 2, 3].map((index) => ({
+        id: `conclusion-${index}`,
+        colleagueId: 'colleague-1',
+        // Index 1 is deliberately overreaching: `peerReviewRules`' `overreach` predicate matches an
+        // authored phrase ("proves" / "prouve"), and the free-text conclusions that used to trigger it
+        // are gone. A fixture that could not produce a finding would make every peer-review test pass
+        // by having nothing to review.
+        claim: index === 1
+            ? { en: 'The evidence proves a bounded result.', fr: 'Les preuves prouvent un résultat délimité.' }
+            : { en: `The observations support a bounded conclusion (${index}).`, fr: `Les observations étayent une conclusion délimitée (${index}).` },
+        limitation: { en: `The observations leave alternative explanations open (${index}).`, fr: `Les observations laissent ouvertes d'autres explications (${index}).` },
+        supportPredicate: { kind: 'minimum-runs', count: 1 }
+    })),
     id: 'young-interference',
     apparatus: {
         primaryControls: [
@@ -61,7 +83,7 @@ const enterExperiment = (store: ReturnType<typeof createStore>): void => {
     store.dispatch({ type: 'source.inspected', sourceId: 'young-lecture-1801' });
     store.dispatch({ type: 'source.inspected', sourceId: 'unavailable-source' });
     store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
-    store.dispatch({ type: 'prediction.recorded', prediction: 'A patterned result may appear.' });
+    store.dispatch({ type: 'prediction.proposalChosen', proposalId: caseDefinition.predictionProposals[0].id });
     store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
 };
 

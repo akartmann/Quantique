@@ -6,6 +6,7 @@ import {
     DESIGN_WIDTH,
     WALK_TO_DEBRIEF_COST_MS,
     clickDesign,
+    completionSnapshot,
     expectActiveScene,
     recordedObservations,
     walkToDebrief
@@ -46,10 +47,14 @@ test.setTimeout(30_000 + WALK_TO_DEBRIEF_COST_MS);
 
 const DEBRIEF_REPLAY = debriefAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT);
 
-/** The still-mounted DOM projection of `completion.finalDecision` — the record, observed. */
-const completedConclusion = (page: import('@playwright/test').Page) =>
-    page.getByRole('region', { name: 'Historical debrief' })
-        .getByRole('heading', { name: 'Completed evidence-bounded conclusion' });
+/**
+ * The record's own account of `completion.finalDecision`.
+ *
+ * Re-pointed from the deleted `Historical debrief` panel to ADR-007's retained printable record, which
+ * projects the same snapshot and renders its section **only when there is one** — so this still tells
+ * "the case completed" from "the debrief scene was reached" (Story 2.12).
+ */
+const completedConclusion = completionSnapshot;
 
 test('reaches the debrief with canvas clicks only and keeps the record through a counterfactual replay', async ({ page }) => {
     await walkToDebrief(page);
@@ -58,8 +63,7 @@ test('reaches the debrief with canvas clicks only and keeps the record through a
     // The case completed, so a snapshot was written. Observed through the record's projection rather
     // than through canvas text, which cannot be read from here.
     await expect(completedConclusion(page)).toBeVisible();
-    const recordedDecision = await page.getByRole('region', { name: 'Historical debrief' })
-        .locator('section p').first().textContent();
+    const recordedDecision = await completedConclusion(page).locator('p').first().textContent();
     expect(recordedDecision).toBeTruthy();
 
     // --- the replay, from the canvas -------------------------------------------------------------
@@ -74,6 +78,5 @@ test('reaches the debrief with canvas clicks only and keeps the record through a
     // never be rewritten by what the player does on the second pass. Held by the reducer, asserted
     // here rather than re-implemented in a surface.
     await expect(completedConclusion(page)).toBeVisible();
-    expect(await page.getByRole('region', { name: 'Historical debrief' })
-        .locator('section p').first().textContent()).toBe(recordedDecision);
+    expect(await completedConclusion(page).locator('p').first().textContent()).toBe(recordedDecision);
 });

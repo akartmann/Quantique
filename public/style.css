@@ -1,3 +1,18 @@
+/*
+ * What is left after Story 2.12.
+ *
+ * This file used to carry ~200 lines of rules for the eleven `src/ui/*` presentation panels, laid out in
+ * a two-column grid that gave them a permanent third of the viewport beside the canvas. All of them are
+ * deleted, and so are their rules and that column.
+ *
+ * Three surfaces remain and each is here for a stated reason: the **boot frame**, which now covers the
+ * canvas until the player enters and is dismissed on entry; the **status line**, which lives outside the
+ * frame because a failed save must still be able to speak after the frame is gone (NFR12); and ADR-007's
+ * **printable record**, which is visually hidden and revealed only by `@media print`.
+ *
+ * The canvas is the page. Everything else is either temporary or invisible.
+ */
+
 body {
     margin: 0;
     color: #f7f4ef;
@@ -5,17 +20,47 @@ body {
     font-family: system-ui, sans-serif;
 }
 
-#app {
-    width: 100%;
-    min-height: 100vh;
+h1, p { margin: 0; }
+
+/*
+ * The canvas, at the full viewport, from first paint.
+ *
+ * `fixed` rather than a grid cell: it guarantees the surface is always wholly on screen, at every
+ * width, which is what retires the narrow-viewport problem Story 2.12 spent AC7 on — a canvas below the
+ * fold maps click coordinates to nothing and reads exactly like a dead control.
+ */
+/*
+ * **Placement is Phaser's, not this file's.** The config sets `autoCenter: Scale.CENTER_BOTH`, which
+ * centres the letterboxed canvas by writing its own margins against the parent it measured. A
+ * `place-items: center` here centred it a second time, and the two composed: at 1280×720 the 960-wide
+ * canvas landed at x=240 instead of x=160. It went unnoticed while the parent was one cell of a
+ * two-column grid, because the margin Phaser computed for that narrower box was near zero.
+ */
+#game-container {
+    background: #10252c;
+    inset: 0;
+    overflow: hidden;
+    position: fixed;
 }
 
+#game-container canvas { display: block; }
+
+/*
+ * The boot frame, covering the canvas until the player enters.
+ *
+ * `[hidden]` needs the explicit rule: the UA sheet sets `display: none` for it, but the `display: grid`
+ * above wins on specificity, so without this the frame would stay on screen after `hidden` was set.
+ */
 #boot-shell {
-    align-items: start;
+    background: #10252c;
     display: grid;
-    grid-template-columns: minmax(20rem, 34rem) minmax(0, 1fr);
-    min-height: 100vh;
+    inset: 0;
+    place-items: center;
+    position: fixed;
+    z-index: 2;
 }
+
+#boot-shell[hidden] { display: none; }
 
 .boot-shell {
     align-content: center;
@@ -33,8 +78,6 @@ body {
     text-transform: uppercase;
 }
 
-h1, p { margin: 0; }
-
 button {
     background: #f4d35e;
     border: 2px solid #f4d35e;
@@ -49,108 +92,26 @@ button {
 
 button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
-.curated-record button:focus-visible, .case-context-prediction button:focus-visible, .case-context-prediction a:focus-visible, .measurement-notebook button:focus-visible, .run-comparison button:focus-visible, .theory-board button:focus-visible {
-    outline-color: #10252c;
-}
-
-#boot-status { min-height: 1.5rem; }
-
-.apparatus-controls {
-    background: #173841;
-    border: 2px solid #95d8d0;
-    border-radius: 0.5rem;
-    display: grid;
-    gap: 1rem;
-    padding: 1rem;
-}
-
-.apparatus-controls h2 { font-size: 1.25rem; margin: 0; }
-
-.apparatus-controls label { font-weight: 700; }
-
-.apparatus-controls input {
-    background: #fff;
-    border: 2px solid #f7f4ef;
-    border-radius: 0.3rem;
+/*
+ * The one place a failed save, an unusable saved record, or a boot failure is written (NFR12).
+ * `main.ts` and `attachAutosave` both speak here.
+ *
+ * Above the boot frame rather than inside it, because the frame is dismissed on entry and a save can
+ * fail in any phase. `:empty` keeps it off the screen entirely until it carries a message, so the
+ * laboratory is not framed by a permanently reserved empty bar.
+ */
+#boot-status {
+    background: #f4d35e;
     color: #10252c;
-    font: inherit;
-    min-height: 44px;
-    padding: 0.4rem 0.6rem;
+    font-weight: 700;
+    inset: auto 0 0;
+    padding: 0.75rem 1rem;
+    position: fixed;
+    text-align: center;
+    z-index: 3;
 }
 
-.apparatus-controls input:focus-visible {
-    outline: 3px solid #f4d35e;
-    outline-offset: 3px;
-}
-
-.apparatus-controls select { background: #fff; border: 2px solid #f7f4ef; border-radius: 0.3rem; color: #10252c; font: inherit; min-height: 44px; padding: 0.4rem 0.6rem; }
-.apparatus-controls select:focus-visible { outline: 3px solid #f4d35e; outline-offset: 3px; }
-.apparatus-control-grid { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.apparatus-control { display: grid; gap: 0.5rem; }
-.apparatus-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
-.apparatus-actions button { min-height: 44px; }
-.apparatus-actions button.is-unavailable { background: #93a6a9; border-color: #93a6a9; color: #173841; cursor: help; opacity: 0.82; }
-.apparatus-actions button:disabled { cursor: not-allowed; opacity: 0.6; }
-.young-model-assumptions { border-left: 4px solid #f4d35e; padding-left: 0.75rem; }
-.young-phase-visual { background: linear-gradient(135deg, #0b2329, #234f58); border: 1px solid #95d8d0; border-radius: 0.45rem; display: grid; gap: 0.75rem; margin: 0; overflow: hidden; padding: 1rem; }
-.young-apparatus-diagram { height: 180px; position: relative; }
-.young-source, .young-barrier, .young-slit, .young-screen, .young-fringes, .young-wave, .young-rays { position: absolute; }
-.young-source { background: #f4d35e; border-radius: 50%; box-shadow: 0 0 0 12px rgb(244 211 94 / 18%), 0 0 35px 9px rgb(244 211 94 / 28%); height: 20px; left: 5%; top: calc(50% - 10px); width: 20px; }
-.young-wave { border: 2px solid rgb(92 200 255 / 75%); border-radius: 50%; height: 74px; left: 12%; top: calc(50% - 37px); width: 74px; }
-.young-barrier { background: #95d8d0; height: 150px; left: 37%; top: 15px; width: 10px; }
-.young-slit { background: #0b2329; height: 15px; left: calc(37% - 4px); width: 18px; z-index: 1; }
-.young-slit-top { top: 53px; }.young-slit-bottom { bottom: 53px; }
-.young-rays { background: linear-gradient(25deg, transparent 46%, rgb(208 131 255 / 60%) 47%, rgb(208 131 255 / 60%) 49%, transparent 50%), linear-gradient(-25deg, transparent 46%, rgb(92 200 255 / 60%) 47%, rgb(92 200 255 / 60%) 49%, transparent 50%); height: 145px; left: 42%; top: 18px; width: 42%; }
-.young-screen { background: #f7f4ef; height: 160px; right: 8%; top: 10px; width: 7px; }
-.young-fringes { background: repeating-linear-gradient(to bottom, #f4d35e 0 9px, #52737b 9px 18px, #f7f4ef 18px 23px, #52737b 23px 32px); border-radius: 0.3rem; height: 145px; right: 3%; top: 18px; width: 18px; }
-.young-phase-legend, .young-phase-visual figcaption { color: #f7f4ef; font-size: 0.95rem; }
-.young-phase-visual.is-running { animation: experiment-recorded 1.8s ease-out; }
-.young-phase-visual.is-running .young-source { animation: source-pulse 0.7s ease-out 2; }
-.young-phase-visual.is-running .young-wave { animation: wave-expand 1.2s ease-out; }
-.young-phase-visual.is-running .young-fringes { animation: fringe-resolve 1.5s ease-out; }
-@keyframes experiment-recorded { 0% { box-shadow: inset 0 0 0 0 #f4d35e; } 40% { box-shadow: inset 0 0 4rem 0.3rem rgb(244 211 94 / 30%); } 100% { box-shadow: inset 0 0 0 0 transparent; } }
-@keyframes source-pulse { 0% { transform: scale(1); } 45% { transform: scale(2.2); } 100% { transform: scale(1); } }
-@keyframes wave-expand { 0% { opacity: 0; transform: scale(0.35); } 100% { opacity: 1; transform: scale(1); } }
-@keyframes fringe-resolve { 0% { opacity: 0; transform: scaleY(0.15); } 65% { opacity: 1; transform: scaleY(1.1); } 100% { opacity: 1; transform: scaleY(1); } }
-
-.control-readout { font-size: 1.25rem; font-weight: 700; min-height: 1.5rem; }
-.control-range, .apparatus-status { min-height: 1.5rem; }
-
-.curated-record h2, .curated-record h3 { margin: 0; }
-.curated-record-status { min-height: 1.5rem; }
-.source-cards { display: grid; gap: 1rem; }
-.source-card { border: 2px solid #34515a; border-radius: 0.3rem; display: grid; gap: 0.75rem; padding: 1rem; }
-.source-card.source-provenance-primary-material { border-style: double; }
-.source-card.source-provenance-reconstruction { border-style: dashed; }
-.source-card.source-provenance-later-interpretation { border-style: dotted; }
-.source-card.source-provenance-deliberate-fiction { border-style: groove; }
-.source-details { display: grid; gap: 0.5rem; margin: 0; }
-.source-details div { display: grid; gap: 0.25rem; }
-.source-details dt { font-weight: 700; }
-.source-details dd { margin: 0; }
-.source-provenance-label, .source-category-marker, .source-rights-status, .source-inspected-state { margin: 0; }
-.source-category-marker, .source-inspected-state { font-weight: 700; }
-.curated-record button { min-height: 44px; }
-
-.case-context-prediction h2 { margin: 0; }
-.context-readiness-summary, .context-prediction-status { min-height: 1.5rem; }
-.case-context-prediction textarea { border: 2px solid #34515a; border-radius: 0.3rem; color: #10252c; font: inherit; min-height: 6rem; padding: 0.4rem 0.6rem; resize: vertical; }
-.case-context-prediction textarea:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
-.case-context-prediction button { min-height: 44px; }
-.contextual-source-attribution { border-left: 4px solid #34515a; display: grid; gap: 0.5rem; padding: 0.75rem 1rem; }
-.contextual-source-attribution p { margin: 0; }
-.contextual-reuse-statement { font-weight: 700; }
-.contextual-source-attribution a { color: #10252c; font-weight: 700; }
-
-.curated-record, .case-context-prediction, .measurement-notebook, .run-comparison, .theory-board, .review-panel, .historical-debrief-panel, .inquiry-recognition-panel, .case-progress-panel, .case-record-print-view {
-    background: #f7f4ef;
-    border: 2px solid #f4d35e;
-    border-radius: 0.5rem;
-    color: #10252c;
-    display: grid;
-    gap: 1rem;
-    padding: 1rem;
-}
+#boot-status:empty { display: none; }
 
 .validation-session-disclosure {
     border-left: 4px solid #95d8d0;
@@ -161,102 +122,56 @@ button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
 .validation-session-disclosure h2 { font-size: 1.1rem; margin: 0; }
 
-.notebook-status { min-height: 1.5rem; }
-.notebook-observations { display: grid; gap: 1rem; margin: 0; padding-left: 1.5rem; }
-.notebook-observation { border: 1px solid #34515a; border-radius: 0.3rem; display: grid; gap: 0.75rem; padding: 1rem; }
-.notebook-observation h3, .measurement-notebook h2, .measurement-notebook > h3, .run-comparison h3 { margin: 0; }
-.notebook-details { display: grid; gap: 0.5rem; margin: 0; }
-.notebook-details div { display: grid; gap: 0.25rem; }
-.notebook-details dt { font-weight: 700; }
-.notebook-details dd { margin: 0; }
-.measurement-notebook input, .measurement-notebook textarea {
-    border: 2px solid #34515a;
-    border-radius: 0.3rem;
-    color: #10252c;
-    font: inherit;
-    min-height: 44px;
-    padding: 0.4rem 0.6rem;
-}
-.measurement-notebook textarea { min-height: 6rem; resize: vertical; }
-.measurement-notebook input:focus-visible, .measurement-notebook textarea:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
-.run-comparison-columns { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.theory-board h2, .theory-board h3 { margin: 0; }
-.theory-board-status { min-height: 1.5rem; }
-.theory-board-evidence { display: grid; gap: 1rem; margin: 0; padding-left: 1.5rem; }
-.theory-board-evidence li { border: 1px solid #34515a; border-radius: 0.3rem; display: grid; gap: 0.75rem; padding: 1rem; }
-.theory-board-details { display: grid; gap: 0.5rem; margin: 0; }
-.theory-board-details div { display: grid; gap: 0.25rem; }
-.theory-board-details dt { font-weight: 700; }
-.theory-board-details dd { margin: 0; }
-.theory-board input, .theory-board textarea { border: 2px solid #34515a; border-radius: 0.3rem; color: #10252c; font: inherit; min-height: 44px; padding: 0.4rem 0.6rem; }
-.theory-board textarea { min-height: 6rem; resize: vertical; }
-.theory-board input:focus-visible, .theory-board textarea:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
-.theory-board button { min-height: 44px; }
-.review-panel h2, .review-panel h3 { margin: 0; }
-.review-panel button { min-height: 44px; }
-.review-panel button:focus-visible, .review-panel summary:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
-.review-status { min-height: 1.5rem; }
-.review-panel details { border: 1px solid #34515a; border-radius: 0.3rem; padding: 0.75rem; }
-.review-panel summary { cursor: pointer; font-weight: 700; min-height: 44px; }
-.historical-debrief-panel h2, .historical-debrief-panel h3 { margin: 0; }
-.historical-debrief-panel section { display: grid; gap: 0.5rem; }
-.historical-debrief-panel button { min-height: 44px; }
-.historical-debrief-panel button:focus-visible, .historical-debrief-panel summary:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
-.historical-debrief-panel details { border: 1px solid #34515a; border-radius: 0.3rem; padding: 0.75rem; }
-.historical-debrief-panel summary { cursor: pointer; font-weight: 700; min-height: 44px; }
-.counterfactual-replay-label { border-left: 4px solid #34515a; font-weight: 700; padding-left: 0.75rem; }
-.decision-history-panel ol { display: grid; gap: 1rem; margin: 0; padding-left: 1.5rem; }
-.decision-history-panel li { border: 1px solid #34515a; border-radius: 0.3rem; padding: 1rem; }
-.decision-history-panel dl { display: grid; gap: 0.5rem; margin: 0; }
-.decision-history-panel dt { font-weight: 700; }
-.decision-history-panel dd { margin: 0; }
-.inquiry-recognition-panel h2 { margin: 0; }
-.inquiry-recognition-status { min-height: 1.5rem; }
-.inquiry-recognition-list { display: grid; gap: 0.75rem; margin: 0; padding-left: 1.5rem; }
-.inquiry-recognition-list li { border: 1px solid #34515a; border-radius: 0.3rem; padding: 0.75rem; }
-.inquiry-recognition-list p, .inquiry-audio-status { margin: 0.5rem 0 0; }
-.case-progress-panel { display: grid; gap: 1rem; }
-.case-progress-panel h2, .case-record-print-view h2, .case-record-print-view h3 { margin: 0; }
-.case-progress-panel button, .case-progress-panel input { min-height: 44px; }
-.case-progress-panel input:focus-visible, .case-progress-panel button:focus-visible { outline: 3px solid #10252c; outline-offset: 3px; }
-.case-progress-status { min-height: 1.5rem; }
-.case-record-print-view { color: #10252c; }
-.case-record-print-view section { display: grid; gap: 0.5rem; }
-.case-record-print-view dl { display: grid; gap: 0.5rem; margin: 0; }
-.case-record-print-view dt { font-weight: 700; }
-.case-record-print-view dd { margin: 0; }
-
-#game-container {
-    align-self: start;
-    background: #10252c;
-    display: grid;
-    height: 100vh;
-    min-height: 32rem;
+/*
+ * ADR-007's portable record: in the document, in the accessibility tree, off the screen.
+ *
+ * The standard visually-hidden clip rather than `display: none` or `hidden`, and the difference is
+ * load-bearing twice over. `#game-container` is `aria-hidden="true"` and canvas a11y projection is an
+ * open deferred item, so this record is the only readable account of the investigation — `display: none`
+ * would take it out of the accessibility tree along with the layout. It is also the e2e suite's window
+ * onto the store now that the panels are gone, and a removed element cannot be read there either.
+ */
+.case-record-print-view {
+    clip-path: inset(50%);
+    height: 1px;
     overflow: hidden;
-    place-items: center;
-    position: sticky;
-    top: 0;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
 }
-
-#game-container canvas { display: block; max-height: 100%; max-width: 100%; }
 
 @media (max-width: 720px) {
-    #boot-shell { grid-template-columns: 1fr; }
     .boot-shell { padding: 2rem; }
-    .run-comparison-columns { grid-template-columns: 1fr; }
-    .apparatus-control-grid { grid-template-columns: 1fr; }
-    #game-container { height: min(70vh, 40rem); min-height: 20rem; position: relative; }
 }
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 }
 
+/*
+ * Printing is the record's one visible state, and the whole reason it is retained.
+ *
+ * Everything else is a frame or a canvas and none of it belongs on paper, so the three fixed layers are
+ * dropped and the record is un-clipped back into normal flow with print colours.
+ */
 @media print {
     body { background: #fff; color: #000; }
-    #boot-shell { display: block; min-height: 0; }
-    .boot-shell { display: block; max-width: none; padding: 0; }
-    .boot-shell > :not(#print-record), #game-container { display: none !important; }
-    .case-record-print-view { border: 0; color: #000; display: block; padding: 0; }
-    .case-record-print-view section { break-inside: avoid; margin: 0 0 1rem; }
+    #game-container, #boot-shell, #boot-status { display: none !important; }
+
+    .case-record-print-view {
+        clip-path: none;
+        color: #000;
+        display: block;
+        height: auto;
+        overflow: visible;
+        position: static;
+        white-space: normal;
+        width: auto;
+    }
+
+    .case-record-print-view h2, .case-record-print-view h3 { margin: 0; }
+    .case-record-print-view section { break-inside: avoid; display: block; margin: 0 0 1rem; }
+    .case-record-print-view dl { display: grid; gap: 0.5rem; margin: 0; }
+    .case-record-print-view dt { font-weight: 700; }
+    .case-record-print-view dd { margin: 0; }
 }

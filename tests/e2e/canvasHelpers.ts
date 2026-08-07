@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { expect, type Page } from '@playwright/test';
 
 import { en } from '../../src/core/i18n/locales/en';
+import { fr } from '../../src/core/i18n/locales/fr';
+import { decimalPlaces, formatMeasurement } from '../../src/core/i18n/formatNumber';
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../../src/adapters/phaser/designSurface';
 import { libraryArtifactCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
 import { BOOK_CLOSE_FADE_MS, BOOK_OPEN_MS, BOOK_TURN_MS } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
@@ -78,13 +80,55 @@ export const artifactAt = (index: number): Readonly<{ x: number; y: number }> =>
 export const canvas = (page: Page) => page.locator('#game-container canvas');
 
 /**
+ * The canvas's live box, having first put it on screen **only if it is not already there**.
+ *
+ * `project-context.md` states the rule in as many words — "browser tests scroll before exercising
+ * in-canvas controls" — and until Story 2.12 no spec needed it, because at desktop widths the canvas
+ * shares the fold with the boot frame. Below 720px the frame stacks *above* it, so a coordinate mapped
+ * from a box below the fold lands nowhere and reads exactly like a dead control (AC7's narrow-viewport
+ * walk).
+ *
+ * **The conditional is load-bearing, and an unconditional `scrollIntoViewIfNeeded` is not equivalent.**
+ * The canvas is `position: sticky` and Phaser caches its bounds in *document* coordinates, refreshing
+ * them from a passive scroll listener — so any scroll leaves the cached bounds stale for a frame, and a
+ * click issued in that frame is hit-tested against where the canvas used to be. Firefox scrolls a few
+ * pixels even when the element is already visible, which took out the reading room's reduced-motion
+ * walk the first time this helper scrolled unconditionally. So: scroll only when the box is genuinely
+ * off screen, then give the listener its frame and re-read the box it moved to.
+ */
+const scrolledCanvasBounds = async (page: Page) => {
+    const surface = canvas(page);
+    let bounds = await surface.boundingBox();
+    if (!bounds) throw new Error('The routed Phaser surface did not render.');
+    const viewport = page.viewportSize();
+    // A pixel of tolerance, because "already on screen" is a sub-pixel question at the desktop layout:
+    // `#game-container` is `height: 100vh` and the letterboxed canvas inside it fills that exactly, so a
+    // bounding box reported as 720.0000001 tall in a 720px viewport reads as off-screen and triggers a
+    // scroll on **every** click. Firefox does exactly that, and the scroll invalidates Phaser's cached
+    // document-space bounds for a frame — which is how an unconditional scroll took out the reading
+    // room's reduced-motion walk while every other browser stayed green.
+    const TOLERANCE = 2;
+    const offScreen = viewport !== null
+        && (bounds.y < -TOLERANCE || bounds.y + bounds.height > viewport.height + TOLERANCE
+            || bounds.x < -TOLERANCE || bounds.x + bounds.width > viewport.width + TOLERANCE);
+    if (!offScreen) return bounds;
+    await surface.scrollIntoViewIfNeeded();
+    await waitForInputToSettle(page);
+    bounds = await surface.boundingBox();
+    if (!bounds) throw new Error('The routed Phaser surface did not render.');
+    return bounds;
+};
+
+const dragBounds = scrolledCanvasBounds;
+
+/**
  * Clicks a point in **design space**, mapped through the canvas's live bounding box.
  *
  * Mapped rather than assumed for two reasons: the surface is `Scale.FIT`, so it is letterboxed into
  * whatever the window is, and the canvas is sticky, so its document position moves with the scroll.
  */
 export const clickDesign = async (page: Page, point: Readonly<{ x: number; y: number }>): Promise<void> => {
-    const bounds = await canvas(page).boundingBox();
+    const bounds = await scrolledCanvasBounds(page);
     if (!bounds) throw new Error('The routed Phaser surface did not render.');
     await page.mouse.click(
         bounds.x + (point.x / DESIGN_WIDTH) * bounds.width,
@@ -116,8 +160,7 @@ export const dragDesign = async (
     from: Readonly<{ x: number; y: number }>,
     to: Readonly<{ x: number; y: number }>
 ): Promise<void> => {
-    const bounds = await canvas(page).boundingBox();
-    if (!bounds) throw new Error('The routed Phaser surface did not render.');
+    const bounds = await dragBounds(page);
     const at = (point: Readonly<{ x: number; y: number }>) => ({
         x: bounds.x + (point.x / DESIGN_WIDTH) * bounds.width,
         y: bounds.y + (point.y / DESIGN_HEIGHT) * bounds.height
@@ -168,8 +211,20 @@ export const expectActiveScene = async (page: Page, sceneKey: string): Promise<v
     await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', sceneKey);
 };
 
-/** Slack over the renderer's own animation constants, so a slow CI machine is not a flake. */
-const ANIMATION_MARGIN_MS = 120;
+/**
+ * Slack over the renderer's own animation constants, so a busy machine is not a flake.
+ *
+ * **Raised from 120 ms at Story 2.12.** These three are the only fixed waits left in the suite, and
+ * they are the only ones that cannot be replaced by a bounded retry: the reference book is a canvas
+ * overlay with no DOM signal for "it has gone". The tween's *duration* is deterministic — it is driven
+ * by elapsed time — but the update frame its `onComplete` lands on is not, and `playwright.config.ts`
+ * runs five browsers at once. A click issued a frame early is correctly swallowed by an overlay still
+ * suppressing the room underneath, and the walk then fails several steps later at a transition with a
+ * routing error pointing nowhere near the cause. 400 ms is roughly a doubling of the worst frame
+ * observed under the release gate's concurrency; it costs ~1.1 s per walk and removes the last
+ * fixed-wait flake in the suite.
+ */
+const ANIMATION_MARGIN_MS = 400;
 /** Two frames at 60 FPS, rounded up: the window in which Phaser applies a hit-area change. */
 const INPUT_SETTLE_MS = 34;
 /**
@@ -245,9 +300,88 @@ export const waitForRunToResolve = async (page: Page): Promise<void> => {
     await waitForInputToSettle(page);
 };
 
-/** Every observation the still-mounted DOM notebook is projecting — the record, observed. */
+/**
+ * The retained printable record, which is the only DOM projection of the store that still exists.
+ *
+ * Story 2.12 deletes every presentation panel; ADR-007's `CaseRecordPrintView` is the sole non-Phaser
+ * **surface** the architecture keeps, and it dispatches nothing. It is not an observability hook added
+ * to make a spec pass — the 2.8 review's rule against those — it is a shipped feature (FR11) that has
+ * projected the record since Story 1.8 and is mounted on every normal-route session.
+ */
+const printRecord = (page: Page) => page.getByRole('article', {
+    name: new RegExp(`^(${escapeForRegExp(en['print.ariaLabel'])}|${escapeForRegExp(fr['print.ariaLabel'])})$`)
+});
+
+/**
+ * A section of the printable record, found by its own heading rather than by position.
+ *
+ * By heading because the record's section order is a fact about one function, and an index would go on
+ * passing while pointing at a different section — the "green suite that cannot see the thing it claims"
+ * this epic keeps producing.
+ */
+const printSection = (page: Page, heading: string) => {
+    const french = fr[Object.keys(en).find((key) => en[key as keyof typeof en] === heading) as keyof typeof fr];
+    return printRecord(page).locator('section').filter({
+        has: page.getByRole('heading', { name: new RegExp(`^(${escapeForRegExp(heading)}|${escapeForRegExp(french)})$`) })
+    });
+};
+
+const escapeForRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Every observation the record carries — the record, observed.
+ *
+ * This used to read `.notebook-observation` out of the still-mounted DOM notebook, which is deleted.
+ * The empty-state row is excluded rather than counted: the print view always renders one `li`, so a
+ * bare count would report one observation before any exists and every "recorded a run" assertion in the
+ * suite would start life already satisfied.
+ */
 export const recordedObservations = (page: Page) =>
-    page.getByRole('region', { name: 'Measurement notebook' }).locator('.notebook-observation');
+    printSection(page, en['print.observations.heading']).locator('ol > li')
+        // Both bundles, because three specs run under a French browser and the record is localized:
+        // filtering only the English placeholder leaves the French one counted, and every "recorded one
+        // observation" assertion in the suite would then be satisfied before anything was recorded.
+        .filter({ hasNotText: en['print.observations.empty'] })
+        .filter({ hasNotText: fr['print.observations.empty'] });
+
+/**
+ * Every reference the record says has been read — the same shape as {@link recordedObservations}, and
+ * excluded from its empty state for the same reason: the print view always renders one row, so a bare
+ * count would report a reading before any exists.
+ */
+export const recordedSources = (page: Page) =>
+    printSection(page, en['print.sources.heading']).locator('ul > li')
+        .filter({ hasNotText: en['print.sources.empty'] })
+        .filter({ hasNotText: fr['print.sources.empty'] });
+
+/**
+ * The completion snapshot, present only once the case has actually been closed.
+ *
+ * `CaseRecordPrintView` renders this section **only** when `selectCompletionSnapshot` returns one, so
+ * its presence is a real signal rather than a label that is always there — which is what lets a spec
+ * tell "the case completed" from "the debrief scene happened to be reached".
+ */
+export const completionSnapshot = (page: Page) =>
+    printSection(page, en['print.completion.heading']);
+
+/** Every comparison note the record carries, for a spec that typed one into the canvas. */
+export const recordedComparisonNotes = (page: Page) =>
+    printSection(page, en['print.comparison.heading']).locator('ul > li')
+        .filter({ hasNotText: en['print.comparison.empty'] })
+        .filter({ hasNotText: fr['print.comparison.empty'] });
+
+/**
+ * What the record says the apparatus is set to, for one authored control.
+ *
+ * Replaces `getByLabel('Screen distance (m)')`, which read the deleted DOM slider. The print view lists
+ * `selectControlLabel` against `selectFormattedControlValue` for every primary control, so this observes
+ * the same store field the slider used to — and, unlike the slider, it is a surface that ships.
+ */
+export const recordedSetting = (page: Page, controlLabel: string | RegExp) =>
+    printSection(page, en['print.settings.heading'])
+        .locator('div')
+        .filter({ has: page.getByRole('term').filter({ hasText: controlLabel }) })
+        .getByRole('definition');
 
 /**
  * Starts the light and waits until the run it produced is actually recorded, retrying the press.
@@ -294,11 +428,25 @@ export const startTheLightUntilRecorded = async (
  * whose surface the walk then goes on to use. A stray click on a live proposal board is exactly the
  * kind of timing-dependent side effect a retry is supposed to avoid introducing.
  */
-export const clickUntilScene = async (page: Page, point: Readonly<{ x: number; y: number }>, sceneKey: string): Promise<void> => {
+export const clickUntilScene = async (
+    page: Page,
+    point: Readonly<{ x: number; y: number }>,
+    sceneKey: string,
+    /**
+     * How long to keep trying. Five seconds is right for a desktop viewport and is what every walk uses.
+     *
+     * The parameter exists for one caller: the narrow-viewport walk added in Story 2.12 runs under
+     * Chromium's mobile emulation at 390×844, where the canvas is a quarter of the area, the page
+     * scrolls, and every frame is longer — so the same four retries that are generous on a desktop
+     * viewport are marginal there under the release gate's five workers. Raising the **bound** does not
+     * weaken the check: a control that never dispatches still fails, just later.
+     */
+    timeoutMs = 5_000
+): Promise<void> => {
     await expect(async () => {
         if (await activeScene(page) !== sceneKey) await clickDesign(page, point);
         expect(await activeScene(page)).toBe(sceneKey);
-    }).toPass({ timeout: 5_000, intervals: [100, 200, 300, 500] });
+    }).toPass({ timeout: timeoutMs, intervals: [100, 200, 300, 500, 800, 1_200] });
 };
 
 // --- The whole-case canvas walk (Story 2.11) --------------------------------------------------------
@@ -325,7 +473,7 @@ export const clickUntilScene = async (page: Page, point: Readonly<{ x: number; y
 
 const WALK_CASE = JSON.parse(
     readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
-) as { apparatus: { primaryControls: { id: string; max: number }[] } };
+) as { apparatus: { primaryControls: { id: string; max: number; step: number; unit: string; label: { en: string } }[] } };
 
 /**
  * Which slot the screen-distance instrument stands in, read from the content rather than fixed at 1.
@@ -336,8 +484,30 @@ const WALK_CASE = JSON.parse(
  */
 const SCREEN_DISTANCE_SLOT = WALK_CASE.apparatus.primaryControls.findIndex(({ id }) => id === 'screenDistanceM');
 if (SCREEN_DISTANCE_SLOT < 0) throw new Error('The authored case must carry a screen-distance control.');
-/** Where a drag to the far end of the travel lands, read from the authored bound rather than as 4. */
-const FURTHEST_THROW = WALK_CASE.apparatus.primaryControls[SCREEN_DISTANCE_SLOT]!.max;
+/**
+ * Where a drag to the far end of the travel lands, and what the record says when it gets there.
+ *
+ * Both read from the authored content and formatted by the app's own formatter rather than written
+ * down: the readout is `{value} {unit}` in English and `{value} {unit}` with a comma decimal in French,
+ * and a literal here would be a number this file and the product agreed on by coincidence.
+ */
+const SCREEN_DISTANCE_CONTROL = WALK_CASE.apparatus.primaryControls[SCREEN_DISTANCE_SLOT]!;
+/**
+ * Both locales, because this walk runs under a French browser too.
+ *
+ * The authored control label and the formatted value both differ — `Distance à l'écran` and a comma
+ * decimal — so a walk pinned to the English pair would report a knob that never turned rather than a
+ * language it was not written for. That is the shape of failure the 2.11 review recorded twice.
+ */
+const throwReadout = (locale: 'en' | 'fr', value: number): string =>
+    formatMeasurement(locale, value, decimalPlaces(SCREEN_DISTANCE_CONTROL.step), SCREEN_DISTANCE_CONTROL.unit);
+const FURTHEST_THROW_READOUT = new RegExp(
+    `^(${escapeForRegExp(throwReadout('en', SCREEN_DISTANCE_CONTROL.max))}`
+    + `|${escapeForRegExp(throwReadout('fr', SCREEN_DISTANCE_CONTROL.max))})$`
+);
+const SCREEN_DISTANCE_LABEL = new RegExp(
+    `^(${escapeForRegExp(SCREEN_DISTANCE_CONTROL.label.en)}|${escapeForRegExp(SCREEN_DISTANCE_CONTROL.label.fr)})$`
+);
 const SCREEN_DISTANCE_TRAVEL_END = {
     x: knobCentre(SCREEN_DISTANCE_SLOT).x + (Math.cos(KNOB_ARC_END_RAD) * (KNOB_TRAVEL_RADIUS - 6)),
     y: knobCentre(SCREEN_DISTANCE_SLOT).y + (Math.sin(KNOB_ARC_END_RAD) * (KNOB_TRAVEL_RADIUS - 6))
@@ -365,18 +535,55 @@ const SCREEN_DISTANCE_TRAVEL_END = {
  * This is headroom, not a target: the walk completes in ~17.5s against Playwright's 30s default on an
  * idle machine. It is what keeps a busy machine from reporting a layout defect.
  */
-const WALK_INPUT_SETTLE_COUNT = 15;
+const WALK_INPUT_SETTLE_COUNT = 19;
+/**
+ * How long the whole walk takes when nothing else is running, measured rather than estimated.
+ *
+ * ~29 s at Story 2.12, against ~17.5 s when the previous derivation was written. Three things grew it:
+ * the case file is opened three times rather than twice, the reading room is walked with real book
+ * animations, and `clickUntilScene` now covers two more relabel-lockout windows.
+ */
+const WALK_MEASURED_MS = 29_000;
+/**
+ * The contention allowance, and why it is a doubling rather than a margin.
+ *
+ * `playwright.config.ts` runs five workers, and every pause in this walk is a Phaser **frame** — input
+ * is processed once per rendered frame, so five concurrent browsers stretch all of them together. The
+ * 2.11 review recorded exactly this and left the constant unmoved; the deferred item asks for it to be
+ * re-derived so a timeout under load reads as a budget fact rather than a product defect.
+ *
+ * This is headroom, not a target. Nothing is waited on for this long: every step in the walk waits on
+ * the thing the gesture was supposed to achieve, and a control that never dispatches still fails.
+ */
+const WALK_CONTENTION_ALLOWANCE = 2;
 export const WALK_TO_DEBRIEF_COST_MS =
-    (4 * RUN_STEP_COST_MS) + (WALK_INPUT_SETTLE_COUNT * INPUT_SETTLE_MS);
+    ((WALK_MEASURED_MS + (2 * RUN_STEP_COST_MS) + (WALK_INPUT_SETTLE_COUNT * INPUT_SETTLE_MS))
+        * WALK_CONTENTION_ALLOWANCE);
 
-/** Reads both references off the shelf and leaves the room. `context → prediction`. */
+/**
+ * Reads both references off the shelf and leaves the room. `context → prediction`.
+ *
+ * **Each reading is verified before the next is attempted**, and that is what makes this step
+ * recoverable. It used to click each object once behind fixed-duration waits and check nothing: a click
+ * dropped because Phaser had not yet processed the previous frame left the room with one reading, and
+ * the failure surfaced at the advance below — as a room correctly refusing to be left, five seconds of
+ * bounded retry that could never help, and a routing error pointing nowhere near the lost click. It is
+ * the single most frequent flake in the suite under three-engine concurrency.
+ *
+ * Bounded, and not a way to make a dead shelf pass: the retry re-opens the same object, the condition is
+ * the record's own count of readings, and an object that never records still fails here — where the
+ * cause is.
+ */
 const readTheReferences = async (page: Page): Promise<void> => {
     await expectActiveScene(page, 'Library');
     for (let index = 0; index < ARTIFACT_COUNT; index += 1) {
-        await clickDesign(page, artifactAt(index));
-        await waitForBookToOpen(page);
-        await clickDesign(page, bookCloseControlCentre());
-        await waitForBookToClose(page);
+        await expect(async () => {
+            await clickDesign(page, artifactAt(index));
+            await waitForBookToOpen(page);
+            await clickDesign(page, bookCloseControlCentre());
+            await waitForBookToClose(page);
+            await expect(recordedSources(page)).toHaveCount(index + 1, { timeout: 1_000 });
+        }).toPass({ timeout: 15_000, intervals: [150, 300, 600, 900] });
     }
     await clickUntilScene(page, libraryAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT), 'Colleagues');
 };
@@ -384,8 +591,11 @@ const readTheReferences = async (page: Page): Promise<void> => {
 /** Chooses an attributed prediction and moves to the bench. `prediction → experiment`. */
 const chooseThePrediction = async (page: Page): Promise<void> => {
     await clickDesign(page, lastProposalCardProbe(DESIGN_HEIGHT));
-    await clickDesign(page, advanceControlCentreOnBoard('prediction'));
-    await expectActiveScene(page, 'Laboratory');
+    // `clickUntilScene` for the reason {@link closeTheCase} gives about the *next* advance: choosing a
+    // proposal relabels this control under the cursor, which starts `ADVANCE_RELABEL_LOCKOUT_MS`, and a
+    // click at machine speed inside that window is correctly ignored. The window is wider wherever
+    // frames are slower — firefox, and any narrow viewport — which is where a bare click failed.
+    await clickUntilScene(page, advanceControlCentreOnBoard('prediction'), 'Laboratory');
 };
 
 /**
@@ -399,7 +609,8 @@ const chooseThePrediction = async (page: Page): Promise<void> => {
 const recordTwoObservations = async (page: Page): Promise<void> => {
     await startTheLightUntilRecorded(page, startTheLightControlCentre(), 1);
     await dragDesignUntil(page, knobCentre(SCREEN_DISTANCE_SLOT), SCREEN_DISTANCE_TRAVEL_END, async () => {
-        await expect(page.getByLabel('Screen distance (m)')).toHaveValue(String(FURTHEST_THROW), { timeout: 1_500 });
+        await expect(recordedSetting(page, SCREEN_DISTANCE_LABEL))
+            .toHaveText(FURTHEST_THROW_READOUT, { timeout: 1_500 });
     });
     await startTheLightUntilRecorded(page, startTheLightControlCentre(), 2);
 
@@ -428,7 +639,7 @@ const recordTwoObservations = async (page: Page): Promise<void> => {
  * with it is bracketed rather than left open — a click meant for the board that landed on the backdrop
  * would be swallowed, and one meant for the overlay that fell through would choose a conclusion.
  */
-const inTheCaseFile = async (page: Page, act: () => Promise<void>): Promise<void> => {
+export const inTheCaseFile = async (page: Page, act: () => Promise<void>): Promise<void> => {
     await clickDesign(page, caseFileOpenControlCentre());
     await waitForInputToSettle(page);
     await act();
@@ -508,17 +719,57 @@ const closeTheCase = async (page: Page): Promise<void> => {
  *
  * Its own seam because the board is where the case file lives: a caller that wants to *look at* the
  * overlay rather than pass through it stops here, and re-deriving the first three steps to get there
- * is the copy-paste this module exists to prevent. Story 2.11's manual verification pass used it and
- * was then deleted, so it is module-private until a spec needs it — an exported helper nothing calls
- * is the "open invitation" the 2.8 review deleted three dead methods over.
+ * is the copy-paste this module exists to prevent.
+ *
+ * **Exported since Story 2.12**, when the case file gained export, import, print and the consultation:
+ * `progress-portability.spec.ts` and `theory-board.spec.ts` both need to be standing at the board
+ * rather than passing through it.
  */
-const walkToTheBoard = async (page: Page): Promise<void> => {
+/**
+ * Waits for the app to boot, then passes the entry gate.
+ *
+ * **Required before any canvas click since Story 2.12's layout pass.** The boot frame is no longer a
+ * column beside the canvas — it covers it, and is dismissed by this button. A spec that skips it
+ * hit-tests against the frame and every click lands on nothing, which reads exactly like a dead control.
+ *
+ * Both halves matter and neither is redundant. The heading is the "the app booted" gate: it is populated
+ * by `renderBootShellText` from the i18n layer, so seeing it proves hydration ran rather than that
+ * `index.html`'s placeholder markup is on screen. The click is what uncovers the canvas.
+ *
+ * Matched against **both** bundles rather than the English one: this is a precondition, and pinning it
+ * to `en` made the helper unusable under a French browser — which is why `rival-lab.spec.ts` kept a
+ * second copy of the same walk. The specs that genuinely assert *which* language resolved do it against
+ * `html[lang]` and the boot button, where it is the subject rather than a precondition.
+ */
+export const enterTheLaboratory = async (page: Page): Promise<void> => {
+    const eitherBundle = (key: 'boot.title' | 'boot.enter') =>
+        new RegExp(`^(${escapeForRegExp(en[key])}|${escapeForRegExp(fr[key])})$`);
+    await expect(page.getByRole('heading', { name: eitherBundle('boot.title') })).toBeVisible();
+    await page.getByRole('button', { name: eitherBundle('boot.enter') }).click();
+    // The frame is out of the way before the first coordinate is mapped, not merely asked to go.
+    await expect(page.locator('#boot-shell')).toBeHidden();
+    /**
+     * And Phaser has seen the input gate open before anything is clicked at it.
+     *
+     * Entry re-enables `game.input`, and Phaser processes pointer input **once per rendered frame** —
+     * so a click issued in the same frame as the enable is hit-tested against an input manager that is
+     * still disabled and is silently dropped. It is load-dependent, which is what makes it worth a wait
+     * rather than a note: alone this never missed, and at `--workers=5` the first reference click was
+     * swallowed and the walk failed three steps later in `readTheReferences`, refusing to leave a
+     * reading room that correctly still had nothing on its record.
+     *
+     * The same reasoning as {@link dragDesign}'s two frame waits, applied to the gate.
+     */
+    await waitForInputToSettle(page);
+};
+
+export const walkToTheBoard = async (page: Page): Promise<void> => {
     await page.goto('/');
-    // The app booted before we start clicking. A precondition belongs where the precondition is: this
-    // assertion used to sit *after* the whole walk in `canvas-transitions.spec.ts`, where it checked an
-    // incidental fact about a still-mounted DOM shell and let a boot failure surface several frames of
-    // noise later, at the first `expectActiveScene` (2.11 review).
-    await expect(page.getByRole('heading', { name: en['boot.title'] })).toBeVisible();
+    // The app booted, and the gate is passed, before we start clicking. A precondition belongs where the
+    // precondition is: this assertion used to sit *after* the whole walk in `canvas-transitions.spec.ts`,
+    // where it checked an incidental fact about a still-mounted DOM shell and let a boot failure surface
+    // several frames of noise later, at the first `expectActiveScene` (2.11 review).
+    await enterTheLaboratory(page);
     await readTheReferences(page);
     await chooseThePrediction(page);
     await recordTwoObservations(page);

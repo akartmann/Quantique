@@ -457,3 +457,94 @@ describe('teardown', () => {
         expect(ui.drawn.every(({ state }) => state.destroyed)).toBe(true);
     });
 });
+
+/**
+ * The reset control, pressed the way a player presses it (Story 2.12, D3 / AC8).
+ *
+ * The surface is found by its **own label** rather than by an index into `pressable()`: `benchControl`
+ * creates the rectangle and then its text, so the label's predecessor in `drawn` is the rectangle that
+ * carries it. An index would silently move the day an instrument is added, and the assertion would then
+ * be pressing something else and still passing — which is the "green suite that cannot see the thing it
+ * claims" this epic keeps producing.
+ */
+const benchControlNamed = (ui: ReturnType<typeof mount>, label: string) => {
+    const labelIndex = ui.drawn.findIndex(({ state }) => state.text === label);
+    if (labelIndex < 1) throw new Error(`No bench control is labelled "${label}".`);
+    const surface = ui.drawn[labelIndex - 1]!;
+    if (!surface.handlers.has('pointerup')) throw new Error(`"${label}" has no press handler beside it.`);
+    return surface;
+};
+
+describe('resetting the setup from the bench', () => {
+    it('puts the controls and the wavelength back when the control is pressed', () => {
+        const store = storeAtTheBench();
+        const ui = mount(store);
+        ui.renderer.create();
+        ui.renderer.render(store.getState());
+        const screen = definition.apparatus.primaryControls.find(({ id }) => id === 'screenDistanceM')!;
+        store.dispatch({ type: 'apparatus.controlSet', controlId: 'screenDistanceM', value: screen.max, origin: 'phaser' });
+        ui.renderer.render(store.getState());
+        expect(store.getState().activeControlValues.screenDistanceM).toBe(screen.max);
+
+        benchControlNamed(ui, 'Reset the setup').handlers.get('pointerup')!();
+
+        expect(store.getState().activeControlValues.screenDistanceM).toBe(screen.defaultValue);
+        expect(store.getState().selectedWavelengthNm).toBe(550);
+        ui.renderer.destroy();
+    });
+
+    /**
+     * A press that would change nothing dispatches nothing.
+     *
+     * `reduceApparatusReset` mints a new frozen state unconditionally, and `transientMessage.ts` anchors
+     * its slots on state **identity** — so an unguarded press would expire the refusal or the colleague
+     * hint the player is reading, for a click that moved no control. That is the defect the
+     * already-selected wavelength chip shipped for a whole session in 2.10, and this is the same guard.
+     */
+    it('dispatches nothing when the setup is already the authored one', () => {
+        const store = storeAtTheBench();
+        const ui = mount(store);
+        ui.renderer.create();
+        ui.renderer.render(store.getState());
+        const before = store.getState();
+
+        benchControlNamed(ui, 'Reset the setup').handlers.get('pointerup')!();
+
+        expect(store.getState()).toBe(before);
+        ui.renderer.destroy();
+    });
+
+    /**
+     * AC7 / D7: nothing on this bench is suppressed below 768px any more.
+     *
+     * The bench used to derive its input state from `inputEnabled && !matchMedia('(max-width: 767px)')`,
+     * which took the step controls, the advance control **and** the reference shelf away together —
+     * while the library, the boards and the debrief suppressed nothing. With the DOM panels retired
+     * there is no fallback surface, so that left a narrow-viewport player in a phase with no way out.
+     *
+     * This is the mutation-provable half of the decision: restoring the media-query term makes the
+     * counts disagree and this test fail.
+     */
+    it('keeps every affordance available on a narrow viewport', () => {
+        const store = storeAtTheBench();
+        stub.setNarrowViewport(false);
+        const wide = mount(store);
+        wide.renderer.create();
+        wide.renderer.render(store.getState());
+        const wideArmed = wide.drawn.filter(({ state }) => state.interactive).length;
+        expect(wideArmed).toBeGreaterThan(0);
+        wide.renderer.destroy();
+
+        stub.setNarrowViewport(true);
+        const narrow = mount(store);
+        narrow.renderer.create();
+        narrow.renderer.render(store.getState());
+
+        expect(narrow.drawn.filter(({ state }) => state.interactive).length).toBe(wideArmed);
+        // Named rather than counted as well, because a count can be met by a different set: the two
+        // controls the suppression used to take away by name were the way out and the reference shelf.
+        expect(narrow.texts()).toContain('Reset the setup');
+        expect(benchControlNamed(narrow, 'Reset the setup').state.interactive).toBe(true);
+        narrow.renderer.destroy();
+    });
+});

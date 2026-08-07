@@ -2,6 +2,19 @@ import { expect, test } from '@playwright/test';
 
 import { en } from '../../src/core/i18n/locales/en';
 import { fr } from '../../src/core/i18n/locales/fr';
+import {
+    WALK_TO_DEBRIEF_COST_MS,
+    recordedComparisonNotes,
+    recordedObservations,
+    walkToTheBoard
+} from './canvasHelpers';
+
+/** What the record says the prediction is, read from ADR-007's retained print view. */
+const recordedPrediction = (page: import('@playwright/test').Page) =>
+    page.getByRole('article', { name: en['print.ariaLabel'] })
+        .locator('section')
+        .filter({ has: page.getByRole('heading', { name: en['print.prediction.heading'], exact: true }) })
+        .getByRole('definition');
 
 /**
  * AC2's release gate: the interface language is right after an offline reload, not just online.
@@ -37,7 +50,10 @@ test.describe('French browser', () => {
 
         await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
         await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
-        await expect(page.getByRole('region', { name: fr['curatedRecord.heading'] })).toBeVisible();
+        // The routed canvas really started offline, which is what the retired French panel heading
+        // used to stand in for. `data-active-scene` is the app's own hook and the only honest one:
+        // canvas text cannot be read from here.
+        await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', 'Library');
         await page.getByRole('button', { name: fr['boot.enter'] }).click();
         await expect(page.locator('#boot-status')).toHaveText(fr['boot.status.ready']);
     });
@@ -69,69 +85,56 @@ test.describe('unsupported browser language', () => {
     });
 });
 
-test('restores saved progress and decision history after an offline reload', async ({ page, context }) => {
+/**
+ * **The offline release gate.** Progress recorded on the canvas survives a reload with no network.
+ *
+ * This is the spec Story 2.12 was most likely to break, and the reason `AC3` exists: the autosave was
+ * `CaseProgressPanel`'s `store.subscribe`, and the panel is deleted. `attachAutosave` holds that
+ * subscription now — same selector, same repository, same `pendingWrite` serialization — and `main.ts`
+ * wires it inside the `if (repository)` branch that already governed the panel.
+ *
+ * **There is no "Save progress" click any more, and that is the point.** The manual save went with the
+ * panel; what has to survive is the *automatic* write on every state change. So the walk below saves
+ * nothing explicitly, and the restore afterwards is proof the subscription is wired — if it were not,
+ * nothing would have been written and the reload would come back empty.
+ *
+ * What is observed is the retained printable record (ADR-007), which is the only DOM projection of the
+ * store that still exists. It is a shipped feature, not an observability hook.
+ */
+test('restores canvas-recorded progress after an offline reload, with no manual save', async ({ page, context }) => {
+    test.setTimeout(30_000 + WALK_TO_DEBRIEF_COST_MS);
 
     await page.goto('/');
-    await expect(page.getByRole('button', { name: 'Enter laboratory' })).toBeVisible();
+    await expect(page.getByRole('button', { name: en['boot.enter'] })).toBeVisible();
+    await page.waitForFunction(async () => {
+        await navigator.serviceWorker.ready;
+        return true;
+    });
 
-    await page.waitForFunction(() => navigator.serviceWorker.ready);
-    await page.reload();
-    await expect(page.getByRole('button', { name: 'Enter laboratory' })).toBeVisible();
+    // Two observations, a comparison note, and a prediction — all recorded with canvas clicks only.
+    await walkToTheBoard(page);
+    await expect(recordedObservations(page)).toHaveCount(2);
+    const savedPrediction = await recordedPrediction(page).textContent();
+    expect(savedPrediction).toBeTruthy();
 
-    await page.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' }).click();
-    await page.getByRole('button', { name: 'Inspect Opticks reference' }).click();
-    const contextPanel = page.getByRole('region', { name: 'Young context and prediction' });
-    await contextPanel.getByRole('button', { name: 'Continue to prediction' }).click();
-    await contextPanel.getByLabel('Tentative prediction').fill('A stable pattern may appear.');
-    await contextPanel.getByRole('button', { name: 'Record a prediction' }).click();
-    await contextPanel.getByRole('button', { name: 'Continue to experimentation' }).click();
-    const recordObservation = page.getByRole('button', { name: 'Record prepared observation' });
-    await recordObservation.click();
-    await recordObservation.click();
-    const board = page.getByRole('region', { name: 'Theory board' });
-    await board.getByRole('checkbox', { name: 'Select Observation 1 as conclusion support' }).check();
-    await board.getByRole('checkbox', { name: 'Select Observation 2 as conclusion support' }).check();
-    await board.getByRole('checkbox', { name: 'Select Thomas Young’s 1801 lecture record as conclusion support' }).check();
-    await board.getByRole('checkbox', { name: 'Select Opticks reference as conclusion support' }).check();
-    await board.getByLabel('Conclusion', { exact: true }).fill('The prepared observations support a bounded conclusion.');
-    await board.getByLabel('Limitation or alternative explanation').fill('The prepared evidence does not resolve every alternative explanation.');
-    await board.getByRole('button', { name: 'Continue investigation to synthesis' }).click();
-    await board.getByRole('button', { name: 'Request review' }).click();
-    const peerReview = page.getByRole('region', { name: 'Peer review' });
-    await peerReview.getByRole('button', { name: 'Request peer feedback' }).click();
-    await peerReview.getByRole('button', { name: 'Save reviewed revision' }).click();
-    const progress = page.getByRole('region', { name: 'Save, export, import, and print' });
-    await progress.getByRole('button', { name: 'Save progress' }).click();
-    await expect(progress.getByRole('status', { name: 'Progress status' })).toHaveText('Progress saved on this device.');
+    // A moment for the last autosave to reach IndexedDB. The write is serialized through a promise
+    // chain rather than awaited by the dispatch, so there is genuinely nothing to poll in the DOM.
+    await page.waitForTimeout(500);
 
     await context.setOffline(true);
     await page.reload();
 
-    const entryButton = page.getByRole('button', { name: 'Enter laboratory' });
+    const entryButton = page.getByRole('button', { name: en['boot.enter'] });
     await expect(entryButton).toBeVisible();
     await entryButton.click();
-    await expect(page.locator('#boot-status')).toHaveText('Laboratory shell ready.');
-    await expect(page.getByRole('region', { name: 'Measurement notebook' }).getByText('Observed result')).toHaveCount(2);
-    await expect(page.getByRole('region', { name: 'Young context and prediction' }).getByLabel('Tentative prediction')).toHaveValue('A stable pattern may appear.');
-    await expect(page.getByRole('region', { name: 'Decision history' }).getByRole('heading', { name: 'Version 1' })).toBeVisible();
-    const recognition = page.getByRole('region', { name: 'Inquiry recognition' });
-    await expect(recognition).toContainText('Source discipline recorded');
-    await expect(recognition).toContainText('Replication recorded');
-    await expect(recognition).toContainText('Calibrated conclusion recorded');
-    await page.getByRole('region', { name: 'Curated Record' }).getByRole('button', { name: 'Read the lecture record' }).click();
-    const reader = page.getByRole('region', { name: 'Young context and prediction' }).getByRole('article', { name: 'Read the lecture record' });
-    await expect(reader.locator('.contextual-text-section')).toHaveCount(2);
-    await expect(reader.getByRole('status')).toHaveText('Book spread 1 of 19.');
-    await reader.getByRole('button', { name: 'Next page' }).click();
-    await expect(reader.getByRole('status')).toHaveText('Book spread 2 of 19.');
-    await reader.getByRole('button', { name: 'Close book' }).click();
+    await expect(page.locator('#boot-status')).toHaveText(en['boot.status.ready']);
 
-    await page.getByRole('region', { name: 'Curated Record' }).getByRole('button', { name: 'Read the Opticks reference' }).click();
-    const opticksReader = page.getByRole('region', { name: 'Young context and prediction' }).getByRole('article', { name: 'Read the Opticks reference' });
-    await expect(opticksReader.locator('.contextual-source-pages')).toHaveText(['Source page 371.', 'Source page 372.']);
-    await expect(opticksReader.getByRole('status')).toHaveText('Book spread 1 of 3.');
-    await opticksReader.getByRole('button', { name: 'Next page' }).click();
-    await expect(opticksReader.getByRole('status')).toHaveText('Book spread 2 of 3.');
+    // The restored session, offline: the observations, the prediction, and the comparison note the
+    // walk saved are all back, and the router put the player in the phase they left.
+    await expect(recordedObservations(page)).toHaveCount(2);
+    await expect(recordedPrediction(page)).toHaveText(savedPrediction!);
+    await expect(recordedComparisonNotes(page)).toHaveCount(1);
+    await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', 'TheoryBoard');
 });
 
 test('loads the cached validation route after an online warm-up without progress controls', async ({ page, context }) => {
@@ -150,8 +153,8 @@ test('loads the cached validation route after an online warm-up without progress
 
     await expect(disclosure).toBeVisible();
     await expect(page.getByTestId('enter-laboratory')).toBeVisible();
-    // Both progress surfaces stay unmounted offline, the retiring panel and the retained print view —
-    // the print-view assertion is the one that still means something once the panel is deleted.
-    await expect(page.getByRole('region', { name: 'Save, export, import, and print' })).toHaveCount(0);
+    // The validation route builds no repository, so it wires no autosave, mounts no printable record,
+    // and offers no export or import — offline included. The print view is the assertion that still
+    // means something now that the progress panel it stood beside is deleted.
     await expect(page.getByRole('article', { name: en['print.ariaLabel'] })).toHaveCount(0);
 });

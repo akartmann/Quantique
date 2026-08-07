@@ -94,6 +94,22 @@ export type PhaserStoreAdapter = Readonly<{
      */
     setWavelength: (wavelengthNm: 450 | 550 | 650) => ReturnType<AppStore['dispatch']>;
     /**
+     * Putting the apparatus back to its authored setup (Story 2.12, D3).
+     *
+     * Until this existed the only dispatcher of `apparatus.reset` was the retired
+     * `src/ui/apparatus/ApparatusControls.ts` — the last of the intents the 2026-08-06 correction found
+     * unreachable from the canvas (ADR-011), and the one Story 2.2 shipped an acceptance criterion for
+     * ("reset is immediate and does not erase saved observations").
+     *
+     * `reduceApparatusReset` sets every primary control to its `defaultValue` and the wavelength to
+     * 550 nm / minimum. It clears **no** recorded observation and no colleague state, which is what makes
+     * that criterion true. The caller is expected to have compared the live values first: the reducer has
+     * no "nothing to do" branch and mints a new frozen state either way, which would expire every
+     * transient message slot anchored on state identity — the same rule {@link setWavelength}'s own call
+     * site learned in 2.10.
+     */
+    resetApparatus: () => ReturnType<AppStore['dispatch']>;
+    /**
      * Putting a saved observation into the comparison, and taking it out again (Story 2.10, AC8).
      *
      * The caller is expected to have read `state.comparison.selectedRunIds` first, the same rule
@@ -142,6 +158,20 @@ export type PhaserStoreAdapter = Readonly<{
      * asking again after a save is a fresh request rather than a no-op.
      */
     requestPeerReview: () => ReturnType<AppStore['dispatch']>;
+    /**
+     * Asking a colleague what the draft is still missing (Story 2.12, D4).
+     *
+     * Until this existed the only dispatcher of `consultation.requested` was the retired
+     * `src/ui/review/ConsultationPanel.ts` (ADR-011).
+     *
+     * Unlike {@link requestPeerReview} it has **no phase gate** — `reduceConsultationRequest` refuses
+     * only with `consultation-unavailable`, when no authored rule applies to the evidence on hand. That
+     * is a real answer rather than a refusal a surface should have prevented, so the control stays armed
+     * and the caller surfaces it localized. Note that a great many reducers clear `consultation`
+     * afterwards — recording a run, inspecting a source, changing the draft — so asking again after any
+     * of them is a fresh question, not a repeat.
+     */
+    requestConsultation: () => ReturnType<AppStore['dispatch']>;
     /**
      * Saving the reviewed revision. Refused without reviewed feedback with `revision-review-required`.
      *
@@ -192,6 +222,7 @@ export const createPhaserStoreAdapter = (store: AppStore): PhaserStoreAdapter =>
         timestamp: new Date().toISOString()
     }),
     setWavelength: (wavelengthNm) => store.dispatch({ type: 'apparatus.wavelengthSet', wavelengthNm }),
+    resetApparatus: () => store.dispatch({ type: 'apparatus.reset' }),
     selectComparisonRun: (runId) => store.dispatch({ type: 'comparison.runSelected', runId }),
     unselectComparisonRun: (runId) => store.dispatch({ type: 'comparison.runUnselected', runId }),
     saveComparisonNote: (note) => store.dispatch({ type: 'comparison.noteSaved', note }),
@@ -200,6 +231,7 @@ export const createPhaserStoreAdapter = (store: AppStore): PhaserStoreAdapter =>
     selectSupportSource: (sourceId) => store.dispatch({ type: 'theory.supportSourceSelected', sourceId }),
     unselectSupportSource: (sourceId) => store.dispatch({ type: 'theory.supportSourceUnselected', sourceId }),
     requestPeerReview: () => store.dispatch({ type: 'peerReview.requested' }),
+    requestConsultation: () => store.dispatch({ type: 'consultation.requested' }),
     // Stamped here for the reason above: `reduceRevisionSave` is a pure function of the state and the
     // action, and it stays one.
     saveRevision: () => store.dispatch({ type: 'revision.saved', timestamp: new Date().toISOString() }),

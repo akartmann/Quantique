@@ -6,6 +6,8 @@ import {
     CASE_FILE_ACTION_HEIGHT,
     CASE_FILE_ACTION_WIDTH,
     CASE_FILE_BAND_GAP,
+    CASE_FILE_CONSULTATION_LINES,
+    CASE_FILE_CONSULTATION_MIN_HEIGHT,
     CASE_FILE_CONTROL_FONT_SIZE,
     CASE_FILE_MARGIN,
     CASE_FILE_META_FONT_SIZE,
@@ -16,6 +18,8 @@ import {
     CASE_FILE_PIN_HEIGHT,
     CASE_FILE_PIN_WIDTH,
     CASE_FILE_READINESS_ROWS,
+    CASE_FILE_RECORD_CONTROL_COUNT,
+    CASE_FILE_STATUS_LINES,
     CASE_FILE_READINESS_ROW_HEIGHT,
     CASE_FILE_ROWS_PER_PAGE,
     CASE_FILE_RIGHT_COLUMN_WIDTH,
@@ -29,6 +33,9 @@ import {
     caseFileActionLabelWrap,
     caseFileCloseControlBand,
     caseFileCloseControlCentre,
+    caseFileConsultControlBand,
+    caseFileConsultationBand,
+    caseFileConsultationTextBand,
     caseFileContentFits,
     caseFileContentFloor,
     caseFileGuideBand,
@@ -43,6 +50,8 @@ import {
     caseFilePanelBand,
     caseFilePeerReviewBand,
     caseFilePinLabelWrap,
+    caseFileRecordControlBand,
+    caseFileRecordControlLabelWrap,
     caseFileLineHeight,
     caseFileReadinessBand,
     caseFileReadinessRowBand,
@@ -307,12 +316,84 @@ describe.each(CANVASES)('the case file laid out on $name', ({ width, height }) =
         expect(caseFileObservationsBand(width + 200).width).toBe(left.width + 200);
     });
 
-    it('puts the status line beside the way out rather than under it', () => {
+    /**
+     * The status line moved above the bottom row and took the whole panel width (Story 2.12).
+     *
+     * It used to sit beside the way out, in whatever was left of that row. The record actions now
+     * occupy that space, and the honest answer was not to shrink a slot that already renders arbitrary
+     * `selectLocalizedError` output — a French `completion-timestamp-not-later` is 121 characters — into
+     * a narrower one. It gets its own band, two lines tall, spanning the panel.
+     */
+    it('gives the status line its own two-line band above the bottom row', () => {
         const close = caseFileCloseControlBand(width, height);
         const status = caseFileStatusBand(width, height);
         expect(overlaps(close, status)).toBe(false);
-        expect(status.x).toBeGreaterThan(close.x + close.width);
-        expect(status.y).toBe(close.y);
-        expect(status.width).toBeGreaterThan(0);
+        expect(status.x).toBe(close.x);
+        expect(status.y + status.height).toBeLessThanOrEqual(close.y);
+        expect(status.width).toBe(width - (2 * CASE_FILE_MARGIN) - (2 * CASE_FILE_PADDING));
+        expect(status.height).toBe(CASE_FILE_STATUS_LINES * caseFileLineHeight(CASE_FILE_META_FONT_SIZE));
+    });
+
+    /**
+     * The three record actions share the bottom row with the way out and clear both it and each other.
+     *
+     * `CaseProgressPanel` owned export, import and print and is deleted; ADR-007's print *view* was
+     * retained with nothing left to open it (D1). All-pairs rather than pairwise-by-hand, because the
+     * row's width is derived from the panel and a margin change is exactly what would push the last one
+     * off the edge without anybody noticing.
+     */
+    it('spends the bottom row on the way out and the three record actions, without overlap', () => {
+        const close = caseFileCloseControlBand(width, height);
+        const records = Array.from(
+            { length: CASE_FILE_RECORD_CONTROL_COUNT },
+            (_unused, index) => caseFileRecordControlBand(index, width, height)
+        );
+
+        expect(records).toHaveLength(3);
+        records.forEach((band) => {
+            expect(band.y).toBe(close.y);
+            expect(band.height).toBe(close.height);
+            expect(overlaps(close, band)).toBe(false);
+        });
+        records.forEach((band, index) => records.slice(index + 1)
+            .forEach((other) => expect(overlaps(band, other)).toBe(false)));
+        // The row ends on the panel's inner edge, to within the pixel the flooring leaves — derived, so
+        // a margin change moves it rather than pushing the last control outside the panel.
+        const innerRight = width - CASE_FILE_MARGIN - CASE_FILE_PADDING;
+        const rowRight = records[records.length - 1]!.x + records[records.length - 1]!.width;
+        expect(rowRight).toBeLessThanOrEqual(innerRight);
+        expect(innerRight - rowRight).toBeLessThan(CASE_FILE_RECORD_CONTROL_COUNT);
+        expect(caseFileRecordControlLabelWrap(width)).toBeGreaterThan(4 * CASE_FILE_CONTROL_FONT_SIZE);
+    });
+
+    /**
+     * The consultation gets the band the peer-review pane leaves empty outside `review`, and enough of it.
+     *
+     * `caseFileContentFits` is the arbiter for both. The height assertion is deliberately *not* against
+     * the band's own value — that would be tautological, since the band is defined as the remainder of
+     * its column — but against the reserve four two-line authored blocks actually need.
+     */
+    it('gives the consultation the right column below the readiness list, with room for its four blocks', () => {
+        const readiness = caseFileReadinessBand(width);
+        const consultation = caseFileConsultationBand(width, height);
+        const peerReview = caseFilePeerReviewBand(width);
+
+        expect(consultation.x).toBe(readiness.x);
+        expect(consultation.width).toBe(readiness.width);
+        expect(consultation.y).toBe(peerReview.y);
+        expect(overlaps(readiness, consultation)).toBe(false);
+        expect(consultation.height).toBeGreaterThanOrEqual(CASE_FILE_CONSULTATION_MIN_HEIGHT);
+
+        const control = caseFileConsultControlBand(width, height);
+        const text = caseFileConsultationTextBand(width, height);
+        expect(overlaps(control, text)).toBe(false);
+        expect(control.y).toBeGreaterThan(consultation.y);
+        expect(text.y + text.height).toBeLessThanOrEqual(consultation.y + consultation.height);
+        // Room for the eight lines the reserve is stated in, at the authored size.
+        expect(text.height)
+            .toBeGreaterThanOrEqual(CASE_FILE_CONSULTATION_LINES * caseFileLineHeight(CASE_FILE_META_FONT_SIZE));
+        // And it clears the way out and the status line below it.
+        expect(overlaps(text, caseFileStatusBand(width, height))).toBe(false);
+        expect(overlaps(text, caseFileCloseControlBand(width, height))).toBe(false);
     });
 });

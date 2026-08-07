@@ -223,3 +223,75 @@ describe('the optional wavelength comparison', () => {
         expect(selectAdvancedWavelengthUnlocked(store.getState())).toBe(true);
     });
 });
+
+/**
+ * `apparatus.reset` reaching the canvas at last (Story 2.12, D3 / AC8).
+ *
+ * It is driven through `PhaserStoreAdapter` for the reason this file's header gives: until Story 2.12
+ * the only dispatcher was the retired `src/ui/apparatus/ApparatusControls.ts`, so the reducer was
+ * correct and the intent was unreachable — the exact shape ADR-011 exists to catch. Story 2.2 is `done`
+ * with the acceptance criterion these assertions restate.
+ */
+describe('resetting the apparatus from the bench', () => {
+    /** The authored defaults, read from the case rather than written down. */
+    const defaults = (): Readonly<Record<string, number>> => Object.fromEntries(
+        definition.apparatus.primaryControls.map(({ id, defaultValue }) => [id, defaultValue])
+    );
+
+    it('puts every primary control and the wavelength back to what the case authored', () => {
+        const { store, bench } = benchAdapter();
+        const [, far] = twoThrows();
+        bench.setControlValue('screenDistanceM', far);
+        bench.runExperiment();
+        bench.runExperiment();
+        bench.setWavelength(definition.experiment.wavelengthComparison!.advancedChoicesNm[0]! as 450 | 650);
+        expect(store.getState().activeControlValues).not.toEqual(defaults());
+
+        expect(bench.resetApparatus().ok).toBe(true);
+
+        expect(store.getState().activeControlValues).toEqual(defaults());
+        expect(store.getState().selectedWavelengthNm).toBe(550);
+        expect(store.getState().selectedWavelengthMode).toBe('minimum');
+    });
+
+    /** Story 2.2's criterion in as many words: immediate, and it erases no saved observation. */
+    it('erases no saved observation and no evidence the player has gathered', () => {
+        const { store, bench } = benchAdapter();
+        const [near, far] = twoThrows();
+        bench.setControlValue('screenDistanceM', near);
+        bench.runExperiment();
+        bench.setControlValue('screenDistanceM', far);
+        bench.runExperiment();
+        const saved = selectNotebookObservations(store.getState()).map((run) => ({ ...run }));
+        const inspected = [...store.getState().inspectedSourceIds];
+
+        bench.resetApparatus();
+
+        expect(selectNotebookObservations(store.getState())).toEqual(saved);
+        expect(store.getState().inspectedSourceIds).toEqual(inspected);
+        expect(store.getState().selectedPredictionProposalId).toBeDefined();
+        expect(store.getState().prediction).not.toBe('');
+        // And the gate those two observations earned is still open: reset is a setup change, not a
+        // retraction of evidence.
+        expect(selectSignificantMeasureGate(store.getState()).isMet).toBe(true);
+        expect(selectAdvancedWavelengthUnlocked(store.getState())).toBe(true);
+    });
+
+    /**
+     * The reducer clears no colleague state, and this pins that it stays that way.
+     *
+     * 2.10 found `apparatus.wavelengthSet` discarding a standing consultation, a peer review and a
+     * rival-lab critique on a click that changed nothing — the reducer is entitled to, because a new
+     * run invalidates the feedback, but reset changes no recorded evidence and so invalidates nothing.
+     */
+    it('leaves a standing consultation alone, because it invalidates no evidence', () => {
+        const { store, bench } = benchAdapter();
+        expect(store.dispatch({ type: 'consultation.requested' }).ok).toBe(true);
+        const consultation = store.getState().consultation;
+        expect(consultation).toBeDefined();
+
+        bench.resetApparatus();
+
+        expect(store.getState().consultation).toEqual(consultation);
+    });
+});

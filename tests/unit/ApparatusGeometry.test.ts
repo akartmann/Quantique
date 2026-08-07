@@ -6,8 +6,14 @@ import type { CaseDefinition, PrimaryControl } from '../../src/domain/cases/Case
 import {
     ADVANCE_CONTROL_HEIGHT,
     ADVANCE_CONTROL_Y,
+    BENCH_CONTROL_COUNT,
+    BENCH_CONTROL_FONT_SIZE,
+    BENCH_CONTROL_GAP,
     BENCH_CONTROL_HEIGHT,
+    BENCH_CONTROL_LABEL_WRAP,
+    BENCH_CONTROL_PADDING,
     BENCH_CONTROL_ROW_Y,
+    BENCH_CONTROL_WIDTH,
     BENCH_LEFT,
     BENCH_MESSAGE_BOTTOM_Y,
     BENCH_RIGHT,
@@ -34,13 +40,13 @@ import {
     SCREEN_LABEL_Y,
     SIDE_COLUMN_LEFT,
     SIDE_COLUMN_WIDTH,
-    START_CONTROL_LABEL_WRAP,
     STEP_AFFORDANCE_HEIGHT,
     STEP_AFFORDANCE_Y,
     WAVELENGTH_CHOICE_LABEL_WRAP,
     WAVELENGTH_COLUMN_LEFT,
     WAVELENGTH_COLUMN_WIDTH,
     advanceToSynthesisControlCentre,
+    benchControlLeft,
     benchObjectBands,
     instrumentSlotLeft,
     knobCentre,
@@ -51,6 +57,7 @@ import {
     notebookRowBand,
     notebookSaveControlCentre,
     notebookSelectionCentre,
+    resetControlCentre,
     screenXForDistance,
     startTheLightControlCentre,
     stepAffordanceCentre,
@@ -284,20 +291,51 @@ describe('the bench', () => {
         expect(WAVELENGTH_CHOICE_LABEL_WRAP).toBeLessThan(WAVELENGTH_COLUMN_WIDTH);
     });
 
-    it('centres the start and notebook controls inside the row they share', () => {
+    it('centres the start, notebook and reset controls inside the row they share', () => {
         const start = startTheLightControlCentre();
         const notebook = notebookControlCentre();
+        const reset = resetControlCentre();
 
-        [start, notebook].forEach(({ y }) => {
+        [start, notebook, reset].forEach(({ y }) => {
             expect(y).toBeGreaterThan(BENCH_CONTROL_ROW_Y);
             expect(y).toBeLessThan(BENCH_CONTROL_ROW_Y + BENCH_CONTROL_HEIGHT);
         });
         expect(start.x).toBeLessThan(notebook.x);
+        expect(notebook.x).toBeLessThan(reset.x);
         // The bench message grows upward out of the gap above this row, so the row cannot start at the
         // canvas floor and the message cannot be placed against a constant below it.
         expect(BENCH_MESSAGE_BOTTOM_Y).toBeLessThan(BENCH_CONTROL_ROW_Y);
         expect(BENCH_CONTROL_ROW_Y + BENCH_CONTROL_HEIGHT).toBeLessThan(DESIGN.height);
-        expect(START_CONTROL_LABEL_WRAP).toBeGreaterThan(0);
+        expect(BENCH_CONTROL_LABEL_WRAP).toBeGreaterThan(0);
+    });
+
+    /**
+     * The row spends the bench exactly, and holds two French lines (Story 2.12, D3).
+     *
+     * Both halves are the thing the reset control could plausibly get wrong. A third control appended
+     * to the old two 240px ones would have had ~100px of usable wrap for `Réinitialiser le banc`, which
+     * is three lines at the authored size; and 44px of height holds `2 × ceil(15 × 1.35)` = 42px of
+     * label with one pixel of air, which is a crop waiting for the next word to be added.
+     *
+     * The arithmetic is done here rather than asserted as literals, because `sceneSlice.ts` reports a
+     * constant `height: 18` for every Phaser text object — so no unit test in this project can *measure*
+     * a rendered label, and the whole-string sweep in `french-typography.spec.ts` plus a screenshot are
+     * what actually see it. What this can prove is that the reserve is big enough for the line count the
+     * sweep bounds it to.
+     */
+    it('divides the bench evenly across the three controls and reserves two lines of label', () => {
+        expect(BENCH_CONTROL_COUNT).toBe(3);
+        expect(benchControlLeft(0)).toBe(BENCH_LEFT);
+        expect(benchControlLeft(BENCH_CONTROL_COUNT - 1) + BENCH_CONTROL_WIDTH).toBe(BENCH_RIGHT);
+        // Gaps between neighbours are the stated gap, not whatever fell out of the division.
+        for (let index = 1; index < BENCH_CONTROL_COUNT; index += 1) {
+            expect(benchControlLeft(index) - (benchControlLeft(index - 1) + BENCH_CONTROL_WIDTH))
+                .toBe(BENCH_CONTROL_GAP);
+        }
+        // Two lines at the authored size, with air. `uiTextStyle` renders at a 1.35 line box.
+        const twoFrenchLines = 2 * Math.ceil(BENCH_CONTROL_FONT_SIZE * 1.35);
+        expect(BENCH_CONTROL_HEIGHT).toBeGreaterThan(twoFrenchLines);
+        expect(BENCH_CONTROL_LABEL_WRAP).toBe(BENCH_CONTROL_WIDTH - (2 * BENCH_CONTROL_PADDING));
     });
 
     /**

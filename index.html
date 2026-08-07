@@ -10,6 +10,24 @@
 
 <body>
     <div id="app">
+        <!--
+            The canvas is the page (ADR-001 v1.1). It fills the viewport from first paint and the boot
+            frame below covers it until the player enters, so nothing else ever competes with it for
+            room. Until Story 2.12 this sat in the right half of a two-column grid whose left half held
+            eleven presentation panels; the panels went, the column did not, and the result was a DOM
+            shell occupying a third of the screen beside a laboratory that was already running.
+        -->
+        <div id="game-container" aria-hidden="true"></div>
+
+        <!--
+            Outside the boot frame on purpose. This is the only surface a failed autosave, an unusable
+            saved record, or a missing-root boot failure speaks from (NFR12), and a save can fail in any
+            phase — that is, at any moment after the frame is dismissed. Inside the frame it would be
+            hidden exactly when it has the most to say. It is `:empty`-hidden by CSS, so it costs nothing
+            visually until it carries a message.
+        -->
+        <p id="boot-status" role="status" aria-live="polite"></p>
+
         <main id="boot-shell" aria-labelledby="boot-title">
             <!--
                 Every string below is a pre-hydration placeholder in the default language: the
@@ -24,23 +42,22 @@
                 <button type="button" data-testid="enter-laboratory" aria-describedby="boot-status">
                     Enter laboratory
                 </button>
-                <p id="boot-status" role="status" aria-live="polite"></p>
+                <!--
+                    The facilitator's privacy statement belongs on the frame: it is a consent notice, and
+                    consent is read before the session starts rather than over the top of it.
+                -->
                 <div id="validation-session-disclosure"></div>
-                <div id="curated-record"></div>
-                <div id="case-context-prediction"></div>
-                <div id="apparatus-controls"></div>
-                <div id="measurement-notebook"></div>
-                <div id="theory-board"></div>
-                <div id="consultation-panel"></div>
-                <div id="conclusion-review"></div>
-                <div id="decision-history"></div>
-                <div id="inquiry-recognition"></div>
-                <div id="historical-debrief"></div>
-                <div id="case-progress"></div>
-                <div id="print-record"></div>
             </section>
-            <div id="game-container" aria-hidden="true"></div>
         </main>
+
+        <!--
+            ADR-007's printable record — the sole non-Phaser surface, and the one thing here that is not
+            a frame. It is visually hidden and print-revealed by `style.css`: printable is not the same
+            as displayed, and it rendered on screen only because nothing ever said otherwise. It stays in
+            the accessibility tree because `#game-container` is `aria-hidden` and canvas a11y projection
+            has no owner yet, which makes this the only readable account of the investigation.
+        -->
+        <div id="print-record"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
 </body>

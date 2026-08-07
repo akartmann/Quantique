@@ -2,47 +2,69 @@ import { registerOfflineCache } from './adapters/OfflineCache';
 import { createSceneRouter } from './adapters/phaser/SceneRouter';
 import { loadCaseDefinition } from './adapters/content/loadCaseDefinition';
 import { CaseRecordRepository } from './adapters/persistence/caseRecordRepository';
+import { attachAutosave, createCaseRecordOperations } from './adapters/persistence/caseRecordOperations';
 import { resolveBrowserLocale } from './core/i18n/resolveBrowserLocale';
 import { createTranslator, translateError } from './core/i18n/translate';
 import { createAppStateFromCaseRecord, createInitialAppState } from './core/store/AppState';
 import { createStore } from './core/store/createStore';
 import StartGame from './game/main';
-import { mountApparatusControls } from './ui/apparatus/ApparatusControls';
 import { createBootShell, setBootShellStatus } from './ui/BootShell';
-import { mountNotebookPanel } from './ui/notebook/NotebookPanel';
-import { mountCuratedRecord } from './ui/sources/CuratedRecord';
-import { mountCaseContextAndPrediction } from './ui/context/CaseContextAndPrediction';
-import { mountTheoryBoard } from './ui/theory/TheoryBoard';
-import { mountConsultationPanel } from './ui/review/ConsultationPanel';
-import { mountConclusionReviewPanel } from './ui/review/ConclusionReviewPanel';
-import { mountDecisionHistoryPanel } from './ui/review/DecisionHistoryPanel';
-import { mountCaseProgressPanel } from './ui/persistence/CaseProgressPanel';
 import { mountCaseRecordPrintView } from './ui/print/CaseRecordPrintView';
-import { mountInquiryRecognitionPanel } from './ui/recognition/InquiryRecognitionPanel';
-import { mountHistoricalDebriefPanel } from './ui/debrief/HistoricalDebriefPanel';
 import { mountValidationSessionDisclosure } from './ui/ValidationSessionDisclosure';
+
+/**
+ * The four roots this application still needs, and what each is for.
+ *
+ * Story 2.12 deleted eleven others with the panels that mounted into them. What is left is the boot
+ * frame, the facilitator disclosure, ADR-007's printable record — the sole non-Phaser *surface*, which
+ * dispatches nothing — and the canvas the game runs on.
+ */
+const REQUIRED_ROOTS = ['#boot-shell', '#validation-session-disclosure', '#print-record', '#game-container'] as const;
+
+/**
+ * Says so, loudly, when the document is not the one this build expects.
+ *
+ * **The guard this replaces returned silently** (2.4 review, carried in `deferred-work.md` since). It
+ * was fifteen `querySelector` results in one `if`, and a missing root left the page sitting on
+ * `index.html`'s pre-hydration English placeholder markup — which looks like a slow load rather than a
+ * broken build, forever. There is no fallback surface behind it any more, so silence would now mean a
+ * blank investigation with nothing to say about itself.
+ *
+ * Both halves of AC2's "fails loudly": a message the player can read, and one dev-log line naming the
+ * roots. The message goes through `#boot-status` when that element exists — it is `role="status"` and
+ * the only region guaranteed to be in the document — and falls back to replacing the body's text when
+ * even the boot shell is missing, because a message written into an element that is not there is the
+ * same silence in a different shape.
+ *
+ * It is deliberately **not** localized. Resolving the locale needs the i18n layer to agree with a
+ * document that has just been shown not to be the expected one, and this is a build failure rather than
+ * a state the player can be in on a correct deployment. The dev-log line carries the detail.
+ */
+const reportMissingRoots = (missing: readonly string[]): void => {
+    const message = 'This page did not load correctly. Please reload it.';
+    const status = document.querySelector<HTMLElement>('#boot-status');
+    if (status) status.textContent = message;
+    else document.body.textContent = message;
+    if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error(`[boot] The document is missing required roots: ${missing.join(', ')}`);
+    }
+};
 
 const initializeLaboratory = async (): Promise<void> => {
     const validationMode = new URLSearchParams(window.location.search).get('mode') === 'validation';
-    const bootShell = document.querySelector<HTMLElement>('#boot-shell');
-    const validationDisclosureRoot = document.querySelector<HTMLElement>('#validation-session-disclosure');
-    const curatedRecordRoot = document.querySelector<HTMLElement>('#curated-record');
-    const contextPredictionRoot = document.querySelector<HTMLElement>('#case-context-prediction');
-    const controlsRoot = document.querySelector<HTMLElement>('#apparatus-controls');
-    const notebookRoot = document.querySelector<HTMLElement>('#measurement-notebook');
-    const theoryBoardRoot = document.querySelector<HTMLElement>('#theory-board');
-    const consultationRoot = document.querySelector<HTMLElement>('#consultation-panel');
-    const conclusionReviewRoot = document.querySelector<HTMLElement>('#conclusion-review');
-    const decisionHistoryRoot = document.querySelector<HTMLElement>('#decision-history');
-    const progressRoot = document.querySelector<HTMLElement>('#case-progress');
-    const printRoot = document.querySelector<HTMLElement>('#print-record');
-    const recognitionRoot = document.querySelector<HTMLElement>('#inquiry-recognition');
-    const debriefRoot = document.querySelector<HTMLElement>('#historical-debrief');
-    const gameContainer = document.querySelector<HTMLElement>('#game-container');
-
-    if (!bootShell || !validationDisclosureRoot || !curatedRecordRoot || !contextPredictionRoot || !controlsRoot || !notebookRoot || !theoryBoardRoot || !consultationRoot || !conclusionReviewRoot || !decisionHistoryRoot || !progressRoot || !printRoot || !recognitionRoot || !debriefRoot || !gameContainer) {
+    const roots = Object.fromEntries(
+        REQUIRED_ROOTS.map((selector) => [selector, document.querySelector<HTMLElement>(selector)])
+    ) as Record<typeof REQUIRED_ROOTS[number], HTMLElement | null>;
+    const missing = REQUIRED_ROOTS.filter((selector) => roots[selector] === null);
+    if (missing.length > 0) {
+        reportMissingRoots(missing);
         return;
     }
+    const bootShell = roots['#boot-shell']!;
+    const validationDisclosureRoot = roots['#validation-session-disclosure']!;
+    const printRoot = roots['#print-record']!;
+    const gameContainer = roots['#game-container']!;
 
     // Resolved from the browser's own language preferences, synchronously and before any `await`, so
     // the language is settled before anything this function renders and nothing about it ever needs to
@@ -51,7 +73,7 @@ const initializeLaboratory = async (): Promise<void> => {
     // is what puts the frame in the resolved language. The facilitator locale check in
     // `docs/validation/young-validation-plan.md` is written against the settled screen for that reason.
     const locale = resolveBrowserLocale();
-    createBootShell(bootShell, locale);
+    const bootFrame = createBootShell(bootShell, locale);
     // Mounted here rather than after the content load: AC4 requires the facilitator disclosure on
     // every render of the validation route, and a `loadCaseDefinition` failure returns below — which
     // previously left a moderated session looking live with no privacy statement at all. The mode
@@ -63,7 +85,7 @@ const initializeLaboratory = async (): Promise<void> => {
     const caseResult = await loadCaseDefinition('young-interference');
     if (!caseResult.ok) {
         // Localized by the stable error code, not by re-raising the dev-facing message (NFR18).
-        setBootShellStatus(bootShell, translateError(locale, caseResult.error));
+        setBootShellStatus(translateError(locale, caseResult.error));
         return;
     }
 
@@ -80,40 +102,45 @@ const initializeLaboratory = async (): Promise<void> => {
         initialState = restored?.ok ? restored.value : initialState;
         const t = createTranslator(locale);
         if (saved.ok && saved.value && !restored?.ok) {
-            setBootShellStatus(bootShell, t('boot.status.savedProgressUnusable'));
+            setBootShellStatus(t('boot.status.savedProgressUnusable'));
         } else if (!saved.ok) {
-            setBootShellStatus(bootShell, t('boot.status.savedProgressUnavailable'));
+            setBootShellStatus(t('boot.status.savedProgressUnavailable'));
         }
     }
     const store = createStore(initialState);
-    // The reference book belongs to the scene the player is standing in (Story 2.8), so there is no
-    // controller to hold here and nothing for this panel to project into. `CuratedRecord` still
-    // dispatches `source.inspected` and this panel still records it — that half is what keeps several
-    // e2e walks working until Story 2.12 deletes both — but its *reading* projection now has nowhere
-    // to draw, which is intended. The callback is a no-op rather than removed so the retired panel
-    // still compiles unchanged.
-    const contextAndPrediction = mountCaseContextAndPrediction(contextPredictionRoot, store, {
-        onLectureBookPresentationChange: () => {}
-    });
-    let curatedRecord: ReturnType<typeof mountCuratedRecord> | undefined;
-    curatedRecord = mountCuratedRecord(curatedRecordRoot, store, {
-        onReadLectureRecord: (source) => {
-            contextAndPrediction.openLectureRecord(source, () => curatedRecord?.focusReaderTrigger(source.id));
-        }
-    });
-    mountApparatusControls(controlsRoot, store);
-    mountNotebookPanel(notebookRoot, store);
-    mountTheoryBoard(theoryBoardRoot, store);
-    mountConsultationPanel(consultationRoot, store);
-    mountConclusionReviewPanel(conclusionReviewRoot, store);
-    mountDecisionHistoryPanel(decisionHistoryRoot, store);
-    mountInquiryRecognitionPanel(recognitionRoot, store);
-    mountHistoricalDebriefPanel(debriefRoot, store);
+    // Everything the deleted `CaseProgressPanel` owned, behind the gate that already governed it: the
+    // validation route builds no repository, so it wires no autosave, offers no export or import, and
+    // mounts no printable record (Story 2.12, AC3).
+    let recordOperations;
     if (repository) {
-        mountCaseProgressPanel(progressRoot, store, repository);
+        // The autosave. Relocated verbatim from the panel, `pendingWrite` chain included — that chain is
+        // what stops two writes racing on one key. Its failure surface is the boot shell's own status
+        // region, which is where the two other persistence messages above already speak (NFR12): the
+        // save can fail in any phase, and a canvas surface would need a store field to hear about it,
+        // which this story's scope boundary rules out.
+        const t = createTranslator(locale);
+        attachAutosave(store, repository, () => setBootShellStatus(t('boot.status.saveFailed')));
+        recordOperations = createCaseRecordOperations(store, repository);
         mountCaseRecordPrintView(printRoot, store);
     }
-    const game = StartGame('game-container', store);
+    const game = StartGame('game-container', store, recordOperations);
+
+    /**
+     * The entry gate is an input gate, not just a curtain.
+     *
+     * Covering the canvas with the boot frame is not enough on its own: Phaser binds its pointer
+     * listeners above the document rather than to the canvas element, so a click on the frame's
+     * background is hit-tested against the surface underneath it and reaches whatever is there. Before
+     * this, clicking the middle of the splash took a reference off the reading room's shelf — invisibly,
+     * and it was recorded. Verified by probe rather than assumed, because DOM occlusion looks like it
+     * ought to be sufficient and silently is not.
+     *
+     * The game is still *constructed* on load. `Scale.FIT` measures the container to letterbox the design
+     * surface, and a container that is hidden or unsized when the game starts measures as nothing;
+     * disabling input costs the same and leaves the scale correct from the first frame.
+     */
+    game.input.enabled = false;
+    void bootFrame.entered.then(() => { game.input.enabled = true; });
     // The routed Phaser game is the surface whose active scene mirrors the authoritative phase.
     //
     // Constructed on Phaser's ready event, not inline: before the scene manager boots, `start` only
