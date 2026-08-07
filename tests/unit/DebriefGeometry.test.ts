@@ -47,8 +47,10 @@ import {
     debriefPageControlBand,
     debriefPageControlCentre,
     debriefPageControlLabelWrap,
+    debriefLineHeight,
     debriefRecognitionBand,
     debriefRecognitionIntroBand,
+    debriefRefusalBand,
     debriefRecognitionRowBand,
     debriefRightTextWrap,
     debriefSourceRowBand,
@@ -93,8 +95,14 @@ const contains = (outer: DebriefRect, inner: DebriefRect): boolean =>
     && inner.x + inner.width <= outer.x + outer.width
     && inner.y + inner.height <= outer.y + outer.height;
 
-/** What one wrapped line of text costs vertically, the way Phaser lays it out. */
-const lineHeight = (fontSize: number): number => Math.ceil(fontSize * 1.35);
+/**
+ * What one wrapped line of text costs vertically — **the source's own helper**, not a copy of it.
+ *
+ * It used to be a private restatement of `Math.ceil(fontSize * 1.35)`, which is the "never assert a
+ * magic number a test shares with source unless both read one exported constant" rule with the
+ * multiplier standing in for the number (2.11 review).
+ */
+const lineHeight = debriefLineHeight;
 
 describe('the invariants this suite is written in terms of', () => {
     it('detects an overlap, and does not report one for rectangles that merely touch', () => {
@@ -132,6 +140,7 @@ describe.each(CANVASES)('the debrief laid out on $name', ({ width, height }) => 
         debriefDeeperTheoryToggleBand(width),
         debriefLowerBand(width, height),
         debriefAdvanceControlBounds(width, height),
+        debriefRefusalBand(width, height),
         debriefCounterfactualBand(width, height)
     ];
 
@@ -194,8 +203,19 @@ describe.each(CANVASES)('the debrief laid out on $name', ({ width, height }) => 
         const lower = debriefLowerBand(width, height);
         expect(debriefLowerBand(width, height + 100).height).toBe(lower.height + 100);
         expect(debriefLowerBand(width, height + 100).y).toBe(lower.y);
-        expect(debriefSummaryBand(width).height).toBe(debriefSummaryBand(width).height);
-        expect(debriefDeeperTheoryToggleBand(width).y).toBe(debriefDeeperTheoryToggleBand(width).y);
+        // **The reserves above it are fixed**, and this is the half of the claim that used to be two
+        // assertions comparing a call to an identical call — true for every possible implementation,
+        // including one that grew the reserves with the canvas (2.11 review; the shape Task 2 forbids
+        // and the 2.7 and 2.8 reviews rejected seven times between them).
+        //
+        // Asserted as the composition rather than the signature: the summary and the toggle strip keep
+        // their exact rectangles on a canvas 100px taller, and the strip still meets the lower band at
+        // the gap. A reserve that started reading `canvasHeight` would move and fail here.
+        const toggle = debriefDeeperTheoryToggleBand(width);
+        expect(toggle.y + toggle.height + DEBRIEF_BAND_GAP).toBe(lower.y);
+        expect(toggle.y + toggle.height + DEBRIEF_BAND_GAP).toBe(debriefLowerBand(width, height + 100).y);
+        expect(debriefSummaryBand(width).y + debriefSummaryBand(width).height)
+            .toBeLessThan(debriefLowerBand(width, height + 100).y);
     });
 
     /**

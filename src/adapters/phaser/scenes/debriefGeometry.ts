@@ -152,8 +152,19 @@ export const DEBRIEF_RECOGNITION_LABEL_FONT_SIZE = 15;
  * strip's 150, which the 1280×720 pass caught.
  */
 export const DEBRIEF_RECOGNITION_STATUS_WIDTH = 96;
+/** Between a recognition label and the status column beside it — its own gutter, not the strip's. */
+export const DEBRIEF_RECOGNITION_GAP = 12;
 /** The floor every clamp shrinks to before it crops instead. */
 export const DEBRIEF_MIN_FONT_SIZE = 11;
+
+/**
+ * The line box Phaser gives a font size — the multiplier `uiTextStyle` renders with.
+ *
+ * Exported because three separate places were deriving room from a bare font size: the renderer's own
+ * stacking, `DebriefGeometry.test.ts`'s private copy, and `AdvanceControlGeometry.test.ts`, which
+ * reserved `2 × DEBRIEF_REFUSAL_FONT_SIZE` = 26 for two rendered lines that cost 36 (2.11 review).
+ */
+export const debriefLineHeight = (fontSize: number): number => Math.ceil(fontSize * 1.35);
 
 // --- Reserved band heights ------------------------------------------------------------------------------
 
@@ -410,6 +421,27 @@ export const DEBRIEF_TOGGLE_GAP = 12;
 
 /** The bound the toggle's state label wraps to — fixed height, so it must fit one French line. */
 export const debriefToggleStateWrap = (): number => DEBRIEF_TOGGLE_STATE_WIDTH;
+
+/**
+ * The bound a recognition **status** marker wraps to — fixed height, so it must fit one French line.
+ *
+ * Its own helper, because the French sweep was measuring these two markers against
+ * {@link debriefToggleStateWrap}'s 150 while the renderer painted them at 96: a guard 56% looser than
+ * the surface it guards, on the very constant whose docstring explains why 150 was the wrong reserve
+ * (2.11 review).
+ */
+export const debriefRecognitionStatusWrap = (): number => DEBRIEF_RECOGNITION_STATUS_WIDTH;
+
+/**
+ * What a recognition label has left once its status marker and their gutter have taken theirs.
+ *
+ * A row is `debriefRecognitionIntroBand`-wide, which is {@link debriefRightTextWrap}. Exported because
+ * it was computed inline in the renderer from {@link DEBRIEF_TOGGLE_GAP} — the *toggle strip's* gutter
+ * borrowed for the recognition row's — so the one bound the 1280×720 pass found broken was the one
+ * bound no test could read (2.11 review).
+ */
+export const debriefRecognitionLabelWrap = (): number =>
+    debriefRightTextWrap() - DEBRIEF_RECOGNITION_STATUS_WIDTH - DEBRIEF_RECOGNITION_GAP;
 
 /** What the authored title on the strip has left after the state label takes its reserve. */
 export const debriefToggleLabelWrap = (canvasWidth: number): number =>

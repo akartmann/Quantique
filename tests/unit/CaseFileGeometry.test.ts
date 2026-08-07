@@ -18,7 +18,10 @@ import {
     CASE_FILE_READINESS_ROWS,
     CASE_FILE_READINESS_ROW_HEIGHT,
     CASE_FILE_ROWS_PER_PAGE,
+    CASE_FILE_RIGHT_COLUMN_WIDTH,
     CASE_FILE_ROW_FONT_SIZE,
+    CASE_FILE_ROW_INSET_X,
+    CASE_FILE_ROW_INSET_Y,
     CASE_FILE_ROW_GAP,
     CASE_FILE_ROW_HEIGHT,
     CASE_FILE_SOURCE_ROWS,
@@ -40,6 +43,7 @@ import {
     caseFilePanelBand,
     caseFilePeerReviewBand,
     caseFilePinLabelWrap,
+    caseFileLineHeight,
     caseFileReadinessBand,
     caseFileReadinessRowBand,
     caseFileRequestControlBand,
@@ -80,7 +84,8 @@ const contains = (outer: CaseFileRect, inner: CaseFileRect): boolean =>
     && inner.x + inner.width <= outer.x + outer.width
     && inner.y + inner.height <= outer.y + outer.height;
 
-const lineHeight = (fontSize: number): number => Math.ceil(fontSize * 1.35);
+/** The source's own helper, not a copy of its multiplier (2.11 review). */
+const lineHeight = caseFileLineHeight;
 
 describe('the invariants this suite is written in terms of', () => {
     it('detects an overlap, and does not report one for rectangles that merely touch', () => {
@@ -181,20 +186,51 @@ describe.each(CANVASES)('the case file laid out on $name', ({ width, height }) =
             expect(contains(row, pin), JSON.stringify(row)).toBe(true);
             expect(pin.x + pin.width).toBe(row.x + row.width);
             expect(pin.height).toBe(CASE_FILE_PIN_HEIGHT);
-            // The text has the row less the pin's reserve, and the row is tall enough for both lines.
-            expect(row.height).toBeGreaterThanOrEqual(
-                lineHeight(CASE_FILE_ROW_FONT_SIZE) + lineHeight(CASE_FILE_META_FONT_SIZE)
-            );
             expect(pin.width + CASE_FILE_PIN_GAP).toBeLessThan(row.width);
         });
-        expect(caseFileRowTextWrap(width))
-            .toBe(caseFileObservationRowBand(0, width).width - CASE_FILE_PIN_WIDTH - CASE_FILE_PIN_GAP);
+
+        /**
+         * **Both insets, both lines.** The reserve has to hold the row's own top and bottom inset as
+         * well as its text, which is what the 2.11 review found neither row doing: the reference row
+         * left `44 - 8 - 26` = 10px for a provenance line that cannot render under ~15, and the
+         * observation row left one line for a detail that wraps to two in both locales. Asserted as an
+         * equality against the derivation rather than a `toBeGreaterThanOrEqual`, because a floor a
+         * reserve already clears by 20px is a test that cannot fail for the reason it was written.
+         */
+        expect(caseFileObservationRowBand(0, width).height).toBe(
+            (2 * CASE_FILE_ROW_INSET_Y)
+            + lineHeight(CASE_FILE_ROW_FONT_SIZE)
+            + (2 * lineHeight(CASE_FILE_META_FONT_SIZE))
+        );
+        expect(caseFileSourceRowBand(0, width).height).toBe(
+            (2 * CASE_FILE_ROW_INSET_Y)
+            + lineHeight(CASE_FILE_ROW_FONT_SIZE)
+            + lineHeight(CASE_FILE_META_FONT_SIZE)
+        );
+
+        // The wrap reserves the pin, the gap **and the row's own left inset** — the text starts at
+        // `row.x + CASE_FILE_ROW_INSET_X`, so a bound that ignored it let a row wrap into the gap.
+        expect(caseFileRowTextWrap(width)).toBe(
+            caseFileObservationRowBand(0, width).width
+            - CASE_FILE_PIN_WIDTH - CASE_FILE_PIN_GAP - CASE_FILE_ROW_INSET_X
+        );
         // Both pinnable rows are in the **left** column, so both wrap against the same bound. The
         // right column's own bound reserves no pin, because nothing over there is pinnable — this
         // assertion is what caught the reference rows wrapping against it.
-        expect(caseFileRowTextWrap(width))
-            .toBe(caseFileSourceRowBand(0, width).width - CASE_FILE_PIN_WIDTH - CASE_FILE_PIN_GAP);
-        expect(caseFileRightTextWrap()).toBe(caseFileReadinessBand(width).width);
+        expect(caseFileRowTextWrap(width)).toBe(
+            caseFileSourceRowBand(0, width).width
+            - CASE_FILE_PIN_WIDTH - CASE_FILE_PIN_GAP - CASE_FILE_ROW_INSET_X
+        );
+        // The right column's bound is the width of the row that actually consumes it, reached through
+        // `caseFileReadinessRowBand` rather than through the helper's own definition. The previous form
+        // compared it to `caseFileReadinessBand(width).width`, which *is* the constant the helper
+        // returns — `K === K`, true for any implementation (2.11 review).
+        expect(caseFileRightTextWrap()).toBe(caseFileReadinessRowBand(0, width).width);
+        // And it carries **no pin reserve**, unlike the left column's rows: this is the difference the
+        // reference rows got wrong by wrapping against the wrong one of the two.
+        expect(caseFileRightTextWrap() - caseFileRowTextWrap(width))
+            .toBe(CASE_FILE_RIGHT_COLUMN_WIDTH - caseFileObservationRowBand(0, width).width
+                + CASE_FILE_PIN_WIDTH + CASE_FILE_PIN_GAP + CASE_FILE_ROW_INSET_X);
     });
 
     it('centres every exported click target inside the control it names', () => {

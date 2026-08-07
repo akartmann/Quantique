@@ -100,8 +100,10 @@ const LEAVE_THE_ROOM = libraryAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT);
 const DEBRIEF_REPLAY = debriefAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT);
 
 test('takes every forward transition of the Young case from the canvas', async ({ page }) => {
+    // The boot assertion this line used to carry now lives inside `walkToDebrief`, next to `goto('/')`,
+    // where it is the precondition it was written to be rather than a fact about the DOM shell that
+    // happens to still be mounted once the player is standing in the debrief (2.11 review).
     await walkToDebrief(page);
-    await expect(page.getByRole('heading', { name: en['boot.title'] })).toBeVisible();
 
     // --- post-debrief replay -------------------------------------------------------------------
     await clickDesign(page, DEBRIEF_REPLAY);

@@ -16,7 +16,6 @@ import type { PhaserStoreAdapter } from '../PhaserStoreAdapter';
 import { uiTextStyle } from '../textStyles';
 import {
     DEBRIEF_BAND_PADDING,
-    DEBRIEF_TOGGLE_GAP,
     DEBRIEF_BODY_FONT_SIZE,
     DEBRIEF_CITED_SOURCE_ROWS,
     DEBRIEF_CRITIQUE_FONT_SIZE,
@@ -54,6 +53,9 @@ import {
     debriefSourcesBand,
     debriefSummaryBand,
     debriefToggleLabelWrap,
+    debriefLineHeight,
+    debriefRecognitionLabelWrap,
+    debriefRecognitionStatusWrap,
     debriefToggleStateWrap,
     type DebriefRect
 } from '../scenes/debriefGeometry';
@@ -196,7 +198,7 @@ export class DebriefRenderer {
             const row = debriefSourceRowBand(index, width);
             this.sourceRows.push({
                 name: this.text(row.x, row.y, DEBRIEF_BODY_FONT_SIZE, BODY_COLOR, row.width),
-                meta: this.text(row.x, row.y + Math.ceil(DEBRIEF_BODY_FONT_SIZE * 1.35), DEBRIEF_META_FONT_SIZE, META_COLOR, row.width)
+                meta: this.text(row.x, row.y + debriefLineHeight(DEBRIEF_BODY_FONT_SIZE), DEBRIEF_META_FONT_SIZE, META_COLOR, row.width)
             });
         }
 
@@ -212,11 +214,11 @@ export class DebriefRenderer {
                 // **after** the status's reserve and the gutter between them — without the gutter the
                 // two run together into one unreadable word, which is what the 1280×720 pass caught.
                 label: this.text(row.x, row.y, DEBRIEF_RECOGNITION_LABEL_FONT_SIZE, BODY_COLOR,
-                    row.width - DEBRIEF_RECOGNITION_STATUS_WIDTH - DEBRIEF_TOGGLE_GAP),
+                    debriefRecognitionLabelWrap()),
                 status: this.text(row.x + row.width - DEBRIEF_RECOGNITION_STATUS_WIDTH, row.y,
-                    DEBRIEF_META_FONT_SIZE, META_COLOR, DEBRIEF_RECOGNITION_STATUS_WIDTH).setOrigin(0, 0),
+                    DEBRIEF_META_FONT_SIZE, META_COLOR, debriefRecognitionStatusWrap()).setOrigin(0, 0),
                 description: this.text(
-                    row.x, row.y + Math.ceil(DEBRIEF_RECOGNITION_LABEL_FONT_SIZE * 1.35),
+                    row.x, row.y + debriefLineHeight(DEBRIEF_RECOGNITION_LABEL_FONT_SIZE),
                     DEBRIEF_META_FONT_SIZE, META_COLOR, row.width
                 )
             });
@@ -235,12 +237,12 @@ export class DebriefRenderer {
         this.toggleSurface.on('pointerup', () => this.toggleDeeperTheory());
         this.objects.push(this.toggleSurface);
         this.toggleTitle = this.text(
-            strip.x + DEBRIEF_BAND_PADDING, strip.y + ((strip.height - Math.ceil(DEBRIEF_TOGGLE_FONT_SIZE * 1.35)) / 2),
+            strip.x + DEBRIEF_BAND_PADDING, strip.y + ((strip.height - debriefLineHeight(DEBRIEF_TOGGLE_FONT_SIZE)) / 2),
             DEBRIEF_TOGGLE_FONT_SIZE, HEADING_COLOR, debriefToggleLabelWrap(width)
         );
         this.toggleState = this.text(
             strip.x + strip.width - DEBRIEF_BAND_PADDING - DEBRIEF_TOGGLE_STATE_WIDTH,
-            strip.y + ((strip.height - Math.ceil(DEBRIEF_TOGGLE_FONT_SIZE * 1.35)) / 2),
+            strip.y + ((strip.height - debriefLineHeight(DEBRIEF_TOGGLE_FONT_SIZE)) / 2),
             DEBRIEF_TOGGLE_FONT_SIZE, WARNING_COLOR, debriefToggleStateWrap()
         );
 
@@ -312,11 +314,19 @@ export class DebriefRenderer {
         this.comparisonTitle?.setText(debrief.historicalComparison.title);
         this.comparisonText?.setText(debrief.historicalComparison.text);
         if (!this.comparisonTitle || !this.comparisonText) return;
+        // Shown before it is measured. `clamp` hides a text it has no room for, and this was the one
+        // clamped text in the room with no path back: once a long title squeezed the prose out, the
+        // historical comparison stayed blank for the life of the scene — through a locale change to
+        // shorter copy, through every later render (2.11 review). One setter along from the permanent
+        // shrink the clamp's own docstring says it fixed.
+        [this.comparisonTitle, this.comparisonText].forEach((object) => object.setVisible(true));
         // The title is clamped first so the prose below it is placed against a *measured* bottom.
         const titleRoom = band.height - (2 * DEBRIEF_BAND_PADDING) - DEBRIEF_TITLE_GAP
-            - Math.ceil(DEBRIEF_BODY_FONT_SIZE * 1.35);
+            - debriefLineHeight(DEBRIEF_BODY_FONT_SIZE);
         this.clamp(this.comparisonTitle, DEBRIEF_SECTION_TITLE_FONT_SIZE, titleRoom);
-        this.comparisonText.setY(this.comparisonTitle.y + this.comparisonTitle.height + DEBRIEF_TITLE_GAP);
+        this.comparisonText.setY(
+            this.comparisonTitle.y + Math.min(this.comparisonTitle.height, titleRoom) + DEBRIEF_TITLE_GAP
+        );
         this.clamp(this.comparisonText, DEBRIEF_BODY_FONT_SIZE, this.roomFor(band, this.comparisonText));
     }
 
@@ -339,10 +349,12 @@ export class DebriefRenderer {
                 rights: source.rightsStatus
             }));
             const band = debriefSourceRowBand(index, canvasWidth);
-            this.clamp(row.name, DEBRIEF_BODY_FONT_SIZE, Math.ceil(DEBRIEF_BODY_FONT_SIZE * 1.35));
-            row.meta.setY(band.y + row.name.height);
-            // Placed against the name's **measured** height, so a French display name that wraps
-            // pushes its provenance line down rather than being painted over by it.
+            const nameLine = debriefLineHeight(DEBRIEF_BODY_FONT_SIZE);
+            this.clamp(row.name, DEBRIEF_BODY_FONT_SIZE, nameLine);
+            // Placed against the name's **measured** height where measuring means something, and against
+            // the line it was just cropped to when it does not — `Text.height` ignores `setCrop`, so a
+            // name that still wraps at the clamp floor reports two lines while painting one.
+            row.meta.setY(band.y + Math.min(row.name.height, nameLine));
             this.clamp(row.meta, DEBRIEF_META_FONT_SIZE, band.y + band.height - row.meta.y);
         });
     }
@@ -374,8 +386,13 @@ export class DebriefRenderer {
             row.status.setColor(item.achieved ? RECOGNITION_ON_COLOR : META_COLOR);
             row.description.setText(item.description);
             const band = debriefRecognitionRowBand(index, canvasWidth);
-            this.clamp(row.label, DEBRIEF_RECOGNITION_LABEL_FONT_SIZE, Math.ceil(DEBRIEF_RECOGNITION_LABEL_FONT_SIZE * 1.35));
-            row.description.setY(band.y + row.label.height);
+            const labelLine = debriefLineHeight(DEBRIEF_RECOGNITION_LABEL_FONT_SIZE);
+            this.clamp(row.label, DEBRIEF_RECOGNITION_LABEL_FONT_SIZE, labelLine);
+            // The status marker sits beside the label in a fixed row and was the only text in it with no
+            // clamp at all, so a French marker that outgrew its 96px column ran into the description
+            // below (2.11 review).
+            this.clamp(row.status, DEBRIEF_META_FONT_SIZE, labelLine);
+            row.description.setY(band.y + Math.min(row.label.height, labelLine));
             this.clamp(row.description, DEBRIEF_META_FONT_SIZE, band.y + band.height - row.description.y);
         });
     }
@@ -397,6 +414,13 @@ export class DebriefRenderer {
         const body = debriefLowerBodyBand(canvasWidth, canvasHeight);
         this.toggleTitle?.setText(debrief.deeperTheory.title);
         this.toggleState?.setText(t(this.deeperTheoryOpen ? 'debrief.deeperTheory.hide' : 'debrief.deeperTheory.show'));
+        // `deeperTheory.title` is authored `LocalizedText` with **no `.max()` in the schema**, painted
+        // into a fixed 36px strip — and it was the one text in this room that was never clamped, so a
+        // two-line French title ended below the strip and a three-line one crossed into the band under
+        // it (2.11 review). The strip's own docstring is what says a title with no bound must not sit
+        // inside a fixed-height control unclamped.
+        this.clamp(this.toggleTitle, DEBRIEF_TOGGLE_FONT_SIZE, debriefLineHeight(DEBRIEF_TOGGLE_FONT_SIZE));
+        this.clamp(this.toggleState, DEBRIEF_TOGGLE_FONT_SIZE, debriefLineHeight(DEBRIEF_TOGGLE_FONT_SIZE));
 
         if (this.deeperTheoryOpen) {
             [this.lowerHeading, this.earlierSurface, this.earlierLabel, this.laterSurface, this.laterLabel, this.lowerSpeaker]
@@ -435,7 +459,7 @@ export class DebriefRenderer {
         }
 
         this.lowerSpeaker?.setVisible(true).setY(body.y).setText(entry.speaker);
-        this.clamp(this.lowerSpeaker, DEBRIEF_META_FONT_SIZE, Math.ceil(DEBRIEF_META_FONT_SIZE * 1.35));
+        this.clamp(this.lowerSpeaker, DEBRIEF_META_FONT_SIZE, debriefLineHeight(DEBRIEF_META_FONT_SIZE));
         const proseTop = body.y + (this.lowerSpeaker?.height ?? 0) + DEBRIEF_ROW_GAP;
         this.lowerBody?.setVisible(true).setY(proseTop).setText(entry.line);
         this.clamp(this.lowerBody, DEBRIEF_CRITIQUE_FONT_SIZE, body.y + body.height - proseTop);

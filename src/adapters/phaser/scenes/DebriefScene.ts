@@ -11,6 +11,7 @@ import { TransientMessageSlot } from '../renderers/transientMessage';
 import { uiTextStyle } from '../textStyles';
 import { AdvanceControl } from '../ui/AdvanceControl';
 import {
+    DEBRIEF_MIN_FONT_SIZE,
     DEBRIEF_REFUSAL_FONT_SIZE,
     debriefAdvanceControlBounds,
     debriefRefusalBand
@@ -94,6 +95,25 @@ export class DebriefScene extends Scene {
         // Reading the slot is what spends it: the message survives every repaint of the state it was
         // set against, and clears on the first render carrying a new one.
         this.refusalMessage?.setText(this.transientError.read(state) ?? '');
+        // Clamped into the band it was given. It was the one player-facing text in this room outside
+        // the renderer's clamp discipline, and the slot renders arbitrary `selectLocalizedError` output:
+        // a French `replay-unavailable` is already two lines in a 40px band, and a third would grow down
+        // into the counterfactual warning — which `debriefRefusalBand`'s own docstring says is on screen
+        // at the same time on a second pass (2.11 review).
+        if (this.refusalMessage) {
+            const refusal = debriefRefusalBand(this.scale.width, this.scale.height);
+            this.refusalMessage.setFontSize(DEBRIEF_REFUSAL_FONT_SIZE).setCrop();
+            for (
+                let fontSize = DEBRIEF_REFUSAL_FONT_SIZE;
+                fontSize >= DEBRIEF_MIN_FONT_SIZE && this.refusalMessage.height > refusal.height;
+                fontSize -= 1
+            ) {
+                this.refusalMessage.setFontSize(fontSize);
+            }
+            if (this.refusalMessage.height > refusal.height) {
+                this.refusalMessage.setCrop(0, 0, this.refusalMessage.width, refusal.height);
+            }
+        }
     }
 
     /**

@@ -137,6 +137,10 @@ export type SceneSlice = Readonly<{
     drawn: DrawnObject[];
     /** Every `scene.events.on('update')` handler currently registered. */
     updateHandlers: ((time: number, delta: number) => void)[];
+    /** Every tween config passed to `scene.tweens.add`, so "starts no tween" can actually fail. */
+    tweens: unknown[];
+    /** Every target passed to `scene.tweens.killTweensOf`, so a release can be proven. */
+    killedTweenTargets: unknown[];
     /** Handlers passed to `scene.events.off('update')`, so teardown can be asserted. */
     removedUpdateHandlers: unknown[];
     /** Every live registration on `scene.input.keyboard`, in order, kept by identity. */
@@ -175,6 +179,8 @@ export type SceneSlice = Readonly<{
 export const makeSceneSlice = (): SceneSlice => {
     const drawn: DrawnObject[] = [];
     const updateHandlers: ((time: number, delta: number) => void)[] = [];
+    const tweens: unknown[] = [];
+    const killedTweenTargets: unknown[] = [];
     const removedUpdateHandlers: unknown[] = [];
     const keyboardListeners: SceneListener[] = [];
     const pointerListeners: SceneListener[] = [];
@@ -232,13 +238,25 @@ export const makeSceneSlice = (): SceneSlice => {
                 removeCapture: (keys: string[]) => { keys.forEach((key) => captured.delete(key)); }
             }
         },
-        tweens: { add: () => undefined, killTweensOf: () => undefined },
+        tweens: {
+            /**
+             * **Recorded, not swallowed.** Both new 2.11 renderers ship a test named "registers no
+             * update loop and starts no tween" that asserted only the update handlers, because this
+             * stub returned `undefined` and kept nothing — so the tween half of the claim was
+             * unfalsifiable and the Dev Agent Record's "asserted directly" was not true of it
+             * (2.11 review). The harness being the blind spot is the 2.10 finding, one field along.
+             */
+            add: (config: unknown) => { tweens.push(config); return undefined; },
+            killTweensOf: (target: unknown) => { killedTweenTargets.push(target); return undefined; }
+        },
         time: { now: 0 }
     } as unknown as Scene;
 
     return {
         scene,
         drawn,
+        tweens,
+        killedTweenTargets,
         updateHandlers,
         removedUpdateHandlers,
         keyboardListeners,

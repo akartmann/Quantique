@@ -274,8 +274,13 @@ export const en = {
     'caseFile.page.earlier': 'Earlier',
     'caseFile.page.later': 'Later',
     'caseFile.page.counter': '{from}–{to} of {total}',
-    // AC7: the copy in `error.conclusion-not-ready` says the theory board shows what is missing. This
-    // is where it does. It reports the player's own record and never which conclusion it defends.
+    // AC7: `error.conclusion-not-ready` names **the case file**, and this is the case file. It used to
+    // name the theory board, which is where the retired DOM panel listed this and where the canvas
+    // board lists nothing — so a refused player read the message, looked at the board and found no
+    // account of what was missing (2.11 review). The list reports the player's own record and never
+    // which conclusion it defends (ADR-006).
+    // These lines are clamped into `CASE_FILE_READINESS_ROW_HEIGHT` at `CASE_FILE_RIGHT_COLUMN_WIDTH`,
+    // so both locales are written to fit one line there; `french-typography.spec.ts` holds them to it.
     'caseFile.readiness.heading': 'What is still missing',
     'caseFile.readiness.complete': 'Your record carries everything the review asks for.',
     'caseFile.review.heading': 'Peer review',
@@ -285,6 +290,7 @@ export const en = {
     'caseFile.review.notRequested': 'No feedback has been asked for on this draft yet.',
     'caseFile.review.issue': '{feedback} — {revisionPath}',
     'caseFile.review.saved': 'Reviewed revision saved.',
+    'caseFile.review.clearedBySupport': 'Your support changed, so the feedback on this draft was cleared.',
 
     // --- Colleagues and proposals ---------------------------------------------------------------
     // Colleague *names* are canonical proper nouns authored in case.json; only the role is resolved
@@ -347,17 +353,17 @@ export const en = {
     'review.unavailable': 'Peer feedback is temporarily unavailable. Your evidence and draft have been kept unchanged.',
 
     // --- Conclusion readiness (localized by requirement code, not by pre-formatted message) ------
-    'conclusion.missing.duplicate-run-selection': 'Choose each supporting observation only once.',
-    'conclusion.missing.unknown-run-selection': 'Remove an unavailable supporting observation.',
+    'conclusion.missing.duplicate-run-selection': 'Pin each observation only once.',
+    'conclusion.missing.unknown-run-selection': 'Remove an unavailable observation.',
     'conclusion.missing.minimum-runs': 'Select at least {count} recorded observations.',
-    'conclusion.missing.non-physical-young-run': 'Use recorded physical Young observations as conclusion support.',
-    'conclusion.missing.distinct-run-configurations': 'Select observations from two different recorded Young configurations.',
-    'conclusion.missing.saved-comparison': 'Save an intentional comparison of the two selected observations.',
-    'conclusion.missing.duplicate-source-selection': 'Choose each supporting source only once.',
-    'conclusion.missing.unknown-source-selection': 'Remove a source that is not currently inspected evidence.',
+    'conclusion.missing.non-physical-young-run': 'Pin recorded physical Young observations.',
+    'conclusion.missing.distinct-run-configurations': 'Pin observations from two different setups.',
+    'conclusion.missing.saved-comparison': 'Save a deliberate comparison of the two.',
+    'conclusion.missing.duplicate-source-selection': 'Pin each reference only once.',
+    'conclusion.missing.unknown-source-selection': 'Remove a reference you have not inspected.',
     'conclusion.missing.minimum-sources': 'Inspect and select at least {count} sources.',
-    'conclusion.missing.conclusion': 'Write a bounded conclusion before requesting review.',
-    'conclusion.missing.limitation': 'Describe at least one limitation or alternative explanation.',
+    'conclusion.missing.conclusion': 'Write a bounded conclusion first.',
+    'conclusion.missing.limitation': 'Describe one limitation or alternative.',
 
     // --- Printable investigation record ---------------------------------------------------------
     'print.title': 'Investigation record',
@@ -438,7 +444,7 @@ export const en = {
     'error.uninspected-theory-source': 'Inspect that reviewed source before using it as conclusion support.',
     'error.duplicate-theory-source': 'That source is already supporting this conclusion.',
     'error.theory-source-not-selected': 'That source is not selected as conclusion support.',
-    'error.conclusion-not-ready': 'The bounded conclusion is not ready for review yet. The theory board lists what is still missing.',
+    'error.conclusion-not-ready': 'The bounded conclusion is not ready for review yet. The case file lists what is still missing.',
     'error.consultation-unavailable': 'No additional authored consultation applies to the current evidence.',
     'error.peer-review-unavailable': 'Move the bounded theory draft to review before requesting peer feedback.',
     'error.revision-review-required': 'Request available peer feedback before saving a revision.',

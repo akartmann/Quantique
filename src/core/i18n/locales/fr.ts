@@ -207,6 +207,7 @@ export const fr: Record<TranslationKey, string> = {
     'caseFile.review.notRequested': 'Aucun retour n’a encore été demandé sur ce brouillon.',
     'caseFile.review.issue': '{feedback} — {revisionPath}',
     'caseFile.review.saved': 'Révision relue enregistrée.',
+    'caseFile.review.clearedBySupport': 'Votre appui a changé : le retour sur ce brouillon a été effacé.',
 
     // --- Colleagues and proposals ---------------------------------------------------------------
     'colleague.role.lead': 'Responsable',
@@ -246,17 +247,17 @@ export const fr: Record<TranslationKey, string> = {
     'review.unavailable': 'La relecture par les pairs est momentanément indisponible. Vos preuves et votre brouillon restent inchangés.',
 
     // --- Conclusion readiness (localized by requirement code, not by pre-formatted message) ------
-    'conclusion.missing.duplicate-run-selection': 'Ne retenez chaque observation d’appui qu’une seule fois.',
-    'conclusion.missing.unknown-run-selection': 'Retirez une observation d’appui indisponible.',
+    'conclusion.missing.duplicate-run-selection': 'N’épinglez chaque observation qu’une fois.',
+    'conclusion.missing.unknown-run-selection': 'Retirez une observation indisponible.',
     'conclusion.missing.minimum-runs': 'Sélectionnez au moins {count} observations enregistrées.',
-    'conclusion.missing.non-physical-young-run': 'Appuyez la conclusion sur des observations physiques de Young enregistrées.',
-    'conclusion.missing.distinct-run-configurations': 'Sélectionnez des observations issues de deux configurations de Young différentes.',
-    'conclusion.missing.saved-comparison': 'Enregistrez une comparaison délibérée des deux observations sélectionnées.',
-    'conclusion.missing.duplicate-source-selection': 'Ne retenez chaque source d’appui qu’une seule fois.',
-    'conclusion.missing.unknown-source-selection': 'Retirez une source qui ne fait pas partie des preuves examinées.',
+    'conclusion.missing.non-physical-young-run': 'Épinglez des observations de Young enregistrées.',
+    'conclusion.missing.distinct-run-configurations': 'Épinglez deux configurations différentes.',
+    'conclusion.missing.saved-comparison': 'Enregistrez une comparaison des deux.',
+    'conclusion.missing.duplicate-source-selection': 'N’épinglez chaque référence qu’une fois.',
+    'conclusion.missing.unknown-source-selection': 'Retirez une référence non examinée.',
     'conclusion.missing.minimum-sources': 'Examinez et sélectionnez au moins {count} sources.',
-    'conclusion.missing.conclusion': 'Rédigez une conclusion délimitée avant de demander une relecture.',
-    'conclusion.missing.limitation': 'Indiquez au moins une limite ou une explication alternative.',
+    'conclusion.missing.conclusion': 'Rédigez d’abord une conclusion délimitée.',
+    'conclusion.missing.limitation': 'Indiquez une limite ou une alternative.',
 
     // --- Printable investigation record ---------------------------------------------------------
     'print.title': 'Dossier d’enquête',
@@ -330,7 +331,7 @@ export const fr: Record<TranslationKey, string> = {
     'error.uninspected-theory-source': 'Examinez cette source vérifiée avant de l’utiliser comme appui de la conclusion.',
     'error.duplicate-theory-source': 'Cette source appuie déjà cette conclusion.',
     'error.theory-source-not-selected': 'Cette source n’est pas sélectionnée comme appui de la conclusion.',
-    'error.conclusion-not-ready': 'La conclusion délimitée n’est pas encore prête pour la relecture. Le tableau de théorie indique ce qui manque.',
+    'error.conclusion-not-ready': 'La conclusion délimitée n’est pas encore prête pour la relecture. Le dossier indique ce qui manque.',
     'error.consultation-unavailable': 'Aucune consultation supplémentaire prévue par le scénario ne s’applique aux preuves actuelles.',
     'error.peer-review-unavailable': 'Soumettez le brouillon de théorie délimité à la relecture avant de demander un retour des pairs.',
     'error.revision-review-required': 'Demandez le retour des pairs disponible avant d’enregistrer une révision.',

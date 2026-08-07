@@ -24,7 +24,9 @@ import {
     CASE_FILE_ACTION_WIDTH,
     CASE_FILE_CONTROL_FONT_SIZE,
     CASE_FILE_DEPTH,
+    CASE_FILE_GUIDE_HEIGHT,
     CASE_FILE_HEADING_FONT_SIZE,
+    CASE_FILE_HEADING_HEIGHT,
     CASE_FILE_META_FONT_SIZE,
     CASE_FILE_MIN_FONT_SIZE,
     CASE_FILE_PAGE_CONTROL_HEIGHT,
@@ -35,6 +37,8 @@ import {
     CASE_FILE_READINESS_ROW_HEIGHT,
     CASE_FILE_ROWS_PER_PAGE,
     CASE_FILE_ROW_FONT_SIZE,
+    CASE_FILE_ROW_INSET_X,
+    CASE_FILE_ROW_INSET_Y,
     CASE_FILE_SECTION_FONT_SIZE,
     CASE_FILE_SECTION_HEIGHT,
     CASE_FILE_SOURCE_ROWS,
@@ -44,6 +48,7 @@ import {
     caseFileGuideTextWrap,
     caseFileHeadingBand,
     caseFileIssuesBand,
+    caseFileLineHeight,
     caseFileObservationRowBand,
     caseFileObservationsBand,
     caseFilePageControlBand,
@@ -311,6 +316,16 @@ export class CaseFilePresenter {
         this.closeLabel?.setText(t('caseFile.close'));
         this.statusLine?.setText(this.status.read(state) ?? '');
 
+        // The overlay's chrome was the one text family outside its own clamp discipline (2.11 review).
+        // The guide is a two-line French reserve that the copy already fills, and the status slot renders
+        // arbitrary `selectLocalizedError` output — including AC6's new 121-character French
+        // `completion-timestamp-not-later` — into a single-line slot beside the way out.
+        this.clamp(this.heading, CASE_FILE_HEADING_FONT_SIZE, CASE_FILE_HEADING_HEIGHT);
+        this.clamp(this.guide, CASE_FILE_ROW_FONT_SIZE, CASE_FILE_GUIDE_HEIGHT);
+        this.clamp(this.statusLine, CASE_FILE_META_FONT_SIZE, caseFileStatusBand(width, this.scene.scale.height).height);
+        [this.observationsHeading, this.sourcesHeading, this.readinessHeading, this.reviewHeading]
+            .forEach((headingText) => this.clamp(headingText, CASE_FILE_SECTION_FONT_SIZE, CASE_FILE_SECTION_HEIGHT));
+
         this.renderObservations(state, t, width);
         this.renderSources(state, t, width);
         this.renderReadiness(state, t);
@@ -318,8 +333,9 @@ export class CaseFilePresenter {
     }
 
     public destroy(): void {
+        // `title` and `detail` are released with `this.objects` below — see `createRow`.
         [...this.observationRows, ...this.sourceRows].forEach((row) =>
-            [row.background, row.title, row.detail, row.pinSurface, row.pinLabel].forEach((object) => object.destroy()));
+            [row.background, row.pinSurface, row.pinLabel].forEach((object) => object.destroy()));
         this.observationRows.length = 0;
         this.sourceRows.length = 0;
         this.readinessRows.forEach((object) => object.destroy());
@@ -397,20 +413,42 @@ export class CaseFilePresenter {
      */
     private observationDetail(state: AppState, t: Translator, record: RunRecord): string {
         const locale = selectLocale(state);
-        const readout = (controlId: 'slitSpacingMm' | 'screenDistanceM'): string => {
+        // `selectPrimaryControl` **throws** on an id the case does not author, and this runs inside
+        // `render()`, which runs inside `dispatch() → notify()` — where a throw advances the phase, skips
+        // every later subscriber and strands the router with no visible error (the 1.10 failure mode).
+        // The schema makes both ids mandatory today, so this guard is unreachable through authored
+        // content; it is reachable through a **restored record against a degraded cached `case.json`**,
+        // which is the same door `DebriefRenderer` already guards for a stale `critiqueId`. A row that
+        // cannot describe its settings falls back to its result rather than taking the room down.
+        const readout = (controlId: 'slitSpacingMm' | 'screenDistanceM'): string | undefined => {
             const control = selectPrimaryControl(state, controlId);
+            const recorded = record.controls[controlId];
+            if (recorded === undefined) return undefined;
             return t('lab.control.readout', {
                 label: resolveLocalizedText(control.label, locale),
-                value: formatMeasurement(locale, record.controls[controlId], decimalPlaces(control.step), control.unit)
+                value: formatMeasurement(locale, recorded, decimalPlaces(control.step), control.unit)
             });
         };
+        const settings = ((): { slitSpacing: string; screenDistance: string } | undefined => {
+            try {
+                const slitSpacing = readout('slitSpacingMm');
+                const screenDistance = readout('screenDistanceM');
+                return slitSpacing !== undefined && screenDistance !== undefined
+                    ? { slitSpacing, screenDistance }
+                    : undefined;
+            } catch {
+                return undefined;
+            }
+        })();
+        const result = t('notebook.row.result', {
+            label: record.modelInputs ? t('experiment.result.fringeSpacing') : record.result.label,
+            value: formatRecordedValue(locale, record.result.value, record.result.unit)
+        });
+        if (!settings) return result;
         return t('caseFile.observation.detail', {
-            slitSpacing: readout('slitSpacingMm'),
-            screenDistance: readout('screenDistanceM'),
-            result: t('notebook.row.result', {
-                label: record.modelInputs ? t('experiment.result.fringeSpacing') : record.result.label,
-                value: formatRecordedValue(locale, record.result.value, record.result.unit)
-            })
+            slitSpacing: settings.slitSpacing,
+            screenDistance: settings.screenDistance,
+            result
         });
     }
 
@@ -489,10 +527,14 @@ export class CaseFilePresenter {
         this.reviewHeading?.setText(t('caseFile.review.heading'));
         this.requestLabel?.setText(t('caseFile.review.request'));
         this.saveLabel?.setText(t('caseFile.review.save'));
-        this.armControl(this.requestSurface, true);
 
         const review = selectLocalizedPeerReview(state);
         const reviewed = review?.status === 'reviewed';
+        // Armed only while asking would change something. It used to be hard-coded live, so pressing it
+        // twice without an intervening save dispatched against a store that already held a reviewed
+        // projection — a refusal earned by clicking a control this surface drew as live, which is the one
+        // thing the class's own no-dispatch-on-repeat rule forbids (2.11 review).
+        this.armControl(this.requestSurface, !reviewed);
         this.armControl(this.saveSurface, reviewed);
         if (!review) {
             this.issues?.setText(t('caseFile.review.notRequested'));
@@ -563,7 +605,21 @@ export class CaseFilePresenter {
      * needed here for it; a refused one takes the status slot and forces the repaint that shows it.
      */
     private report(state: AppState, result: ReturnType<PhaserStoreAdapter['selectSupportRun']>): void {
-        if (result.ok) return;
+        if (result.ok) {
+            // A **successful** support change clears any standing peer review: `withTheory` drops
+            // `peerReview`, `consultation` and `rivalLabCritique` together, so the issues pane empties and
+            // the save control goes dead under a player who did nothing wrong. The reducer is right to do
+            // it — the feedback described a draft that no longer exists — but silence here is the one
+            // thing the guided-adventure rule forbids in every neighbouring case, so the surface says so.
+            // Only when there was something to lose: reported, not warned about in advance, because the
+            // player is allowed to change their support and must not be talked out of it.
+            const after = this.storeAdapter.getState();
+            if (state.peerReview && !after.peerReview) {
+                this.status.set(createTranslator(selectLocale(after))('caseFile.review.clearedBySupport'), after);
+                this.render(after);
+            }
+            return;
+        }
         this.status.set(selectLocalizedError(state, result.error), state);
         this.render(this.storeAdapter.getState());
     }
@@ -585,8 +641,10 @@ export class CaseFilePresenter {
             this.earlierSurface, this.earlierLabel, this.laterSurface, this.laterLabel,
             this.requestSurface, this.requestLabel, this.saveSurface, this.saveLabel,
             this.closeSurface, this.closeLabel,
+            // `title` and `detail` are on `this.objects` already — listing them here as well returned
+            // each one twice, so depth and visibility were set twice per object and `destroy` ran twice.
             ...[...this.observationRows, ...this.sourceRows].flatMap((row) =>
-                [row.background, row.title, row.detail, row.pinSurface, row.pinLabel])
+                [row.background, row.pinSurface, row.pinLabel])
         ].filter((object): object is CaseFileObject => object !== undefined);
     }
 
@@ -613,8 +671,10 @@ export class CaseFilePresenter {
         const background = this.scene.add
             .rectangle(band.x, band.y, band.width, band.height, ROW_FILL)
             .setOrigin(0, 0);
-        const title = this.text(band.x + 10, band.y + 8, CASE_FILE_ROW_FONT_SIZE, BODY_COLOR, textWrap);
-        const detail = this.text(band.x + 10, band.y + 8 + Math.ceil(CASE_FILE_ROW_FONT_SIZE * 1.35),
+        const title = this.text(band.x + CASE_FILE_ROW_INSET_X, band.y + CASE_FILE_ROW_INSET_Y,
+            CASE_FILE_ROW_FONT_SIZE, BODY_COLOR, textWrap);
+        const detail = this.text(band.x + CASE_FILE_ROW_INSET_X,
+            band.y + CASE_FILE_ROW_INSET_Y + caseFileLineHeight(CASE_FILE_ROW_FONT_SIZE),
             CASE_FILE_META_FONT_SIZE, META_COLOR, textWrap);
         const pin = caseFileRowPinBand(band);
         const pinSurface = this.scene.add
@@ -628,8 +688,11 @@ export class CaseFilePresenter {
                 align: 'center', wordWrap: { width: caseFilePinLabelWrap() }
             })
         ).setOrigin(0.5, 0.5);
-        // Deliberately **not** pushed onto `this.objects`: the rows are released as a group in
-        // `destroy` so a row rebuilt for a different record cannot leave a stale object behind.
+        // `title` and `detail` come from `this.text`, which registers them on `this.objects` — so they
+        // are released there, and `destroy` walks the rows only for the objects that are *not* on it
+        // (`background`, `pinSurface`, `pinLabel`). The comment here used to claim the opposite, which
+        // made `allObjects()` list each text twice and `destroy()` destroy each twice; Phaser tolerated
+        // it, so nothing failed and the invariant quietly stopped being true (2.11 review).
         return { background, title, detail, pinSurface, pinLabel };
     }
 
@@ -647,10 +710,19 @@ export class CaseFilePresenter {
      * shrinking a long name is better reading than pushing its provenance out of the row.
      */
     private stackRow(row: PinnableRow, band: CaseFileRect): void {
-        const titleLine = Math.ceil(CASE_FILE_ROW_FONT_SIZE * 1.35);
+        const titleLine = caseFileLineHeight(CASE_FILE_ROW_FONT_SIZE);
         this.clamp(row.title, CASE_FILE_ROW_FONT_SIZE, titleLine);
-        row.detail.setY(row.title.y + row.title.height);
-        this.clamp(row.detail, CASE_FILE_META_FONT_SIZE, band.y + band.height - 8 - row.detail.y);
+        // `Text.height` is **unchanged by `setCrop`**, so a title that still wraps at the clamp's floor
+        // reports two lines while painting one, and stacking against the raw height opened a gap and
+        // pushed the detail out of the row (2.11 review). Measured where measuring means something —
+        // a title that fits is followed at its real height — and bounded by the reserve it was just
+        // cropped to, which is the only honest reading when it does not.
+        row.detail.setY(row.title.y + Math.min(row.title.height, titleLine));
+        this.clamp(
+            row.detail,
+            CASE_FILE_META_FONT_SIZE,
+            band.y + band.height - CASE_FILE_ROW_INSET_Y - row.detail.y
+        );
     }
 
     private hideRow(row: PinnableRow): void {
@@ -737,7 +809,15 @@ export class CaseFilePresenter {
     private clamp(text: Phaser.GameObjects.Text | undefined, authoredFontSize: number, available: number): void {
         if (!text) return;
         text.setFontSize(authoredFontSize).setCrop();
-        if (available <= 0) return;
+        if (available <= 0) {
+            // Hidden, not left painted at full size over whatever is below it. This branch used to
+            // `return` while `DebriefRenderer.clamp` — same name, same docstring lineage, written in the
+            // same story — hid instead; the 2.11 review found the two disagreeing and one of them had to
+            // be wrong. Nothing legible fits in no room, and a band that has run out of room is a defect
+            // to see rather than a paragraph to spill.
+            text.setVisible(false);
+            return;
+        }
         for (let fontSize = authoredFontSize; fontSize >= CASE_FILE_MIN_FONT_SIZE && text.height > available; fontSize -= 1) {
             text.setFontSize(fontSize);
         }

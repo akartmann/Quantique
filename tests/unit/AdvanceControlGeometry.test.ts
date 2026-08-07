@@ -32,6 +32,7 @@ import {
     debriefAdvanceControlBounds,
     debriefAdvanceControlCentre,
     debriefCounterfactualBand,
+    debriefLineHeight,
     debriefRefusalBand
 } from '../../src/adapters/phaser/scenes/debriefGeometry';
 
@@ -150,10 +151,12 @@ describe('the debrief\'s replay control', () => {
     it('leaves room beside it for a refusal to be answered', () => {
         const bounds = debriefAdvanceControlBounds(DESIGN_WIDTH, DESIGN_HEIGHT);
         const refusal = debriefRefusalBand(DESIGN_WIDTH, DESIGN_HEIGHT);
-        // The room actually needed, derived from the message's own font rather than from a round
-        // number chosen to pass: two lines of it, which is what a French `progress-operation-active`
-        // takes at this wrap.
-        expect(refusal.height).toBeGreaterThanOrEqual(2 * DEBRIEF_REFUSAL_FONT_SIZE);
+        // The room actually needed, derived from the message's own **line box** rather than from its
+        // bare font size: two lines of it, which is what a French `progress-operation-active` takes at
+        // this wrap. `2 * DEBRIEF_REFUSAL_FONT_SIZE` was 26 for two lines that cost 36 — a reserve
+        // under-derived by 27%, in a suite that reads `lineHeight` for every equivalent claim
+        // (2.11 review).
+        expect(refusal.height).toBeGreaterThanOrEqual(2 * debriefLineHeight(DEBRIEF_REFUSAL_FONT_SIZE));
         expect(refusal.x).toBe(bounds.x + ADVANCE_CONTROL_WIDTH + DEBRIEF_REFUSAL_GAP);
         expect(refusal.x + refusal.width).toBeLessThanOrEqual(DESIGN_WIDTH);
     });

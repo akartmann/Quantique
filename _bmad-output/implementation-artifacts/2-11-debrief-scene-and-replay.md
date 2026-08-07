@@ -4,7 +4,7 @@ baseline_commit: 3bd19b7ca11f3123d6a4e78cda749a650d401f52
 
 # Story 2.11: Debrief scene — historical comparison, recognition, and replay
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -152,6 +152,272 @@ review of 2-8" (AC5), §"Deferred from: code review of 2-7" (AC6), and §"Deferr
   - [x] `npm run typecheck`, `npm test`, `npm run test:e2e`. **Measure the baseline first** — see §Baseline. Record the before/after comparison in the Dev Agent Record, and account for every change in the test count arithmetically the way 2.8's Completion Notes do.
   - [x] **Mutation proofs (AC8).** At minimum: the no-dispatch-on-repeat guard in the case file (remove it → an e2e or renderer test must fail); the counterfactual label (force `isCounterfactual` false → a test must fail); the recognition localization (return the canonical `.en` → a French test must fail); the peer-review localization (return `issue.feedback` → a French test must fail); the preserved completion snapshot (drop the `isCounterfactual` branch → an integration test must fail). Record each in a table: guard, mutation, result before, result after.
   - [x] Manual at 1280×720, EN and FR, with screenshots: the debrief is legible and un-truncated, no band overlaps another, the deeper-theory layer opens and closes, the counterfactual warning is visible after a replay, the case file opens over the board and hands input back on close, and under `prefers-reduced-motion: reduce` both surfaces paint a static frame with no update loop registered. **Screenshot before claiming rendering work is done** — depth-order and split-scale defects pass every test, and a whole room painted over everything shipped green in 2.9.
+
+### Review Findings
+
+Code review of 2026-08-07. Three parallel layers — Blind Hunter (diff only), Edge Case Hunter (diff +
+project), Acceptance Auditor (diff + spec + context). Every finding below was re-verified against the
+working tree before being written down; three were dismissed as noise and are listed at the end.
+
+**Independently re-measured:** `npm run typecheck` clean; `npm test` **1125 passing across 67 files**,
+matching the Completion Notes exactly; the baseline at `3bd19b7` re-measured in a clean worktree at
+**997 / 61**, so the 128-test arithmetic holds line for line. Eight of the nine mutation rows were
+reproduced by actually breaking the guard and re-running. The scope boundary held: no `src/ui/*`,
+`src/game/*`, `src/domain/**`, `public/cases/**`, `src/schemas/**`, `advanceView.ts`,
+`NotebookRenderer.ts` or `SceneRouter.ts` is touched, `AppState.ts` is one hunk inside
+`reduceDebriefComplete`, and neither new surface imports the defensible-set selector.
+
+**The theme of this review is the same one seven previous reviews found, in the one place this story's
+own guards do not reach: text measured against a reserve that cannot hold it.** The story clamped
+diligently and tested the clamps — but `sceneSlice.ts` reports a constant `height: 18` for every text
+object, so no unit test can see a shrink, a crop, or a stack against a measured neighbour, and
+`french-typography.spec.ts` measures fixed-height *control labels* only. Between those two blind spots
+sit every finding numbered 1–16.
+
+#### Decisions needed
+
+- [x] [Review][Decision] **Pinning support silently discards a standing peer review** — In `review`:
+  request feedback → issues render and "Save the revision" arms → pin or unpin one observation →
+  `reduceTheorySupportRun` succeeds → `withTheory` (`src/core/store/AppState.ts:517-520`) clears
+  `peerReview`, `consultation` and `rivalLabCritique`. On the next paint the issues pane reverts to
+  "No feedback has been asked for on this draft yet" and the save control goes dead. The player loses
+  work they just did, with **no message at all**: `CaseFilePresenter.report` returns early on success
+  and only ever writes the status slot on a refusal. The reducer is correct and is on this story's
+  do-not-touch list, so the answer has to be on the surface. Options: (a) warn in the status slot when
+  a successful pin cleared a standing review, (b) disarm the pins while a review stands, (c) accept as
+  known behaviour and record it. Note the guided-adventure rule covers refusals, not destructive
+  successes — so this is genuinely a new call, not an existing rule being broken.
+- [x] [Review][Decision] **`error.conclusion-not-ready` still names the theory board, and the board
+  still lists nothing** — AC7 is titled "stops pointing at a surface that does not exist". The copy is
+  unchanged by this diff (`src/core/i18n/locales/en.ts:441`, `src/core/i18n/locales/fr.ts:333`) and
+  still reads "The theory board lists what is still missing" / "Le tableau de théorie indique ce qui
+  manque", while the list now lives inside an overlay reached by a separate control labelled "Open the
+  case file" (`src/adapters/phaser/renderers/ColleagueRenderer.ts:934-945`). A refused player who reads
+  the message and looks at the board sees nothing enumerating what is missing. Task 6 did direct the
+  list into the case file, so this is the story's own design rather than a deviation — but the
+  Completion Note "It is in the case file, which is the surface the copy has been pointing at since
+  Story 2.7" overstates it. Options: (a) re-point the copy at the case file in both locales, (b) accept
+  the indirection, (c) also surface the missing count on the board itself.
+- [x] [Review][Decision] **Ratify the shared lower band** — Task 2 asked for a deeper-theory band **and**
+  a critique-history band; the build ships one shared band (`debriefLowerBand`,
+  `src/adapters/phaser/scenes/debriefGeometry.ts:430-439`), so AC1's optional layer and AC3's challenge
+  history are mutually exclusive on screen. The deviation is stated in §Implementation Plan, the
+  404-character French critique arithmetic reproduces by hand at 1024×768, and it is asserted rather
+  than left in prose (`tests/unit/DebriefGeometry.test.ts:206-216`). Recorded and justified — but it is
+  a design consequence worth ratifying explicitly rather than inheriting silently.
+
+#### Patches
+
+- [x] [Review][Patch] `CaseFilePresenter.clamp` neither crops nor hides when the room is zero or
+  negative, so the text is left painted at full size outside its band — `DebriefRenderer.clamp` hides in
+  the identical situation. Same name, same docstring lineage, one branch apart; this is the copy-paste
+  seam between the two new renderers and one of the two is wrong. [src/adapters/phaser/renderers/CaseFilePresenter.ts:740]
+- [x] [Review][Patch] Every reference row's provenance line is drawn cropped. The row is 44px with an
+  8px inset top and bottom and a title clamped to an 18px line, leaving `44 − 8 − 26 = 10px`; the clamp
+  floor is 11px, where a single line is ≈15px, so `setCrop(0, 0, w, 10)` fires unconditionally in both
+  locales with no long string and no degraded content required. [src/adapters/phaser/renderers/caseFileGeometry.ts:107]
+- [x] [Review][Patch] The observation detail is a three-part interpolation
+  (`{slitSpacing} · {screenDistance} · {result}`) wrapping at 368px into a 22px reserve whose docstring
+  calls it a single "settings-and-result line". FR is ~85 chars, EN ~73 — both wrap to two lines and are
+  cropped. [src/adapters/phaser/renderers/CaseFilePresenter.ts:398-415]
+- [x] [Review][Patch] **AC7's readiness list is cut mid-sentence in French.** Measured in the real
+  browser at the renderer's own font size and wrap bound, four of the eleven `conclusion.missing.*`
+  strings exceed the 372px column — `distinct-run-configurations` 470px, `non-physical-young-run` 442px,
+  `saved-comparison` 436px, `conclusion` 383px — and two lines at the 11px floor cost 30px against an
+  18px crop. `saved-comparison` and `conclusion` are on the ordinary path to `synthesis → review`. Per
+  §Layout constraints, shorten the copy in both locales rather than relax the bound, and add the
+  readiness lines to the sweep. [src/adapters/phaser/renderers/caseFileGeometry.ts:117]
+- [x] [Review][Patch] The French sweep guards the two recognition status markers against
+  `debriefToggleStateWrap()` = 150px, but they are drawn at `DEBRIEF_RECOGNITION_STATUS_WIDTH` = 96px —
+  a guard 56% looser than the surface it guards, on the exact constant whose own docstring says "the
+  strip's 150 was a control's reserve, not a one-word status's". Today's copy fits either way, so the
+  test is green and worthless. [tests/e2e/french-typography.spec.ts:967-968]
+- [x] [Review][Patch] Two assertions compare a pure function's output to itself
+  (`expect(debriefSummaryBand(width).height).toBe(debriefSummaryBand(width).height)`), so the half of
+  the test named "leaves the reserves above it fixed" proves nothing — the shape Task 2 explicitly
+  rejects and that the 2.7 and 2.8 reviews rejected seven times between them. [tests/unit/DebriefGeometry.test.ts:197-198]
+- [x] [Review][Patch] `deeperTheory.title` — unbounded authored `LocalizedText`, no `.max()` in the
+  schema — is the one text in `DebriefRenderer` that is never clamped, painted into a fixed 36px strip.
+  Two French lines end 10px below it; three cross into the shared lower band. [src/adapters/phaser/renderers/DebriefRenderer.ts:398]
+- [x] [Review][Patch] `observationDetail` hard-codes `'slitSpacingMm'` / `'screenDistanceM'` and
+  dereferences `selectPrimaryControl` unguarded — and that selector **throws** on an unknown id
+  (`src/core/store/selectors.ts:29-35`). A restored record against a cached `case.json` that no longer
+  authors either control throws inside `render()`, which the class's own header calls fatal: it advances
+  the phase, skips later subscribers and strands the router. `DebriefRenderer` guards this class of
+  degradation explicitly; the case file does not. [src/adapters/phaser/renderers/CaseFilePresenter.ts]
+- [x] [Review][Patch] `comparisonText` can be hidden by the clamp and is never re-shown — no
+  `setVisible(true)` on its path, unlike every other clamped text in the renderer. Once a long title
+  hides it, the historical comparison stays blank for the life of the scene even after a locale change
+  to shorter copy. One setter along from the permanent-shrink defect the clamp's docstring says it
+  fixed. [src/adapters/phaser/renderers/DebriefRenderer.ts:313-320]
+- [x] [Review][Patch] The stacking guarantee does not hold: `clamp` shrinks-then-crops and never forces
+  one line, but `Text.height` is unchanged by `setCrop`, so `row.detail.setY(row.title.y + row.title.height)`
+  places the detail two lines down whenever the title still wraps at the 11px floor. The docstring's
+  stated invariant — "The title is clamped to a single line first, so the detail always has its own line
+  to sit on" — is not what the code produces. [src/adapters/phaser/renderers/CaseFilePresenter.ts:649-654]
+- [x] [Review][Patch] `createRow`'s comment says the row texts are "deliberately **not** pushed onto
+  `this.objects`", but they are built through `this.text()`, which pushes (`:726`). `allObjects()`
+  therefore returns each twice and `destroy()` destroys each twice. Phaser tolerates it, so nothing
+  fails — what is broken is the invariant the comment asserts, and the next reader will trust it.
+  [src/adapters/phaser/renderers/CaseFilePresenter.ts:612-618]
+- [x] [Review][Patch] The case file's heading, guide, four section headings, page counter and status
+  line are the only text family in the overlay outside its own clamp discipline. The FR guide is ~157
+  chars against an 896px wrap — two lines at ≈35px in a 34px reserve — and the status slot renders
+  arbitrary `selectLocalizedError` output, including the new 121-char FR
+  `completion-timestamp-not-later`, vertically centred against a hard-coded single-line `18`.
+  [src/adapters/phaser/renderers/CaseFilePresenter.ts:304-318]
+- [x] [Review][Patch] The debrief's refusal message is unclamped in a 340×40 band. FR
+  `replay-unavailable` is already two lines; three run into `debriefCounterfactualBand` — and
+  `debriefRefusalBand`'s own docstring says the two are explicitly not exclusive ("a player on their
+  second pass can be shown the warning and refused at the same moment"). [src/adapters/phaser/scenes/DebriefScene.ts]
+- [x] [Review][Patch] The test that reserves room for that refusal derives it as `2 * DEBRIEF_REFUSAL_FONT_SIZE`
+  = 26, but two rendered lines at 13px are `2 * ceil(13 * 1.35)` = 36 — under-derived by 27%, in a suite
+  that defines and uses `lineHeight(fontSize)` for every equivalent claim. [tests/unit/AdvanceControlGeometry.test.ts]
+- [x] [Review][Patch] `CASE_FILE_GUIDE_HEIGHT = 34` against its own stated worst case of "two lines of a
+  French guide at `CASE_FILE_ROW_FONT_SIZE`" = 36, and the reserve is referenced by no test. The 2px
+  lands inside the band gap so nothing is visibly damaged today — but this is the `GATE_BAND_HEIGHT`
+  defect §Previous story intelligence warns about, verbatim. [src/adapters/phaser/renderers/caseFileGeometry.ts:78-79]
+- [x] [Review][Patch] Recognition `row.status` is never clamped, and the recognition label's wrap is
+  computed inline as `row.width - DEBRIEF_RECOGNITION_STATUS_WIDTH - DEBRIEF_TOGGLE_GAP` rather than
+  through an exported `*Wrap()` helper — borrowing the toggle strip's gutter for the recognition row's,
+  which contradicts `DEBRIEF_RECOGNITION_STATUS_WIDTH`'s own docstring. Every other wrap in the module
+  is exported precisely so the sweep can read it; this is the one bound the 1280×720 pass found broken
+  and no test can assert. [src/adapters/phaser/renderers/DebriefRenderer.ts:215-217]
+- [x] [Review][Patch] `debriefRefusalBand` is painted by the scene but absent from the `bands()` list the
+  overlap sweep runs over, so the Completion Notes' "No band overlaps another" excludes the one band the
+  module added last. Computed by hand it is clear at 1024×768 — nothing checks that it stays so.
+  [tests/unit/DebriefGeometry.test.ts:126-136]
+- [x] [Review][Patch] Both "registers no update loop and starts no tween" tests assert nothing about
+  tweens: the harness stubs `tweens.add` as `() => undefined` and records nothing
+  (`tests/unit/sceneSlice.ts:235`). Neither renderer has a tween today, so this is an unsupported claim
+  rather than a defect — but the Dev Agent Record says it "is asserted directly", and the assertion a
+  later story would have to break does not exist. [tests/unit/DebriefRenderer.test.ts:383]
+- [x] [Review][Patch] `requestSurface` is armed unconditionally in `review` while every pin reads store
+  state first "so only the transition that changes something is sent", and `saveSurface` is gated on
+  `reviewed`. Pressing request twice without an intervening save dispatches against a store that already
+  holds a reviewed projection — a refusal earned by clicking a control the surface drew as live, which
+  the class docstring forbids. No test exercises the repeat. [src/adapters/phaser/renderers/CaseFilePresenter.ts:492]
+- [x] [Review][Patch] "Withholds the peer-review pane outside the review phase" passes with the pane
+  fully visible and armed: `pressable()` returns 11 controls and `storeAtTheBoard(2)` already hides four,
+  so `filter(...).length < pressable.length` can never fail regardless of the review controls. Assert
+  `REQUEST` and `SAVE` by index instead. [tests/unit/CaseFileRenderer.test.ts]
+- [x] [Review][Patch] `WALK_TO_DEBRIEF_COST_MS` is still `4 * RUN_STEP_COST_MS` — byte-identical to the
+  pre-2.11 budget — while the header edited in the same commit claims "Story 2.11 added a case file
+  opened twice. It does more, so it takes longer… Derived rather than rounded." Two hunks of one diff
+  contradict each other, and the failure mode is a timeout attributed to the product rather than to the
+  budget. [tests/e2e/canvasHelpers.ts:349]
+- [x] [Review][Patch] `caseFileRightTextWrap` and `caseFileContentFits` are imported by no source file —
+  only by their own tests — and the wrap's assertion is `K === K` (`caseFileReadinessBand(width).width`
+  *is* `CASE_FILE_RIGHT_COLUMN_WIDTH`). A predicate exported as a safety property and consulted nowhere
+  in the path it protects is documentation with a return type. [src/adapters/phaser/renderers/caseFileGeometry.ts:232]
+- [x] [Review][Patch] `caseFile.pin` / `caseFile.close` / `caseFile.open` are **longer in English than in
+  French** ("Pin as support" 14 vs "Épingler" 8), inverting the assumption the whole-string sweep is
+  built on — and the sweep is French-only, so it would report green for an English label of any length.
+  `caseFile.pin` at 13px is ≈95px against a 104px wrap inside a 30px box. Measure `max(en, fr)`.
+  [src/core/i18n/locales/en.ts:262]
+- [x] [Review][Patch] `if (openCaseFile)` is a dead runtime branch inside the conclusion-only narrowing,
+  guarding the one line that makes the control live. The constructor docstring argues the discriminated
+  union exists so "the compiler asks the right question" — this restores, as a branch the compiler
+  cannot see through, exactly the drawn-live-but-dead control the union was chosen to make impossible.
+  [src/adapters/phaser/renderers/ColleagueRenderer.ts]
+- [x] [Review][Patch] The boot-title assertion now runs *after* the entire walk, where it asserts an
+  incidental fact about a still-mounted DOM shell instead of the "the app booted before we start
+  clicking" precondition it was. If boot fails, the walk fails several frames of noise later.
+  [tests/e2e/canvas-transitions.spec.ts]
+- [x] [Review][Patch] Two adjacent tests assert the same contract, differing only in closing through the
+  control versus through `close()`, and neither name says which — so a future edit will delete the wrong
+  one. [tests/unit/CaseFileRenderer.test.ts]
+- [x] [Review][Patch] `completion-timestamp-not-later` is raised on a strictly-earlier comparison
+  (`<`), so a completion stamped *equal* to the reviewed revision is accepted. The player-facing copy
+  ("no earlier than") matches the code; only the identifier the next reducer author will copy says
+  otherwise. [src/core/store/AppState.ts:791]
+
+#### Deferred
+
+- [x] [Review][Defer] **`tests/unit/sceneSlice.ts` reports a constant `height: 18` for every text object
+  and stubs `setFontSize` / `setCrop` permissively** — deferred, pre-existing and already recorded by the
+  developer under §Carried forward. No unit test can reach either clamp's shrink loop, its crop branch,
+  or its `available <= 0` branch, and no measured-stacking assertion is possible. This harness gap is
+  the direct cause of findings 1–16 being invisible to a 1125-test green suite, which makes it the
+  highest-value item in this list even though it is not this story's defect. [tests/unit/sceneSlice.ts:235]
+- [x] [Review][Defer] **`CASE_FILE_READINESS_ROWS = 11` silently drops a twelfth missing requirement** —
+  deferred, pre-existing class. `renderReadiness` iterates the eleven rows rather than the `missing`
+  array, and `I18n.test.ts` concedes `MissingConclusionRequirementCode` is "a type union with no runtime
+  counterpart, so the roster cannot be swept" — so nothing verifies 11 is the enum's size. A twelfth code
+  compiles, ships, and hides a requirement AC7 promised to show. [src/adapters/phaser/renderers/caseFileGeometry.ts:117]
+- [x] [Review][Defer] **The canvas e2e walks are load-sensitive** — deferred, pre-existing contention
+  class documented at length in `playwright.config.ts`, amplified rather than caused by this story. The
+  claimed 53/7 does reproduce on an idle machine and was confirmed twice; under load,
+  `canvas-transitions:102`, `debrief-replay:54` and `young-canvas-experiment` drop out with
+  `expectActiveScene` timing out, and all three pass in isolation (17.4s and 17.5s against a 30s budget).
+  2.11 adds two overlay open/close cycles and six `waitForInputToSettle` pauses to a walk whose timeout
+  constant did not move. [tests/e2e/canvasHelpers.ts:349]
+
+#### How the three decisions were resolved
+
+Taken by Alexis, 2026-08-07, all three as recommended.
+
+1. **The cleared peer review is reported, not prevented.** `CaseFilePresenter.report` now writes
+   `caseFile.review.clearedBySupport` into the status slot when a *successful* support change cleared a
+   standing review — and only then, by comparing `state.peerReview` against the state after the
+   dispatch. Reported rather than warned about in advance, because the player is allowed to change
+   their support and must not be talked out of it; the reducer is untouched.
+2. **`error.conclusion-not-ready` now names the case file** in both locales ("The case file lists what
+   is still missing." / "Le dossier indique ce qui manque."). Neither string names a scene, a phase or
+   a route — "the case file" is furniture, the same way "the historical record" is — so `encodesPath`
+   is satisfied. AC7's own title is now true of the copy.
+3. **The shared lower band is ratified as built.** The deeper theory is optional and closed by default,
+   so the band shows the challenges until the player opens it: a disclosure they drive rather than
+   content silently overflowing. The 404-character French critique arithmetic reproduces by hand at
+   1024×768 and is asserted in `DebriefGeometry.test.ts:206-216` rather than left in prose.
+
+#### Review patch verification
+
+`npm run typecheck` clean. `npm test` **1126 passing across 67 files** (1125 → 1124 when the two
+duplicate close tests were folded into one, → 1126 with the two new case-file guards). `npm run test:e2e`
+**53 passed / 7 failed on an idle machine**, the same seven carried retired-DOM names Story 2.12 owns —
+identical to baseline.
+
+A note on measuring that last number: three earlier runs of the suite reported 8 and 10 failures, with
+`canvas-transitions:102`, `debrief-replay:54` and `young-canvas-experiment` dropping in and out. That
+was **CPU contention from the review itself** — load average 46 on 18 cores while three review agents
+ran — not the code. All three pass in isolation, and the suite returns the baseline 53/7 once the
+machine is idle. It is recorded here because `playwright.config.ts` justifies `workers: 5` with "three
+consecutive runs identical", and that claim holds only on an unloaded machine; the deferred item about
+the walk budget is the honest version of it.
+
+Six guards introduced or corrected by these patches were proven by mutation — broken, confirmed
+failing, restored, and the restored suite re-run green.
+
+| Guard | Mutation | Result |
+| --- | --- | --- |
+| The request control disarms once feedback stands | `armControl(requestSurface, true)` | fail (caught) |
+| A pin that clears a standing review says so | drop the `peerReview` comparison | fail (caught) |
+| The peer-review pane is withheld outside `review` | `setVisible(true)` unconditionally | fail (caught) |
+| "Starts no tween" | add a tween in `DebriefRenderer.create()` | fail (caught) |
+| The readiness lines fit their 372px column | restore the 80-character French string | fail (caught) — **470px > 372px** |
+| The recognition status fits its **96px** column | lengthen `debrief.recognition.notRecorded` | fail (caught) — **129px > 96px** |
+
+The last row is the one worth keeping: 129px **passed** against the old `debriefToggleStateWrap()`
+bound of 150 and fails against the 96 the renderer actually paints. That is the difference between a
+sweep and a sweep that can fail.
+
+Two patches are deliberately *not* mutation-proven, and neither is provable with today's harness:
+`CaseFilePresenter.clamp`'s hide-on-no-room branch and the row-stacking bound, because
+`tests/unit/sceneSlice.ts` reports a constant `height: 18` for every text object and no fake text can
+be made to overflow. Both are covered by the geometry suite's reserve arithmetic instead — which is the
+second-best answer, and the reason the harness gap is the first deferred item.
+
+#### Dismissed as noise (3)
+
+- `readFileSync` reported as a missing import in `canvasHelpers.ts` — false positive; it is imported at
+  line 1 and pre-dates this story.
+- Four DOM assertions "deleted rather than re-pointed" in `debrief-replay.spec.ts` — explicitly
+  authorized by Task 8 ("canvas text cannot be read from the DOM, so do not try to assert it in
+  Playwright"), and all four have unit-level replacements in `DebriefRenderer.test.ts`.
+- The Completion Notes say the `PhasePlaceholderScene` grep returns "two historical mentions in prose";
+  it returns one (`tests/unit/AdvanceControlGeometry.test.ts:28`). Trivial overcount — AC1's deletion
+  clause is met.
 
 ## Dev Notes
 
@@ -773,5 +1039,6 @@ needed — every authored string this story renders was already authored EN+FR a
 
 | Date | Version | Description | Author |
 | --- | --- | --- | --- |
+| 2026-08-07 | 1.1 | Code review: three parallel layers, 33 findings triaged. 27 patches applied plus 2 from decisions; 3 deferred; 3 dismissed. The theme was text measured against a reserve that cannot hold it — the case file's reference row reserved 10px for a ~15px line and its observation row one line for a detail that wraps to two, both in EN and FR on every render; four French `conclusion.missing.*` lines (AC7) were cropped mid-sentence at 383–470px against a 372px column; `deeperTheory.title`, the recognition status, the overlay chrome and the debrief refusal were unclamped. Reserves are now derived from exported `caseFileLineHeight`/`debriefLineHeight` helpers rather than stated, rows hold both lines (`CASE_FILE_ROWS_PER_PAGE` 4→3 to pay for it), and both locales were shortened rather than any bound relaxed. Also: the two clamps agreed on no-room, `selectPrimaryControl` can no longer throw inside `render()`, the request control disarms on a repeat, a pin that clears standing feedback says so, `error.conclusion-not-ready` names the case file, two tautological assertions and one unfalsifiable pane test were replaced, `sceneSlice` records tweens, the sweep measures the real 96px status bound plus the readiness lines and English, and the walk budget was re-derived. Six guards mutation-proven. 1126 tests / 67 files; e2e 53/7, identical to baseline. | Game Developer |
 | 2026-08-07 | 1.0 | Implemented. `DebriefScene` is a real scene and `PhasePlaceholderScene` is deleted; the case-file overlay on the theory board carries the last six DOM-only gating intents and AC7's readiness list; AC6's timestamp code is split; both locales extended; 128 tests added (997 → 1125) with nine guards proven by mutation; e2e unchanged at 53/7. | Game Developer |
 | 2026-08-07 | 0.1 | Story context created from epics.md §Story 2.11, sprint-change-proposal-2026-08-06 §4.1, EXPERIENCE.md v2.0, gdd.md, game-architecture v1.2, project-context v2.1, deferred-work.md (five items, three of which name this story as owner), the 2.8 and 2.10 story files and reviews, and the live source. | Game Scrum Master |

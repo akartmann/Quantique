@@ -382,6 +382,9 @@ describe('the debrief renderer', () => {
      */
     it('registers no update loop and starts no tween', () => {
         expect(harness.slice.updateHandlers).toHaveLength(0);
+        // The tween half of this test's own name. `sceneSlice` records `tweens.add` now, so this
+        // fails if either surface ever starts one without taking on the reduced-motion contract.
+        expect(harness.slice.tweens).toHaveLength(0);
         expect(harness.slice.keyboardListeners).toHaveLength(0);
     });
 

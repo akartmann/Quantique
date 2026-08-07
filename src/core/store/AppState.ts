@@ -799,6 +799,15 @@ const reduceDebriefComplete = (state: AppState, timestamp: string): Result<AppSt
         // describes a field they have never seen. This ordering failure is reachable in normal play
         // through a progress import from another device, or a backwards clock correction between
         // `revision.saved` and the advance click, so its copy names the device clock instead.
+        //
+        // **The comparison is `<`, not `<=`, and that is deliberate** — the code is named after its
+        // sibling (AC6 asked for that) but does not share its rule. `critique-timestamp-not-later`
+        // guards an *ordered history* where two entries at the same instant would make the order a lie,
+        // so it requires strictly later. This guards one stamp against one earlier stamp, and both are
+        // written by the adapter: a player who saves the revision and closes the case inside the same
+        // millisecond has done nothing wrong, and refusing them would be a refusal with no remedy —
+        // the exact failure this split exists to end. The message says "no earlier than", which is what
+        // the code does; the identifier is the inherited half (2.11 review).
         return failure('completion-timestamp-not-later', 'Provide a completion timestamp no earlier than the saved reviewed revision.');
     }
     const transition = advanceCasePhase({ definition: state.caseDefinition, phase: state.phase }, 'debrief');

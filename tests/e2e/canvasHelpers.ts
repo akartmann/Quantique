@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { expect, type Page } from '@playwright/test';
 
+import { en } from '../../src/core/i18n/locales/en';
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../../src/adapters/phaser/designSurface';
 import { libraryArtifactCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
 import { BOOK_CLOSE_FADE_MS, BOOK_OPEN_MS, BOOK_TURN_MS } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
@@ -345,8 +346,28 @@ const SCREEN_DISTANCE_TRAVEL_END = {
 /**
  * What the walk costs in wall-clock milliseconds beyond Playwright's default, so a spec can set its own
  * budget from what it actually spends rather than from a round number nobody revisits.
+ *
+ * **Re-derived for Story 2.11's walk, which is longer than the one this number was written for.** It
+ * stayed at `4 * RUN_STEP_COST_MS` — byte-identical to the pre-2.11 value — while the header of
+ * `canvas-transitions.spec.ts` claimed in the same commit that "Story 2.11 added a case file opened
+ * twice. It does more, so it takes longer… Derived rather than rounded." Two halves of one change
+ * disagreeing, and the failure mode is a timeout blamed on the product rather than on the budget
+ * (2.11 review).
+ *
+ * The terms, each read from what the walk actually does:
+ *
+ * - **Two runs**, at `RUN_STEP_COST_MS` each, plus the same allowance again for the rest of the walk —
+ *   the original four.
+ * - **Every `waitForInputToSettle` in this module's walk**, counted rather than estimated. Phaser
+ *   processes pointer input once per rendered frame, so these are the pauses that stretch under
+ *   contention, which is precisely when the budget is the thing being asked.
+ *
+ * This is headroom, not a target: the walk completes in ~17.5s against Playwright's 30s default on an
+ * idle machine. It is what keeps a busy machine from reporting a layout defect.
  */
-export const WALK_TO_DEBRIEF_COST_MS = 4 * RUN_STEP_COST_MS;
+const WALK_INPUT_SETTLE_COUNT = 15;
+export const WALK_TO_DEBRIEF_COST_MS =
+    (4 * RUN_STEP_COST_MS) + (WALK_INPUT_SETTLE_COUNT * INPUT_SETTLE_MS);
 
 /** Reads both references off the shelf and leaves the room. `context → prediction`. */
 const readTheReferences = async (page: Page): Promise<void> => {
@@ -493,6 +514,11 @@ const closeTheCase = async (page: Page): Promise<void> => {
  */
 const walkToTheBoard = async (page: Page): Promise<void> => {
     await page.goto('/');
+    // The app booted before we start clicking. A precondition belongs where the precondition is: this
+    // assertion used to sit *after* the whole walk in `canvas-transitions.spec.ts`, where it checked an
+    // incidental fact about a still-mounted DOM shell and let a boot failure surface several frames of
+    // noise later, at the first `expectActiveScene` (2.11 review).
+    await expect(page.getByRole('heading', { name: en['boot.title'] })).toBeVisible();
     await readTheReferences(page);
     await chooseThePrediction(page);
     await recordTwoObservations(page);

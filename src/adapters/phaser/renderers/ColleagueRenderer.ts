@@ -618,7 +618,10 @@ export class ColleagueRenderer {
         }));
         this.objects.push(this.heading, this.guide);
 
-        if (this.kind === 'conclusion') {
+        // Narrowed on `this.board`, not on `this.kind` — they are the same value (`this.kind = board.kind`)
+        // but only the former carries the discriminated union, and narrowing it here is what lets the
+        // case-file wiring below be unconditional instead of guarded by a branch that can never be taken.
+        if (this.board.kind === 'conclusion') {
             const { x, y } = submitConclusionControlCentre();
             this.submitControl = this.scene.add.rectangle(x, y, SUBMIT_WIDTH, SUBMIT_HEIGHT, SUBMIT_FILL).setOrigin(0.5, 0.5);
             this.submitLabel = this.scene.add.text(x, y, '', uiTextStyle({
@@ -629,7 +632,14 @@ export class ColleagueRenderer {
 
             // The way into the case file (Story 2.11). Only the conclusion board has one, and the
             // union on the constructor is what makes the compiler ask for the wiring.
-            const openCaseFile = this.board.kind === 'conclusion' ? this.board.openCaseFile : undefined;
+            //
+            // Narrowed on `this.board`, not re-tested afterwards. The wiring used to be guarded by an
+            // `if (openCaseFile)` that could never be false inside this branch — dead at runtime, and
+            // worse than dead: it meant a future change to the narrowing would still *draw* the control
+            // (fill, label, `setInteractive` through `applyInputState`) with nothing listening, which is
+            // precisely the drawn-live-but-dead control the discriminated union was chosen to make
+            // impossible (2.11 review). If the narrowing ever stops holding, this must fail to compile
+            // rather than paint a control that does nothing.
             const caseFile = caseFileControlBounds();
             this.caseFileControl = this.scene.add
                 .rectangle(caseFile.x + (caseFile.width / 2), caseFile.y + (caseFile.height / 2),
@@ -641,7 +651,7 @@ export class ColleagueRenderer {
                     align: 'center', wordWrap: { width: CASE_FILE_CONTROL_LABEL_WRAP }
                 })
             ).setOrigin(0.5, 0.5);
-            if (openCaseFile) this.caseFileControl.on('pointerup', openCaseFile);
+            this.caseFileControl.on('pointerup', this.board.openCaseFile);
             this.objects.push(this.caseFileControl, this.caseFileLabel);
         }
 

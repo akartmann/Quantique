@@ -74,11 +74,27 @@ export const CASE_FILE_CONTROL_FONT_SIZE = 13;
 /** The floor every clamp in this overlay shrinks to before it crops instead. */
 export const CASE_FILE_MIN_FONT_SIZE = 11;
 
+/**
+ * The line box Phaser gives a font size, which is what every reserve in this module is built from.
+ *
+ * `1.35` is the multiplier `uiTextStyle` renders with, and it is exported rather than restated because
+ * the 2.11 review found four reserves stated as round numbers that disagreed with their own docstrings —
+ * `CASE_FILE_GUIDE_HEIGHT` at 34 against a stated two-line worst case of 36, a reference row reserving
+ * 10px for a line that cannot render under 15, and an observation row reserving one line for a detail
+ * that wraps to two. A reserve derived from this helper cannot drift from what is painted, and
+ * `CaseFileGeometry.test.ts` reads the same function rather than keeping a private copy.
+ */
+export const caseFileLineHeight = (fontSize: number): number => Math.ceil(fontSize * 1.35);
+
 export const CASE_FILE_HEADING_HEIGHT = 28;
-/** Two lines of a French guide at {@link CASE_FILE_ROW_FONT_SIZE}. */
-export const CASE_FILE_GUIDE_HEIGHT = 34;
+/** Two lines of a French guide at {@link CASE_FILE_ROW_FONT_SIZE} — derived, not stated. */
+export const CASE_FILE_GUIDE_HEIGHT = 2 * caseFileLineHeight(CASE_FILE_ROW_FONT_SIZE);
 /** A band heading at {@link CASE_FILE_SECTION_FONT_SIZE}. */
 export const CASE_FILE_SECTION_HEIGHT = 22;
+
+/** How far a row's content sits in from the row's own edges. */
+export const CASE_FILE_ROW_INSET_X = 10;
+export const CASE_FILE_ROW_INSET_Y = 8;
 
 /** The pin/unpin affordance beside every observation and every reference. */
 export const CASE_FILE_PIN_WIDTH = 120;
@@ -88,23 +104,45 @@ export const CASE_FILE_PIN_PADDING = 8;
 /** The bound a pin label wraps to — fixed height, so it must fit one French line. */
 export const caseFilePinLabelWrap = (): number => CASE_FILE_PIN_WIDTH - (2 * CASE_FILE_PIN_PADDING);
 
-/** An observation's title line over its settings-and-result line. */
-export const CASE_FILE_ROW_HEIGHT = 56;
+/**
+ * An observation's title line over its settings-and-result line.
+ *
+ * **The detail takes two lines, and the reserve says so.** It is a three-part interpolation —
+ * `{slitSpacing} · {screenDistance} · {result}`, each part a full `lab.control.readout` — which is
+ * ~73 characters in English and ~85 in French against a {@link caseFileRowTextWrap} of 358 at 1024.
+ * Neither fits one line, at the authored size or at {@link CASE_FILE_MIN_FONT_SIZE}. The 2.11 review
+ * found this row reserving one line and cropping the second in both locales on every render; the
+ * honest fix for content that needs two lines is a reserve that holds two, not shorter physics.
+ */
+export const CASE_FILE_ROW_HEIGHT = (2 * CASE_FILE_ROW_INSET_Y)
+    + caseFileLineHeight(CASE_FILE_ROW_FONT_SIZE)
+    + (2 * caseFileLineHeight(CASE_FILE_META_FONT_SIZE));
 /**
  * How many observations one page holds.
  *
- * Paged because nothing caps `runs` — see the module header. Four is what the band affords once the
- * references below it have their own reserve.
+ * Paged because nothing caps `runs` — see the module header. **Three**, down from four when the row
+ * grew to hold its own detail: `caseFileContentFits` is the arbiter, and four 68px rows put the
+ * references band 4px from the way out at 1024×768. Paging already exists and is exercised, so the
+ * cost of a shorter page is a click the player already has; the cost of a taller band was a reserve
+ * that only just fits and would stop fitting the next time anything above it grew.
  */
-export const CASE_FILE_ROWS_PER_PAGE = 4;
+export const CASE_FILE_ROWS_PER_PAGE = 3;
 export const CASE_FILE_PAGE_CONTROL_WIDTH = 130;
 export const CASE_FILE_PAGE_CONTROL_HEIGHT = 26;
 export const CASE_FILE_PAGE_CONTROL_GAP = 8;
 export const caseFilePageControlLabelWrap = (): number =>
     CASE_FILE_PAGE_CONTROL_WIDTH - (2 * CASE_FILE_PIN_PADDING);
 
-/** A reference's name line over its provenance line. */
-export const CASE_FILE_SOURCE_ROW_HEIGHT = 44;
+/**
+ * A reference's name line over its provenance line — derived, so the provenance line has a line to sit in.
+ *
+ * At 44 this reserved `44 − 8 − 26` = **10px** for a line that is ~15px at the clamp's own 11px floor,
+ * so every provenance line on the surface was drawn cropped through its descenders, in both locales,
+ * with no long string and no degraded content required (2.11 review).
+ */
+export const CASE_FILE_SOURCE_ROW_HEIGHT = (2 * CASE_FILE_ROW_INSET_Y)
+    + caseFileLineHeight(CASE_FILE_ROW_FONT_SIZE)
+    + caseFileLineHeight(CASE_FILE_META_FONT_SIZE);
 /**
  * How many references the band reserves.
  *
@@ -216,9 +254,13 @@ const leftColumnWidth = (canvasWidth: number): number =>
 const rightColumnLeft = (canvasWidth: number): number =>
     innerLeft() + leftColumnWidth(canvasWidth) + CASE_FILE_COLUMN_GAP;
 
-/** The bound a row's prose wraps to, once its pin has taken its reserve. */
+/**
+ * The bound a row's prose wraps to, once its pin has taken its reserve **and its own inset has taken
+ * its own**. The inset was missing here, so a row's text was permitted 10px it does not have and could
+ * wrap into the gap before the pin (2.11 review).
+ */
 export const caseFileRowTextWrap = (canvasWidth: number): number =>
-    leftColumnWidth(canvasWidth) - CASE_FILE_PIN_WIDTH - CASE_FILE_PIN_GAP;
+    leftColumnWidth(canvasWidth) - CASE_FILE_PIN_WIDTH - CASE_FILE_PIN_GAP - CASE_FILE_ROW_INSET_X;
 
 /**
  * The right column's own bound. **No pin reserve**: nothing over there is pinnable — the readiness

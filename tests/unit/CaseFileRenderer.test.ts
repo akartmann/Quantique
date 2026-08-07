@@ -120,18 +120,23 @@ describe('the case file', () => {
         expect(presenter.isOpen).toBe(false);
     });
 
-    it('closes from its own way out, and tells the scene each time it appears or goes', () => {
-        const harness = mount(storeAtTheBoard(2));
-        press(harness, CLOSE);
-        expect(harness.presenter.isOpen).toBe(false);
-        expect(harness.visibility).toEqual([true, false]);
-    });
+    /**
+     * Both ways out, in one test, because they must not diverge.
+     *
+     * These used to be two adjacent tests differing only in closing through the control versus through
+     * `close()`, with neither name saying which — so an edit would have deleted the wrong one
+     * (2.11 review). The player's path is the control; the scene's path is the method; the scene is
+     * told either way, and that is the contract the board's input suppression rests on.
+     */
+    it('closes from its own way out and from the scene, telling the scene each time', () => {
+        const pressed = mount(storeAtTheBoard(2));
+        expect(pressed.visibility).toEqual([true]);
+        expect(pressed.presenter.isOpen).toBe(true);
+        press(pressed, CLOSE);
+        expect(pressed.presenter.isOpen).toBe(false);
+        expect(pressed.visibility).toEqual([true, false]);
 
-    it('tells the scene when it appears and when it is dismissed, so the board can be suppressed', () => {
         const harness = mount(storeAtTheBoard(2));
-        expect(harness.visibility).toEqual([true]);
-        expect(harness.presenter.isOpen).toBe(true);
-
         harness.presenter.close();
         expect(harness.visibility).toEqual([true, false]);
         expect(harness.presenter.isOpen).toBe(false);
@@ -250,11 +255,16 @@ describe('the case file', () => {
         expect(harness.store.getState().phase).toBe('synthesis');
         expect(harness.slice.texts()).not.toContain(en['caseFile.review.heading']);
         const pressable = harness.slice.pressable();
-        // The request and save controls exist but are inert: `pressable()` returns them, and neither
-        // is interactive. "Drawn dead" and "drawn live" were indistinguishable before `sceneSlice`
-        // recorded `interactive` (2.10 review), which is why this is asserted and not assumed.
-        expect(pressable.filter(({ state }) => state.visible && state.interactive).length)
-            .toBeLessThan(pressable.length);
+        // **The request and save controls by name**, not a count. The previous form asserted that
+        // *fewer* pressables were live than existed — which `storeAtTheBoard(2)` already guarantees by
+        // hiding two observation pins and both paging controls, so it passed with this pane fully
+        // visible and armed (2.11 review). "Drawn dead" and "drawn live" were indistinguishable before
+        // `sceneSlice` recorded `interactive` (2.10 review); this is what reading that record looks
+        // like when it can fail.
+        expect(pressable[REQUEST].state.visible).toBe(false);
+        expect(pressable[REQUEST].state.interactive).toBe(false);
+        expect(pressable[SAVE].state.visible).toBe(false);
+        expect(pressable[SAVE].state.interactive).toBe(false);
     });
 
     it('requests feedback and saves the reviewed revision from the canvas, in the review phase', () => {
@@ -276,6 +286,53 @@ describe('the case file', () => {
         press(harness, SAVE);
         expect(harness.store.getState().decisionHistory).toHaveLength(1);
         expect(harness.slice.texts()).toContain(en['caseFile.review.saved']);
+    });
+
+    /**
+     * The no-dispatch-on-repeat rule, on the one control that was exempt from it.
+     *
+     * Every pin reads the store first so only the transition that changes something is sent, and the
+     * save control is gated on `reviewed` — but the request control was armed unconditionally in
+     * `review`, so a second press against an already-reviewed draft dispatched anyway. A refusal earned
+     * by pressing a control the surface drew as live is the one thing the class forbids, and no test
+     * exercised the repeat (2.11 review).
+     */
+    it('disarms the request control once feedback is standing, so a repeat cannot be pressed', () => {
+        const store = storeAtTheBoard(2, 'fr');
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: definition.conclusionProposals[0].id });
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'review' });
+
+        const harness = mount(store);
+        expect(harness.slice.pressable()[REQUEST].state.interactive).toBe(true);
+
+        press(harness, REQUEST);
+        expect(harness.store.getState().peerReview?.status).toBe('reviewed');
+        // Drawn, still readable, and no longer pressable.
+        expect(harness.slice.pressable()[REQUEST].state.visible).toBe(true);
+        expect(harness.slice.pressable()[REQUEST].state.interactive).toBe(false);
+        expect(harness.slice.pressable()[SAVE].state.interactive).toBe(true);
+    });
+
+    /**
+     * A successful pin that destroys standing feedback says so.
+     *
+     * `withTheory` clears `peerReview` on every support change, so the issues pane empties and the save
+     * control dies under a player who did nothing wrong. `report()` only ever wrote the status slot on
+     * a refusal, so this arrived as silence — which the guided-adventure rule forbids everywhere else
+     * on this surface (2.11 review; resolved as a decision by Alexis).
+     */
+    it('says so when pinning support clears the feedback already standing on the draft', () => {
+        const store = storeAtTheBoard(2);
+        store.dispatch({ type: 'theory.conclusionProposalChosen', proposalId: definition.conclusionProposals[0].id });
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'review' });
+
+        const harness = mount(store);
+        press(harness, REQUEST);
+        expect(harness.store.getState().peerReview?.status).toBe('reviewed');
+
+        press(harness, 0);
+        expect(harness.store.getState().peerReview).toBeUndefined();
+        expect(harness.slice.texts()).toContain(en['caseFile.review.clearedBySupport']);
     });
 
     /**
@@ -351,6 +408,9 @@ describe('the case file', () => {
     it('registers no update loop, starts no tween, and claims no keys', () => {
         const harness = mount(storeAtTheBoard(2));
         expect(harness.slice.updateHandlers).toHaveLength(0);
+        // The tween half of this test's own name. `sceneSlice` records `tweens.add` now, so this
+        // fails if either surface ever starts one without taking on the reduced-motion contract.
+        expect(harness.slice.tweens).toHaveLength(0);
         expect(harness.slice.keyboardListeners).toHaveLength(0);
         expect(harness.slice.capturedKeys()).toEqual([]);
     });

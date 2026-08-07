@@ -25,15 +25,18 @@ import {
 // private `LibraryRenderer` font sizes were copied into this file.
 import {
     CASE_FILE_CONTROL_FONT_SIZE,
+    CASE_FILE_META_FONT_SIZE,
     caseFileActionLabelWrap,
     caseFilePageControlLabelWrap,
-    caseFilePinLabelWrap
+    caseFilePinLabelWrap,
+    caseFileRightTextWrap
 } from '../../src/adapters/phaser/renderers/caseFileGeometry';
 import {
     DEBRIEF_META_FONT_SIZE,
     DEBRIEF_PAGE_CONTROL_FONT_SIZE,
     DEBRIEF_TOGGLE_FONT_SIZE,
     debriefPageControlLabelWrap,
+    debriefRecognitionStatusWrap,
     debriefToggleStateWrap
 } from '../../src/adapters/phaser/scenes/debriefGeometry';
 // From `apparatusGeometry`, not `ApparatusRenderer`: that renderer imports Phaser as a *value*
@@ -536,6 +539,10 @@ const SAMPLE_PARAMS: Readonly<Record<string, Readonly<Record<string, string | nu
     'lab.wavelength.comparison': { value: WAVELENGTH_SAMPLE },
     'lab.wavelength.comparisonLocked': { value: WAVELENGTH_SAMPLE },
     'notebook.observation': { order: 12 },
+    // AC7's two counted readiness lines. Measuring the bare `{count}` token would be a guaranteed pass
+    // that says nothing — the same trap the wavelength choices are filled for above.
+    'conclusion.missing.minimum-runs': { count: 2 },
+    'conclusion.missing.minimum-sources': { count: 2 },
     'notebook.row.settings': {
         slitSpacing: notebookReadout('0,25 mm'),
         screenDistance: notebookReadout('4,00 m')
@@ -565,6 +572,22 @@ const SAMPLE_PARAMS: Readonly<Record<string, Readonly<Record<string, string | nu
 const fillParams = (key: string): string =>
     Object.entries(SAMPLE_PARAMS[key] ?? {})
         .reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), fr[key as keyof typeof fr]);
+
+/**
+ * AC7's readiness lines, **derived from the bundle** rather than transcribed.
+ *
+ * `MissingConclusionRequirementCode` is a type union with no runtime counterpart, so the roster cannot
+ * be swept from the type — but every member ships a `conclusion.missing.<code>` key, and reading them
+ * off the bundle means a twelfth code joins this sweep the day it is authored. Transcribing a roster
+ * that the source can extend was a 2.8 review patch.
+ */
+const MISSING_REQUIREMENT_KEYS = (Object.keys(fr) as (keyof typeof fr)[])
+    .filter((key) => key.startsWith('conclusion.missing.'));
+
+/** {@link fillParams}'s English twin — same substitutions, the other bundle. */
+const fillEnglishParams = (key: string): string =>
+    Object.entries(SAMPLE_PARAMS[key] ?? {})
+        .reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), en[key as keyof typeof en]);
 
 type Measurement = Readonly<{ font: string; fontSize: number; text: string }>;
 
@@ -894,7 +917,7 @@ test('keeps the reading room’s authored content inside the bands that hold it,
     expect(LIBRARY_ARTIFACT_TEXTS.length).toBeGreaterThan(0);
 });
 
-test('fits every French fixed-height control label on one line', async ({ page }) => {
+test('fits every fixed-height control label on one line, in French and in English', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
 
@@ -964,8 +987,12 @@ test('fits every French fixed-height control label on one line', async ({ page }
         { key: 'debrief.deeperTheory.hide', fontSize: DEBRIEF_TOGGLE_FONT_SIZE, bound: debriefToggleStateWrap() },
         { key: 'debrief.critiques.earlier', fontSize: DEBRIEF_PAGE_CONTROL_FONT_SIZE, bound: debriefPageControlLabelWrap() },
         { key: 'debrief.critiques.later', fontSize: DEBRIEF_PAGE_CONTROL_FONT_SIZE, bound: debriefPageControlLabelWrap() },
-        { key: 'debrief.recognition.achieved', fontSize: DEBRIEF_META_FONT_SIZE, bound: debriefToggleStateWrap() },
-        { key: 'debrief.recognition.notRecorded', fontSize: DEBRIEF_META_FONT_SIZE, bound: debriefToggleStateWrap() },
+        // Against **their own 96px column**, not the toggle strip's 150. Measuring these two against
+        // `debriefToggleStateWrap()` made the guard 56% looser than the surface it guards — on the very
+        // constant whose docstring explains why the strip's reserve was the wrong one for a one-word
+        // status (2.11 review). Today's copy fits either way, which is exactly why nothing noticed.
+        { key: 'debrief.recognition.achieved', fontSize: DEBRIEF_META_FONT_SIZE, bound: debriefRecognitionStatusWrap() },
+        { key: 'debrief.recognition.notRecorded', fontSize: DEBRIEF_META_FONT_SIZE, bound: debriefRecognitionStatusWrap() },
         // The case file (Story 2.11). Every one of these labels a rectangle of fixed height: the pin
         // beside each row, the two paging controls, the two review actions, and the way out.
         { key: 'caseFile.pin', fontSize: CASE_FILE_CONTROL_FONT_SIZE, bound: caseFilePinLabelWrap() },
@@ -978,7 +1005,16 @@ test('fits every French fixed-height control label on one line', async ({ page }
         // The way *in*, which is the board's control rather than the overlay's — a different font size
         // and a different bound, so it is measured against what the board paints and not against the
         // overlay's actions.
-        { key: 'caseFile.open', fontSize: BOARD_CASE_FILE_FONT_SIZE, bound: BOARD_CASE_FILE_LABEL_WRAP }
+        { key: 'caseFile.open', fontSize: BOARD_CASE_FILE_FONT_SIZE, bound: BOARD_CASE_FILE_LABEL_WRAP },
+        // **AC7's readiness list.** Each line is clamped into `CASE_FILE_READINESS_ROW_HEIGHT` — one
+        // line, cropped past it — at the right column's own bound, so every one of the eleven is a
+        // fixed-height string in everything but name. They were absent from this sweep, and four of the
+        // French lines measured 383–470px against a 372px column and were cut mid-sentence, two of them
+        // on the ordinary path to `synthesis → review` (2.11 review). Both locales were shortened rather
+        // than the bound relaxed, per §Layout constraints.
+        ...MISSING_REQUIREMENT_KEYS.map((key) => ({
+            key, fontSize: CASE_FILE_META_FONT_SIZE, bound: caseFileRightTextWrap()
+        }))
     ] as const;
 
     // Interpolated where the drawn label is: the three wavelength choices each carry a number, and
@@ -993,6 +1029,28 @@ test('fits every French fixed-height control label on one line', async ({ page }
         .map(({ key, width, bound }) => `${key}: "${fillParams(key)}" (${Math.round(width)}px > ${Math.round(bound)}px)`);
 
     expect(wrapping).toEqual([]);
+
+    /**
+     * **And the same rectangles in English.**
+     *
+     * This sweep exists because French runs 15–25% longer — an assumption Story 2.11 inverted for three
+     * of its own labels: "Pin as support" is 14 characters against "Épingler"'s 8, and `caseFile.close`
+     * and `caseFile.open` are longer in English too. A French-only check reports green for an English
+     * label of any length, and `caseFile.pin` sits ~9px inside a 104px bound that nothing was measuring
+     * (2.11 review). The bound is the same rectangle either way, so whichever locale is longer is the
+     * one that has to fit.
+     */
+    const englishWidths = await measure(page, FIXED_HEIGHT_CONTROLS.map(({ key, fontSize }) => ({
+        font: UI_FONT_STACK, fontSize, text: fillEnglishParams(key)
+    })));
+
+    const englishWrapping = FIXED_HEIGHT_CONTROLS
+        .map((control, index) => ({ ...control, width: englishWidths[index]! }))
+        .filter(({ width, bound }) => width > bound)
+        .map(({ key, width, bound }) =>
+            `${key}: "${fillEnglishParams(key)}" (${Math.round(width)}px > ${Math.round(bound)}px)`);
+
+    expect(englishWrapping).toEqual([]);
 });
 
 test('fits every French book control inside its fixed button width', async ({ page }) => {
