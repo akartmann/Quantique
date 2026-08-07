@@ -1,4 +1,5 @@
 type PickerDocument = Pick<Document, 'createElement' | 'body'>;
+type PickerWindow = Pick<Window, 'addEventListener' | 'removeEventListener'>;
 
 /**
  * Asks the player for a progress record, through a file input that exists only for the ask.
@@ -22,25 +23,34 @@ type PickerDocument = Pick<Document, 'createElement' | 'body'>;
  * takes the lock once a file exists, which is the ordering the retired panel had and the reason it was
  * right.
  *
- * `cancel` is listened for as well as `change` so the element is removed when the player backs out. It
- * is not load-bearing: a browser that fires neither leaves one detached, hidden, listener-free input in
- * `body` and nothing else — this resolves `undefined` only when the player actually chose nothing.
+ * `cancel` is listened for as well as `change`, with a focus-return fallback for browsers that fire
+ * neither when the player backs out. Every completion route removes the transient input.
  */
-export const pickRecordFile = (documentRef: PickerDocument = document): Promise<Pick<File, 'text'> | undefined> =>
+export const pickRecordFile = (
+    documentRef: PickerDocument = document,
+    windowRef: PickerWindow = window
+): Promise<Pick<File, 'text'> | undefined> =>
     new Promise((resolve) => {
         const input = documentRef.createElement('input');
         input.type = 'file';
         input.accept = 'application/json,.json';
         input.hidden = true;
         let settled = false;
+        let onWindowFocus: () => void = () => {};
         const finish = (file: Pick<File, 'text'> | undefined): void => {
             if (settled) return;
             settled = true;
+            windowRef.removeEventListener('focus', onWindowFocus);
             input.remove();
             resolve(file);
         };
+        // Some browsers close a native picker without dispatching either input event. Focus returning to
+        // the document is the completion boundary they do guarantee; queueing lets a real `change` win
+        // when the player did select a file.
+        onWindowFocus = (): void => queueMicrotask(() => finish(undefined));
         input.addEventListener('change', () => finish(input.files?.item(0) ?? undefined), { once: true });
         input.addEventListener('cancel', () => finish(undefined), { once: true });
+        windowRef.addEventListener('focus', onWindowFocus, { once: true });
         documentRef.body.append(input);
         input.click();
     });

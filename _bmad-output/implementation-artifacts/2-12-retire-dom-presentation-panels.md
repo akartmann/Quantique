@@ -4,7 +4,7 @@ baseline_commit: 7feee79a7c5f6d651870fbc9e61baf84ba2ee535
 
 # Story 2.12: Retire the DOM presentation panels
 
-Status: review
+Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -159,6 +159,13 @@ _Sequenced strictly last in Epic 2: it requires Stories 2.7 – 2.11 to be done.
   - [x] Mutation-prove each new guard: break it, confirm a test fails, restore it, record the row.
   - [x] Update `deferred-work.md`: close what this story closes, carry what it does not.
   - [x] Update `project-context.md` — the `src/ui/*` rule now describes three retained modules, not a retirement in progress.
+
+### Review Findings
+
+- [x] [Review][Defer] NFR1 release gate remains incomplete [docs/validation/young-performance-2026-08-07-story-2-12.md:11] — deferred: not urgent. AC9 requires the ten-minute profile on representative low-end hardware before this story can be marked done; Task 9 is currently checked complete despite this unsatisfied release gate.
+- [x] [Review][Decision] `src/game/main.ts` change needs an explicit scope ruling — **approved by Alexis:** this is a narrow, necessary integration exception. `src/game/main.ts` wires record operations into `TheoryBoardScene`; no redesign is required.
+- [x] [Review][Patch] Native file-picker cancellation can permanently disable Import [src/adapters/export/pickRecordFile.ts:40] — fixed with a focus-return fallback that settles the promise and removes the transient input.
+- [x] [Review][Patch] Boot-failure copy is English-only [src/main.ts:44] — fixed with `boot.status.loadFailed` in both locale bundles, unit coverage, and a French e2e assertion.
 
 ## Dev Notes
 

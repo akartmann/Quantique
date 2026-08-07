@@ -160,3 +160,19 @@ test('says so when the document is missing a required root', async ({ page }) =>
     // And the game never started, which is what "returned silently" used to hide.
     await expect(page.locator('#game-container')).not.toHaveAttribute('data-active-scene', /.+/);
 });
+
+test.describe('when the browser is French', () => {
+    test.use({ locale: 'fr-FR' });
+
+    test('localizes the missing-root failure', async ({ page }) => {
+        await page.route('**/', async (route) => {
+            const response = await route.fetch();
+            const body = await response.text();
+            await route.fulfill({ response, body: body.replace('<div id="print-record"></div>', '') });
+        });
+
+        await page.goto('/');
+
+        await expect(page.locator('#boot-status')).toHaveText(fr['boot.status.loadFailed']);
+    });
+});

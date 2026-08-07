@@ -8,7 +8,7 @@ import { createTranslator, translateError } from './core/i18n/translate';
 import { createAppStateFromCaseRecord, createInitialAppState } from './core/store/AppState';
 import { createStore } from './core/store/createStore';
 import StartGame from './game/main';
-import { createBootShell, setBootShellStatus } from './ui/BootShell';
+import { createBootShell, getBootFailureMessage, setBootShellStatus } from './ui/BootShell';
 import { mountCaseRecordPrintView } from './ui/print/CaseRecordPrintView';
 import { mountValidationSessionDisclosure } from './ui/ValidationSessionDisclosure';
 
@@ -36,12 +36,11 @@ const REQUIRED_ROOTS = ['#boot-shell', '#validation-session-disclosure', '#print
  * even the boot shell is missing, because a message written into an element that is not there is the
  * same silence in a different shape.
  *
- * It is deliberately **not** localized. Resolving the locale needs the i18n layer to agree with a
- * document that has just been shown not to be the expected one, and this is a build failure rather than
- * a state the player can be in on a correct deployment. The dev-log line carries the detail.
+ * The message stays localized even for a malformed document: browser-locale resolution is independent
+ * of these roots, and an English-only failure is still a player-facing surface (Story 2.12, AC10).
  */
-const reportMissingRoots = (missing: readonly string[]): void => {
-    const message = 'This page did not load correctly. Please reload it.';
+const reportMissingRoots = (missing: readonly string[], locale: ReturnType<typeof resolveBrowserLocale>): void => {
+    const message = getBootFailureMessage(locale);
     const status = document.querySelector<HTMLElement>('#boot-status');
     if (status) status.textContent = message;
     else document.body.textContent = message;
@@ -53,12 +52,14 @@ const reportMissingRoots = (missing: readonly string[]): void => {
 
 const initializeLaboratory = async (): Promise<void> => {
     const validationMode = new URLSearchParams(window.location.search).get('mode') === 'validation';
+    // This does not depend on any document root, so even a loud boot failure speaks the browser language.
+    const locale = resolveBrowserLocale();
     const roots = Object.fromEntries(
         REQUIRED_ROOTS.map((selector) => [selector, document.querySelector<HTMLElement>(selector)])
     ) as Record<typeof REQUIRED_ROOTS[number], HTMLElement | null>;
     const missing = REQUIRED_ROOTS.filter((selector) => roots[selector] === null);
     if (missing.length > 0) {
-        reportMissingRoots(missing);
+        reportMissingRoots(missing, locale);
         return;
     }
     const bootShell = roots['#boot-shell']!;
@@ -72,7 +73,6 @@ const initializeLaboratory = async (): Promise<void> => {
     // markup by design, so the genuine first paint can be English on a slow machine — hydration below
     // is what puts the frame in the resolved language. The facilitator locale check in
     // `docs/validation/young-validation-plan.md` is written against the settled screen for that reason.
-    const locale = resolveBrowserLocale();
     const bootFrame = createBootShell(bootShell, locale);
     // Mounted here rather than after the content load: AC4 requires the facilitator disclosure on
     // every render of the validation route, and a `loadCaseDefinition` failure returns below — which

@@ -8,6 +8,9 @@ import { createTranslator } from '../core/i18n/translate';
  */
 export const getBootShellStatusMessage = (locale: Locale): string => createTranslator(locale)('boot.status.ready');
 
+/** The player-visible fallback when the document is missing a root the app requires. */
+export const getBootFailureMessage = (locale: Locale): string => createTranslator(locale)('boot.status.loadFailed');
+
 /**
  * How long a `notice` stays on screen before it clears itself.
  *

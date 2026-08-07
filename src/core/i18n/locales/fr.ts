@@ -16,6 +16,7 @@ export const fr: Record<TranslationKey, string> = {
     'boot.intro': 'Ouvrez le laboratoire initial pour commencer la séquence de validation de Young.',
     'boot.enter': 'Entrer dans le laboratoire',
     'boot.status.ready': 'Laboratoire prêt.',
+    'boot.status.loadFailed': 'Cette page ne s’est pas chargée correctement. Veuillez la recharger.',
     'boot.status.savedProgressUnusable': 'La progression enregistrée n’a pas pu être utilisée. Une nouvelle enquête est prête.',
     'boot.status.savedProgressUnavailable': 'La progression enregistrée est indisponible pour le moment. L’enquête peut se poursuivre.',
     'boot.status.saveFailed': 'La progression n’a pas pu être enregistrée sur cet appareil. Votre travail en cours est inchangé.',

@@ -18,6 +18,7 @@ export const en = {
     'boot.intro': 'Open the starter laboratory shell to begin the Young validation slice.',
     'boot.enter': 'Enter laboratory',
     'boot.status.ready': 'Laboratory shell ready.',
+    'boot.status.loadFailed': 'This page did not load correctly. Please reload it.',
     'boot.status.savedProgressUnusable': 'Saved progress could not be used. A fresh investigation is ready.',
     'boot.status.savedProgressUnavailable': 'Saved progress is unavailable right now. The investigation is ready to continue.',
     // NFR12, in the region the other two persistence messages already speak from (Story 2.12). The
