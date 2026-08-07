@@ -1,18 +1,25 @@
 # Young low-end laptop performance check — 2026-08-07 (Story 2.10)
 
-Filled from `young-performance-template.md` for the NFR1 re-profile AC10 requires after Story 2.10
-put drag input, character staging and light propagation on the bench together.
+Filled from `young-performance-template.md` for the NFR1 re-profile AC10 requires after Story 2.10 put
+drag input, the player-started light's propagation, the notebook overlay and the wavelength chooser on the
+bench together.
+
+**AC10's wording was corrected at the 2026-08-07 review.** It asked for the profile "with drag, staging,
+and propagation all active", and character staging cannot happen at the bench — Story 2.9's Dev Notes and
+Story 2.10's scope boundary both forbid it. The clause named a configuration the laboratory cannot enter,
+so it now names what the bench actually runs. The gate is otherwise unchanged: 10 minutes, 1280×720,
+representative low-end hardware, manually observed, no automated figure substituted.
 
 | Item | Value |
 | --- | --- |
-| QA / release lead | **Unassigned — see "Status" below** |
+| QA / release lead | **Alexis Kartmann** (assigned at code review 2026-08-07) |
 | Device and browser | _Not yet run on a representative low-end school laptop_ |
 | Screen size | 1280×720 |
 | Laboratory loop duration | 10 minutes |
 | 60-FPS target result | **Blocked — the manual gate has not been run** |
 | Observation method and evidence reference | Manual observation, per the template. Not yet performed. |
-| Remediation owner if blocked | **Unassigned** |
-| Follow-up date if blocked | Before the Story 2.4 release gate is re-run (blocked until 2.12 ships) |
+| Remediation owner if blocked | **Alexis Kartmann** (assigned at code review 2026-08-07) |
+| Follow-up date if blocked | **Before Story 2.12 is marked done.** Not "before Story 2.4's gate is re-run" — that was circular, because 2.4's gate is itself blocked on 2.12, so the follow-up could never come due |
 
 ## Status: not run, and deliberately not faked
 
@@ -25,6 +32,13 @@ a number from the wrong machine. It needs a named person, the right hardware, an
 
 Story 2.4's release gate is already Blocked until 2.12 ships, so this does not add a new blocker — it
 adds a check that must be satisfied before that gate can be re-run.
+
+**The owner and the trigger were both `Unassigned` until the 2026-08-07 code review, and the trigger was
+circular**: "before the Story 2.4 release gate is re-run", where that gate is blocked on Story 2.12, so
+nothing would ever have made this due. It is now owned by Alexis Kartmann and due **before Story 2.12 is
+marked done** — 2.12 is the story that retires the DOM panels and is the last of Epic 2, so it is the last
+point at which a performance regression on the bench can be found cheaply. Reassign the owner if someone
+else takes the hardware; do not clear the trigger.
 
 ## What changed under the gate, and in which direction
 

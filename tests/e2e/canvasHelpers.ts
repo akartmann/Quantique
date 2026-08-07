@@ -188,26 +188,19 @@ export const waitForBookToClose = async (page: Page): Promise<void> => {
 };
 
 /**
- * How long past the run's own duration to wait before the bench is operable again.
- *
- * Larger than {@link ANIMATION_MARGIN_MS}, and the difference is the point. The run's *length* is
- * deterministic — it is driven by elapsed time, not frames — but two things after it are not: the
- * update frame on which it notices it has finished, and the frame on which Phaser applies the
- * hit-area change that unlocks the instruments. Two frames is nothing at 60 FPS and about 400ms on a
- * machine running five browsers at once, which is exactly where this was measured: the drag after a
- * run arrived at a knob whose hit area was still disabled, the gesture never armed, and the walk went
- * on to record its second observation at the *same* setting.
- */
-const RUN_SETTLE_MS = 400;
-
-/**
  * What one start-the-light step costs a walk, in wall-clock milliseconds.
  *
  * Exported so a spec that takes two of them can raise **its own** budget by what it actually spends,
  * rather than by a round number somebody picks and nobody revisits. See
  * `canvas-transitions.spec.ts`'s own note on the decision.
+ *
+ * The run's *length* is deterministic — it is driven by elapsed time, not by frames. What is not
+ * deterministic is the update frame on which it notices it has finished and the frame on which Phaser
+ * applies the hit-area change that unlocks the instruments, so the budget carries a retry's worth of
+ * slack rather than a hand-tuned settle constant: correctness lives in
+ * {@link startTheLightUntilRecorded}, and this is only how long to allow for it.
  */
-export const RUN_STEP_COST_MS = RUN_ANIMATION_MS + RUN_SETTLE_MS;
+export const RUN_STEP_COST_MS = RUN_ANIMATION_MS + (2 * INPUT_SETTLE_MS);
 
 /**
  * Waits out the light crossing the bench (Story 2.10).
@@ -216,9 +209,44 @@ export const RUN_STEP_COST_MS = RUN_ANIMATION_MS + RUN_SETTLE_MS;
  * a control change mid-flight would contradict AC6's stale rule against a run already recorded — so a
  * click issued inside this window correctly reaches nothing at all, and one issued a frame too early
  * afterwards reaches a control that has not been handed back yet.
+ *
+ * The animation's own duration is imported from the renderer that runs it; the frames afterwards are
+ * {@link waitForInputToSettle}'s, which is this file's tool for exactly that window rather than a second
+ * hand-tuned constant beside it.
  */
 export const waitForRunToResolve = async (page: Page): Promise<void> => {
-    await page.waitForTimeout(RUN_ANIMATION_MS + RUN_SETTLE_MS);
+    await page.waitForTimeout(RUN_ANIMATION_MS);
+    await waitForInputToSettle(page);
+};
+
+/** Every observation the still-mounted DOM notebook is projecting — the record, observed. */
+export const recordedObservations = (page: Page) =>
+    page.getByRole('region', { name: 'Measurement notebook' }).locator('.notebook-observation');
+
+/**
+ * Starts the light and waits until the run it produced is actually recorded, retrying the press.
+ *
+ * **A bounded retry rather than a longer sleep** (review 2026-08-07). Waiting a fixed
+ * `RUN_ANIMATION_MS + 400` was the flake class this file argues against three paragraphs up: the 400 ms
+ * was measured at five workers, Phaser processes pointer input once per rendered frame, and nine
+ * concurrent browsers stretch that frame. A press landing a frame early reaches a start control that has
+ * not been handed back, records nothing, and the walk fails several steps later at a scene transition
+ * with a routing error pointing nowhere near the cause — which is precisely how the missing second
+ * observation was diagnosed the first time.
+ *
+ * So this waits on the record instead of on the clock, and says so when it cannot get one.
+ * `dragDesignUntil` is the same shape for the drag, and `clickUntilScene` for a transition.
+ */
+export const startTheLightUntilRecorded = async (
+    page: Page,
+    point: Readonly<{ x: number; y: number }>,
+    expectedObservations: number
+): Promise<void> => {
+    await expect(async () => {
+        await clickDesign(page, point);
+        await waitForRunToResolve(page);
+        await expect(recordedObservations(page)).toHaveCount(expectedObservations);
+    }).toPass({ timeout: 20_000, intervals: [200, 400, 800, 1_200] });
 };
 
 /**

@@ -6,6 +6,7 @@ import {
     KNOB_ARC_END_RAD,
     KNOB_ARC_START_RAD,
     KNOB_ARC_SWEEP_RAD,
+    KNOB_MIN_TRACKING_RADIUS,
     knobAngleForValue,
     knobFractionForAngle,
     knobStepCount,
@@ -74,12 +75,34 @@ describe('the knob travel arc', () => {
         expect(knobFractionForAngle(KNOB_ARC_START_RAD + (KNOB_ARC_SWEEP_RAD / 2))).toBeCloseTo(0.5, 12);
     });
 
-    it('clamps a pointer inside the dead zone to whichever end of the travel it is nearer', () => {
+    it('reads no fraction at all for a pointer inside the dead zone', () => {
         const deadZone = (Math.PI * 2) - KNOB_ARC_SWEEP_RAD;
-        // Just past the end of the travel — still the end, not a wrap round to the start.
-        expect(knobFractionForAngle(KNOB_ARC_END_RAD + (deadZone * 0.1))).toBe(1);
-        // Just before the start.
-        expect(knobFractionForAngle(KNOB_ARC_START_RAD - (deadZone * 0.1))).toBe(0);
+        // `undefined` rather than a clamped end: choosing the nearer end moved the wrap to the bottom of
+        // the knob instead of removing it. The caller holds the current value instead — see the arc note
+        // in `instrumentView.ts` and the hysteresis tests below.
+        expect(knobFractionForAngle(KNOB_ARC_END_RAD + (deadZone * 0.1))).toBeUndefined();
+        expect(knobFractionForAngle(KNOB_ARC_START_RAD - (deadZone * 0.1))).toBeUndefined();
+    });
+
+    /**
+     * The 90° split the old nearest-end rule broke on, and which the old samples could not reach.
+     *
+     * The dead zone runs 45° → 135° through straight-down, and the previous implementation split it at
+     * exactly 90°: an angle one side resolved to the maximum, the other side to the **minimum**. This
+     * sweeps the whole quadrant at one-degree resolution rather than sampling ±18° around the ends, which
+     * is why the flip survived a green suite.
+     */
+    it('reads no fraction anywhere in the quadrant, not merely near the ends', () => {
+        const reading: string[] = [];
+        for (let degrees = 46; degrees <= 134; degrees += 1) {
+            const angleRad = (degrees * Math.PI) / 180;
+            if (knobFractionForAngle(angleRad) !== undefined) reading.push(`${degrees}°`);
+        }
+
+        expect(reading).toEqual([]);
+        // Straight down, the old split point: the single angle that used to send a knob at maximum to
+        // its minimum in one pointer move.
+        expect(knobFractionForAngle(Math.PI / 2)).toBeUndefined();
     });
 });
 
@@ -92,7 +115,7 @@ describe('resolveKnobValue', () => {
             const offStep: number[] = [];
             for (let sample = 0; sample <= 720; sample += 1) {
                 const angleRad = KNOB_ARC_START_RAD + ((sample / 720) * KNOB_ARC_SWEEP_RAD);
-                const value = resolveKnobValue({ control, angleRad });
+                const value = resolveKnobValue({ control, angleRad, currentValue: control.defaultValue });
                 if (!permitted.has(value)) offStep.push(value);
             }
 
@@ -104,7 +127,7 @@ describe('resolveKnobValue', () => {
         eachControl((control) => {
             const values = authoredValues(control);
             const wrong = values
-                .map((value) => ({ value, resolved: resolveKnobValue({ control, angleRad: knobAngleForValue(control, value) }) }))
+                .map((value) => ({ value, resolved: resolveKnobValue({ control, angleRad: knobAngleForValue(control, value), currentValue: control.defaultValue }) }))
                 .filter(({ value, resolved }) => resolved !== value);
 
             expect(wrong).toEqual([]);
@@ -113,12 +136,60 @@ describe('resolveKnobValue', () => {
         });
     });
 
-    it('clamps beyond each end rather than wrapping to the other one', () => {
+    /**
+     * The hysteresis the dead zone holds, swept across the **whole** quadrant from both ends.
+     *
+     * This is the regression that matters. Under the old nearest-end rule, a hand at the maximum that
+     * kept dragging clockwise crossed 90° and the control jumped to its **minimum** — around 31 px of
+     * further travel at r=40, and the exact failure `instrumentView.ts` says a bounded instrument must
+     * not have. Holding the current value is total over the quadrant: from either end, at any angle in
+     * it, the value the player set is the value that stays.
+     */
+    it('holds the value it came from anywhere in the dead zone, from either end', () => {
         eachControl((control) => {
-            const deadZone = (Math.PI * 2) - KNOB_ARC_SWEEP_RAD;
+            const drifted: string[] = [];
+            for (let degrees = 46; degrees <= 134; degrees += 1) {
+                const angleRad = (degrees * Math.PI) / 180;
+                const fromMax = resolveKnobValue({ control, angleRad, currentValue: control.max });
+                const fromMin = resolveKnobValue({ control, angleRad, currentValue: control.min });
+                if (fromMax !== control.max) drifted.push(`${degrees}° from max → ${fromMax}`);
+                if (fromMin !== control.min) drifted.push(`${degrees}° from min → ${fromMin}`);
+            }
 
-            expect(resolveKnobValue({ control, angleRad: KNOB_ARC_END_RAD + (deadZone * 0.2) })).toBe(control.max);
-            expect(resolveKnobValue({ control, angleRad: KNOB_ARC_START_RAD - (deadZone * 0.2) })).toBe(control.min);
+            expect(drifted).toEqual([]);
+        });
+    });
+
+    it('holds a mid-range value too, rather than choosing an end', () => {
+        eachControl((control) => {
+            // The gesture that reaches this: press the knob body, slide down onto that knob's own step
+            // affordance, which sits inside this quadrant directly beneath it. It used to slam the
+            // control to an extreme on the way, and the affordance then added a step on top.
+            const middle = steppedControlValue(control, (control.min + control.max) / 2);
+
+            expect(resolveKnobValue({ control, angleRad: Math.PI / 2, currentValue: middle })).toBe(middle);
+            expect(resolveKnobValue({ control, angleRad: (100 * Math.PI) / 180, currentValue: middle })).toBe(middle);
+        });
+    });
+
+    /**
+     * The centre singularity.
+     *
+     * `Math.atan2(0, 0)` is `0`, not `NaN`, so a finiteness guard never fires — and angle 0 is 225° along
+     * this travel, i.e. 83.3 % of the range. Pressing the middle of a knob and moving one pixel set the
+     * screen distance to 3.5 m. The radius samples elsewhere in this file are 18 and 240; neither is 0,
+     * which is why this shipped.
+     */
+    it('reports no change for a pointer on or near the knob centre', () => {
+        eachControl((control) => {
+            const held = steppedControlValue(control, (control.min + control.max) / 2);
+
+            expect(resolveKnobValueForPointer({ control, dx: 0, dy: 0, currentValue: held })).toBe(held);
+            expect(resolveKnobValueForPointer({ control, dx: 1, dy: -1, currentValue: held })).toBe(held);
+            // Just outside the dead radius, the conversion resumes and the angle is read normally.
+            const outside = KNOB_MIN_TRACKING_RADIUS + 2;
+            expect(resolveKnobValueForPointer({ control, dx: outside, dy: -outside, currentValue: held }))
+                .toBe(resolveKnobValue({ control, angleRad: pointerAngleRad(outside, -outside), currentValue: held }));
         });
     });
 
@@ -134,8 +205,8 @@ describe('resolveKnobValue', () => {
             const disagreeing: string[] = [];
             for (let sample = 0; sample <= 120; sample += 1) {
                 const angleRad = KNOB_ARC_START_RAD + ((sample / 120) * KNOB_ARC_SWEEP_RAD);
-                const small = resolveKnobValueForPointer({ control, dx: Math.cos(angleRad) * 18, dy: Math.sin(angleRad) * 18 });
-                const large = resolveKnobValueForPointer({ control, dx: Math.cos(angleRad) * 240, dy: Math.sin(angleRad) * 240 });
+                const small = resolveKnobValueForPointer({ control, dx: Math.cos(angleRad) * 18, dy: Math.sin(angleRad) * 18, currentValue: control.defaultValue });
+                const large = resolveKnobValueForPointer({ control, dx: Math.cos(angleRad) * 240, dy: Math.sin(angleRad) * 240, currentValue: control.defaultValue });
                 if (small !== large) disagreeing.push(`${angleRad}: ${small} vs ${large}`);
             }
 
@@ -148,8 +219,8 @@ describe('resolveKnobValue', () => {
             const dx = 40;
             const dy = -40;
 
-            expect(resolveKnobValueForPointer({ control, dx, dy }))
-                .toBe(resolveKnobValue({ control, angleRad: pointerAngleRad(dx, dy) }));
+            expect(resolveKnobValueForPointer({ control, dx, dy, currentValue: control.defaultValue }))
+                .toBe(resolveKnobValue({ control, angleRad: pointerAngleRad(dx, dy), currentValue: control.defaultValue }));
         });
     });
 });
@@ -200,7 +271,7 @@ describe('the surface snaps exactly as the reducer would', () => {
             const disagreeing: string[] = [];
             for (let sample = 0; sample <= 360; sample += 1) {
                 const angleRad = KNOB_ARC_START_RAD + ((sample / 360) * KNOB_ARC_SWEEP_RAD);
-                const dispatched = resolveKnobValue({ control, angleRad });
+                const dispatched = resolveKnobValue({ control, angleRad, currentValue: control.defaultValue });
                 const reducer = normalizeControlValue(control, dispatched);
                 // The load-bearing half: a value the surface dispatches must come back out of the
                 // reducer unchanged, or the indicator jumps out from under the cursor (ADR-012).
@@ -238,7 +309,7 @@ describe('steppedNeighbour', () => {
     it('lands on the same value a drag to that angle would dispatch', () => {
         eachControl((control) => {
             const stepped = steppedNeighbour(control, control.min, 1);
-            const dragged = resolveKnobValue({ control, angleRad: knobAngleForValue(control, stepped) });
+            const dragged = resolveKnobValue({ control, angleRad: knobAngleForValue(control, stepped), currentValue: control.min });
 
             expect(dragged).toBe(stepped);
         });

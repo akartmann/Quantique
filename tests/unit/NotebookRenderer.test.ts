@@ -10,7 +10,7 @@ import { fr } from '../../src/core/i18n/locales/fr';
 import { selectComparisonNote } from '../../src/core/store/selectors';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
-import { NOTEBOOK_ROWS_PER_PAGE } from '../../src/adapters/phaser/renderers/apparatusGeometry';
+import { NOTEBOOK_NOTE_MAX_LENGTH, NOTEBOOK_ROWS_PER_PAGE } from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import { makeSceneSlice, makeWindowStub } from './sceneSlice';
 
 /**
@@ -62,8 +62,14 @@ afterEach(() => { vi.unstubAllGlobals(); });
  * fails this test loudly rather than silently pressing the paging control instead.
  */
 const selectRow = (ui: ReturnType<typeof mount>, index: number): void => {
-    const rows = ui.slice.pressable().slice(0, NOTEBOOK_ROWS_PER_PAGE);
-    expect(rows.length).toBe(NOTEBOOK_ROWS_PER_PAGE);
+    const pressable = ui.slice.pressable();
+    // Asserted on the **whole** set before slicing, which is the point: the previous form sliced first
+    // and then checked the slice's length, so it was satisfied by any pressable count at or above the
+    // page size and would have silently pressed a paging control if the creation order this docstring
+    // relies on ever moved (review 2026-08-07).
+    expect(pressable.length).toBeGreaterThanOrEqual(NOTEBOOK_ROWS_PER_PAGE);
+    expect(index).toBeLessThan(NOTEBOOK_ROWS_PER_PAGE);
+    const rows = pressable.slice(0, NOTEBOOK_ROWS_PER_PAGE);
     rows[index]!.handlers.get('pointerup')!();
 };
 
@@ -163,7 +169,12 @@ describe('the comparison', () => {
         // player clicking a third row did nothing wrong, so the surface says why instead of
         // provoking a refusal it then has to explain away.
         expect(store.getState().comparison.selectedRunIds).toEqual([first!.id, second!.id]);
-        expect(ui.slice.texts().join('\n')).toContain('Choose two saved observations');
+        // And it says something the player can act on. It used to reuse `notebook.pairRequired` —
+        // "Choose two saved observations to compare." — told to somebody who had chosen two, with no
+        // indication of which to release (review 2026-08-07).
+        const shown = ui.slice.texts().join('\n');
+        expect(shown).toContain('release one first');
+        expect(shown).not.toContain('Choose two saved observations');
         ui.notebook.destroy();
     });
 
@@ -189,7 +200,7 @@ describe('the comparison', () => {
 
         // No click into the field first: the field takes keys from the moment a pair is selected, which is the only
         // moment the note can be saved anyway.
-        const keydown = ui.slice.keyboardHandlers.get('keydown');
+        const [keydown] = ui.slice.keyboardHandlersFor('keydown');
         expect(keydown).toBeDefined();
         [...'wider'].forEach((key) => keydown!({ key } as KeyboardEvent));
         keydown!({ key: 'Enter' } as KeyboardEvent);
@@ -204,7 +215,7 @@ describe('the comparison', () => {
         ui.notebook.open();
         selectRow(ui, 0);
         selectRow(ui, 1);
-        const keydown = ui.slice.keyboardHandlers.get('keydown')!;
+        const keydown = ui.slice.keyboardHandlersFor('keydown')[0]!;
 
         [...'ab'].forEach((key) => keydown({ key } as KeyboardEvent));
         keydown({ key: 'Backspace' } as KeyboardEvent);
@@ -216,6 +227,83 @@ describe('the comparison', () => {
         // is indistinguishable from a dead one.
         expect(ui.slice.texts().join('\n')).toContain('Enter a comparison note');
         ui.notebook.destroy();
+    });
+
+    /**
+     * The empty field says what it wants.
+     *
+     * `notebook.note.empty` shipped in both bundles and was drawn by nothing: the placeholder branch fell
+     * through to `''` once a pair was selected, so the player faced a blank rimmed box with a caret. The
+     * typography sweep measured the dead key while the field drew a different one (review 2026-08-07).
+     */
+    it('invites the note once a pair is chosen, and asks for a pair before one is', () => {
+        const store = storeWithObservations(2);
+        const ui = mount(store);
+        ui.notebook.open();
+
+        // Nothing selected: the field cannot be used yet and says so.
+        expect(ui.slice.texts().join('\n')).toContain('Choose two saved observations');
+
+        selectRow(ui, 0);
+        selectRow(ui, 1);
+        // The scene's store subscription drives the repaint in production; this harness has none, so the
+        // render is explicit. `toggleSelection` deliberately does not repaint on the success path.
+        ui.notebook.render(store.getState());
+
+        const shown = ui.slice.texts().join('\n');
+        expect(shown).toContain('Type your comparison here');
+        expect(shown).not.toContain('Choose two saved observations');
+        ui.notebook.destroy();
+    });
+
+    /**
+     * A note longer than the field's own bound cannot arrive from the record and overflow it.
+     *
+     * The bound was enforced only on the keystroke path. `CaseRecordSchema` puts no `.max()` on note text,
+     * the reducer applies none, and the still-mounted DOM panel writes it from an unbounded `<textarea>` —
+     * so a long or multi-line note loaded straight into a 62 px unclipped field and ran over the save and
+     * close controls to the panel floor (review 2026-08-07).
+     */
+    it('clamps a stored note to the field\'s own bound and flattens its newlines', () => {
+        const store = storeWithObservations(2);
+        const [first, second] = store.getState().runs;
+        const overlong = `${'x'.repeat(NOTEBOOK_NOTE_MAX_LENGTH + 200)}\nsecond line`;
+        store.dispatch({ type: 'comparison.runSelected', runId: first!.id });
+        store.dispatch({ type: 'comparison.runSelected', runId: second!.id });
+        store.dispatch({ type: 'comparison.noteSaved', note: overlong });
+        // The record keeps what was saved: the surface bounds what it *draws*, and never rewrites history.
+        expect(selectComparisonNote(store.getState())!.text.length).toBeGreaterThan(NOTEBOOK_NOTE_MAX_LENGTH);
+
+        const ui = mount(store);
+        ui.notebook.open();
+
+        const drawn = ui.slice.texts().find((text) => text.startsWith('x'));
+        expect(drawn).toBeDefined();
+        expect(drawn!.length).toBeLessThanOrEqual(NOTEBOOK_NOTE_MAX_LENGTH);
+        expect(drawn).not.toContain('\n');
+        ui.notebook.destroy();
+    });
+
+    /**
+     * The keys the field consumes are also claimed from the page.
+     *
+     * Phaser only calls `preventDefault` for captured key codes, so an uncaptured `SPACE` typed into a note
+     * scrolled the document under the canvas (review 2026-08-07).
+     */
+    it('claims the page keys it consumes while open, and gives them back on close', () => {
+        const store = storeWithObservations(2);
+        const ui = mount(store);
+        expect(ui.slice.capturedKeys()).toEqual([]);
+
+        ui.notebook.open();
+        expect(ui.slice.capturedKeys()).toEqual(expect.arrayContaining(['SPACE', 'BACKSPACE']));
+
+        ui.notebook.close();
+        expect(ui.slice.capturedKeys()).toEqual([]);
+
+        ui.notebook.open();
+        ui.notebook.destroy();
+        expect(ui.slice.capturedKeys()).toEqual([]);
     });
 });
 
@@ -255,6 +343,8 @@ describe('the overlay', () => {
 
         expect(ui.slice.drawn.length).toBeGreaterThan(0);
         expect(ui.slice.drawn.every(({ state }) => state.destroyed)).toBe(true);
-        expect(ui.slice.keyboardHandlers.size).toBe(0);
+        // By identity, not by event name: the notebook's `keydown` must be the one removed, and the
+        // bench's — registered on the same emitter for the same event — must be untouched.
+        expect(ui.slice.keyboardListeners).toHaveLength(0);
     });
 });

@@ -14,7 +14,6 @@ import {
     knobCentre,
     notebookCloseControlCentre,
     notebookControlCentre,
-    notebookNoteFieldCentre,
     notebookSaveControlCentre,
     notebookSelectionCentre,
     startTheLightControlCentre,
@@ -34,7 +33,8 @@ import {
     waitForBookToClose,
     waitForBookToOpen,
     waitForInputToSettle,
-    waitForRunToResolve
+    recordedObservations,
+    startTheLightUntilRecorded
 } from './canvasHelpers';
 
 /**
@@ -125,9 +125,6 @@ const walkToTheBench = async (page: import('@playwright/test').Page): Promise<vo
     await expectActiveScene(page, 'Laboratory');
 };
 
-const observations = (page: import('@playwright/test').Page) =>
-    page.getByRole('region', { name: 'Measurement notebook' }).locator('.notebook-observation');
-
 /** Turns the screen-distance knob to the far end of its travel, and waits until it has got there. */
 const turnTheThrowToTheFarEnd = (page: import('@playwright/test').Page): Promise<void> =>
     dragDesignUntil(
@@ -141,12 +138,10 @@ const turnTheThrowToTheFarEnd = (page: import('@playwright/test').Page): Promise
 
 test('records two significant Young measurements from the canvas alone, and opens the gate with them', async ({ page }) => {
     await walkToTheBench(page);
-    await expect(observations(page)).toHaveCount(0);
+    await expect(recordedObservations(page)).toHaveCount(0);
 
     // --- the first observation, at the default setup ---------------------------------------------
-    await clickDesign(page, START);
-    await waitForRunToResolve(page);
-    await expect(observations(page)).toHaveCount(1);
+    await startTheLightUntilRecorded(page, START, 1);
 
     // --- change the throw by **dragging** the knob ------------------------------------------------
     // The drag path, in a browser, is what nothing else in the suite reaches: the press arms on the
@@ -158,9 +153,7 @@ test('records two significant Young measurements from the canvas alone, and open
     await turnTheThrowToTheFarEnd(page);
 
     // --- the second observation, at a different throw ---------------------------------------------
-    await clickDesign(page, START);
-    await waitForRunToResolve(page);
-    await expect(observations(page)).toHaveCount(2);
+    await startTheLightUntilRecorded(page, START, 2);
 
     // The gate only opens for two observations at **different** configurations, so taking the
     // transition is the assertion that the drag really moved the screen.
@@ -171,8 +164,7 @@ test('records two significant Young measurements from the canvas alone, and open
 test('steps the instrument with its discrete affordance to the same effect as a drag', async ({ page }) => {
     await walkToTheBench(page);
 
-    await clickDesign(page, START);
-    await waitForRunToResolve(page);
+    await startTheLightUntilRecorded(page, START, 1);
 
     // Four presses of the increase affordance, which is a different input path to the drag above and
     // must reach the same record. The count is arbitrary; what matters is that the setting moves.
@@ -181,9 +173,7 @@ test('steps the instrument with its discrete affordance to the same effect as a 
         await waitForInputToSettle(page);
     }
 
-    await clickDesign(page, START);
-    await waitForRunToResolve(page);
-    await expect(observations(page)).toHaveCount(2);
+    await startTheLightUntilRecorded(page, START, 2);
 
     await clickDesign(page, LABORATORY_ADVANCE);
     await expectActiveScene(page, 'TheoryBoard');
@@ -191,11 +181,9 @@ test('steps the instrument with its discrete affordance to the same effect as a 
 
 test('compares two observations and saves a note, all from the bench notebook', async ({ page }) => {
     await walkToTheBench(page);
-    await clickDesign(page, START);
-    await waitForRunToResolve(page);
+    await startTheLightUntilRecorded(page, START, 1);
     await turnTheThrowToTheFarEnd(page);
-    await clickDesign(page, START);
-    await waitForRunToResolve(page);
+    await startTheLightUntilRecorded(page, START, 2);
 
     await clickDesign(page, NOTEBOOK);
     await waitForInputToSettle(page);
@@ -205,8 +193,11 @@ test('compares two observations and saves a note, all from the bench notebook', 
     await clickDesign(page, notebookSelectionCentre(1));
     await waitForInputToSettle(page);
 
-    await clickDesign(page, notebookNoteFieldCentre());
-    await waitForInputToSettle(page);
+    // **No click into the note field.** It is deliberately not interactive — `applyVisibility` states so
+    // in as many words — because there is no cursor on a canvas to invite one, so the field takes keys
+    // from the moment a pair is selected. The click here landed on the interactive backdrop, which
+    // swallowed it: an inert step that asserted nothing and made the walk read as though a click were
+    // required (review 2026-08-07).
     // Typed into the canvas: `comparison.noteSaved` takes free text and the reducer rejects a blank
     // one, so there is a real sentence to enter and no DOM input to enter it in (D5).
     await page.keyboard.type('The bands spread as the screen moves back.');
@@ -234,10 +225,8 @@ test('keeps the optional wavelength comparison shut until the minimum path has b
     // layer in `YoungExperimentBench.test.ts`.
     await clickDesign(page, wavelengthChoiceCentre(1));
     await waitForInputToSettle(page);
-    await clickDesign(page, START);
-    await waitForRunToResolve(page);
+    await startTheLightUntilRecorded(page, START, 1);
 
     // Still the minimum path, so this observation counts toward unlocking rather than being refused.
-    await expect(observations(page)).toHaveCount(1);
     await expect(page.getByRole('region', { name: 'Measurement notebook' })).toContainText('550 nm (minimum path)');
 });

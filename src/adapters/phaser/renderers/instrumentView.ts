@@ -2,11 +2,15 @@
  * The rotary instrument's conversion between where the pointer is and which authored value the knob
  * is turned to (Story 2.10).
  *
- * **Phaser is not imported here at all** — not even as a type. `ApparatusRenderer` imports it as a
- * *value* (`BlendModes`), Phaser touches `window` at import time, and both Vitest and Playwright run in
- * Node, so nothing inside that file can be reached by a test. `advanceView.ts`, `apparatusGeometry.ts`,
- * `libraryGeometry.ts` and `characterStageView.ts` each exist as the answer to that; this is the next
- * one, and `InstrumentView.test.ts` drives it directly.
+ * **Phaser is not imported here at all** — not even as a type, so a Node-hosted Vitest or Playwright
+ * spec can import the rule without Phaser touching `window`. `advanceView.ts`, `apparatusGeometry.ts`,
+ * `libraryGeometry.ts` and `characterStageView.ts` each exist for the same reason; this is the next one,
+ * and `InstrumentView.test.ts` drives it directly.
+ *
+ * Story 2.10 also freed `ApparatusRenderer` itself of its one *value* import of Phaser (`BlendModes`,
+ * now `setBlendMode('ADD')`), so `ApparatusRun.test.ts` reaches the renderer from Vitest. That does not
+ * make this module redundant: a spec deriving a click target or a conversion should read numbers, not
+ * construct a renderer.
  *
  * ## What lives here, and what does not
  *
@@ -53,6 +57,16 @@ const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
  * real knob's shaft and mounting are. The dead zone is not decoration: without it the two ends of the
  * travel would touch, and a hand that dragged a fraction past the maximum would wrap the value round
  * to the minimum — the one failure a bounded instrument must not have.
+ *
+ * **The dead zone holds the value; it does not choose an end** (review 2026-08-07). Clamping a dead-zone
+ * pointer to whichever end it was *nearer* moved the wrap rather than removing it: the quadrant splits
+ * at 90°, so continuing the same clockwise drag ~46° past the maximum crossed the split and flipped the
+ * control to its minimum in one `pointermove` — about 31 px of travel at r=40, and the exact failure the
+ * paragraph above forbids. It also meant a press on the knob body followed by a slide down onto that
+ * knob's own step affordance — which sits *inside* this quadrant, directly beneath it — slammed the
+ * control to an extreme on the way. So a pointer with no travel under it changes nothing at all: the
+ * knob holds where the hand left it, which is both what a real knob does when you grab its shaft and
+ * what keeps a bounded instrument bounded from either direction.
  */
 export const KNOB_ARC_START_DEG = 135;
 export const KNOB_ARC_SWEEP_DEG = 270;
@@ -66,17 +80,29 @@ export const KNOB_DEAD_ZONE_RAD = TWO_PI - KNOB_ARC_SWEEP_RAD;
 export const pointerAngleRad = (dx: number, dy: number): number => Math.atan2(dy, dx);
 
 /**
- * How far along the travel an angle is, as 0…1.
+ * The pointer offset below which a knob has no direction to read.
  *
- * A pointer inside the dead zone is clamped to whichever end of the travel it is nearer, rather than
- * being ignored: a hand that overshoots the maximum expects the knob to sit at the maximum, and a
- * knob that stopped responding for a quadrant would read as broken.
+ * `Math.atan2(0, 0)` returns `0` rather than `NaN`, so a `Number.isFinite` guard never fires for a
+ * pointer sitting exactly on the centre — and angle 0 is 225° along this travel, i.e. **83.3 %** of the
+ * range. Pressing the middle of a knob and moving one pixel therefore used to set the screen distance
+ * to 3.5 m (review 2026-08-07). Inside this radius there is no meaningful direction, so there is no
+ * value to report; 8 px is comfortably inside `KNOB_BODY_RADIUS` and larger than any rounding a
+ * `Scale.FIT` transform introduces.
  */
-export const knobFractionForAngle = (angleRad: number): number => {
-    if (!Number.isFinite(angleRad)) return 0;
+export const KNOB_MIN_TRACKING_RADIUS = 8;
+
+/**
+ * How far along the travel an angle is, as 0…1 — or `undefined` when the angle lies in the shaft's dead
+ * zone, where the travel says nothing about what the player means.
+ *
+ * `undefined` rather than a clamped end on purpose: see the travel-arc note above for why choosing the
+ * nearer end reintroduced the wrap it was meant to prevent. The caller decides what "no reading" means,
+ * and for a drag in progress the answer is "hold the current value".
+ */
+export const knobFractionForAngle = (angleRad: number): number | undefined => {
+    if (!Number.isFinite(angleRad)) return undefined;
     const offset = ((((angleRad - KNOB_ARC_START_RAD) % TWO_PI) + TWO_PI) % TWO_PI);
-    if (offset <= KNOB_ARC_SWEEP_RAD) return offset / KNOB_ARC_SWEEP_RAD;
-    return (offset - KNOB_ARC_SWEEP_RAD) < (KNOB_DEAD_ZONE_RAD / 2) ? 1 : 0;
+    return offset <= KNOB_ARC_SWEEP_RAD ? offset / KNOB_ARC_SWEEP_RAD : undefined;
 };
 
 export const knobAngleForFraction = (fraction: number): number =>
@@ -108,14 +134,35 @@ export const steppedControlValue = (control: PrimaryControl, requestedValue: num
     return normalized.ok ? normalized.value : control.min;
 };
 
-/** The stepped, clamped value a knob turned to this angle means. Never off-step, never out of range. */
-export const resolveKnobValue = ({ control, angleRad }: Readonly<{ control: PrimaryControl; angleRad: number }>): number =>
-    steppedControlValue(control, control.min + (knobFractionForAngle(angleRad) * (control.max - control.min)));
+/**
+ * The stepped, clamped value a knob turned to this angle means. Never off-step, never out of range.
+ *
+ * `currentValue` is where the control is now, and it is **required** rather than defaulted: it is what
+ * the knob holds when the angle carries no reading, and a default would turn a wiring omission into a
+ * silent jump to some fixed point on the travel. Pass the value the store holds, snapped on the way out
+ * so a restored value predating a content change still lands on the grid the control has now.
+ */
+export const resolveKnobValue = (
+    { control, angleRad, currentValue }: Readonly<{ control: PrimaryControl; angleRad: number; currentValue: number }>
+): number => {
+    const fraction = knobFractionForAngle(angleRad);
+    if (fraction === undefined) return steppedControlValue(control, currentValue);
+    return steppedControlValue(control, control.min + (fraction * (control.max - control.min)));
+};
 
-/** The same, from a pointer offset relative to the knob's centre. Radius plays no part. */
+/**
+ * The same, from a pointer offset relative to the knob's centre.
+ *
+ * Radius plays no part in the *conversion* — a `Scale.FIT` surface gives a larger knob and a
+ * proportionally larger offset for the same gesture, and the value must not move. It plays one part in
+ * whether there is a conversion to do at all: see {@link KNOB_MIN_TRACKING_RADIUS}.
+ */
 export const resolveKnobValueForPointer = (
-    { control, dx, dy }: Readonly<{ control: PrimaryControl; dx: number; dy: number }>
-): number => resolveKnobValue({ control, angleRad: pointerAngleRad(dx, dy) });
+    { control, dx, dy, currentValue }: Readonly<{ control: PrimaryControl; dx: number; dy: number; currentValue: number }>
+): number => {
+    if (Math.hypot(dx, dy) < KNOB_MIN_TRACKING_RADIUS) return steppedControlValue(control, currentValue);
+    return resolveKnobValue({ control, angleRad: pointerAngleRad(dx, dy), currentValue });
+};
 
 /**
  * One authored step in a direction, clamped at the ends.

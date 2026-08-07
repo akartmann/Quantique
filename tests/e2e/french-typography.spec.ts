@@ -83,6 +83,7 @@ import {
     NOTEBOOK_ROW_FONT_SIZE,
     NOTEBOOK_ROW_META_FONT_SIZE,
     NOTEBOOK_ROW_TEXT_WRAP,
+    NOTEBOOK_STATUS_TEXT_WRAP,
     NOTEBOOK_SELECT_WIDTH,
     START_CONTROL_LABEL_WRAP,
     WAVELENGTH_CHOICE_FONT_SIZE,
@@ -284,8 +285,10 @@ const WRAPPED_SURFACES = [
     { key: 'notebook.row.meta', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_META_FONT_SIZE, wrapWidth: NOTEBOOK_ROW_TEXT_WRAP },
     { key: 'notebook.note.label', font: UI_FONT_STACK, fontSize: NOTEBOOK_GUIDE_FONT_SIZE, wrapWidth: NOTEBOOK_NOTE_TEXT_WRAP },
     { key: 'notebook.note.empty', font: UI_FONT_STACK, fontSize: NOTEBOOK_NOTE_FONT_SIZE, wrapWidth: NOTEBOOK_NOTE_TEXT_WRAP },
-    { key: 'notebook.note.saved', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_META_FONT_SIZE, wrapWidth: NOTEBOOK_NOTE_TEXT_WRAP },
-    { key: 'notebook.pairRequired', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_META_FONT_SIZE, wrapWidth: NOTEBOOK_NOTE_TEXT_WRAP },
+    // Both of these are drawn **into the note field**, by `renderNote`, at the note field's own size —
+    // not at the row-meta size this sweep used to measure `pairRequired` at (review 2026-08-07). One
+    // string measured at a size nothing draws it in is a bound that does not describe the surface.
+    { key: 'notebook.pairRequired', font: UI_FONT_STACK, fontSize: NOTEBOOK_NOTE_FONT_SIZE, wrapWidth: NOTEBOOK_NOTE_TEXT_WRAP },
     { key: 'book.caption.spread', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 770 },
     { key: 'book.caption.summary', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 770 },
     { key: 'book.summary.heading', font: BOOK_FONT_STACK, fontSize: 20, wrapWidth: 770 },
@@ -925,7 +928,15 @@ test('fits every French fixed-height control label on one line', async ({ page }
         { key: 'notebook.note.save', fontSize: NOTEBOOK_ACTION_FONT_SIZE, bound: NOTEBOOK_ACTION_LABEL_WRAP },
         { key: 'notebook.close', fontSize: NOTEBOOK_ACTION_FONT_SIZE, bound: NOTEBOOK_ACTION_LABEL_WRAP },
         { key: 'notebook.page.earlier', fontSize: NOTEBOOK_ROW_FONT_SIZE, bound: NOTEBOOK_PAGE_CONTROL_WIDTH - 16 },
-        { key: 'notebook.page.later', fontSize: NOTEBOOK_ROW_FONT_SIZE, bound: NOTEBOOK_PAGE_CONTROL_WIDTH - 16 }
+        { key: 'notebook.page.later', fontSize: NOTEBOOK_ROW_FONT_SIZE, bound: NOTEBOOK_PAGE_CONTROL_WIDTH - 16 },
+        // The notebook's status line, which is **one line** in the gap between save and close: it is
+        // vertically centred in the action row, so a second line grows symmetrically into the row above
+        // and the panel floor below. It was in the per-token sweep, which provably cannot tell a sentence
+        // that wraps from one that does not — the defect recorded in three previous reviews, and the
+        // reason this whole-string sweep exists (review 2026-08-07).
+        { key: 'notebook.note.saved', fontSize: NOTEBOOK_ROW_META_FONT_SIZE, bound: NOTEBOOK_STATUS_TEXT_WRAP },
+        { key: 'notebook.pairRequired', fontSize: NOTEBOOK_ROW_META_FONT_SIZE, bound: NOTEBOOK_STATUS_TEXT_WRAP },
+        { key: 'notebook.releaseOneFirst', fontSize: NOTEBOOK_ROW_META_FONT_SIZE, bound: NOTEBOOK_STATUS_TEXT_WRAP }
     ] as const;
 
     // Interpolated where the drawn label is: the three wavelength choices each carry a number, and

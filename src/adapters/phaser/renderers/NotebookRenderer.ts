@@ -47,6 +47,7 @@ import {
     NOTEBOOK_ROW_TEXT_WRAP,
     NOTEBOOK_ROW_WIDTH,
     NOTEBOOK_SAVE_LEFT,
+    NOTEBOOK_STATUS_TEXT_WRAP,
     NOTEBOOK_SELECT_HEIGHT,
     NOTEBOOK_SELECT_WIDTH,
     notebookPageControlCentre,
@@ -124,6 +125,15 @@ const SELECT_FILL_ON = 0x276b55;
 const ACTION_FILL = 0x1d4451;
 const NOTE_FILL = 0x0b1a20;
 const NOTE_RIM_FOCUSED = 0xf4d35e;
+
+/**
+ * The keys the note field claims from the page while it is open.
+ *
+ * A mutable array because `addCapture` / `removeCapture` take one; module-private and never written to,
+ * the same shape `ARROW_KEY_CAPTURE` has in `ApparatusRenderer`. See {@link NotebookRenderer.syncKeyCapture}
+ * for why consuming a key is not enough on its own.
+ */
+const NOTE_KEY_CAPTURE: string[] = ['SPACE', 'BACKSPACE', 'ENTER', 'ESC'];
 
 /** Everything this overlay draws is one of these two. See {@link NotebookRenderer.objects}. */
 type NotebookObject = Phaser.GameObjects.Rectangle | Phaser.GameObjects.Text;
@@ -265,7 +275,7 @@ export class NotebookRenderer {
             NOTEBOOK_SAVE_LEFT + NOTEBOOK_ACTION_WIDTH + 16,
             NOTEBOOK_ACTION_ROW_Y + (NOTEBOOK_ACTION_HEIGHT / 2),
             NOTEBOOK_ROW_META_FONT_SIZE, '#f4d35e',
-            NOTEBOOK_CLOSE_LEFT - NOTEBOOK_SAVE_LEFT - NOTEBOOK_ACTION_WIDTH - 32
+            NOTEBOOK_STATUS_TEXT_WRAP
         ).setOrigin(0, 0.5);
 
         this.objects.push(this.backdrop, panel, this.heading, this.guide, this.pageCounter,
@@ -292,6 +302,7 @@ export class NotebookRenderer {
         if (this.visible) return;
         this.visible = true;
         this.pageIndex = this.lastPageIndex(this.storeAdapter.getState());
+        this.syncKeyCapture();
         this.applyVisibility();
         this.render(this.storeAdapter.getState());
         this.options.onVisibilityChange(true);
@@ -301,8 +312,32 @@ export class NotebookRenderer {
         if (!this.visible) return;
         this.visible = false;
         this.status.clear();
+        this.syncKeyCapture();
         this.applyVisibility();
         this.options.onVisibilityChange(false);
+    }
+
+    /**
+     * Captures the keys the note field consumes, for exactly as long as it is up.
+     *
+     * **Consuming a key is not the same as capturing it** (review 2026-08-07). Phaser calls
+     * `preventDefault()` only for key codes in the manager's `captures` list
+     * (`KeyboardManager.js`: `_this.captures.indexOf(event.keyCode) > -1`), and this field took none. So
+     * every `SPACE` typed into a comparison note also scrolled the document under the canvas — the page is
+     * scrollable, which is why `registerCanvasBoundsRefresh` exists — and `/` and `'` reached the browser
+     * with their defaults intact. `event.key.length === 1` is a filter on what the field accepts, not a
+     * claim on the key.
+     *
+     * `SPACE` and `BACKSPACE` are the two that actually misbehave: space scrolls, backspace is a history
+     * step in some configurations. `ENTER` and `ESC` are claimed too, because the field acts on both and a
+     * page that also acted on them would double-handle. Released on close, so the page gets its keys back
+     * — the mistake the bench's arrow capture made in the other direction.
+     */
+    private syncKeyCapture(): void {
+        const keyboard = this.scene.input.keyboard;
+        if (!keyboard) return;
+        if (this.visible) keyboard.addCapture(NOTE_KEY_CAPTURE);
+        else keyboard.removeCapture(NOTE_KEY_CAPTURE);
     }
 
     /**
@@ -361,6 +396,9 @@ export class NotebookRenderer {
 
     public destroy(): void {
         this.scene.input.keyboard?.off('keydown', this.onKeyDown, this);
+        // Captures are global in Phaser, so one left behind outlives this renderer and goes on swallowing
+        // the page's own keys. Unconditional: cheaper than tracking whether it was held.
+        this.scene.input.keyboard?.removeCapture(NOTE_KEY_CAPTURE);
         this.rows.forEach((row) => [row.background, row.title, row.settings, row.meta, row.selectSurface, row.selectLabel]
             .forEach((object) => object.destroy()));
         this.rows.length = 0;
@@ -444,16 +482,31 @@ export class NotebookRenderer {
         const state = this.storeAdapter.getState();
         const selected = state.comparison.selectedRunIds;
         if (selected.includes(runId)) {
-            this.storeAdapter.unselectComparisonRun(runId);
+            const result = this.storeAdapter.unselectComparisonRun(runId);
+            if (!result.ok) {
+                this.status.set(selectLocalizedError(state, result.error), state);
+                this.repaint();
+            }
             return;
         }
         if (selected.length >= 2) {
             const t = createTranslator(selectLocale(state));
-            this.status.set(t('notebook.pairRequired'), state);
+            // Its **own** string, not `notebook.pairRequired` (review 2026-08-07). A player holding two
+            // and reaching for a third was being told "Choose two saved observations to compare." — an
+            // instruction to do the thing they had already done, with nothing to say which one to release
+            // and a row that did not change when clicked, so the control read as dead.
+            this.status.set(t('notebook.releaseOneFirst'), state);
             this.repaint();
             return;
         }
-        this.storeAdapter.selectComparisonRun(runId);
+        const result = this.storeAdapter.selectComparisonRun(runId);
+        // A refused selection is answered rather than dropped: `createStore` refuses every action with
+        // `progress-operation-active` while an export or import holds the lock, and a silent no-op there
+        // is indistinguishable from a dead control. `saveNote` already answers its refusals this way.
+        if (!result.ok) {
+            this.status.set(selectLocalizedError(state, result.error), state);
+            this.repaint();
+        }
     }
 
     private turnPage(direction: -1 | 1): void {
@@ -485,7 +538,17 @@ export class NotebookRenderer {
         // A draft belongs to the pair it was typed against. Changing the selection starts a new one
         // rather than carrying a sentence about two other observations over to these.
         this.noteDraftPairKey = pairKey;
-        this.noteDraft = selectComparisonNote(state)?.text ?? '';
+        // **Bounded on the way in, not only on the way in from the keyboard** (review 2026-08-07). The
+        // insert branch of `onKeyDown` enforces `NOTEBOOK_NOTE_MAX_LENGTH`; nothing bounded a note arriving
+        // from the record. `CaseRecordSchema` puts no `.max()` on note text, the reducer applies none, and
+        // the still-mounted DOM `NotebookPanel` writes it from a `<textarea>` with no `maxlength` and no
+        // newline restriction — so an imported or DOM-authored note of any length loaded straight into a
+        // 62 px field with no clipping, running through its rim and over the save and close controls to the
+        // panel floor. The player could not type but could backspace, so the field's own bound was
+        // unreachable from there. Newlines go too: this field cannot produce one, and the caret's line
+        // arithmetic multiplies by the count.
+        const stored = selectComparisonNote(state)?.text ?? '';
+        this.noteDraft = stored.replace(/\s*\n+\s*/g, ' ').slice(0, NOTEBOOK_NOTE_MAX_LENGTH);
     }
 
     private renderNote(state: AppState, t: Translator): void {
@@ -493,22 +556,52 @@ export class NotebookRenderer {
         this.noteHeading?.setText(t('notebook.note.label'));
         const empty = this.noteDraft.length === 0;
         const live = this.acceptsNoteKeys(state);
-        // The placeholder says what to do while there is no pair to do it about; once there is one,
-        // the field is live and an empty one shows only its caret.
-        this.noteText?.setText(empty && !live ? t('notebook.pairRequired') : empty ? '' : this.noteDraft)
-            .setColor(empty && !live ? '#7d959c' : '#f7f4ef');
+        /**
+         * Two different placeholders, because the field has two different empty states.
+         *
+         * With no pair chosen there is nothing to write about, so it says so. With a pair chosen and
+         * nothing typed yet, `notebook.note.empty` — *"Type your comparison here, then save it."* — is
+         * the invitation, and it was **authored in both locales and drawn by nothing**: this branch fell
+         * through to `''`, so a player who had just selected two observations faced a blank rimmed box
+         * with a caret and no statement of what it wanted. Meanwhile the typography sweep measured the
+         * dead key and measured `notebook.pairRequired` at the wrong font size (review 2026-08-07).
+         */
+        const placeholder = live ? t('notebook.note.empty') : t('notebook.pairRequired');
+        this.noteText?.setText(empty ? placeholder : this.noteDraft)
+            .setColor(empty ? '#7d959c' : '#f7f4ef');
         this.noteField?.setStrokeStyle(2, live ? NOTE_RIM_FOCUSED : PANEL_RIM);
-        // The caret follows the measured end of the last line, so it sits where the next character will.
         const text = this.noteText;
         this.noteCaret?.setVisible(live);
         if (live && text) {
-            const lines = (empty ? '' : this.noteDraft).split('\n');
-            const lastLine = lines[lines.length - 1] ?? '';
-            this.noteCaret?.setPosition(
-                text.x + (empty ? 0 : this.measureWidth(lastLine, text)),
-                text.y + ((lines.length - 1) * (NOTEBOOK_NOTE_FONT_SIZE + 4))
-            );
+            const { x, y } = this.caretOffset(empty ? '' : this.noteDraft, text);
+            this.noteCaret?.setPosition(text.x + x, text.y + y);
         }
+    }
+
+    /**
+     * Where the caret sits for a draft, in the field's own coordinates.
+     *
+     * **Soft wraps count** (review 2026-08-07). This used to split the draft on `\n` and measure the last
+     * piece — but the draft can never contain a `\n` (`Enter` saves and `event.key.length !== 1` rejects
+     * one), so `lines.length` was always 1, `measureWidth` saturated at `NOTEBOOK_NOTE_TEXT_WRAP`, and the
+     * caret parked at the right-hand edge of the first visual row while the text carried on two rows
+     * below. Wrapping is the normal case here, not the exception: the wrap is 896 px at 14 px — roughly
+     * 125 characters — against a 280-character bound.
+     *
+     * `Text.getWrappedText` is Phaser's own answer and gives the rows it will actually draw, so the caret
+     * is placed against the same wrapping the player sees rather than against a guess about it.
+     */
+    private caretOffset(draft: string, text: Phaser.GameObjects.Text): Readonly<{ x: number; y: number }> {
+        if (draft.length === 0) return { x: 0, y: 0 };
+        const rows = text.getWrappedText(draft);
+        // A field narrower than one character, or a Phaser build that declines to wrap, still gets a caret
+        // rather than a `NaN` position.
+        const lastRow = rows.length > 0 ? rows[rows.length - 1]! : draft;
+        const rowIndex = Math.max(0, rows.length - 1);
+        return {
+            x: this.measureWidth(lastRow, text),
+            y: rowIndex * (NOTEBOOK_NOTE_FONT_SIZE + 4)
+        };
     }
 
     /**

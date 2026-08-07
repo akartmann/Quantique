@@ -95,6 +95,9 @@ export const en = {
     'notebook.note.save': 'Save the comparison',
     'notebook.note.saved': 'Comparison note saved.',
     'notebook.pairRequired': 'Choose two saved observations to compare.',
+    // A third click needs its own answer: telling a player holding two to "choose two" is an instruction
+    // to do what they have just done, and it does not say which one to let go of.
+    'notebook.releaseOneFirst': 'Two are already chosen — release one first.',
     'notebook.close': 'Close the notebook',
 
     // --- In-scene advance affordance (Story 2.7) -------------------------------------------------

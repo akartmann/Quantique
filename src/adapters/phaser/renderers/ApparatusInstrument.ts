@@ -89,8 +89,16 @@ export type ApparatusInstrumentOptions = Readonly<{
      * reporting an unchanged value would mint a new frozen `AppState` on every one of them — which
      * re-renders every subscriber, restarts the transient-message lifetime clock (`transientMessage.ts`
      * keys on state object identity, and a new object clears the slot), and allocates in a hot path.
+     *
+     * **Returns whether the store committed the value**, and the instrument believes the answer rather
+     * than the request (review 2026-08-07). Treating "dispatched" as "committed" desynchronised the knob
+     * from the store on any refusal — `createStore` refuses *every* action with `progress-operation-active`
+     * while an export or import holds the exclusive lock, and a refused dispatch mints no new state, so no
+     * `render()` ever arrives to correct the instrument. It then stepped from a value the store did not
+     * hold, and turning the knob *back* was swallowed by the unchanged-value guard, leaving the control
+     * silently stuck.
      */
-    onValueChange: (value: number) => void;
+    onValueChange: (value: number) => boolean;
     /** The player has touched this instrument, so keyboard stepping should now reach it (D4). */
     onFocus: () => void;
 }>;
@@ -121,6 +129,26 @@ export class ApparatusInstrument {
     private readonly affordances: Readonly<{ surface: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text }>[] = [];
     private inputEnabled = true;
     private dragging = false;
+    /**
+     * Which pointer armed the drag.
+     *
+     * The move handler is on the scene (see the header), so without this it turned this knob for
+     * *whatever* pointer the scene handed it: on a touch surface a second finger anywhere on the bench
+     * rewrote the setup through the absolute arc, because the conversion reads a direction rather than a
+     * delta (review 2026-08-07).
+     */
+    private dragPointerId?: number;
+    /**
+     * Which step affordance the current press began on, so a release over one only steps if the press
+     * started there.
+     *
+     * Phaser dispatches an up-event by the current hit test rather than by where the down happened, and
+     * the affordances sit inside the knob's dead-zone quadrant directly beneath it — so a press on the
+     * knob body slid down onto `−` released *on the affordance* and applied a step on top of the drag
+     * (review 2026-08-07). Set on the affordance's own `pointerdown` and cleared by any other press,
+     * which makes this ordinary click semantics rather than a guess about event order.
+     */
+    private affordancePressed?: -1 | 1;
     /** The last value reported, so a drag across one detent reports once rather than once per frame. */
     private reportedValue?: number;
 
@@ -171,12 +199,15 @@ export class ApparatusInstrument {
         this.indicator = indicator;
 
         this.hitArea = this.scene.add.zone(centre.x, centre.y, KNOB_TRAVEL_RADIUS * 2, KNOB_TRAVEL_RADIUS * 2).setOrigin(0.5, 0.5);
-        this.hitArea.on('pointerdown', () => {
+        this.hitArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
             if (!this.inputEnabled) return;
             // Arming focuses, and focusing alone changes no value: a click that does not move must not
             // turn the knob, or a player reaching for the keyboard would nudge the setup to get there.
             this.options.onFocus();
             this.dragging = true;
+            this.dragPointerId = pointer.id;
+            // This press is not an affordance press, whatever it ends up over.
+            this.affordancePressed = undefined;
         });
 
         // On the scene, not on the knob: a pointer that leaves the body mid-turn keeps turning it.
@@ -193,8 +224,15 @@ export class ApparatusInstrument {
             const label = this.scene.add.text(affordanceCentre.x, affordanceCentre.y, '', uiTextStyle({
                 color: AFFORDANCE_LABEL, fontSize: `${STEP_AFFORDANCE_FONT_SIZE}px`, align: 'center'
             })).setOrigin(0.5, 0.5);
+            surface.on('pointerdown', () => {
+                if (!this.inputEnabled) return;
+                this.affordancePressed = direction;
+            });
             surface.on('pointerup', () => {
                 if (!this.inputEnabled) return;
+                // A release here that did not begin here is the end of a drag passing over, not a click.
+                if (this.affordancePressed !== direction) return;
+                this.affordancePressed = undefined;
                 this.options.onFocus();
                 // The same path the drag takes, which is what makes AC3's "identical run record" true
                 // by construction rather than by two code paths agreeing.
@@ -238,7 +276,11 @@ export class ApparatusInstrument {
      */
     public setInputEnabled(enabled: boolean): void {
         this.inputEnabled = enabled;
-        if (!enabled) this.dragging = false;
+        if (!enabled) {
+            this.dragging = false;
+            this.dragPointerId = undefined;
+            this.affordancePressed = undefined;
+        }
         this.applyInputState();
     }
 
@@ -256,32 +298,52 @@ export class ApparatusInstrument {
         this.hitArea = undefined;
         this.readout = undefined;
         this.dragging = false;
+        this.dragPointerId = undefined;
+        this.affordancePressed = undefined;
         this.reportedValue = undefined;
     }
 
     private readonly onPointerMove = (pointer: Phaser.Input.Pointer): void => {
         if (!this.dragging || !this.inputEnabled) return;
+        // Only the pointer that armed this drag turns this knob.
+        if (pointer.id !== this.dragPointerId) return;
         const centre = knobCentre(this.options.index);
         this.report(resolveKnobValueForPointer({
             control: this.options.control,
             dx: pointer.x - centre.x,
-            dy: pointer.y - centre.y
+            dy: pointer.y - centre.y,
+            // What the knob holds when the pointer carries no reading — in the dead zone or on the
+            // centre. Without it a dead-zone pointer chose an end and the value jumped there.
+            currentValue: this.currentValue()
         }));
     };
 
-    private readonly onPointerUp = (): void => {
+    private readonly onPointerUp = (pointer: Phaser.Input.Pointer): void => {
+        if (pointer.id !== this.dragPointerId) return;
         this.dragging = false;
+        this.dragPointerId = undefined;
     };
 
     private currentValue(): number {
         return this.reportedValue ?? this.options.control.defaultValue;
     }
 
-    /** Reports only a real change — see {@link ApparatusInstrumentOptions.onValueChange}. */
+    /**
+     * Reports only a real change, and only keeps it if the store took it.
+     *
+     * See {@link ApparatusInstrumentOptions.onValueChange} for why the refusal has to come back here:
+     * a refused dispatch mints no new state, so `render()` never arrives to correct a `reportedValue`
+     * written optimistically, and the instrument would step from a value the store does not hold.
+     */
     private report(value: number): void {
         if (value === this.reportedValue) return;
+        const previous = this.reportedValue;
         this.reportedValue = value;
-        this.options.onValueChange(value);
+        if (this.options.onValueChange(value)) return;
+        // Refused. Fall back to what we last knew to be true, and put the indicator back under the
+        // cursor's old position rather than leaving it where the refused request would have put it.
+        this.reportedValue = previous;
+        this.indicator?.setRotation(knobAngleForValue(this.options.control, this.currentValue()));
     }
 
     private applyInputState(): void {

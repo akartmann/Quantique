@@ -21,8 +21,35 @@ import type { Scene } from 'phaser';
 
 export type DrawnObject = Readonly<{
     kind: string;
-    /** Mutable on purpose: the fake writes these, and a test reads them after the fact. */
-    state: { alpha: number; visible: boolean; destroyed: boolean; text: string };
+    /**
+     * Mutable on purpose: the fake writes these, and a test reads them after the fact.
+     *
+     * `interactive` is recorded because the bench's whole lock/unlock behaviour is expressed through
+     * `setInteractive` / `disableInteractive`, and the permissive proxy below swallowed both — so "the
+     * bench is locked" and "the bench is usable" were indistinguishable to every test in this suite.
+     * That is what let a run stranded by a mid-flight reduced-motion toggle leave every control dead
+     * with an assertion still green (review 2026-08-07).
+     */
+    state: {
+        alpha: number;
+        visible: boolean;
+        destroyed: boolean;
+        text: string;
+        interactive: boolean;
+        blendMode?: string;
+        /**
+         * Drawing commands issued since the last `clear()`, which is how "nothing is painted here" is
+         * asserted (review 2026-08-07).
+         *
+         * AC4 says the source is dark, no wavefronts propagate and no pattern is on the screen. Every
+         * one of those is a `Graphics` that has been cleared and not refilled — and the permissive proxy
+         * swallowed `clear`, `fillStyle`, `fillTriangle` and the rest, so replacing the whole dark branch
+         * with `const dark = false` left 982 tests green. Counting the fill and stroke commands makes the
+         * unlit bench an assertion instead of a screenshot.
+         */
+        commands: number;
+        clears: number;
+    };
     /**
      * The pointer handlers the renderer attached to this object, so a test can press a control the
      * way a player does rather than reaching past it into the renderer's private methods.
@@ -30,10 +57,45 @@ export type DrawnObject = Readonly<{
     handlers: Map<string, (...args: unknown[]) => void>;
 }>;
 
+/**
+ * One registration on `scene.input` or `scene.input.keyboard`, kept whole.
+ *
+ * **Keyed by identity, not by event name** (review 2026-08-07). The fake used to hold one `Map` per
+ * target and `set(event, handler)`, so the *second* registration for an event silently replaced the
+ * first and `off(event)` deleted whatever was there regardless of which handler or context was passed.
+ * Production registers two `keydown` handlers on `scene.input.keyboard` — the bench's and the notebook's
+ * — and one `pointermove`, `pointerup` and `pointerupoutside` per instrument on `scene.input`. So the
+ * arrangement under test could not be represented, `expect(keyboardHandlers.size).toBe(0)` proved
+ * nothing about removal-by-identity, and `ApparatusInstrument`'s scene-level listeners had no coverage
+ * at all.
+ */
+export type SceneListener = Readonly<{ event: string; handler: (...args: never[]) => void; context?: unknown }>;
+
+/** The listeners registered for one event, in registration order. */
+const listenersFor = (all: SceneListener[], event: string): SceneListener[] =>
+    all.filter((listener) => listener.event === event);
+
 type Chainable = Record<string, (...args: unknown[]) => unknown>;
 
+/**
+ * The `Graphics` calls that put ink on the canvas.
+ *
+ * Enumerated rather than "anything not recognised", so a positioning or styling call (`setPosition`,
+ * `setOrigin`, `setDepth`, `setFontSize`) does not read as painting. Anything genuinely new that draws
+ * will simply not be counted, which fails an "is painted" assertion rather than passing an "is dark" one
+ * — the safe direction for this fake to be wrong in.
+ */
+const DRAWING_COMMANDS = new Set([
+    'fillStyle', 'lineStyle', 'fillRect', 'strokeRect', 'fillCircle', 'strokeCircle',
+    'fillTriangle', 'strokeTriangle', 'fillEllipse', 'fillRoundedRect', 'strokeRoundedRect',
+    'lineBetween', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'arc', 'strokePath', 'fillPath',
+    'fillPoints', 'strokePoints', 'strokeLineShape'
+]);
+
 const makeObject = (kind: string, log: DrawnObject[]) => {
-    const state = { alpha: 1, visible: true, destroyed: false, text: '' };
+    // `interactive` starts false: nothing Phaser creates is interactive until `setInteractive` is called,
+    // and starting it true would make a renderer that never armed a control look armed.
+    const state = { alpha: 1, visible: true, destroyed: false, text: '', interactive: false, commands: 0, clears: 0 };
     const handlers = new Map<string, (...args: unknown[]) => void>();
     log.push({ kind, state, handlers });
     const self: Chainable & { context: { measureText: (value: string) => { width: number } }; height: number; x: number; y: number } = {
@@ -49,12 +111,21 @@ const makeObject = (kind: string, log: DrawnObject[]) => {
         setAlpha: (value) => { state.alpha = value as number; return chain; },
         setVisible: (value) => { state.visible = value as boolean; return chain; },
         setText: (value) => { state.text = String(value); return chain; },
+        setInteractive: () => { state.interactive = true; return chain; },
+        disableInteractive: () => { state.interactive = false; return chain; },
+        setBlendMode: (value) => { (state as { blendMode?: string }).blendMode = String(value); return chain; },
+        // A cleared `Graphics` holds nothing until something is drawn into it again, which is exactly what
+        // the bench's unlit state is.
+        clear: () => { state.commands = 0; state.clears += 1; return chain; },
         on: (event, handler) => { handlers.set(event as string, handler as (...args: unknown[]) => void); return chain; },
         destroy: () => { state.destroyed = true; }
     };
     const chain: typeof self = new Proxy(self, {
         get: (target, property) => {
             if (property in target) return (target as Record<string | symbol, unknown>)[property];
+            if (typeof property === 'string' && DRAWING_COMMANDS.has(property)) {
+                return () => { state.commands += 1; return chain; };
+            }
             return () => chain;
         }
     });
@@ -68,11 +139,23 @@ export type SceneSlice = Readonly<{
     updateHandlers: ((time: number, delta: number) => void)[];
     /** Handlers passed to `scene.events.off('update')`, so teardown can be asserted. */
     removedUpdateHandlers: unknown[];
-    /** Handlers registered on `scene.input.keyboard`, by event name. */
-    keyboardHandlers: Map<string, (event: KeyboardEvent) => void>;
-    /** Handlers registered on `scene.input`, by event name. */
-    pointerHandlers: Map<string, (...args: unknown[]) => void>;
-    keyCaptures: unknown[];
+    /** Every live registration on `scene.input.keyboard`, in order, kept by identity. */
+    keyboardListeners: SceneListener[];
+    /** Every live registration on `scene.input`, in order, kept by identity. */
+    pointerListeners: SceneListener[];
+    /** Every keyboard handler currently registered for `event` — more than one is the normal case. */
+    keyboardHandlersFor: (event: string) => ((keyEvent: KeyboardEvent) => void)[];
+    /** Every pointer handler currently registered for `event`. */
+    pointerHandlersFor: (event: string) => ((...args: never[]) => void)[];
+    /**
+     * The key codes currently captured, as a set rather than a log of `addCapture` calls.
+     *
+     * Phaser's captures are global and `preventDefault` is driven off this list, so what a test needs to
+     * know is whether the capture is *held right now* — not how many times it was taken. The previous
+     * append-only log could not tell a capture that had been released from one that had not, and
+     * `removeCapture` was a no-op in the fake.
+     */
+    capturedKeys: () => string[];
     /** Advances the scene clock by `ms`, in frames the size a 60 FPS machine would deliver. */
     tick: (ms: number) => void;
     /** The text every drawn object currently holds, for asserting what the player reads. */
@@ -85,15 +168,31 @@ export type SceneSlice = Readonly<{
      * between testing the surface and testing the code behind it.
      */
     pressable: () => DrawnObject[];
+    /** Every drawn object of one kind, in creation order. */
+    ofKind: (kind: string) => DrawnObject[];
 }>;
 
 export const makeSceneSlice = (): SceneSlice => {
     const drawn: DrawnObject[] = [];
     const updateHandlers: ((time: number, delta: number) => void)[] = [];
     const removedUpdateHandlers: unknown[] = [];
-    const keyboardHandlers = new Map<string, (event: KeyboardEvent) => void>();
-    const pointerHandlers = new Map<string, (...args: unknown[]) => void>();
-    const keyCaptures: unknown[] = [];
+    const keyboardListeners: SceneListener[] = [];
+    const pointerListeners: SceneListener[] = [];
+    const captured = new Set<string>();
+
+    /**
+     * Removes by (event, handler, context) exactly as Phaser's `EventEmitter.off` does.
+     *
+     * Removing by event name alone is what made the old fake unable to see a leak: a renderer that
+     * removed the *wrong* listener, or that removed one and left its sibling behind, looked identical to
+     * one that cleaned up properly.
+     */
+    const removeListener = (all: SceneListener[], event: string, handler?: unknown, context?: unknown): void => {
+        const index = all.findIndex((listener) => listener.event === event
+            && (handler === undefined || listener.handler === handler)
+            && (context === undefined || listener.context === context));
+        if (index >= 0) all.splice(index, 1);
+    };
 
     const scene = {
         scale: { width: 1024, height: 768 },
@@ -116,13 +215,21 @@ export const makeSceneSlice = (): SceneSlice => {
             }
         },
         input: {
-            on: (event: string, handler: (...args: unknown[]) => void) => { pointerHandlers.set(event, handler); },
-            off: (event: string) => { pointerHandlers.delete(event); },
+            on: (event: string, handler: (...args: never[]) => void, context?: unknown) => {
+                pointerListeners.push({ event, handler, context });
+            },
+            off: (event: string, handler?: unknown, context?: unknown) => {
+                removeListener(pointerListeners, event, handler, context);
+            },
             keyboard: {
-                on: (event: string, handler: (keyEvent: KeyboardEvent) => void) => { keyboardHandlers.set(event, handler); },
-                off: (event: string) => { keyboardHandlers.delete(event); },
-                addCapture: (keys: unknown) => { keyCaptures.push(keys); },
-                removeCapture: () => undefined
+                on: (event: string, handler: (...args: never[]) => void, context?: unknown) => {
+                    keyboardListeners.push({ event, handler, context });
+                },
+                off: (event: string, handler?: unknown, context?: unknown) => {
+                    removeListener(keyboardListeners, event, handler, context);
+                },
+                addCapture: (keys: string[]) => { keys.forEach((key) => captured.add(key)); },
+                removeCapture: (keys: string[]) => { keys.forEach((key) => captured.delete(key)); }
             }
         },
         tweens: { add: () => undefined, killTweensOf: () => undefined },
@@ -134,9 +241,12 @@ export const makeSceneSlice = (): SceneSlice => {
         drawn,
         updateHandlers,
         removedUpdateHandlers,
-        keyboardHandlers,
-        pointerHandlers,
-        keyCaptures,
+        keyboardListeners,
+        pointerListeners,
+        keyboardHandlersFor: (event) => listenersFor(keyboardListeners, event)
+            .map(({ handler }) => handler as (keyEvent: KeyboardEvent) => void),
+        pointerHandlersFor: (event) => listenersFor(pointerListeners, event).map(({ handler }) => handler),
+        capturedKeys: () => [...captured],
         tick: (ms: number) => {
             let remaining = ms;
             while (remaining > 0 && updateHandlers.length > 0) {
@@ -146,7 +256,8 @@ export const makeSceneSlice = (): SceneSlice => {
             }
         },
         texts: () => drawn.map(({ state }) => state.text).filter((text) => text.length > 0),
-        pressable: () => drawn.filter(({ handlers }) => handlers.has('pointerup'))
+        pressable: () => drawn.filter(({ handlers }) => handlers.has('pointerup')),
+        ofKind: (kind: string) => drawn.filter((object) => object.kind === kind)
     };
 };
 

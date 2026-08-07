@@ -323,6 +323,25 @@ export const BENCH_MESSAGE_FONT_SIZE = 14;
 export const BENCH_MESSAGE_WRAP = BENCH_RIGHT - BENCH_LEFT;
 /** Between the bench message's measured top and the bottom of the result readout above it. */
 export const BENCH_MESSAGE_GAP = 8;
+/** Between the bottom of the result readout and the bench message under it. */
+export const RESULT_READOUT_GAP = 14;
+
+/**
+ * The ceiling the result readout and the bench message share: the first y they must not cross.
+ *
+ * **Derived, because the constant it replaces stopped being true** (review 2026-08-07). The readout used
+ * to shrink against a flat `RESULT_READOUT_MAX_HEIGHT = 96`, chosen when the readout's bottom was pinned
+ * at 564. Story 2.10 moved that bottom to {@link BENCH_MESSAGE_BOTTOM_Y} minus the *measured* height of
+ * a refusal — 114 px lower with no refusal standing, and lower still with one — but the 96 was not
+ * re-derived. The permitted top therefore moved up with it: 582 with no message against instrument
+ * readouts ending at 584 (two pixels), and roughly 538 behind a two-line French refusal, which is 46 px
+ * straight over both readouts. Bottom-anchoring a band that grows is right; bounding it by a constant
+ * measured against a different anchor is the "measure, never assume" defect seven previous reviews found.
+ *
+ * So the headroom is now the distance from this line down to wherever the readout's bottom has landed,
+ * and this line is where the instruments genuinely end.
+ */
+export const RESULT_READOUT_CEILING_Y = INSTRUMENT_READOUT_Y + INSTRUMENT_READOUT_HEIGHT + RESULT_READOUT_GAP;
 
 /** One named rectangle a bench object occupies, for the non-overlap invariant. */
 export type BenchBand = Readonly<{ name: string; left: number; right: number; top: number; bottom: number }>;
@@ -335,15 +354,21 @@ export type BenchBand = Readonly<{ name: string; left: number; right: number; to
  * every panel height while the assertions were green. A test that builds its own rectangles tests
  * arithmetic; this drives the numbers the renderer actually places against.
  *
- * The floor-bound bands take the canvas height rather than closing over 768, which is the same rule
- * `libraryGeometry.ts` follows (Story 2.8, AC7).
+ * **The bench is an absolute layout on the fixed design surface, and this function now says so**
+ * (review 2026-08-07). It used to take a canvas width and height: the width was ignored outright, and the
+ * height was used to floor-anchor the control row as `canvasHeight - (768 - BENCH_CONTROL_ROW_Y)` — while
+ * the renderer places that row at `BENCH_CONTROL_ROW_Y` itself. The two agreed only at the design height,
+ * so away from it every clearance this function reported was asserted about a rectangle nothing painted:
+ * the 2.9 fabricated-band defect, inside the function written to prevent it. It never bit, because
+ * `main.ts` configures `Scale.FIT` over a fixed 1024×768 surface and `scene.scale.height` is always 768 —
+ * which is precisely why taking a size and then not honouring it was a lie rather than a bug.
+ *
+ * Where a band genuinely *does* move, the argument comes back: `referenceShelfFloor` takes the hint's
+ * measured top, and `screenXForDistance` takes the authored throw. `libraryGeometry.ts` floor-anchors for
+ * real, because the reading room has a band that grows from the floor. The bench does not.
  */
-export const benchObjectBands = (
-    controls: readonly PrimaryControl[],
-    _canvasWidth: number,
-    canvasHeight: number
-): readonly BenchBand[] => {
-    const controlRowTop = canvasHeight - (768 - BENCH_CONTROL_ROW_Y);
+export const benchObjectBands = (controls: readonly PrimaryControl[]): readonly BenchBand[] => {
+    const controlRowTop = BENCH_CONTROL_ROW_Y;
     const instruments = controls.flatMap((control, index) => {
         const slotLeft = instrumentSlotLeft(index);
         const centre = knobCentre(index);
@@ -396,6 +421,26 @@ export const benchObjectBands = (
             right: NOTEBOOK_CONTROL_LEFT + NOTEBOOK_CONTROL_WIDTH,
             top: controlRowTop,
             bottom: controlRowTop + BENCH_CONTROL_HEIGHT
+        },
+        {
+            /**
+             * The region the result readout and the bench message share, and the band this sweep was
+             * missing (review 2026-08-07).
+             *
+             * Both are `Text` bottom-anchored into the gap above the control row, both grow *upward* with
+             * a longer French string, and neither had a band — so the all-pairs collision check could not
+             * see the two objects on this bench most likely to collide with something, which is how a
+             * readout permitted to reach y 582 against instrument readouts ending at y 584 shipped.
+             *
+             * A reservation rather than a measurement: their heights are known only at runtime, so what
+             * the geometry can state is the region they own. Nothing else may enter it, and the renderer
+             * shrinks the readout against {@link RESULT_READOUT_CEILING_Y} so nothing leaves it.
+             */
+            name: 'result readout and bench message',
+            left: BENCH_LEFT,
+            right: BENCH_LEFT + BENCH_MESSAGE_WRAP,
+            top: RESULT_READOUT_CEILING_Y,
+            bottom: BENCH_MESSAGE_BOTTOM_Y
         }
     ]);
 };
@@ -502,6 +547,18 @@ const notebookActionCentre = (left: number): Readonly<{ x: number; y: number }> 
 
 export const NOTEBOOK_SAVE_LEFT = NOTEBOOK_ROW_LEFT;
 export const NOTEBOOK_CLOSE_LEFT = NOTEBOOK_PANEL_X + NOTEBOOK_PANEL_WIDTH - NOTEBOOK_PADDING - NOTEBOOK_ACTION_WIDTH;
+
+/**
+ * The gap between the save and close controls, where a refusal or confirmation is written.
+ *
+ * Exported so `french-typography.spec.ts` measures the status line against the width it is actually
+ * given, rather than borrowing the note field's wider bound: a sweep that checks a looser bound than the
+ * surface has cannot see the wrap it exists to catch (review 2026-08-07). It was being computed inline in
+ * the renderer, which is the "spec and source share a number without sharing a constant" habit
+ * `designSurface.ts` and this file exist to end.
+ */
+export const NOTEBOOK_STATUS_TEXT_WRAP =
+    NOTEBOOK_CLOSE_LEFT - NOTEBOOK_SAVE_LEFT - NOTEBOOK_ACTION_WIDTH - 32;
 
 export const notebookSaveControlCentre = (): Readonly<{ x: number; y: number }> =>
     notebookActionCentre(NOTEBOOK_SAVE_LEFT);

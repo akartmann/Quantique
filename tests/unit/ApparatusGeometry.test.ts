@@ -16,7 +16,10 @@ import {
     HINT_BOTTOM_MARGIN,
     INSTRUMENT_READOUT_FONT_SIZE,
     INSTRUMENT_READOUT_WRAP,
+    INSTRUMENT_READOUT_HEIGHT,
     INSTRUMENT_READOUT_Y,
+    RESULT_READOUT_CEILING_Y,
+    RESULT_READOUT_GAP,
     INSTRUMENT_SLOT_WIDTH,
     KNOB_TRAVEL_RADIUS,
     NOTEBOOK_NOTE_MAX_LENGTH,
@@ -172,14 +175,14 @@ describe('the bench', () => {
         // SCREEN_LABEL_HEIGHT`; the bench must start below both, at every distance the screen can
         // reach. A bench band drawn over the pattern is the defect `ADVANCE_CONTROL_Y = 130` was.
         const apparatusFloor = Math.max(CENTRE_Y + SCREEN_HALF_HEIGHT, SCREEN_LABEL_Y + SCREEN_LABEL_HEIGHT);
-        const reaching = benchObjectBands(authoredControls(), DESIGN.width, DESIGN.height)
+        const reaching = benchObjectBands(authoredControls())
             .filter(({ top }) => top <= apparatusFloor)
             .map(({ name, top }) => `${name} starts at y=${top}, at or above the apparatus floor y=${apparatusFloor}`);
 
         expect(reaching).toEqual([]);
         // A guard on the sweep: an empty band list would make the assertion vacuous, which is how a
         // geometry test starts passing because the thing it protects moved out of it.
-        expect(benchObjectBands(authoredControls(), DESIGN.width, DESIGN.height).length).toBeGreaterThan(4);
+        expect(benchObjectBands(authoredControls()).length).toBeGreaterThan(4);
     });
 
     it('actually stands under the screen at the shortest throw, so the check above has a subject', () => {
@@ -207,7 +210,7 @@ describe('the bench', () => {
         expect(BENCH_RIGHT).toBeLessThan(SIDE_COLUMN_LEFT);
         expect(BENCH_LEFT).toBeGreaterThan(0);
 
-        const outside = benchObjectBands(authoredControls(), DESIGN.width, DESIGN.height)
+        const outside = benchObjectBands(authoredControls())
             .filter(({ left, right, bottom }) => left < BENCH_LEFT || right > BENCH_RIGHT || bottom > DESIGN.height)
             .map(({ name, left, right, bottom }) => `${name}: x ${left}–${right}, bottom ${bottom}`);
 
@@ -218,7 +221,7 @@ describe('the bench', () => {
         // Every band is measured against every other one. The bench is the densest surface in the
         // game and its objects are placed against constants, which is the exact combination the 1.11,
         // 1.12, 2.5, 2.6, 2.7, 2.8 and 2.9 reviews each found a defect in.
-        const bands = benchObjectBands(authoredControls(), DESIGN.width, DESIGN.height);
+        const bands = benchObjectBands(authoredControls());
         const collisions = bands.flatMap((first, index) => bands.slice(index + 1)
             .filter((second) => first.top < second.bottom && second.top < first.bottom
                 && first.left < second.right && second.left < first.right)
@@ -297,15 +300,56 @@ describe('the bench', () => {
         expect(START_CONTROL_LABEL_WRAP).toBeGreaterThan(0);
     });
 
-    it('reads the canvas size rather than closing over it', () => {
-        // The helpers take the surface as arguments (Story 2.8, AC7), so a spec supplies it from
-        // `designSurface.ts` and nothing here restates 1024×768. A taller canvas moves the floor-bound
-        // bands and leaves the top-bound ones where they are.
-        const tall = benchObjectBands(authoredControls(), DESIGN.width, DESIGN.height + 120);
-        const standard = benchObjectBands(authoredControls(), DESIGN.width, DESIGN.height);
+    /**
+     * The bench is an absolute layout on the design surface, and this pins that it fits it.
+     *
+     * `benchObjectBands` used to take a canvas width and height: the width was ignored, and the height
+     * floor-anchored the control row as `canvasHeight - (768 - BENCH_CONTROL_ROW_Y)` while the renderer
+     * placed that row at `BENCH_CONTROL_ROW_Y` itself. The two agreed only at 768, so away from it every
+     * clearance this suite reported was about a rectangle nothing painted — and the test that claimed to
+     * cover it asserted only that the band *names* matched and that nothing exceeded `height + 120`, both
+     * of which held identically if the height were ignored altogether. Nothing restates 1024×768: the
+     * surface comes from `designSurface.ts`, which is the rule that mattered in the original.
+     */
+    it('fits inside the design surface it is laid out against', () => {
+        const bands = benchObjectBands(authoredControls());
 
-        expect(tall.map(({ name }) => name)).toEqual(standard.map(({ name }) => name));
-        expect(tall.every(({ bottom }) => bottom <= DESIGN.height + 120)).toBe(true);
+        expect(bands.length).toBeGreaterThan(4);
+        expect(bands.every(({ bottom }) => bottom <= DESIGN.height)).toBe(true);
+        expect(bands.every(({ right }) => right <= DESIGN.width)).toBe(true);
+        // The renderer's own number for the row, not a recomputation of it.
+        const row = bands.filter(({ name }) => name === 'start the light' || name === 'the notebook control');
+        expect(row).toHaveLength(2);
+        row.forEach(({ top }) => expect(top).toBe(BENCH_CONTROL_ROW_Y));
+    });
+
+    /**
+     * The result readout and the bench message have a band, and it clears the instruments.
+     *
+     * Neither had one before this review, so the all-pairs sweep above — written for exactly this defect
+     * class — could not see the two objects on the bench most likely to collide with something: both are
+     * `Text`, both are bottom-anchored into the gap above the control row, and both grow *upward* with a
+     * longer French string. The readout was permitted to reach y 582 against instrument readouts ending at
+     * y 584, and roughly y 538 behind a two-line French refusal.
+     */
+    it('reserves the readout and refusal region below the instruments, with the ceiling derived', () => {
+        const bands = benchObjectBands(authoredControls());
+        const reserved = bands.find(({ name }) => name === 'result readout and bench message');
+        expect(reserved).toBeDefined();
+
+        // The ceiling is where the instrument readouts genuinely end, plus the stated gap — not a constant
+        // chosen against an anchor that has since moved.
+        expect(RESULT_READOUT_CEILING_Y).toBe(INSTRUMENT_READOUT_Y + INSTRUMENT_READOUT_HEIGHT + RESULT_READOUT_GAP);
+        expect(reserved!.top).toBe(RESULT_READOUT_CEILING_Y);
+        expect(reserved!.bottom).toBe(BENCH_MESSAGE_BOTTOM_Y);
+        // Below every instrument readout, and above the control row.
+        authoredControls().forEach((_control, index) => {
+            expect(reserved!.top).toBeGreaterThan(INSTRUMENT_READOUT_Y + INSTRUMENT_READOUT_HEIGHT - 1);
+            expect(instrumentSlotLeft(index)).toBeGreaterThanOrEqual(reserved!.left);
+        });
+        expect(reserved!.bottom).toBeLessThan(BENCH_CONTROL_ROW_Y);
+        // And there is genuinely room in it for a readout at its smallest permitted size plus a refusal.
+        expect(reserved!.bottom - reserved!.top).toBeGreaterThan(60);
     });
 });
 

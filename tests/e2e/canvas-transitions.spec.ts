@@ -15,7 +15,6 @@ import {
     knobCentre,
     notebookCloseControlCentre,
     notebookControlCentre,
-    notebookNoteFieldCentre,
     notebookSaveControlCentre,
     notebookSelectionCentre,
     startTheLightControlCentre
@@ -35,7 +34,7 @@ import {
     waitForBookToClose,
     waitForBookToOpen,
     waitForInputToSettle,
-    waitForRunToResolve,
+    startTheLightUntilRecorded,
     RUN_STEP_COST_MS
 } from './canvasHelpers';
 
@@ -85,23 +84,28 @@ import {
  */
 
 /**
- * The whole-case walk's own budget — the `canvas-transitions` decision Story 2.10 was asked to take.
+ * The whole-case walk's own budget — one of the three parts of the `canvas-transitions` decision Story
+ * 2.10 was asked to take.
  *
- * **Raised here, deliberately, rather than by capping `--workers` or splitting the spec**, and the
- * measurements are why. At the 2.9 review this spec exceeded the default 30s budget at
- * `--workers=9` and passed at 5; Story 2.10 then added two ~2.8s run animations to the same walk, a
- * notebook overlay, and a typed note. Re-measured at HEAD: the *other* load-sensitive failures in this
- * walk turned out not to be budget at all — they were fixed waits calibrated in frames, and
- * {@link dragDesignUntil} removed them. What is left is honest wall-clock: the walk genuinely takes
- * longer than 30s under nine parallel browsers because it genuinely does more.
+ * **This raise is not an alternative to the worker cap; both were applied, and each answers a different
+ * part of one problem** (corrected at review 2026-08-07 — this docstring used to argue against the cap
+ * that `playwright.config.ts` applies in the same commit, so two of the three records agreed and this one
+ * contradicted them). The measurement showed three problems wearing one name:
  *
- * Capping the workers would slow every spec in the suite to fix one, and it would be fixing the wrong
- * thing — the walk is not fragile now, it is long. Splitting it would break the one property it exists
- * to assert, which is that **every** transition is reachable in a single continuous walk.
+ * 1. **Not budget at all.** The walk's waits were calibrated in frames — Phaser processes pointer input
+ *    once per rendered frame — so every one of them stretched under load. {@link dragDesignUntil} and
+ *    {@link startTheLightUntilRecorded} replaced them with bounded retries on the thing the gesture was
+ *    supposed to achieve, which is why a lost drag or a swallowed press now fails where it happens.
+ * 2. **Genuine wall-clock, budgeted here.** Story 2.10 added two run animations, a notebook overlay and a
+ *    typed note to this walk. It does more, so it takes longer: the default plus what the two runs
+ *    actually cost, read from the renderer that runs them, plus the same allowance again for the rest of
+ *    the walk. Derived rather than rounded, so a change to the animation moves this with it.
+ * 3. **Contention, settled at suite level.** What remained after (1) and (2) is many browsers competing
+ *    for frames, which is a fact about the suite rather than about this spec — so it is answered in
+ *    `playwright.config.ts` by `workers: 5`, with the measurements recorded there.
  *
- * So: the default budget plus what the two runs actually cost, read from the renderer that runs them,
- * plus the same allowance again for the rest of the walk under load. Derived rather than rounded, so a
- * change to the animation moves this with it instead of silently eating the margin.
+ * Splitting the walk was the fourth option and remains the wrong one: the single continuous walk **is**
+ * the property this spec asserts.
  */
 test.setTimeout(30_000 + (4 * RUN_STEP_COST_MS));
 
@@ -179,16 +183,17 @@ test('takes every forward transition of the Young case from the canvas', async (
     // is varied on its own instrument. Two observations at **different** screen distances are what the
     // significant-measure gate asks for — `configurationKey` reads a repeat at one setting as a
     // replication, so pressing start twice would record two observations and leave the gate shut.
-    await clickDesign(page, START_THE_LIGHT);
-    await waitForRunToResolve(page);
+    // The press is **retried until the run is recorded**, for the same reason the drag below is: a press
+    // landing a frame before the bench is handed back reaches nothing, and the failure surfaces at the
+    // transition several steps later rather than here.
+    await startTheLightUntilRecorded(page, START_THE_LIGHT, 1);
     // The setting is **observed**, never driven, and it is what the retry waits on. A lost drag would
     // otherwise surface at the transition below as a routing error, because two observations at the
     // same setting are a replication and the gate correctly stays shut.
     await dragDesignUntil(page, knobCentre(SCREEN_DISTANCE_SLOT), SCREEN_DISTANCE_TRAVEL_END, async () => {
         await expect(page.getByLabel('Screen distance (m)')).toHaveValue(String(FURTHEST_THROW), { timeout: 1_500 });
     });
-    await clickDesign(page, START_THE_LIGHT);
-    await waitForRunToResolve(page);
+    await startTheLightUntilRecorded(page, START_THE_LIGHT, 2);
 
     // The comparison and its note are a **bench** act since Story 2.10 — the notebook is an overlay
     // over the laboratory, so it is opened here rather than from the theory board the DOM panel used
@@ -199,8 +204,11 @@ test('takes every forward transition of the Young case from the canvas', async (
     await waitForInputToSettle(page);
     await clickDesign(page, notebookSelectionCentre(1));
     await waitForInputToSettle(page);
-    await clickDesign(page, notebookNoteFieldCentre());
-    await waitForInputToSettle(page);
+    // **No click into the note field.** It is deliberately not interactive — `applyVisibility` states so
+    // in as many words — because there is no cursor on a canvas to invite one, so the field takes keys
+    // from the moment a pair is selected. The click here landed on the interactive backdrop, which
+    // swallowed it: an inert step that asserted nothing and made the walk read as though a click were
+    // required (review 2026-08-07).
     // Deliberately short. The reducer only refuses a *blank* note, and what this walk is proving is
     // that the intent is canvas-dispatchable at all; the note's content is
     // `young-canvas-experiment.spec.ts`'s subject, and every character here is a keystroke through

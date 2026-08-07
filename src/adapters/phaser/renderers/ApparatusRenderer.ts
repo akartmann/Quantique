@@ -30,6 +30,8 @@ import {
     BENCH_MESSAGE_BOTTOM_Y,
     BENCH_MESSAGE_FONT_SIZE,
     BENCH_MESSAGE_GAP,
+    RESULT_READOUT_CEILING_Y,
+    RESULT_READOUT_GAP,
     BENCH_MESSAGE_WRAP,
     CENTRE_Y,
     HINT_BOTTOM_MARGIN,
@@ -71,12 +73,8 @@ const FRINGE_ROW_STEP = 2;
 const WAVEFRONT_RINGS = 6;
 const WAVEFRONT_PERIOD_MS = 2600;
 
-/** Clearance between the bottom of the result readout and the bench message under it. */
-const RESULT_READOUT_GAP = 14;
 const MAX_RESULT_FONT_SIZE = 19;
 const MIN_RESULT_FONT_SIZE = 15;
-/** Headroom above the readout before it would reach the instruments and the chooser above. */
-const RESULT_READOUT_MAX_HEIGHT = 96;
 
 /**
  * The run's three acts, in wall-clock milliseconds (Story 2.10, AC5).
@@ -209,6 +207,15 @@ export class ApparatusRenderer {
      */
     private focusedControlId?: PrimaryControl['id'];
     /**
+     * Whether the arrow-key capture is currently held.
+     *
+     * Tracked rather than inferred because `addCapture`/`removeCapture` are global and idempotent-looking
+     * but not free, and because the capture must be released exactly as often as it is taken.
+     */
+    private arrowKeysCaptured = false;
+    /** What `updatePhoneReadOnlyMode` last decided; the one fact `benchInteractive()` reads. */
+    private benchInputEnabled = false;
+    /**
      * Whether the light is crossing the bench right now.
      *
      * The single fact the animation loop, the input lock and the readout all read. It is ephemeral and
@@ -284,7 +291,17 @@ export class ApparatusRenderer {
         this.motionAllowed = !this.reducedMotionQuery.matches;
         // Turning `reduce` on mid-run resolves the run immediately rather than stranding it: the
         // record is already made, and the frame the loop was travelling toward is the one to paint.
-        if (!this.motionAllowed && this.runInFlight) this.settleRun();
+        if (!this.motionAllowed && this.runInFlight) {
+            this.settleRun();
+            // **Re-render, exactly as `onUpdate` does when the run resolves on its own**
+            // (review 2026-08-07). `settleRun` writes `runInFlight` and detaches the loop; it does not
+            // decide input state, the start label or the readout's visibility — `render` is the one place
+            // that decides each of them, and this was the only settle path that skipped it. The bench
+            // stayed fully locked with the start control reading "Light running…" and the result hidden,
+            // and nothing on the bench could produce the dispatch that would have unlocked it.
+            this.render(this.storeAdapter.getState());
+            return;
+        }
         this.syncAnimationLoop();
         this.paintLight();
     };
@@ -333,6 +350,22 @@ export class ApparatusRenderer {
         // paints the resolved frame directly (AC9).
         this.reducedMotionQuery.addEventListener('change', this.onReducedMotionChange);
         this.scene.input.keyboard?.on('keydown', this.onKeyDown, this);
+        this.adoptRecordedHistory();
+    }
+
+    /**
+     * Takes whatever is already recorded as history, so the first `render()` cannot mistake it for a press.
+     *
+     * The bench is built from a state that may already carry runs — `main.ts` boots through
+     * `createAppStateFromCaseRecord`, which restores `runs` alongside the phase, and an import replaces
+     * the whole record while the scene is live. Those runs are facts the player made earlier; only a run
+     * that appears *after* this line is an ignition. Doing it here rather than with a "have I rendered
+     * yet" flag keeps the rule in one place and keeps `render` free of a second kind of first-time state
+     * (review 2026-08-07).
+     */
+    private adoptRecordedHistory(): void {
+        const runs = this.storeAdapter.getState().runs;
+        this.lastRunId = runs[runs.length - 1]?.id;
     }
 
     public render(state: AppState): void {
@@ -352,8 +385,23 @@ export class ApparatusRenderer {
 
         // AC5: the ignition is triggered by the recorded fact, never by the press — so the animation is
         // driven by what was saved rather than racing it, and a refusal has no spectacle to unwind.
-        if (latest && latest.id !== this.lastRunId) this.beginRun();
+        //
+        // **`isNewRun` means "recorded since this bench was built"**, which `create()` establishes by
+        // adopting whatever was already there — see {@link adoptRecordedHistory} (review 2026-08-07).
+        // `lastRunId` used to start `undefined`, so the bare comparison also fired on the *first* render,
+        // and `main.ts` boots from the persisted record, which restores `runs` along with the phase. A
+        // player reloading mid-investigation arrived at a bench that ignited, propagated and locked every
+        // control for 2.4 s for a run they had recorded in a previous session: ADR-012's loop gated on
+        // scene lifecycle rather than on a player-initiated run, and AC4's dark idle broken on arrival.
+        //
+        // `modelInputs` is the second half. It is optional on `RunRecord` and a legacy or imported record
+        // may carry none; `recordedSpacingMm` below already requires it, so a run without one animated a
+        // full ignition that resolved onto a `fringeGraphics` nothing had filled — an empty screen at the
+        // end of a locked 2.4 s. The two facts now derive from one condition instead of disagreeing.
+        //
+        const isNewRun = latest !== undefined && latest.id !== this.lastRunId && latest.modelInputs !== undefined;
         this.lastRunId = latest?.id;
+        if (isNewRun) this.beginRun();
 
         // AC6: the recorded value only paints while it still describes the bench in front of the
         // player. `latestMatchesActiveSetup` is the same condition the stale readout uses — one rule.
@@ -397,7 +445,7 @@ export class ApparatusRenderer {
         this.hintBackground = undefined; this.hintSpeaker = undefined; this.hintLine = undefined;
         this.referenceHeading = undefined; this.referenceShelfFills = undefined; this.referenceControls.length = 0; this.hintPanelTop = undefined;
         this.advanceRefused = false; this.transientError.clear(); this.benchError.clear();
-        this.focusedControlId = undefined;
+        this.focusedControlId = undefined; this.arrowKeysCaptured = false; this.benchInputEnabled = false;
         this.runInFlight = false; this.runElapsedMs = 0; this.recordedSpacingMm = undefined;
         this.lastRunId = undefined; this.fringeSignature = '';
     }
@@ -417,7 +465,14 @@ export class ApparatusRenderer {
                 index,
                 control,
                 // The renderer never mutates state: the instrument reports, this dispatches (AC2).
-                onValueChange: (value) => { this.storeAdapter.setControlValue(control.id, value); },
+                // The refusal goes back to the instrument so it can drop the value it optimistically
+                // recorded, and to the player so a control that declined is not indistinguishable from
+                // a dead one.
+                onValueChange: (value) => {
+                    const result = this.storeAdapter.setControlValue(control.id, value);
+                    if (!result.ok) this.refuse(result.error);
+                    return result.ok;
+                },
                 onFocus: () => this.focusInstrument(control.id)
             });
             instrument.create();
@@ -521,8 +576,20 @@ export class ApparatusRenderer {
         this.refuse(result.error);
     }
 
+    /**
+     * Chooses an authored wavelength, and does nothing at all for the one already selected.
+     *
+     * **The equality guard is load-bearing, not an optimization** (review 2026-08-07).
+     * `reduceWavelengthSet` short-circuits 550 nm to an unconditional success that mints a new frozen
+     * state and clears `consultation`, `peerReview` and `rivalLabCritique` — so a click on the chip that
+     * is *already* selected discarded a live colleague consultation and, because `transientMessage.ts`
+     * anchors on state object identity, expired both message slots. The player lost the hint or the
+     * refusal they were reading to a click that changed nothing. `NotebookRenderer.toggleSelection`
+     * checks the same way before touching the comparison; this is that rule applied here.
+     */
     private chooseWavelength(wavelengthNm: 450 | 550 | 650): void {
         if (!this.benchInteractive()) return;
+        if (this.storeAdapter.getState().selectedWavelengthNm === wavelengthNm) return;
         const result = this.storeAdapter.setWavelength(wavelengthNm);
         if (result.ok) return;
         this.refuse(result.error);
@@ -539,11 +606,39 @@ export class ApparatusRenderer {
     private focusInstrument(controlId: PrimaryControl['id']): void {
         if (this.focusedControlId === controlId) return;
         this.focusedControlId = controlId;
-        // Capturing the arrows stops the page scrolling under the canvas, which is right while an
-        // instrument is focused and wrong otherwise — so the capture follows the focus rather than
-        // being taken for the whole session.
-        this.scene.input.keyboard?.addCapture(ARROW_KEY_CAPTURE);
+        this.syncArrowCapture();
         this.render(this.storeAdapter.getState());
+    }
+
+    /**
+     * Gives up the focus, and with it the arrow keys.
+     *
+     * Called whenever the bench stops owning the keyboard — the notebook overlay or the reference book
+     * opening, a run starting, the phone gate closing the bench. Without it the focus ring stayed lit on
+     * an instrument the player had left and the arrow keys kept stepping it from anywhere on the surface.
+     */
+    private blurInstrument(): void {
+        if (this.focusedControlId === undefined) return;
+        this.focusedControlId = undefined;
+        this.syncArrowCapture();
+    }
+
+    /**
+     * Holds the arrow-key capture exactly as long as an instrument is focused and can be stepped.
+     *
+     * **Phaser's captures are global** (`KeyboardManager`: *"keyboard captures are global"*), and
+     * `preventDefault` is called only for key codes in that list — so this is the difference between the
+     * page scrolling under the canvas and not. Taken on focus and released only in `destroy()`, it
+     * swallowed the arrow keys for the rest of the scene's life after one knob click, including while
+     * the notebook overlay owned the keyboard: the state Task 3 calls "wrong otherwise"
+     * (review 2026-08-07). Driven from one place so the capture cannot outlive its reason.
+     */
+    private syncArrowCapture(): void {
+        const wanted = this.focusedControlId !== undefined && this.benchInteractive();
+        if (wanted === this.arrowKeysCaptured) return;
+        this.arrowKeysCaptured = wanted;
+        if (wanted) this.scene.input.keyboard?.addCapture(ARROW_KEY_CAPTURE);
+        else this.scene.input.keyboard?.removeCapture(ARROW_KEY_CAPTURE);
     }
 
     /**
@@ -563,9 +658,18 @@ export class ApparatusRenderer {
         this.instruments.get(this.focusedControlId)?.step(direction);
     };
 
-    /** Whether the bench accepts input at all: not suppressed, not on a phone, not mid-run. */
+    /**
+     * Whether the bench accepts input at all: not suppressed, not on a phone, not mid-run.
+     *
+     * Reads the flag `updatePhoneReadOnlyMode` last computed rather than asking `matchMedia` again
+     * (review 2026-08-07). Two copies of the sub-768 px rule meant a change to one would not reach the
+     * other — Task 3 asks for one `inputMode` field checked in one place — and it put a DOM read on every
+     * keydown and every start or wavelength press, in a file §Performance holds to no DOM work in a
+     * render path. `updatePhoneReadOnlyMode` already runs on `create()`, on every `render()`, on
+     * `setInputEnabled` and on `resize`, which is every moment the answer can change.
+     */
     private benchInteractive(): boolean {
-        return this.inputEnabled && !this.runInFlight && !window.matchMedia('(max-width: 767px)').matches;
+        return this.benchInputEnabled;
     }
 
     // --- The run --------------------------------------------------------------------------------
@@ -675,12 +779,20 @@ export class ApparatusRenderer {
      * costs one measurement and no reflow; the shrink loop only runs for a string long enough to reach
      * the instruments above, which is the same mechanism {@link LectureBookRenderer} uses for its
      * authored leaves. Called on state change, never per frame.
+     *
+     * **The headroom is measured from where the readout's bottom actually landed**, not against a
+     * constant (review 2026-08-07). The bottom moves with the refusal beneath it — `BENCH_MESSAGE_BOTTOM_Y`
+     * minus a *measured* message — so a fixed maximum height meant the permitted top moved up with it,
+     * to 582 with no message against instrument readouts ending at 584, and to roughly 538 behind a
+     * two-line French refusal. {@link RESULT_READOUT_CEILING_Y} is where the instruments genuinely end,
+     * so the two now derive from one number and the geometry test's non-overlap sweep covers the pair.
      */
     private fitResultReadout(): void {
         const readout = this.resultReadout;
         if (!readout) return;
+        const headroom = this.resultReadoutBottomY - RESULT_READOUT_CEILING_Y;
         readout.setFontSize(MAX_RESULT_FONT_SIZE);
-        for (let fontSize = MAX_RESULT_FONT_SIZE; fontSize > MIN_RESULT_FONT_SIZE && readout.height > RESULT_READOUT_MAX_HEIGHT; fontSize -= 1) {
+        for (let fontSize = MAX_RESULT_FONT_SIZE; fontSize > MIN_RESULT_FONT_SIZE && readout.height > headroom; fontSize -= 1) {
             readout.setFontSize(fontSize - 1);
         }
         readout.setY(this.resultReadoutBottomY);
@@ -1069,6 +1181,13 @@ export class ApparatusRenderer {
     private readonly updatePhoneReadOnlyMode = (): void => {
         const enabled = this.inputEnabled && !window.matchMedia('(max-width: 767px)').matches;
         const benchEnabled = enabled && !this.runInFlight;
+        // The single fact every other guard on this surface reads, so the rule is decided once here
+        // rather than re-derived wherever it is needed.
+        this.benchInputEnabled = benchEnabled;
+        // A bench that has stopped accepting input has no business holding the focus ring or the global
+        // arrow-key capture. Ordered after the flag because it reads it.
+        if (!benchEnabled) this.blurInstrument();
+        else this.syncArrowCapture();
         this.instruments.forEach((instrument) => instrument.setInputEnabled(benchEnabled));
         this.wavelengthChooser?.setInputEnabled(benchEnabled);
         if (benchEnabled) {

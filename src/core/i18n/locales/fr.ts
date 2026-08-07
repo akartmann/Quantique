@@ -70,6 +70,7 @@ export const fr: Record<TranslationKey, string> = {
     'notebook.note.save': 'Enregistrer la comparaison',
     'notebook.note.saved': 'Note de comparaison enregistrée.',
     'notebook.pairRequired': 'Choisissez deux observations enregistrées à comparer.',
+    'notebook.releaseOneFirst': 'Deux sont déjà choisies : retirez-en une.',
     'notebook.close': 'Fermer le carnet',
 
     // --- In-scene advance affordance (Story 2.7) -------------------------------------------------
