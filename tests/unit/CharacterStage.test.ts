@@ -10,6 +10,7 @@ import {
     SPEAKER_ALPHA,
     SPEAKER_LIFT,
     figureLabelHeight,
+    resolveCharacterStage,
     type StageCastMember
 } from '../../src/adapters/phaser/renderers/characterStageView';
 import { garmentTones, resolveFigureAppearance } from '../../src/adapters/phaser/renderers/figureAppearance';
@@ -65,6 +66,18 @@ type FakeText = {
     destroy: () => void;
 };
 
+type FakeImage = {
+    textureKey: string;
+    x: number; y: number; scaleX: number; scaleY: number; alpha: number; visible: boolean; destroyed: boolean;
+    originX: number; originY: number;
+    setOrigin: (x: number, y: number) => FakeImage;
+    setPosition: (x: number, y: number) => FakeImage;
+    setScale: (x: number, y?: number) => FakeImage;
+    setAlpha: (value: number) => FakeImage;
+    setVisible: (value: boolean) => FakeImage;
+    destroy: () => void;
+};
+
 type TweenConfig = { targets: unknown; x?: number; y?: number; scale?: number; alpha?: number; duration?: number };
 
 /** Coordinates to the nearest pixel: sub-pixel drift is not a difference anyone can see. */
@@ -103,6 +116,21 @@ const makeText = (initial = ''): FakeText => {
     return self;
 };
 
+const makeImage = (textureKey: string): FakeImage => {
+    const self: FakeImage = {
+        textureKey,
+        x: 0, y: 0, scaleX: 1, scaleY: 1, alpha: 1, visible: true, destroyed: false,
+        originX: 0.5, originY: 0.5,
+        setOrigin: (x, y) => { self.originX = x; self.originY = y; return self; },
+        setPosition: (x, y) => { self.x = x; self.y = y; return self; },
+        setScale: (x, y = x) => { self.scaleX = x; self.scaleY = y; return self; },
+        setAlpha: (value) => { self.alpha = value; return self; },
+        setVisible: (value) => { self.visible = value; return self; },
+        destroy: () => { self.destroyed = true; }
+    };
+    return self;
+};
+
 const CAST: readonly StageCastMember[] = [
     { colleagueId: 'thea-young', accentColor: 0xc9a227, name: 'Dr. Thea Young', roleLabel: 'Lead' },
     { colleagueId: 'elias-wren', accentColor: 0x4f8a8b, name: 'Elias Wren', roleLabel: 'Instrument maker' }
@@ -126,8 +154,12 @@ const RIVAL_BAND = { top: 78, height: RIVAL_FIGURE_MAX_HEIGHT + figureLabelHeigh
 let mediaListeners: (() => void)[] = [];
 let prefersReduce = false;
 
-const mount = (build: 'colleague' | 'rival' = 'colleague') => {
+const mount = (
+    build: 'colleague' | 'rival' = 'colleague',
+    loadedTextureKeys: readonly string[] = []
+) => {
     const graphics: FakeGraphics[] = [];
+    const images: FakeImage[] = [];
     const texts: FakeText[] = [];
     const tweens: TweenConfig[] = [];
     const killed: unknown[] = [];
@@ -135,7 +167,15 @@ const mount = (build: 'colleague' | 'rival' = 'colleague') => {
     const scene = {
         add: {
             graphics: () => { const g = makeGraphics(); graphics.push(g); return g; },
+            image: (_x: number, _y: number, textureKey: string) => {
+                const sprite = makeImage(textureKey);
+                images.push(sprite);
+                return sprite;
+            },
             text: (_x: number, _y: number, content: string) => { const text = makeText(content); texts.push(text); return text; }
+        },
+        textures: {
+            exists: (textureKey: string) => loadedTextureKeys.includes(textureKey)
         },
         tweens: {
             add: (config: TweenConfig) => { tweens.push(config); return config; },
@@ -147,9 +187,9 @@ const mount = (build: 'colleague' | 'rival' = 'colleague') => {
     // here would let the class lose its own default and the suite would never notice, which is half of
     // how the rival came to be drawn at 24% of his space in the first place.
     const subject = new CharacterStage(scene, { build });
-    // Creation order per figure: graphics, name, role, badge.
+    // Creation order per figure: visual, name, role, badge.
     return {
-        stage: subject, graphics, texts, tweens, killed,
+        stage: subject, graphics, images, texts, tweens, killed,
         name: (i: number) => texts[i * 3]!,
         role: (i: number) => texts[(i * 3) + 1]!,
         badge: (i: number) => texts[(i * 3) + 2]!
@@ -238,6 +278,107 @@ describe('CharacterStage under prefers-reduced-motion: reduce', () => {
 });
 
 describe('CharacterStage staging', () => {
+    const portraitCast = (portraitTextureKey: string): readonly StageCastMember[] => [{
+        colleagueId: 'thea-young',
+        accentColor: 0xc9a227,
+        name: 'Dr. Thea Young',
+        roleLabel: 'Lead',
+        portraitTextureKey
+    }];
+
+    it('creates a loaded portrait at its visible feet baseline with one uniform scale', () => {
+        prefersReduce = true;
+        const textureKey = 'case:young-interference:thea-young-portrait';
+        const cast = portraitCast(textureKey);
+        const ui = mount('colleague', [textureKey]);
+        ui.stage.create(cast);
+
+        ui.stage.render(stage({ cast, speakerColleagueId: 'thea-young' }));
+
+        expect(ui.images).toHaveLength(1);
+        expect(ui.graphics).toHaveLength(0);
+        expect(ui.images[0]!.textureKey).toBe(textureKey);
+        // The normalized canvas is 768px high and its shared exclusive feet baseline is y=720.
+        expect([ui.images[0]!.originX, ui.images[0]!.originY]).toEqual([0.5, 720 / 768]);
+        expect(ui.images[0]!.scaleX).toBe(ui.images[0]!.scaleY);
+        // The visible subject is 680px high and the full-height colleague slot is 230px high. Canvas
+        // padding must not make the person smaller, and independent x/y fitting must not stretch them.
+        expect(ui.images[0]!.scaleX).toBeCloseTo(230 / 680, 10);
+        expect(ui.images[0]!.y).toBe(resolveCharacterStage({
+            cast, speakerColleagueId: 'thea-young', band: BAND, area: AREA, motionAllowed: false
+        }).figures[0]!.y - SPEAKER_LIFT);
+    });
+
+    it('paints the vector fallback when a named portrait texture is unavailable', () => {
+        const textureKey = 'case:young-interference:thea-young-portrait';
+        const cast = portraitCast(textureKey);
+        const ui = mount();
+
+        expect(() => ui.stage.create(cast)).not.toThrow();
+
+        expect(ui.images).toHaveLength(0);
+        expect(ui.graphics).toHaveLength(1);
+        expect(ui.graphics[0]!.fills).toBeGreaterThan(0);
+    });
+
+    it('applies the same reduced-motion visibility and emphasis targets to a portrait', () => {
+        prefersReduce = true;
+        const textureKey = 'case:young-interference:thea-young-portrait';
+        const cast = portraitCast(textureKey);
+        const ui = mount('colleague', [textureKey]);
+        ui.stage.create(cast);
+
+        ui.stage.render(stage({ cast, speakerColleagueId: 'thea-young' }));
+        expect(ui.tweens).toHaveLength(0);
+        expect(ui.images[0]!.alpha).toBe(SPEAKER_ALPHA);
+
+        ui.stage.render({ band: { top: 120, height: 50 }, area: AREA, cast, t });
+        expect(ui.images[0]!.visible).toBe(false);
+    });
+
+    it('tweens a portrait to the exact frame the reduced-motion path writes', () => {
+        const textureKey = 'case:young-interference:thea-young-portrait';
+        const cast = portraitCast(textureKey);
+
+        prefersReduce = true;
+        const still = mount('colleague', [textureKey]);
+        still.stage.create(cast);
+        still.stage.render(stage({ cast, speakerColleagueId: 'thea-young' }));
+
+        prefersReduce = false;
+        const moving = mount('colleague', [textureKey]);
+        moving.stage.create(cast);
+        moving.stage.render(stage({ cast, speakerColleagueId: 'thea-young' }));
+
+        expect(moving.tweens).toHaveLength(1);
+        expect(moving.tweens[0]).toMatchObject({
+            targets: moving.images[0],
+            x: still.images[0]!.x,
+            y: still.images[0]!.y,
+            scale: still.images[0]!.scaleX,
+            alpha: still.images[0]!.alpha,
+            duration: EMPHASIS_TWEEN_MS
+        });
+    });
+
+    it('rebuilds the visual when a cast member portrait texture key changes', () => {
+        prefersReduce = true;
+        const firstKey = 'case:young-interference:thea-young-portrait';
+        const secondKey = 'case:later-case:thea-young-portrait';
+        const firstCast = portraitCast(firstKey);
+        const secondCast = portraitCast(secondKey);
+        const ui = mount('colleague', [firstKey, secondKey]);
+        ui.stage.create(firstCast);
+        const firstImage = ui.images[0]!;
+
+        ui.stage.render(stage({ cast: secondCast }));
+
+        expect(firstImage.destroyed).toBe(true);
+        expect(ui.killed).toContain(firstImage);
+        expect(ui.images.map(({ textureKey }) => textureKey)).toEqual([firstKey, secondKey]);
+        expect(ui.images[1]!.visible).toBe(true);
+    });
+
     it('lifts the speaker clear of the floor line the others stand on', () => {
         prefersReduce = true;
         const ui = mount();
@@ -417,6 +558,21 @@ describe('CharacterStage staging', () => {
 });
 
 describe('CharacterStage.destroy', () => {
+    it('releases a loaded portrait and kills its tweens', () => {
+        const textureKey = 'case:young-interference:thea-young-portrait';
+        const cast: readonly StageCastMember[] = [{
+            colleagueId: 'thea-young', accentColor: 0xc9a227, name: 'Dr. Thea Young', roleLabel: 'Lead', portraitTextureKey: textureKey
+        }];
+        const ui = mount('colleague', [textureKey]);
+        ui.stage.create(cast);
+        ui.stage.render(stage({ cast, speakerColleagueId: 'thea-young' }));
+
+        ui.stage.destroy();
+
+        expect(ui.images[0]!.destroyed).toBe(true);
+        expect(ui.killed).toContain(ui.images[0]);
+    });
+
     /**
      * AC6 in full: every object, tween and listener, **including tweens whose target is the renderer
      * itself**. That last one is called out because it is the case this codebase has already been

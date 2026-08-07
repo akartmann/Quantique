@@ -65,6 +65,8 @@ export type StageCastMember = Readonly<{
     accentColor: number;
     name: string;
     roleLabel: string;
+    /** Case-namespaced Phaser texture key. Omitted when this member is vector-only. */
+    portraitTextureKey?: string;
     /**
      * How this person is built, posed and groomed — resolved by the caller through
      * `resolveFigureAppearance`, which is what stops the four figures from being one silhouette

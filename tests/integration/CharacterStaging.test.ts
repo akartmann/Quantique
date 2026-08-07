@@ -10,7 +10,12 @@ import {
     type StageCastMember
 } from '../../src/adapters/phaser/renderers/characterStageView';
 import { createTranslator, translate } from '../../src/core/i18n/translate';
-import { boardProposerIds, resolveStageCast } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import {
+    boardProposerIds,
+    resolveSpeakerAccents,
+    resolveStageCast
+} from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import { resolveRivalStageCast } from '../../src/adapters/phaser/renderers/RivalLabRenderer';
 import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore, type AppStore } from '../../src/core/store/createStore';
 import {
@@ -108,6 +113,7 @@ const boardCast = (store: AppStore, kind: 'prediction' | 'conclusion'): readonly
     const scene = state.caseDefinition.scenarioScript.scenes.find(({ phase }) => phase === selectCasePhase(state));
 
     return resolveStageCast({
+        caseId: state.caseDefinition.id,
         colleagues: selectColleagues(state),
         proposerIds: boardProposerIds(state.caseDefinition, kind),
         speakerIds: (scene?.dialogueBeats ?? []).map(({ speakerId }) => speakerId),
@@ -246,6 +252,29 @@ describe('the row is ordered by proposal, and carries the authored identity', ()
             });
         });
     });
+
+    it('projects each asset portrait as a case-namespaced texture with its authored accent and figure fallback', () => {
+        const store = advanceTo(storeAt(), 'prediction');
+        const cast = boardCast(store, 'prediction');
+
+        expect(cast.map(({ colleagueId, portraitTextureKey }) => ({ colleagueId, portraitTextureKey }))).toEqual([
+            { colleagueId: 'thea-young', portraitTextureKey: 'case:young-interference:thea-young-portrait' },
+            { colleagueId: 'elias-wren', portraitTextureKey: 'case:young-interference:elias-wren-portrait' },
+            { colleagueId: 'marianne-cole', portraitTextureKey: 'case:young-interference:marianne-cole-portrait' },
+            { colleagueId: 'samuel-hart', portraitTextureKey: 'case:young-interference:samuel-hart-portrait' }
+        ]);
+        expect(cast.map(({ accentColor }) => accentColor)).toEqual([0xc9a227, 0x4f8a8b, 0x9c6b98, 0xb8653f]);
+        expect(cast.every(({ appearance }) => appearance !== undefined)).toBe(true);
+    });
+
+    it('keeps asset portrait accents available to dialogue speakers', () => {
+        expect(resolveSpeakerAccents(definition.colleagues)).toEqual({
+            'thea-young': '#c9a227',
+            'elias-wren': '#4f8a8b',
+            'marianne-cole': '#9c6b98',
+            'samuel-hart': '#b8653f'
+        });
+    });
 });
 
 describe('the rival is not one of the cast (AC4)', () => {
@@ -255,6 +284,22 @@ describe('the rival is not one of the cast (AC4)', () => {
         expect(state.caseDefinition.rivalLab.name).toBe('Mr. Arthur Bell');
         expect(selectColleagues(state).map(({ name }) => name)).not.toContain(state.caseDefinition.rivalLab.name);
         expect(selectColleagues(state).map(({ id }) => id)).not.toContain('rival-lab');
+    });
+
+    it('projects Arthur only from rivalLab with his case-namespaced portrait key', () => {
+        const rival = resolveRivalStageCast({
+            caseId: definition.id,
+            rivalLab: definition.rivalLab,
+            t: createTranslator('en')
+        });
+
+        expect(rival).toHaveLength(1);
+        expect(rival[0]).toMatchObject({
+            colleagueId: 'rival-lab',
+            name: 'Mr. Arthur Bell',
+            portraitTextureKey: 'case:young-interference:arthur-bell-portrait'
+        });
+        expect(selectColleagues(storeAt().getState()).map(({ id }) => id)).not.toContain(rival[0]!.colleagueId);
     });
 
     /**
@@ -304,6 +349,7 @@ describe('degraded content', () => {
         const colleagues = selectColleagues(store.getState());
 
         const cast = resolveStageCast({
+            caseId: store.getState().caseDefinition.id,
             colleagues,
             proposerIds: [...colleagues.map(({ id }) => id), 'a-colleague-this-build-dropped'],
             speakerIds: [],
@@ -327,6 +373,7 @@ describe('degraded content', () => {
         const [first, ...rest] = colleagues;
 
         const cast = resolveStageCast({
+            caseId: store.getState().caseDefinition.id,
             colleagues,
             proposerIds: rest.map(({ id }) => id),
             speakerIds: [first!.id],

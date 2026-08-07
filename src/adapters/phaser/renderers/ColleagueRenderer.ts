@@ -15,6 +15,7 @@ import {
 import { advanceTransitionForPhase, resolveAdvanceRefusal } from './advanceView';
 import { CharacterStage } from './CharacterStage';
 import { presentColleagueIds, type StageCastMember } from './characterStageView';
+import { caseAssetTextureKey } from '../preloadCaseAssets';
 import { resolveFigureAppearance, type FigureAppearance } from './figureAppearance';
 import { LaboratoryDecor } from './LaboratoryDecor';
 import { TransientMessageSlot } from './transientMessage';
@@ -437,12 +438,14 @@ export const proposalStageArea = (): Readonly<{ x: number; width: number }> => (
 /** A colleague with no silhouette accent of their own still gets a legible, neutral stripe. */
 const NEUTRAL_ACCENT = 0x6f8f99;
 
-const accentOf = (colleague: Colleague | undefined): number => colleague?.portrait.kind === 'silhouette'
+const portraitAccent = (colleague: Colleague | undefined): string | undefined =>
+    colleague?.portrait.accentColor;
+
+const accentOf = (colleague: Colleague | undefined): number => {
+    const accent = portraitAccent(colleague);
     // Authored as a validated lower-case `#rrggbb`, so the parse cannot fail on valid content.
-    ? Number.parseInt(colleague.portrait.accentColor.slice(1), 16)
-    // An `asset` portrait's image is not preloaded by these scenes, and portrait art is still out of
-    // scope. It reads as the same neutral stripe rather than a missing texture.
-    : NEUTRAL_ACCENT;
+    return accent === undefined ? NEUTRAL_ACCENT : Number.parseInt(accent.slice(1), 16);
+};
 
 /**
  * What a colleague looks like, from whatever the case authored plus their role.
@@ -454,8 +457,15 @@ const accentOf = (colleague: Colleague | undefined): number => colleague?.portra
  */
 const appearanceOf = (colleague: Colleague | undefined): FigureAppearance => resolveFigureAppearance(
     colleague?.role ?? 'lead',
-    colleague?.portrait.kind === 'silhouette' ? colleague.portrait.figure : undefined
+    colleague?.portrait.figure
 );
+
+/** Authored speaker colours keyed by colleague id; asset portraits keep the same accent contract. */
+export const resolveSpeakerAccents = (colleagues: readonly Colleague[]): Readonly<Record<string, string>> =>
+    Object.fromEntries(colleagues.flatMap((colleague) => {
+        const accent = portraitAccent(colleague);
+        return accent === undefined ? [] : [[colleague.id, accent]];
+    }));
 
 /**
  * Who stands in the room, and how each of them is drawn — as a pure function over authored content.
@@ -491,7 +501,8 @@ export const boardProposerIds = (
     ? caseDefinition.predictionProposals
     : caseDefinition.conclusionProposals).map(({ colleagueId }) => colleagueId);
 
-export const resolveStageCast = ({ colleagues, proposerIds, speakerIds, t }: Readonly<{
+export const resolveStageCast = ({ caseId, colleagues, proposerIds, speakerIds, t }: Readonly<{
+    caseId: string;
     colleagues: readonly Colleague[];
     /** In proposal order, which is the left-to-right reading order the two boards genuinely differ in. */
     proposerIds: readonly string[];
@@ -506,6 +517,9 @@ export const resolveStageCast = ({ colleagues, proposerIds, speakerIds, t }: Rea
     return {
         colleagueId,
         accentColor: accentOf(colleague),
+        portraitTextureKey: colleague?.portrait.kind === 'asset'
+            ? caseAssetTextureKey(caseId, colleague.portrait.assetId)
+            : undefined,
         // Canonical proper noun, and the role resolved through the i18n layer — the same pair the
         // card's attribution line draws, so the plaque and the card cannot disagree.
         name: colleague?.name ?? t('colleague.unattributedSpeaker'),
@@ -792,6 +806,7 @@ export class ColleagueRenderer {
         const scene = state.caseDefinition.scenarioScript.scenes.find(({ phase }) => phase === selectCasePhase(state));
 
         return resolveStageCast({
+            caseId: state.caseDefinition.id,
             colleagues: state.caseDefinition.colleagues,
             proposerIds: boardProposerIds(state.caseDefinition, this.kind),
             speakerIds: (scene?.dialogueBeats ?? []).map(({ speakerId }) => speakerId),
@@ -890,12 +905,7 @@ export class ColleagueRenderer {
      * no `DialogueBox` at all.
      */
     private speakerAccents(state: AppState): Readonly<Record<string, string>> {
-        return Object.fromEntries(state.caseDefinition.colleagues
-            .filter(({ portrait }) => portrait.kind === 'silhouette')
-            .map((colleague) => [
-                colleague.id,
-                colleague.portrait.kind === 'silhouette' ? colleague.portrait.accentColor : ''
-            ]));
+        return resolveSpeakerAccents(state.caseDefinition.colleagues);
     }
 
     /**

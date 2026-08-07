@@ -7,6 +7,7 @@ import {
     FIGURE_MAX_WIDTH,
     FIGURE_NAME_FONT_SIZE,
     FIGURE_ROLE_FONT_SIZE,
+    FIGURE_SIDE_INSET,
     resolveCharacterStage,
     type CharacterStageInput,
     type StageCastMember,
@@ -17,15 +18,14 @@ import { garmentTones, resolveFigureAppearance, shade, type FigureAppearance, ty
 import type { Translator } from '../../../core/i18n/translate';
 
 /**
- * The colleagues and the rival, drawn as coded vector figures standing in the room (Story 2.9).
+ * The colleagues and the rival, drawn as portrait images or coded vector fallbacks standing in the
+ * room (Story 2.9).
  *
- * ## No asset, and no rights-ledger entry
+ * ## One visual lifecycle
  *
- * Every figure is `Phaser.GameObjects.Graphics` fill commands. Nothing here loads a texture, adds a
- * `loader` entry, or touches `assets.entries`, so the offline gate covers no new file and the rights
- * ledger gains no row — which is what D1 of the 2026-08-06 sprint change scoped character
- * representation down to on purpose. `ReadingRoomDecor` is the precedent: fill commands drawn once are
- * enough to make a picture.
+ * The case preloader owns loading. This renderer only creates an `Image` after the named texture is in
+ * Phaser's cache; otherwise it paints the authored `Graphics` fallback. Both are held as one visual and
+ * receive the same visibility, placement, emphasis, tween killing, rebuild, and destruction operations.
  *
  * ## Five people, not one silhouette recoloured five times
  *
@@ -50,11 +50,11 @@ import type { Translator } from '../../../core/i18n/translate';
  * lit edge on the lamp side — so a case that recolours a colleague gets a consistent figure for free
  * and cannot author a highlight darker than its own shadow.
  *
- * ## Drawn once; emphasis reuses the geometry
+ * ## Built once; emphasis reuses the visual
  *
- * Each figure is stroked in `create()` at its natural size and never redrawn. `render()` only ever
- * calls `setScale` / `setAlpha` / `setPosition`, so a beat change costs three property writes per
- * figure and no fill commands at all (D5, and the performance rule about regenerating `Graphics`).
+ * Each portrait or fallback is built in `create()` and never redrawn. `render()` only calls
+ * `setScale` / `setAlpha` / `setPosition`, so a beat change costs three property writes per figure and
+ * no fill commands at all (D5, and the performance rule about regenerating `Graphics`).
  *
  * ## Motion: tweens only, never an update loop
  *
@@ -145,11 +145,19 @@ export type CharacterStageRender = Readonly<{
 
 type Figure = {
     member: StageCastMember;
-    graphics: Phaser.GameObjects.Graphics;
+    visual: Phaser.GameObjects.Graphics | Phaser.GameObjects.Image;
+    visualKind: 'vector' | 'portrait';
     name: Phaser.GameObjects.Text;
     role: Phaser.GameObjects.Text;
     badge: Phaser.GameObjects.Text;
 };
+
+/** Shared normalization contract recorded in docs/validation/young-character-assets.md. */
+const PORTRAIT_CANVAS_HEIGHT = 768;
+const PORTRAIT_FEET_BASELINE = 720;
+const PORTRAIT_VISIBLE_HEIGHT = 680;
+/** Widest normalized Young subject (Samuel); fitting against it prevents visible neighbour overlap. */
+const PORTRAIT_VISIBLE_MAX_WIDTH = 351;
 
 /**
  * The plaque, restyled to the design board: the name in the same amber serif the board sets its
@@ -251,15 +259,28 @@ export class CharacterStage {
     }
 
     /**
-     * Strokes one figure per cast member. Called by `create`, and again by `render` only when the set of
-     * people has actually changed — a rebuild is fill commands, and fill commands are what this class
-     * exists to do exactly once.
+     * Builds one visual per cast member. Called by `create`, and again by `render` only when the set of
+     * people or a portrait key changes; a fallback rebuild issues fill commands and belongs off the
+     * ordinary render path.
      */
     private buildFigures(cast: readonly StageCastMember[]): void {
         this.releaseFigures();
         cast.forEach((member) => {
-            const graphics = this.scene.add.graphics();
-            this.paintFigure(graphics, member.accentColor, member.appearance ?? FALLBACK_APPEARANCE);
+            const hasPortrait = member.portraitTextureKey !== undefined
+                && this.scene.textures?.exists(member.portraitTextureKey) === true;
+            const visual = hasPortrait
+                ? this.scene.add.image(0, 0, member.portraitTextureKey!).setOrigin(
+                    0.5,
+                    PORTRAIT_FEET_BASELINE / PORTRAIT_CANVAS_HEIGHT
+                )
+                : this.scene.add.graphics();
+            if (!hasPortrait) {
+                this.paintFigure(
+                    visual as Phaser.GameObjects.Graphics,
+                    member.accentColor,
+                    member.appearance ?? FALLBACK_APPEARANCE
+                );
+            }
 
             const name = this.scene.add.text(0, 0, '', bookTextStyle({
                 color: NAME_COLOR, fontSize: `${this.nameFontSize}px`, align: 'center'
@@ -271,7 +292,7 @@ export class CharacterStage {
                 color: BADGE_COLOR, fontSize: `${this.badgeFontSize}px`, align: 'center'
             })).setOrigin(0.5, 0);
 
-            this.figures.push({ member, graphics, name, role, badge });
+            this.figures.push({ member, visual, visualKind: hasPortrait ? 'portrait' : 'vector', name, role, badge });
         });
         // A rebuild re-measures at the new slot width, so the cached bound must not suppress it.
         this.labelWrapWidth = undefined;
@@ -281,7 +302,8 @@ export class CharacterStage {
     private stagesSameCast(cast: readonly StageCastMember[]): boolean {
         return cast.length === this.figures.length
             && cast.every((member, index) => this.figures[index]?.member.colleagueId === member.colleagueId
-                && this.figures[index]?.member.accentColor === member.accentColor);
+                && this.figures[index]?.member.accentColor === member.accentColor
+                && this.figures[index]?.member.portraitTextureKey === member.portraitTextureKey);
     }
 
     private get nameFontSize(): number {
@@ -298,8 +320,8 @@ export class CharacterStage {
 
     public render({ band, area, speakerColleagueId, selectedColleagueId, cast, t }: CharacterStageRender): void {
         this.lastRender = { band, area, speakerColleagueId, selectedColleagueId, cast, t };
-        // Only when the people themselves changed. A dialogue advance, a selection, a resize and a
-        // reduced-motion toggle all land here and none of them is a reason to re-stroke a silhouette.
+        // Only when the people or requested portraits changed. A dialogue advance, a selection, a
+        // resize and a reduced-motion toggle all land here and none of them is a reason to rebuild.
         if (!this.stagesSameCast(cast)) this.buildFigures(cast);
 
         const view = resolveCharacterStage({
@@ -325,8 +347,8 @@ export class CharacterStage {
 
         // Whatever the resolver withheld is hidden rather than left wherever it last stood — a stage
         // below the legibility floor shows an empty room, not four dots.
-        this.figures.slice(view.figures.length).forEach(({ graphics, name, role, badge }) => {
-            graphics.setVisible(false);
+        this.figures.slice(view.figures.length).forEach(({ visual, name, role, badge }) => {
+            visual.setVisible(false);
             name.setVisible(false);
             role.setVisible(false);
             badge.setVisible(false);
@@ -377,10 +399,9 @@ export class CharacterStage {
     /**
      * Moves a figure to its emphasis target, by tween or directly.
      *
-     * The band fit and the emphasis are one multiplication rather than two transforms: the silhouette
-     * is stroked at its natural size, so the scale that lands it in its band is
-     * `min(width / max, height / max)` and the emphasis multiplies it. Both maxima are read from the
-     * resolver's exported constants, so neither number lives in two places.
+     * The band fit and emphasis are one multiplication rather than two transforms. Vector fallbacks
+     * retain their existing natural-size fit. Portraits fit their documented visible bounds inside the
+     * available slot and height; transparent canvas padding is deliberately not treated as subject.
      *
      * **The figure's own tweens are killed first, on both paths.** A board re-stages on every store
      * notification *and* every dialogue advance, so without this a reader advancing quickly through a
@@ -392,21 +413,26 @@ export class CharacterStage {
      * been written (2.9 review).
      */
     private applyEmphasis(figure: Figure, staged: StagedFigure, transitionMs: number): void {
-        const fit = Math.min(staged.width / this.maxWidth, staged.height / this.maxHeight);
+        const fit = figure.visualKind === 'portrait'
+            ? Math.min(
+                Math.max(0, staged.labelWrapWidth - (2 * FIGURE_SIDE_INSET)) / PORTRAIT_VISIBLE_MAX_WIDTH,
+                staged.height / PORTRAIT_VISIBLE_HEIGHT
+            )
+            : Math.min(staged.width / this.maxWidth, staged.height / this.maxHeight);
         const scale = fit * staged.scale;
         const y = staged.y - staged.lift;
 
-        figure.graphics.setVisible(true);
-        this.scene.tweens.killTweensOf(figure.graphics);
+        figure.visual.setVisible(true);
+        this.scene.tweens.killTweensOf(figure.visual);
 
         if (transitionMs === 0) {
             // Reduced motion: the targets are written straight in. No tween is started and no loop is
             // registered, so `render()` alone paints a complete static frame (AC5).
-            figure.graphics.setPosition(staged.x, y).setScale(scale).setAlpha(staged.alpha);
+            figure.visual.setPosition(staged.x, y).setScale(scale).setAlpha(staged.alpha);
             return;
         }
         this.scene.tweens.add({
-            targets: figure.graphics,
+            targets: figure.visual,
             x: staged.x,
             y,
             scale,
@@ -433,12 +459,12 @@ export class CharacterStage {
 
     /** Every display object and tween a figure owns. Shared by `destroy` and by a cast rebuild. */
     private releaseFigures(): void {
-        this.figures.forEach(({ graphics, name, role, badge }) => {
-            this.scene.tweens.killTweensOf(graphics);
+        this.figures.forEach(({ visual, name, role, badge }) => {
+            this.scene.tweens.killTweensOf(visual);
             this.scene.tweens.killTweensOf(name);
             this.scene.tweens.killTweensOf(role);
             this.scene.tweens.killTweensOf(badge);
-            graphics.destroy();
+            visual.destroy();
             name.destroy();
             role.destroy();
             badge.destroy();

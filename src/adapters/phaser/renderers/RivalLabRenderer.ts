@@ -4,10 +4,12 @@ import type { PhaserStoreAdapter } from '../PhaserStoreAdapter';
 import { uiTextStyle } from '../textStyles';
 import { CharacterStage } from './CharacterStage';
 import type { StageCastMember } from './characterStageView';
+import { caseAssetTextureKey } from '../preloadCaseAssets';
+import type { RivalLab } from '../../../domain/cases/CaseDefinition';
 import { resolveFigureAppearance } from './figureAppearance';
 import { LaboratoryDecor } from './LaboratoryDecor';
 import type { AppState } from '../../../core/store/AppState';
-import { createTranslator } from '../../../core/i18n/translate';
+import { createTranslator, type Translator } from '../../../core/i18n/translate';
 import { selectLocale, selectLocalizedError, selectLocalizedRivalLabCritique } from '../../../core/store/selectors';
 
 /**
@@ -118,6 +120,24 @@ export const RIVAL_LAB_SPEAKER_FONT_SIZE = 15;
 export const RIVAL_LAB_BODY_FONT_SIZE = 16;
 export const RIVAL_LAB_GUIDE_FONT_SIZE = 15;
 export const RIVAL_LAB_CONTROL_FONT_SIZE = 15;
+
+/** Bell's standalone stage projection; it reads only the rival record, never colleagues. */
+export const resolveRivalStageCast = ({ caseId, rivalLab, t }: Readonly<{
+    caseId: string;
+    rivalLab: RivalLab;
+    t: Translator;
+}>): readonly StageCastMember[] => [{
+    colleagueId: RIVAL_LAB_STAGE_FIGURE_ID,
+    accentColor: Number.parseInt(rivalLab.accentColor.slice(1), 16),
+    portraitTextureKey: rivalLab.portraitAssetId === undefined
+        ? undefined
+        : caseAssetTextureKey(caseId, rivalLab.portraitAssetId),
+    name: rivalLab.name,
+    // Through `rivalLab.role`, never `colleague.role.*`, because he is not one of them (AC4).
+    roleLabel: t('rivalLab.role'),
+    // `'rival'` is not a ColleagueRole: he holds no role on the team.
+    appearance: resolveFigureAppearance('rival', rivalLab.figure)
+}];
 
 /**
  * The wrap bound the French typography check measures against, derived rather than restated.
@@ -277,19 +297,12 @@ export class RivalLabRenderer {
      * Re-resolved on every render, because `rivalLab.role` is interface copy and the locale can change.
      */
     private stageCast(): readonly StageCastMember[] {
-        const { rivalLab } = this.storeAdapter.getState().caseDefinition;
-        const t = createTranslator(selectLocale(this.storeAdapter.getState()));
-        return [{
-            colleagueId: RIVAL_LAB_STAGE_FIGURE_ID,
-            accentColor: Number.parseInt(rivalLab.accentColor.slice(1), 16),
-            name: rivalLab.name,
-            // Through `rivalLab.role`, never `colleague.role.*`, because he is not one of them (AC4).
-            roleLabel: t('rivalLab.role'),
-            // Resolved through `'rival'`, which is not a `ColleagueRole` and cannot be mistaken for
-            // one: he holds no role on the team, and the default pose that falls out of it — arms
-            // folded, waiting to be convinced — is his character note rather than a job.
-            appearance: resolveFigureAppearance('rival', rivalLab.figure)
-        }];
+        const { id: caseId, rivalLab } = this.storeAdapter.getState().caseDefinition;
+        return resolveRivalStageCast({
+            caseId,
+            rivalLab,
+            t: createTranslator(selectLocale(this.storeAdapter.getState()))
+        });
     }
 
     /**
@@ -387,4 +400,3 @@ export class RivalLabRenderer {
         this.control.setInteractive({ useHandCursor: true });
     }
 }
-
