@@ -60,6 +60,36 @@ import {
     REFERENCE_HEADING_FONT_SIZE,
     SIDE_COLUMN_WIDTH
 } from '../../src/adapters/phaser/renderers/apparatusGeometry';
+// The bench itself (Story 2.10). Every one of these is a *fixed* rectangle — an instrument's readout
+// slot, a wavelength choice, the start control, the notebook's own chrome — so each belongs in the
+// whole-string sweep below as well as in the per-token one, and each reads its bound from the module
+// that places it rather than from a literal that would drift.
+import {
+    BENCH_CONTROL_FONT_SIZE,
+    BENCH_MESSAGE_FONT_SIZE,
+    BENCH_MESSAGE_WRAP,
+    INSTRUMENT_READOUT_FONT_SIZE,
+    INSTRUMENT_READOUT_WRAP,
+    NOTEBOOK_ACTION_FONT_SIZE,
+    NOTEBOOK_ACTION_LABEL_WRAP,
+    NOTEBOOK_CONTROL_LABEL_WRAP,
+    NOTEBOOK_GUIDE_FONT_SIZE,
+    NOTEBOOK_HEADING_FONT_SIZE,
+    NOTEBOOK_NOTE_FONT_SIZE,
+    NOTEBOOK_NOTE_TEXT_WRAP,
+    NOTEBOOK_PADDING,
+    NOTEBOOK_PAGE_CONTROL_WIDTH,
+    NOTEBOOK_PANEL_WIDTH,
+    NOTEBOOK_ROW_FONT_SIZE,
+    NOTEBOOK_ROW_META_FONT_SIZE,
+    NOTEBOOK_ROW_TEXT_WRAP,
+    NOTEBOOK_SELECT_WIDTH,
+    START_CONTROL_LABEL_WRAP,
+    WAVELENGTH_CHOICE_FONT_SIZE,
+    WAVELENGTH_CHOICE_LABEL_WRAP,
+    WAVELENGTH_COLUMN_WIDTH,
+    WAVELENGTH_HEADING_FONT_SIZE
+} from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import {
     RIVAL_LAB_BODY_FONT_SIZE,
     RIVAL_LAB_CONTROL_FONT_SIZE,
@@ -227,12 +257,35 @@ const WRAPPED_SURFACES = [
         key, font: UI_FONT_STACK, fontSize: ADVANCE_CONTROL_FONT_SIZE, wrapWidth: bound
     })),
     { key: 'lab.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: 900 },
-    { key: 'lab.result.emptyHint', font: UI_FONT_STACK, fontSize: 19, wrapWidth: 620 },
-    { key: 'lab.result.recorded', font: UI_FONT_STACK, fontSize: 19, wrapWidth: 620 },
-    { key: 'lab.result.stale', font: UI_FONT_STACK, fontSize: 19, wrapWidth: 620 },
-    { key: 'lab.preview', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 620 },
+    { key: 'lab.result.emptyHint', font: UI_FONT_STACK, fontSize: 19, wrapWidth: BENCH_MESSAGE_WRAP },
+    { key: 'lab.result.recorded', font: UI_FONT_STACK, fontSize: 19, wrapWidth: BENCH_MESSAGE_WRAP },
+    { key: 'lab.result.stale', font: UI_FONT_STACK, fontSize: 19, wrapWidth: BENCH_MESSAGE_WRAP },
+    // `lab.preview` became `lab.idle` in Story 2.10: the painted fringe preview it promised is gone —
+    // AC4 forbids a screen pattern before a run — and the sentence is now the in-scene invitation to
+    // start the light.
+    { key: 'lab.idle', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 620 },
+    { key: 'lab.running', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 620 },
     { key: 'lab.pattern.recorded', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 620 },
-    { key: 'lab.control.readout', font: UI_FONT_STACK, fontSize: 18, wrapWidth: 330 },
+    // The readout is bounded by its **instrument's slot**, not by the bench: one wrapped at the bench's
+    // width would run straight under the neighbouring knob. It was 330 against the retired step-button
+    // row, which is a bound nothing draws any more.
+    { key: 'lab.control.readout', font: UI_FONT_STACK, fontSize: INSTRUMENT_READOUT_FONT_SIZE, wrapWidth: INSTRUMENT_READOUT_WRAP },
+    // The bench's own chrome and its refusal slot (Story 2.10).
+    { key: 'lab.wavelength.heading', font: UI_FONT_STACK, fontSize: WAVELENGTH_HEADING_FONT_SIZE, wrapWidth: WAVELENGTH_COLUMN_WIDTH },
+    { key: 'error.advanced-wavelength-locked', font: UI_FONT_STACK, fontSize: BENCH_MESSAGE_FONT_SIZE, wrapWidth: BENCH_MESSAGE_WRAP },
+    { key: 'error.experiment-phase-required', font: UI_FONT_STACK, fontSize: BENCH_MESSAGE_FONT_SIZE, wrapWidth: BENCH_MESSAGE_WRAP },
+    // The bench notebook overlay (Story 2.10, AC8).
+    { key: 'notebook.heading', font: UI_FONT_STACK, fontSize: NOTEBOOK_HEADING_FONT_SIZE, wrapWidth: NOTEBOOK_PANEL_WIDTH - (2 * NOTEBOOK_PADDING) },
+    { key: 'notebook.guide', font: UI_FONT_STACK, fontSize: NOTEBOOK_GUIDE_FONT_SIZE, wrapWidth: NOTEBOOK_PANEL_WIDTH - (2 * NOTEBOOK_PADDING) },
+    { key: 'notebook.empty', font: UI_FONT_STACK, fontSize: NOTEBOOK_GUIDE_FONT_SIZE, wrapWidth: NOTEBOOK_PANEL_WIDTH - (2 * NOTEBOOK_PADDING) },
+    { key: 'notebook.observation', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_FONT_SIZE, wrapWidth: NOTEBOOK_ROW_TEXT_WRAP },
+    { key: 'notebook.row.settings', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_FONT_SIZE, wrapWidth: NOTEBOOK_ROW_TEXT_WRAP },
+    { key: 'notebook.row.result', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_META_FONT_SIZE, wrapWidth: NOTEBOOK_ROW_TEXT_WRAP },
+    { key: 'notebook.row.meta', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_META_FONT_SIZE, wrapWidth: NOTEBOOK_ROW_TEXT_WRAP },
+    { key: 'notebook.note.label', font: UI_FONT_STACK, fontSize: NOTEBOOK_GUIDE_FONT_SIZE, wrapWidth: NOTEBOOK_NOTE_TEXT_WRAP },
+    { key: 'notebook.note.empty', font: UI_FONT_STACK, fontSize: NOTEBOOK_NOTE_FONT_SIZE, wrapWidth: NOTEBOOK_NOTE_TEXT_WRAP },
+    { key: 'notebook.note.saved', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_META_FONT_SIZE, wrapWidth: NOTEBOOK_NOTE_TEXT_WRAP },
+    { key: 'notebook.pairRequired', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_META_FONT_SIZE, wrapWidth: NOTEBOOK_NOTE_TEXT_WRAP },
     { key: 'book.caption.spread', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 770 },
     { key: 'book.caption.summary', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 770 },
     { key: 'book.summary.heading', font: BOOK_FONT_STACK, fontSize: 20, wrapWidth: 770 },
@@ -310,6 +363,12 @@ const caseDefinition = JSON.parse(
     contextualArtifacts: { id: string; displayName: { en: string; fr: string }; caseRelationship: { en: string; fr: string } }[];
     readingGateHints: { id: string; line: { en: string; fr: string } }[];
     apparatus: { primaryControls: { label: { fr: string } }[] };
+    // The bench's authored wavelengths and its model version, both of which reach a fixed-height
+    // label or a fixed row on the notebook (Story 2.10).
+    experiment: {
+        modelVersion: string;
+        wavelengthComparison?: { fixedMinimumPathNm: number; advancedChoicesNm: number[] };
+    };
     colleagues: { name: string }[];
     rivalLab: { name: string; critiques: { id: string; line: { en: string; fr: string } }[] };
     predictionProposals: { text: { en: string; fr: string } }[];
@@ -430,12 +489,46 @@ const LONGEST_CONVERSATION = Math.max(
     ...caseDefinition.scenarioScript.scenes.map(({ dialogueBeats }) => dialogueBeats?.length ?? 0)
 );
 
+/**
+ * The widest authored wavelength, for the chooser's three fixed-height labels.
+ *
+ * Read from `experiment.wavelengthComparison` rather than written as 650: a case authoring a
+ * four-digit comparison would widen every one of those labels, and a literal here would go on
+ * measuring the case that used to ship.
+ */
+const WAVELENGTH_SAMPLE = Math.max(
+    caseDefinition.experiment.wavelengthComparison?.fixedMinimumPathNm ?? 550,
+    ...(caseDefinition.experiment.wavelengthComparison?.advancedChoicesNm ?? [])
+);
+
+/** One control readout as the notebook's settings row actually composes it, at its longest. */
+const notebookReadout = (value: string): string =>
+    fr['lab.control.readout'].replace('{label}', CONTROL_LABEL).replace('{value}', value);
+
 const SAMPLE_PARAMS: Readonly<Record<string, Readonly<Record<string, string | number>>>> = {
     'lab.result.recorded': { value: SPACING, wavelength: 550, mode: fr['lab.wavelengthMode.minimum'] },
     'lab.result.stale': { value: SPACING },
-    'lab.preview': { slitSpacing: '0,25 mm', screenDistance: '2,50 m' },
+    'lab.idle': { slitSpacing: '0,25 mm', screenDistance: '2,50 m' },
     'lab.pattern.recorded': { spacing: SPACING },
     'lab.control.readout': { label: CONTROL_LABEL, value: '0,25 mm' },
+    'lab.wavelength.fixed': { value: WAVELENGTH_SAMPLE },
+    'lab.wavelength.comparison': { value: WAVELENGTH_SAMPLE },
+    'lab.wavelength.comparisonLocked': { value: WAVELENGTH_SAMPLE },
+    'notebook.observation': { order: 12 },
+    'notebook.row.settings': {
+        slitSpacing: notebookReadout('0,25 mm'),
+        screenDistance: notebookReadout('4,00 m')
+    },
+    // The localized label, because a model-derived run gets one — `CaseRecordPrintView` makes the
+    // same substitution, and it is the string a French player actually reads on this row.
+    'notebook.row.result': { label: fr['experiment.result.fringeSpacing'], value: SPACING },
+    'notebook.row.meta': {
+        timestamp: '2026-08-07T10:20:30.000Z',
+        wavelength: WAVELENGTH_SAMPLE,
+        mode: fr['lab.wavelengthMode.advanced'],
+        version: caseDefinition.experiment.modelVersion
+    },
+    'notebook.page.counter': { from: 1, to: 4, total: 12 },
     'book.caption.spread': { source: SOURCE_NAME, index: 19, total: 19 },
     'book.caption.summary': { source: SOURCE_NAME },
     'book.sourcePage.many': { pages: '138, 139' },
@@ -817,17 +910,34 @@ test('fits every French fixed-height control label on one line', async ({ page }
         { key: 'stage.speaking', fontSize: FIGURE_BADGE_FONT_SIZE, bound: FIGURE_SLOT_WIDTH },
         // The choice marker, at the gutter the board actually resolves rather than the widget's default.
         { key: 'proposal.selected', fontSize: PROPOSAL_MARKER_FONT_SIZE, bound: CARD_MARKER_WRAP },
-        { key: 'proposal.choose', fontSize: PROPOSAL_MARKER_FONT_SIZE, bound: CARD_MARKER_WRAP }
+        { key: 'proposal.choose', fontSize: PROPOSAL_MARKER_FONT_SIZE, bound: CARD_MARKER_WRAP },
+        // The bench (Story 2.10). Every one of these labels a rectangle of fixed height — the two
+        // controls the bench is operated from, the three wavelength choices, and the notebook's own
+        // chrome — so a French label that wrapped to two lines would be clipped by its own control.
+        { key: 'lab.start', fontSize: BENCH_CONTROL_FONT_SIZE, bound: START_CONTROL_LABEL_WRAP },
+        { key: 'lab.start.running', fontSize: BENCH_CONTROL_FONT_SIZE, bound: START_CONTROL_LABEL_WRAP },
+        { key: 'lab.notebook.open', fontSize: BENCH_CONTROL_FONT_SIZE, bound: NOTEBOOK_CONTROL_LABEL_WRAP },
+        { key: 'lab.wavelength.fixed', fontSize: WAVELENGTH_CHOICE_FONT_SIZE, bound: WAVELENGTH_CHOICE_LABEL_WRAP },
+        { key: 'lab.wavelength.comparison', fontSize: WAVELENGTH_CHOICE_FONT_SIZE, bound: WAVELENGTH_CHOICE_LABEL_WRAP },
+        { key: 'lab.wavelength.comparisonLocked', fontSize: WAVELENGTH_CHOICE_FONT_SIZE, bound: WAVELENGTH_CHOICE_LABEL_WRAP },
+        { key: 'notebook.select', fontSize: NOTEBOOK_ROW_FONT_SIZE, bound: NOTEBOOK_SELECT_WIDTH - 16 },
+        { key: 'notebook.selected', fontSize: NOTEBOOK_ROW_FONT_SIZE, bound: NOTEBOOK_SELECT_WIDTH - 16 },
+        { key: 'notebook.note.save', fontSize: NOTEBOOK_ACTION_FONT_SIZE, bound: NOTEBOOK_ACTION_LABEL_WRAP },
+        { key: 'notebook.close', fontSize: NOTEBOOK_ACTION_FONT_SIZE, bound: NOTEBOOK_ACTION_LABEL_WRAP },
+        { key: 'notebook.page.earlier', fontSize: NOTEBOOK_ROW_FONT_SIZE, bound: NOTEBOOK_PAGE_CONTROL_WIDTH - 16 },
+        { key: 'notebook.page.later', fontSize: NOTEBOOK_ROW_FONT_SIZE, bound: NOTEBOOK_PAGE_CONTROL_WIDTH - 16 }
     ] as const;
 
+    // Interpolated where the drawn label is: the three wavelength choices each carry a number, and
+    // measuring the bare `{value}` token would be a guaranteed pass that says nothing.
     const widths = await measure(page, FIXED_HEIGHT_CONTROLS.map(({ key, fontSize }) => ({
-        font: UI_FONT_STACK, fontSize, text: fr[key]
+        font: UI_FONT_STACK, fontSize, text: fillParams(key)
     })));
 
     const wrapping = FIXED_HEIGHT_CONTROLS
         .map((control, index) => ({ ...control, width: widths[index]! }))
         .filter(({ width, bound }) => width > bound)
-        .map(({ key, width, bound }) => `${key}: "${fr[key]}" (${Math.round(width)}px > ${bound}px)`);
+        .map(({ key, width, bound }) => `${key}: "${fillParams(key)}" (${Math.round(width)}px > ${Math.round(bound)}px)`);
 
     expect(wrapping).toEqual([]);
 });

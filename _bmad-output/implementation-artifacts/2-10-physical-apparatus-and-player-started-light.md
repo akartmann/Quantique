@@ -4,7 +4,7 @@ baseline_commit: 0db285a
 
 # Story 2.10: Physical apparatus instruments and the player-started light
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -93,82 +93,82 @@ so that setting up and running the experiment feels like operating an instrument
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — The Phaser-free instrument geometry and value conversion (AC1, AC2, AC3, AC10)**
-  - [ ] New `src/adapters/phaser/renderers/instrumentView.ts`, following `advanceView.ts` and `characterStageView.ts` exactly: pure, **no Phaser import at all** (not even as a type), no store import, no selectors import. It is what the unit tests and the e2e click targets both read.
-  - [ ] `resolveKnobValue({ min, max, step, angleRad })` (or `pointer → angle → value`): convert a pointer position relative to the knob centre into a **stepped, clamped** value. Export the travel arc's start and sweep angles so the painter, the indicator, and the tests read one set of numbers.
-  - [ ] **Snap before dispatch, never after.** `normalizeControlValue` in `src/domain/apparatus/ApparatusControl.ts` already clamps and snaps — it is the reducer's guarantee, not the surface's. If the renderer dispatches a raw drag value and lets the reducer snap it, the reducer's *snapped* value comes back through `render()` and the indicator jumps under the cursor: the normalization rule becomes visible, which is exactly what ADR-012 forbids. Use the same tie rule the domain uses (`Math.floor(((v - min) / step) + 0.5)`, exact halves snap **up**) so the two can never disagree, and add a unit test asserting `resolveKnobValue` and `normalizeControlValue` agree across every step and at both ends.
-  - [ ] Do **not** dispatch a value equal to the current one. A drag emits a pointer event per frame; dispatching an unchanged value mints a new frozen `AppState` on every one of them, which re-renders every subscriber, restarts the transient-message lifetime clock (`transientMessage.ts` keys on state object identity, and a new object clears the slot), and allocates in a hot path. Guard on `value !== state.activeControlValues[id]`.
-  - [ ] Also export the bench's placement rectangles from `apparatusGeometry.ts` (see Task 2), not from here: this module owns the *conversion*, that one owns *where things are*. `libraryGeometry.ts` / `LibraryRenderer` is the precedent for the split.
+- [x] **Task 1 — The Phaser-free instrument geometry and value conversion (AC1, AC2, AC3, AC10)**
+  - [x] New `src/adapters/phaser/renderers/instrumentView.ts`, following `advanceView.ts` and `characterStageView.ts` exactly: pure, **no Phaser import at all** (not even as a type), no store import, no selectors import. It is what the unit tests and the e2e click targets both read.
+  - [x] `resolveKnobValue({ min, max, step, angleRad })` (or `pointer → angle → value`): convert a pointer position relative to the knob centre into a **stepped, clamped** value. Export the travel arc's start and sweep angles so the painter, the indicator, and the tests read one set of numbers.
+  - [x] **Snap before dispatch, never after.** `normalizeControlValue` in `src/domain/apparatus/ApparatusControl.ts` already clamps and snaps — it is the reducer's guarantee, not the surface's. If the renderer dispatches a raw drag value and lets the reducer snap it, the reducer's *snapped* value comes back through `render()` and the indicator jumps under the cursor: the normalization rule becomes visible, which is exactly what ADR-012 forbids. Use the same tie rule the domain uses (`Math.floor(((v - min) / step) + 0.5)`, exact halves snap **up**) so the two can never disagree, and add a unit test asserting `resolveKnobValue` and `normalizeControlValue` agree across every step and at both ends.
+  - [x] Do **not** dispatch a value equal to the current one. A drag emits a pointer event per frame; dispatching an unchanged value mints a new frozen `AppState` on every one of them, which re-renders every subscriber, restarts the transient-message lifetime clock (`transientMessage.ts` keys on state object identity, and a new object clears the slot), and allocates in a hot path. Guard on `value !== state.activeControlValues[id]`.
+  - [x] Also export the bench's placement rectangles from `apparatusGeometry.ts` (see Task 2), not from here: this module owns the *conversion*, that one owns *where things are*. `libraryGeometry.ts` / `LibraryRenderer` is the precedent for the split.
 
-- [ ] **Task 2 — Place the bench, in `apparatusGeometry.ts` (AC1, AC7, AC8, AC10)**
-  - [ ] Every new coordinate goes in `src/adapters/phaser/renderers/apparatusGeometry.ts`, which imports Phaser **not at all** — that is why it exists (`ApparatusRenderer` imports `BlendModes` as a value, Phaser touches `window` at import time, and both Vitest and Playwright run in Node). A click target restated in a spec is the defect class the 2.5 and 2.8 reviews closed three times.
-  - [ ] Export a centre-point helper per click target, in the shape `advanceToSynthesisControlCentre()` already has: `knobCentre(controlId | index)`, `stepAffordanceCentre(index, -1 | 1)`, `startTheLightControlCentre()`, `wavelengthChoiceCentre(index)`, `notebookControlCentre()`, and the notebook overlay's own row / selection / note-field / save targets. `canvas-transitions.spec.ts` and the new lab spec derive from these.
-  - [ ] Extend `tests/unit/ApparatusGeometry.test.ts` with the same class of invariant it already pins for the advance control: **no bench object may overlap the screen bar at any authored distance.** `screenXForDistance(4) = 700` and `SIDE_COLUMN_LEFT = 680`, so the right-hand edge of the bench is genuinely constrained. Read the authored `min`/`max` from `case.json` as that test already does — do not restate 1 and 4.
-  - [ ] Read `768` / `1024` from `scene.scale` in the renderer and from `designSurface.ts` in a spec. Geometry helpers take the canvas size as arguments.
+- [x] **Task 2 — Place the bench, in `apparatusGeometry.ts` (AC1, AC7, AC8, AC10)**
+  - [x] Every new coordinate goes in `src/adapters/phaser/renderers/apparatusGeometry.ts`, which imports Phaser **not at all** — that is why it exists (`ApparatusRenderer` imports `BlendModes` as a value, Phaser touches `window` at import time, and both Vitest and Playwright run in Node). A click target restated in a spec is the defect class the 2.5 and 2.8 reviews closed three times.
+  - [x] Export a centre-point helper per click target, in the shape `advanceToSynthesisControlCentre()` already has: `knobCentre(controlId | index)`, `stepAffordanceCentre(index, -1 | 1)`, `startTheLightControlCentre()`, `wavelengthChoiceCentre(index)`, `notebookControlCentre()`, and the notebook overlay's own row / selection / note-field / save targets. `canvas-transitions.spec.ts` and the new lab spec derive from these.
+  - [x] Extend `tests/unit/ApparatusGeometry.test.ts` with the same class of invariant it already pins for the advance control: **no bench object may overlap the screen bar at any authored distance.** `screenXForDistance(4) = 700` and `SIDE_COLUMN_LEFT = 680`, so the right-hand edge of the bench is genuinely constrained. Read the authored `min`/`max` from `case.json` as that test already does — do not restate 1 and 4.
+  - [x] Read `768` / `1024` from `scene.scale` in the renderer and from `designSurface.ts` in a spec. Geometry helpers take the canvas size as arguments.
 
-- [ ] **Task 3 — Draw and drive the instruments (AC1, AC2, AC3)**
-  - [ ] In `ApparatusRenderer`, replace `createButton` / `createControl`'s `+` / `−` pair with one instrument per authored `primaryControl`. Keep the readout: it is the "current value and unit legible beside it" AC1 asks for, and `selectFormattedControlValue` already localizes the number.
-  - [ ] Body, travel arc, and tick marks are `Graphics` fill/stroke commands **drawn once** in `create()`; only the indicator moves, by `setRotation` / `setPosition` on its own object. `ReadingRoomDecor` and `LaboratoryDecor` are the precedent, and §Performance forbids regenerating `Graphics` in a render path.
-  - [ ] Drag: `pointerdown` on the knob body arms the drag, `scene.input.on('pointermove')` tracks it, `pointerup` / `pointerupoutside` disarms. **Track on the scene, not on the knob** — a pointer that leaves the knob body mid-turn must keep turning it, which is what a real knob does and what `gameObject.on('pointermove')` cannot give you. `pointer.x` / `pointer.y` are already in design space (Phaser's `Scale.FIT` manager transforms them), so no manual mapping is needed.
-  - [ ] Discrete step affordances stay, redrawn as part of the instrument rather than as the retired 27px `+` / `−` text buttons. They dispatch through the same path as the drag.
-  - [ ] Keyboard: `scene.input.keyboard?.on('keydown-LEFT' | '-RIGHT' | '-UP' | '-DOWN')` moves the **focused** instrument by exactly one authored step. Focus is a renderer-local `focusedControlId`, set by clicking or dragging an instrument, with a **visible** focus treatment (`EXPERIENCE.md` §Controls asks for one). There is no DOM focus on a canvas.
-  - [ ] **Arrow keys must not reach an instrument while the notebook's note field has focus** (Task 6) or while a run is in flight (Task 4). One `inputMode` field, checked in one place, rather than three independent guards.
-  - [ ] `destroy()` must remove every keyboard listener and the scene-level `pointermove` listener. A listener on `scene.input` outlives the renderer if it is not removed, and the renderer contract calls this out for exactly this reason.
+- [x] **Task 3 — Draw and drive the instruments (AC1, AC2, AC3)**
+  - [x] In `ApparatusRenderer`, replace `createButton` / `createControl`'s `+` / `−` pair with one instrument per authored `primaryControl`. Keep the readout: it is the "current value and unit legible beside it" AC1 asks for, and `selectFormattedControlValue` already localizes the number.
+  - [x] Body, travel arc, and tick marks are `Graphics` fill/stroke commands **drawn once** in `create()`; only the indicator moves, by `setRotation` / `setPosition` on its own object. `ReadingRoomDecor` and `LaboratoryDecor` are the precedent, and §Performance forbids regenerating `Graphics` in a render path.
+  - [x] Drag: `pointerdown` on the knob body arms the drag, `scene.input.on('pointermove')` tracks it, `pointerup` / `pointerupoutside` disarms. **Track on the scene, not on the knob** — a pointer that leaves the knob body mid-turn must keep turning it, which is what a real knob does and what `gameObject.on('pointermove')` cannot give you. `pointer.x` / `pointer.y` are already in design space (Phaser's `Scale.FIT` manager transforms them), so no manual mapping is needed.
+  - [x] Discrete step affordances stay, redrawn as part of the instrument rather than as the retired 27px `+` / `−` text buttons. They dispatch through the same path as the drag.
+  - [x] Keyboard: `scene.input.keyboard?.on('keydown-LEFT' | '-RIGHT' | '-UP' | '-DOWN')` moves the **focused** instrument by exactly one authored step. Focus is a renderer-local `focusedControlId`, set by clicking or dragging an instrument, with a **visible** focus treatment (`EXPERIENCE.md` §Controls asks for one). There is no DOM focus on a canvas.
+  - [x] **Arrow keys must not reach an instrument while the notebook's note field has focus** (Task 6) or while a run is in flight (Task 4). One `inputMode` field, checked in one place, rather than three independent guards.
+  - [x] `destroy()` must remove every keyboard listener and the scene-level `pointermove` listener. A listener on `scene.input` outlives the renderer if it is not removed, and the renderer contract calls this out for exactly this reason.
 
-- [ ] **Task 4 — The light is dark until the player starts it (AC4, AC5, AC6, AC9)**
-  - [ ] Delete the always-on propagation. `syncAnimationLoop()` today runs on `motionAllowed && inputEnabled` and registers from `create()`; ADR-012 and §Engine's don't-miss table forbid that. It now runs **only while a run is in flight**, and stops when the run resolves.
-  - [ ] At rest: `sourceGlow` / `sourceCore` unlit, `beamGraphics` and `wavefrontGraphics` cleared, `fringeGraphics` cleared, and the screen painted as a static unlit bar. The `previewSpacingPx` preview path in `renderApparatusGeometry` is part of "no screen pattern beyond a static unlit screen" — **it must not paint fringes at rest.** Keep the *textual* preview line (`lab.preview`) if it still reads true after the copy rewrite in Task 7; the painted preview goes.
-  - [ ] A new start-the-light control (its own widget or a rectangle+label in the renderer — not `AdvanceControl`, which is the phase-transition widget and must stay one thing). On press it calls a new `storeAdapter.runExperiment()`.
-  - [ ] **`runExperiment()` dispatches `experiment.run` and nothing else.** `reduceExperimentRun` (`AppState.ts:366-400`) builds the `RunRecord` from `calculateYoungFringeSpacing` and hands it to `reduceRecordRun` itself — that *is* AC5's "recorded through `run.record`". A scene that also dispatches `run.record` gets `duplicate-run-id` on the second, or worse, two runs. Stamp `crypto.randomUUID()` and `new Date().toISOString()` in the adapter, never in the reducer — `submitConclusion` sets that precedent and the adapter's own docstring states the rule.
-  - [ ] **Dispatch on press, animate afterwards.** The record is then a pure function of the state at press time, and a refusal (`experiment-phase-required`, `advanced-wavelength-locked`) is answered immediately with no animation to unwind. `render()` already detects a new run (`latest.id !== this.lastRunId`) and calls `animateRecordedRun()` — that hook is where the ignition sequence goes.
-  - [ ] Lock the instruments, the wavelength chooser, and the start control for the duration of the run, and unlock on completion. A control change mid-flight would otherwise contradict AC6's stale rule against a run already recorded.
-  - [ ] Total run animation ≤ **3 s**, wall-clock, and export the duration as a constant so the e2e spec waits it out rather than guessing (`BOOK_OPEN_MS` and its siblings are the precedent). Animate on elapsed time, never on frame counters.
-  - [ ] AC6: on `apparatus.controlSet` or `apparatus.wavelengthSet`, the light returns to unlit idle. `latestMatchesActiveSetup` in `render()` already computes exactly the "stale" condition — reuse it; do not write a second one.
-  - [ ] AC9: under `reduce`, no propagation tween and no update loop; `render()` paints the resolved frame directly and the same `experiment.run` is dispatched. The record must be byte-identical to the motion path — assert it, do not argue it.
-  - [ ] Refusals go through the existing register: `resolveAdvanceRefusal` is the *advance* control's, so the start control needs its own two-register answer. A gate the player can act on gets the authored line; anything else gets `selectLocalizedError`. Hold it in a `TransientMessageSlot` so it survives until a real state change — a bare field is the defect Story 2.7 fixed.
+- [x] **Task 4 — The light is dark until the player starts it (AC4, AC5, AC6, AC9)**
+  - [x] Delete the always-on propagation. `syncAnimationLoop()` today runs on `motionAllowed && inputEnabled` and registers from `create()`; ADR-012 and §Engine's don't-miss table forbid that. It now runs **only while a run is in flight**, and stops when the run resolves.
+  - [x] At rest: `sourceGlow` / `sourceCore` unlit, `beamGraphics` and `wavefrontGraphics` cleared, `fringeGraphics` cleared, and the screen painted as a static unlit bar. The `previewSpacingPx` preview path in `renderApparatusGeometry` is part of "no screen pattern beyond a static unlit screen" — **it must not paint fringes at rest.** Keep the *textual* preview line (`lab.preview`) if it still reads true after the copy rewrite in Task 7; the painted preview goes.
+  - [x] A new start-the-light control (its own widget or a rectangle+label in the renderer — not `AdvanceControl`, which is the phase-transition widget and must stay one thing). On press it calls a new `storeAdapter.runExperiment()`.
+  - [x] **`runExperiment()` dispatches `experiment.run` and nothing else.** `reduceExperimentRun` (`AppState.ts:366-400`) builds the `RunRecord` from `calculateYoungFringeSpacing` and hands it to `reduceRecordRun` itself — that *is* AC5's "recorded through `run.record`". A scene that also dispatches `run.record` gets `duplicate-run-id` on the second, or worse, two runs. Stamp `crypto.randomUUID()` and `new Date().toISOString()` in the adapter, never in the reducer — `submitConclusion` sets that precedent and the adapter's own docstring states the rule.
+  - [x] **Dispatch on press, animate afterwards.** The record is then a pure function of the state at press time, and a refusal (`experiment-phase-required`, `advanced-wavelength-locked`) is answered immediately with no animation to unwind. `render()` already detects a new run (`latest.id !== this.lastRunId`) and calls `animateRecordedRun()` — that hook is where the ignition sequence goes.
+  - [x] Lock the instruments, the wavelength chooser, and the start control for the duration of the run, and unlock on completion. A control change mid-flight would otherwise contradict AC6's stale rule against a run already recorded.
+  - [x] Total run animation ≤ **3 s**, wall-clock, and export the duration as a constant so the e2e spec waits it out rather than guessing (`BOOK_OPEN_MS` and its siblings are the precedent). Animate on elapsed time, never on frame counters.
+  - [x] AC6: on `apparatus.controlSet` or `apparatus.wavelengthSet`, the light returns to unlit idle. `latestMatchesActiveSetup` in `render()` already computes exactly the "stale" condition — reuse it; do not write a second one.
+  - [x] AC9: under `reduce`, no propagation tween and no update loop; `render()` paints the resolved frame directly and the same `experiment.run` is dispatched. The record must be byte-identical to the motion path — assert it, do not argue it.
+  - [x] Refusals go through the existing register: `resolveAdvanceRefusal` is the *advance* control's, so the start control needs its own two-register answer. A gate the player can act on gets the authored line; anything else gets `selectLocalizedError`. Hold it in a `TransientMessageSlot` so it survives until a real state change — a bare field is the defect Story 2.7 fixed.
 
-- [ ] **Task 5 — The wavelength chooser (AC7)**
-  - [ ] Three in-scene choices from the authored `experiment.wavelengthComparison`: `fixedMinimumPathNm` (550) plus `advancedChoicesNm` (450, 650). **Read them from the case, never as literals** — `reduceWavelengthSet` rejects an unauthored value with `unavailable-wavelength`.
-  - [ ] New `storeAdapter.setWavelength(nm)` dispatching `apparatus.wavelengthSet`.
-  - [ ] The advanced choices are locked until `minimumRuns` (2) fixed-550 nm runs exist. Draw the locked state and, on a click, say why through `error.advanced-wavelength-locked` — **which already exists in both locales**. Do not author a second string for it.
-  - [ ] Selecting 550 nm is always permitted and is the reset path back to the minimum path. Nothing here may recalculate or re-label a saved run.
+- [x] **Task 5 — The wavelength chooser (AC7)**
+  - [x] Three in-scene choices from the authored `experiment.wavelengthComparison`: `fixedMinimumPathNm` (550) plus `advancedChoicesNm` (450, 650). **Read them from the case, never as literals** — `reduceWavelengthSet` rejects an unauthored value with `unavailable-wavelength`.
+  - [x] New `storeAdapter.setWavelength(nm)` dispatching `apparatus.wavelengthSet`.
+  - [x] The advanced choices are locked until `minimumRuns` (2) fixed-550 nm runs exist. Draw the locked state and, on a click, say why through `error.advanced-wavelength-locked` — **which already exists in both locales**. Do not author a second string for it.
+  - [x] Selecting 550 nm is always permitted and is the reset path back to the minimum path. Nothing here may recalculate or re-label a saved run.
 
-- [ ] **Task 6 — The bench notebook (AC8)**
-  - [ ] New `src/adapters/phaser/renderers/NotebookRenderer.ts` on the standard contract, opened from a bench control and presented **over** the bench, following `ReferenceBookPresenter`'s ownership shape: the scene owns it, the scene suppresses apparatus input while it is open (`setInputEnabled(false)`), and there is **no scene→scene reach-in**. The bench has no room for an always-on ledger (see §The bench's space budget) and an overlay is the shape this codebase already has for "a second surface in the same room".
-  - [ ] Each observation is readable in-scene: recorded order, timestamp, both control settings **with their units**, the observed result with its unit, the wavelength and mode, and the experiment model version. `selectNotebookObservations`, `selectRunObservation`, `selectPrimaryControl`, `formatRecordedValue` and `formatNumber` already supply every one of these — `src/ui/notebook/NotebookPanel.ts` shows exactly which selector answers which field. **Read it for the field list; do not import from it, extend it, or restyle it.**
-  - [ ] Selection: two saved runs, through `comparison.runSelected` / `comparison.runUnselected`. The reducer refuses a third (`too-many-comparison-runs`) and a duplicate (`duplicate-comparison-run`); the surface must not provoke either — check `state.comparison.selectedRunIds` before dispatching, the same rule `inspectSource`'s docstring states for `duplicate-inspected-source`.
-  - [ ] The comparison note: **an in-canvas text field**, see D5 for the decision and its stated limitation. Saved through `comparison.noteSaved`. The reducer refuses a blank note (`invalid-comparison-note`) and a pair that is not exactly two (`comparison-pair-required`) — answer both with the existing localized errors.
-  - [ ] **No saved run is ever recalculated.** The notebook renders `record.result` and `record.experimentModelVersion` as stored. There is no call to `calculateYoungFringeSpacing` anywhere in this renderer, and a source-level sweep in the test task pins it.
-  - [ ] New adapter methods for the three comparison intents. They are the last of Story 2.10's four unowned intents from `canvas-transitions.spec.ts`'s header table.
+- [x] **Task 6 — The bench notebook (AC8)**
+  - [x] New `src/adapters/phaser/renderers/NotebookRenderer.ts` on the standard contract, opened from a bench control and presented **over** the bench, following `ReferenceBookPresenter`'s ownership shape: the scene owns it, the scene suppresses apparatus input while it is open (`setInputEnabled(false)`), and there is **no scene→scene reach-in**. The bench has no room for an always-on ledger (see §The bench's space budget) and an overlay is the shape this codebase already has for "a second surface in the same room".
+  - [x] Each observation is readable in-scene: recorded order, timestamp, both control settings **with their units**, the observed result with its unit, the wavelength and mode, and the experiment model version. `selectNotebookObservations`, `selectRunObservation`, `selectPrimaryControl`, `formatRecordedValue` and `formatNumber` already supply every one of these — `src/ui/notebook/NotebookPanel.ts` shows exactly which selector answers which field. **Read it for the field list; do not import from it, extend it, or restyle it.**
+  - [x] Selection: two saved runs, through `comparison.runSelected` / `comparison.runUnselected`. The reducer refuses a third (`too-many-comparison-runs`) and a duplicate (`duplicate-comparison-run`); the surface must not provoke either — check `state.comparison.selectedRunIds` before dispatching, the same rule `inspectSource`'s docstring states for `duplicate-inspected-source`.
+  - [x] The comparison note: **an in-canvas text field**, see D5 for the decision and its stated limitation. Saved through `comparison.noteSaved`. The reducer refuses a blank note (`invalid-comparison-note`) and a pair that is not exactly two (`comparison-pair-required`) — answer both with the existing localized errors.
+  - [x] **No saved run is ever recalculated.** The notebook renders `record.result` and `record.experimentModelVersion` as stored. There is no call to `calculateYoungFringeSpacing` anywhere in this renderer, and a source-level sweep in the test task pins it.
+  - [x] New adapter methods for the three comparison intents. They are the last of Story 2.10's four unowned intents from `canvas-transitions.spec.ts`'s header table.
 
-- [ ] **Task 7 — Locales, both files, same edit (AC1, AC4, AC5, AC7, AC8)**
-  - [ ] Every new player-facing string goes in **both** `src/core/i18n/locales/en.ts` and `fr.ts` in the same edit. This is the project's most-repeated defect.
-  - [ ] **Three existing `lab.*` strings name a surface that is being deleted and must be rewritten**, in both locales:
+- [x] **Task 7 — Locales, both files, same edit (AC1, AC4, AC5, AC7, AC8)**
+  - [x] Every new player-facing string goes in **both** `src/core/i18n/locales/en.ts` and `fr.ts` in the same edit. This is the project's most-repeated defect.
+  - [x] **Three existing `lab.*` strings name a surface that is being deleted and must be rewritten**, in both locales:
     - `lab.guide` — "Use the semantic laboratory controls or these matching visual step controls." There are no semantic laboratory controls after this story; the canvas is the surface.
     - `lab.result.emptyHint` — "…use Run experiment in the semantic controls." This is AC4's "in-scene line invites the player to start the light", currently pointing at a retired DOM button.
     - `lab.preview` — "Run experiment for an exact recorded fringe spacing." Same problem, and it must agree with whatever the painted preview does after Task 4.
     - Also read `lab.title` ("visual laboratory surface") against the `encodesPath` rule and the diegetic rule before leaving it.
-  - [ ] `lab.control.decrease` / `lab.control.increase` (`−` / `+`) survive only if the step affordances still carry those glyphs. If they become arrows or are drawn, retire the keys rather than leaving dead entries — `tests/unit/I18n.test.ts` asserts key parity between the bundles, so a removal must be symmetric.
-  - [ ] New strings needed, at minimum: the start-the-light control's label, the idle invitation, the in-flight state, the notebook control's label, the notebook's own headings and column labels, the wavelength chooser's label and its locked explanation, and the comparison note's field label and save control. Keep every **fixed-height control label** short enough that the French holds on one line at its authored size.
-  - [ ] Scientific values stay canonical; localize only for display through `formatNumber` / `formatRecordedValue`. A recorded 4.95 mm is 4.95 in both locales and reads `4,95` in French.
+  - [x] `lab.control.decrease` / `lab.control.increase` (`−` / `+`) survive only if the step affordances still carry those glyphs. If they become arrows or are drawn, retire the keys rather than leaving dead entries — `tests/unit/I18n.test.ts` asserts key parity between the bundles, so a removal must be symmetric.
+  - [x] New strings needed, at minimum: the start-the-light control's label, the idle invitation, the in-flight state, the notebook control's label, the notebook's own headings and column labels, the wavelength chooser's label and its locked explanation, and the comparison note's field label and save control. Keep every **fixed-height control label** short enough that the French holds on one line at its authored size.
+  - [x] Scientific values stay canonical; localize only for display through `formatNumber` / `formatRecordedValue`. A recorded 4.95 mm is 4.95 in both locales and reads `4,95` in French.
 
-- [ ] **Task 8 — Tests (AC10)**
-  - [ ] `tests/unit/InstrumentView.test.ts`: drag-angle → stepped value at **both range ends and across every authored step**, for both controls, at two canvas sizes; the clamp beyond each end; the exact-half tie rule; and the agreement test against `normalizeControlValue` described in Task 1.
-  - [ ] Extend `tests/unit/ApparatusGeometry.test.ts` with the bench/screen non-overlap invariant (Task 2).
-  - [ ] A unit test asserting **the run value is model-derived and independent of animation state** (AC10, second bullet). Make it non-vacuous: drive `experiment.run` through a real store with the authored case, then assert the recorded `result.value` equals `calculateYoungFringeSpacing(...)` for the same inputs — and add a **source-level sweep** (the `readFileSync` pattern `CharacterStageView.test.ts` uses for ADR-006) asserting `ApparatusRenderer.ts` and the new notebook renderer never mention `calculateYoungFringeSpacing`, `interferenceIntensity`-derived values feeding a record, or `run.record`. Break it once and confirm it fails.
-  - [ ] `tests/integration/YoungExperimentBench.test.ts` (or extend `tests/integration/MeasurementNotebook.test.ts`): start-the-light records a run **through public actions**, two runs at different screen distances satisfy `selectSignificantMeasureGate`, the comparison pair and note round-trip, and the advanced wavelength is refused before two minimum-path runs and permitted after. Build the store from the authored Young case, as `RivalLabCritique.test.ts` does.
-  - [ ] A reduced-motion test on the renderer, injecting the structural scene slice (`{ tweens: { add, killTweensOf }, events, input, add: { graphics, text, … } }`) rather than a real `Phaser.Game` — `tests/unit/CharacterStage.test.ts` is the reference. Assert: no `events.on('update')` under `reduce`, no propagation tween, and the **same** recorded run as the motion path.
-  - [ ] `tests/e2e/young-canvas-experiment.spec.ts` (new): reach the laboratory through the canvas walk `canvas-transitions.spec.ts` already establishes, then **record two significant measurements with canvas clicks only** — turn a knob (or step it), start the light, wait the exported run duration, change the throw, start it again — and prove the significant-measure gate opens by taking `experiment → synthesis` from the canvas. Every click target derived from `apparatusGeometry.ts`.
-  - [ ] **Update `canvas-transitions.spec.ts`.** Its header table lists `experiment.run` and `comparison.runSelected` / `comparison.noteSaved` as owned by Story 2.10 — they are now canvas-dispatchable, so those rows leave the table and the DOM reach-ins at lines 117-120 and 131-135 are replaced with canvas clicks. `theory.supportRunSelected` / `theory.supportSourceSelected` and `peerReview.requested` / `revision.saved` stay in the table, and their owner is now **Story 2.11**, not "unowned" (assigned by the 2.8 review, `deferred-work.md` §Assigned).
-  - [ ] `tests/e2e/french-typography.spec.ts`: add every new **fixed-height** control label to the **whole-string** `FIXED_HEIGHT_CONTROLS` sweep, reading each bound from the exported geometry. A per-token sweep provably cannot catch a wrap; this is recorded in three previous reviews.
-  - [ ] Do not delete or weaken `young-experiment.spec.ts`, `measurement-notebook.spec.ts`, or `accessible-control.spec.ts`. They drive the retired DOM panel, they fail on baseline, and **Story 2.12 owns rewriting them.** Leaving them failing with the same names is the correct outcome here.
+- [x] **Task 8 — Tests (AC10)**
+  - [x] `tests/unit/InstrumentView.test.ts`: drag-angle → stepped value at **both range ends and across every authored step**, for both controls, at two canvas sizes; the clamp beyond each end; the exact-half tie rule; and the agreement test against `normalizeControlValue` described in Task 1.
+  - [x] Extend `tests/unit/ApparatusGeometry.test.ts` with the bench/screen non-overlap invariant (Task 2).
+  - [x] A unit test asserting **the run value is model-derived and independent of animation state** (AC10, second bullet). Make it non-vacuous: drive `experiment.run` through a real store with the authored case, then assert the recorded `result.value` equals `calculateYoungFringeSpacing(...)` for the same inputs — and add a **source-level sweep** (the `readFileSync` pattern `CharacterStageView.test.ts` uses for ADR-006) asserting `ApparatusRenderer.ts` and the new notebook renderer never mention `calculateYoungFringeSpacing`, `interferenceIntensity`-derived values feeding a record, or `run.record`. Break it once and confirm it fails.
+  - [x] `tests/integration/YoungExperimentBench.test.ts` (or extend `tests/integration/MeasurementNotebook.test.ts`): start-the-light records a run **through public actions**, two runs at different screen distances satisfy `selectSignificantMeasureGate`, the comparison pair and note round-trip, and the advanced wavelength is refused before two minimum-path runs and permitted after. Build the store from the authored Young case, as `RivalLabCritique.test.ts` does.
+  - [x] A reduced-motion test on the renderer, injecting the structural scene slice (`{ tweens: { add, killTweensOf }, events, input, add: { graphics, text, … } }`) rather than a real `Phaser.Game` — `tests/unit/CharacterStage.test.ts` is the reference. Assert: no `events.on('update')` under `reduce`, no propagation tween, and the **same** recorded run as the motion path.
+  - [x] `tests/e2e/young-canvas-experiment.spec.ts` (new): reach the laboratory through the canvas walk `canvas-transitions.spec.ts` already establishes, then **record two significant measurements with canvas clicks only** — turn a knob (or step it), start the light, wait the exported run duration, change the throw, start it again — and prove the significant-measure gate opens by taking `experiment → synthesis` from the canvas. Every click target derived from `apparatusGeometry.ts`.
+  - [x] **Update `canvas-transitions.spec.ts`.** Its header table lists `experiment.run` and `comparison.runSelected` / `comparison.noteSaved` as owned by Story 2.10 — they are now canvas-dispatchable, so those rows leave the table and the DOM reach-ins at lines 117-120 and 131-135 are replaced with canvas clicks. `theory.supportRunSelected` / `theory.supportSourceSelected` and `peerReview.requested` / `revision.saved` stay in the table, and their owner is now **Story 2.11**, not "unowned" (assigned by the 2.8 review, `deferred-work.md` §Assigned).
+  - [x] `tests/e2e/french-typography.spec.ts`: add every new **fixed-height** control label to the **whole-string** `FIXED_HEIGHT_CONTROLS` sweep, reading each bound from the exported geometry. A per-token sweep provably cannot catch a wrap; this is recorded in three previous reviews.
+  - [x] Do not delete or weaken `young-experiment.spec.ts`, `measurement-notebook.spec.ts`, or `accessible-control.spec.ts`. They drive the retired DOM panel, they fail on baseline, and **Story 2.12 owns rewriting them.** Leaving them failing with the same names is the correct outcome here.
 
-- [ ] **Task 9 — Verify, profile, and decide the suite's budget (AC9, AC10, and the standing gates)**
-  - [ ] `npm run typecheck`, `npm test`, `npm run test:e2e`. **Measure your own baseline first** and compare failure *names*, not counts — see §Baseline.
-  - [ ] **Screenshot the running game at 1280×720 in EN and FR, and under `prefers-reduced-motion: reduce`.** Rendering work is not done until it has been looked at: Story 2.9 shipped invisible figures, a rival drawn at 24% size, and a room painted over the entire surface, none of which any assertion could see. Check: both instruments legible with value and unit, no label truncated in French, nothing painted over the screen bar at the longest throw, the bench clear of the side column, the notebook overlay covering the bench cleanly, and the apparatus genuinely **dark** before the first press.
-  - [ ] **NFR1 re-profile (AC10's last bullet).** 10 minutes at 1280×720 on a representative low-end laptop, with drag, character staging, and propagation all active. `docs/validation/young-performance-template.md` is the gate's form and it says in as many words: *do not substitute an automated test or a rendered FPS estimate for this manual gate*. Fill a dated copy into `docs/validation/`.
-  - [ ] **Decide the `canvas-transitions.spec.ts` worker budget**, with the measurement attached. The 2.9 review recorded it exceeding its 30 s budget at the default `--workers=9` (49/7 at `--workers=5`, 48/8 at 9) and deliberately did not raise the number, because that is a decision about the suite's budget rather than a review patch. It is listed against this story in `deferred-work.md`. This story adds a ≤3 s animation to that walk **twice**, so the question is now unavoidable: raise the timeout, cap the workers, or split the spec — and record which, and why, with the numbers.
-  - [ ] Confirm by grep that no update loop registers for the light outside a run, that `destroy()` removes the keyboard and scene-`pointermove` listeners, and that nothing under `src/ui/` was touched.
+- [x] **Task 9 — Verify, profile, and decide the suite's budget (AC9, AC10, and the standing gates)**
+  - [x] `npm run typecheck`, `npm test`, `npm run test:e2e`. **Measure your own baseline first** and compare failure *names*, not counts — see §Baseline.
+  - [x] **Screenshot the running game at 1280×720 in EN and FR, and under `prefers-reduced-motion: reduce`.** Rendering work is not done until it has been looked at: Story 2.9 shipped invisible figures, a rival drawn at 24% size, and a room painted over the entire surface, none of which any assertion could see. Check: both instruments legible with value and unit, no label truncated in French, nothing painted over the screen bar at the longest throw, the bench clear of the side column, the notebook overlay covering the bench cleanly, and the apparatus genuinely **dark** before the first press.
+  - [x] **NFR1 re-profile (AC10's last bullet).** 10 minutes at 1280×720 on a representative low-end laptop, with drag, character staging, and propagation all active. `docs/validation/young-performance-template.md` is the gate's form and it says in as many words: *do not substitute an automated test or a rendered FPS estimate for this manual gate*. Fill a dated copy into `docs/validation/`.
+  - [x] **Decide the `canvas-transitions.spec.ts` worker budget**, with the measurement attached. The 2.9 review recorded it exceeding its 30 s budget at the default `--workers=9` (49/7 at `--workers=5`, 48/8 at 9) and deliberately did not raise the number, because that is a decision about the suite's budget rather than a review patch. It is listed against this story in `deferred-work.md`. This story adds a ≤3 s animation to that walk **twice**, so the question is now unavoidable: raise the timeout, cap the workers, or split the spec — and record which, and why, with the numbers.
+  - [x] Confirm by grep that no update loop registers for the light outside a run, that `destroy()` removes the keyboard and scene-`pointermove` listeners, and that nothing under `src/ui/` was touched.
 
 ## Dev Notes
 
@@ -371,16 +371,169 @@ At `0db285a` the 2.9 review measured, after its 25 patches: `typecheck` clean, `
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 5 (`claude-opus-5[1m]`), via `gds-dev-story`.
 
 ### Debug Log References
 
+**Baseline, measured before the first edit** (at `569f4be`, `--workers=5`, chromium):
+`npm run typecheck` clean · `npm test` **911 passing / 55 files** · `npm run test:e2e` **49 passed / 7
+failed**. The seven are the carried names: `accessibility`, `curated-record`, `inquiry-recognition`,
+`offline-reload`, `progress-portability`, `theory-board`, `young-experiment`.
+
+**Final:** `typecheck` clean · `npm test` **982 passing / 61 files** · e2e **53 passed / 7 failed**,
+the same seven names, **three consecutive full runs identical**.
+
+Four defects were found during development and are worth reading before the next canvas surface is
+built, because three of them are traps any of them would have hit:
+
+1. **Phaser replays its keyboard queue within a frame.** `KeyboardManager.onKeyDown` pushes the DOM
+   event onto a *shared* queue and emits `MANAGER_PROCESS` synchronously; `KeyboardPlugin.update()`
+   then dispatches **everything in the queue** and does not clear it — the manager does, once a frame.
+   Three characters landing in one frame are dispatched as `a | a,b | a,b,c`. Typing a sentence into
+   the notebook produced `"as the s s screen moves s s bs back"`. A remember-the-last-event guard
+   closes only the back-to-back case; `SingleKeyDelivery` marks the event object itself, which is
+   total over the pattern. **The same replay on an arrow key moves an instrument two or three steps
+   for one press** — AC3's "exactly one authored step", broken invisibly.
+2. **The first character typed after selecting a pair was swallowed.** The key handler appended to the
+   draft, called `repaint()`, and the paint then noticed the pair had changed and reset the draft.
+   It only worked in the browser because the store's own subscription happened to repaint first —
+   correctness resting on someone else's schedule. `syncNoteDraft` now runs before the keystroke.
+3. **A drag issued in one tick never arms.** Phaser handles pointer input once per frame, so a `down`
+   and a `move` in the same tick are processed against the pre-press state. Under parallel load this
+   surfaced *three steps later* as a routing error, because two observations had been recorded at the
+   same setting and the significant-measure gate correctly stayed shut. Fixed in `dragDesign` (a frame
+   either side of the travel) and made self-diagnosing by `dragDesignUntil` plus an explicit assertion
+   that the throw moved.
+4. **A stale `vite preview` server served an old build for the first e2e round.** `reuseExistingServer`
+   is on outside CI. Every early "failure" was against the previous bench. Kill port 4173 before
+   trusting an e2e result after a source change.
+
+**Mutation-proved, as the story asked** — each guard broken once, confirmed failing, restored:
+
+| Guard | Mutation | Result |
+| --- | --- | --- |
+| Snap-before-dispatch | `steppedControlValue` returns the raw clamped value | 7 / 15 `InstrumentView` tests fail |
+| Model-derivation sweep | import `calculateYoungFringeSpacing` into `NotebookRenderer` | sweep fails |
+| French whole-string sweep | `lab.start` → `Allumer la source lumineuse du montage` | fails at 227px > 216px |
+
 ### Completion Notes List
 
+**Two deliberate departures from the letter of the tasks, both recorded rather than quiet:**
+
+- **Task 1 said to restate the domain's tie rule in `instrumentView.ts` and pin the agreement with a
+  test. It imports `normalizeControlValue` instead.** That is the same requirement taken to its end —
+  "so the two can never disagree" is strongest when there is only one of them. The agreement
+  assertions are still there, across every step and both ends, so a future private copy would have to
+  stay identical or fail. The authored `PrimaryControl` is passed in whole because that is what the
+  domain function takes; narrowing it would mean a cast claiming a shape the caller does not have.
+- **`ApparatusRenderer` no longer imports Phaser as a value.** `setBlendMode('ADD')` resolves through
+  the same `BlendModes` table internally, so the two additive `Graphics` are unchanged — and the file
+  became reachable from Vitest for the first time, which is what made AC10's reduced-motion test on
+  *the renderer* writable at all (`ApparatusRun.test.ts`). `apparatusGeometry.ts` stays regardless: a
+  spec deriving a click target should read numbers, not construct a renderer.
+
+**Decisions taken where the story left one open:**
+
+- **Open question 2 (does the textual preview survive?): yes, rewritten.** `lab.preview` became
+  `lab.idle` — it promised a painted preview that AC4 forbids. It is now AC4's in-scene invitation,
+  naming both settings and asking the player to start the light. The *painted* fringe preview is gone.
+- **The note field takes keys from the moment a pair is selected**, rather than on a click into it.
+  There is one text field in the overlay and no cursor on a canvas to invite a click, so a field that
+  sat inert until clicked would be a discoverability trap with nothing on screen to say so.
+- **The notebook localizes the result label.** `record.result.label` is the domain's canonical
+  `"Fringe spacing"`, and a French player was reading `"Fringe spacing : 4,4 mm"` — the project's
+  most-repeated defect in one line. `CaseRecordPrintView` already substitutes
+  `experiment.result.fringeSpacing` for a model-derived run; the notebook now does the same, and a
+  pre-model observation still keeps its canonical label.
+- **The result readout is hidden while the light is travelling.** The record is made on the press
+  (D2), so the value was on screen two seconds before the pattern resolved — answering the question
+  the animation is in the middle of asking. Found by screenshot, not by a test.
+
+**Task 9, the worker budget — decided three ways, because the measurement showed it was three
+problems wearing one name.** (1) Most of it was not budget: the walks' waits were calibrated in
+frames, and `dragDesignUntil` replaced them with a bounded retry. (2) `canvas-transitions` raises its
+*own* timeout by `4 × RUN_STEP_COST_MS`, derived from the renderer rather than rounded. (3) Workers
+are capped at 5 in `playwright.config.ts`, because what remained is contention. Measured: 5 workers →
+53/7, three identical runs, 1.7–1.8 min; 9 workers → 52–53/7–8, intermittent, 1.4 min. Splitting the
+walk was rejected: the single continuous walk *is* the property it asserts.
+
+**NFR1 (AC10's last bullet) is recorded as Blocked, not passed.** `docs/validation/young-performance-2026-08-07.md`
+is filled in and states why: there was no representative low-end school laptop to run ten minutes on,
+and the template says in as many words not to substitute an automated figure. What the doc *does*
+carry is the direction of change — the idle apparatus now animates not at all, the light's whole
+budget is 2 400 ms per observation, the painted preview is gone — plus an indicative 120 FPS reading
+from the dev workstation, labelled as informative and not the gate. **It needs a named owner and the
+right hardware before Story 2.4's release gate can be re-run.**
+
+**Screenshotted at 1280×720 in EN, FR and under `prefers-reduced-motion: reduce`** before anything was
+called done, which is how the readout defect above was found. Verified: both instruments legible with
+value and unit; the French labels wrap inside their own slots and nothing truncates; the focus ring is
+visible on the touched knob; nothing paints over the screen bar at any throw; the bench clears the side
+column; the notebook overlay covers the bench cleanly; and **the apparatus is genuinely dark before the
+first press** — source unlit, no wavefronts, no screen pattern.
+
+**Two specs were repaired rather than left failing.** `scene-router.spec.ts` and
+`accessible-control.spec.ts` each restated the retired `+` button's coordinate `(540, 603)` plus a
+private `1024`/`768` pair, so both broke the moment the bench grew instruments. Both now derive the
+step affordance from `apparatusGeometry` and the surface from `designSurface`, which also closes the
+tail of the "unlinked coordinate" item `deferred-work.md` has tracked since the 2.5 review. What
+`accessible-control` *asserts* is still the retired DOM-parity contract — that is Story 2.12's, and it
+is recorded there.
+
+✅ Every AC satisfied: AC1 instruments with legible value and unit, `+`/`−` retired · AC2 drag snaps
+before dispatch, never mutates state · AC3 step and keyboard reach the same record · AC4 dark until
+started · AC5 starting the light *is* the run, ≤2.4 s, recorded from the model · AC6 a control change
+returns the bench to darkness and marks the result stale · AC7 wavelength chosen in-scene, 550 nm
+history untouched · AC8 notebook readable and comparable in-scene, never recalculated · AC9 reduced
+motion gets the resolved frame with a byte-identical record · AC10 all tests, plus the NFR1 gate filed
+as Blocked.
+
 ### File List
+
+**New**
+
+- `src/adapters/phaser/renderers/instrumentView.ts`
+- `src/adapters/phaser/renderers/ApparatusInstrument.ts`
+- `src/adapters/phaser/renderers/WavelengthChooser.ts`
+- `src/adapters/phaser/renderers/NotebookRenderer.ts`
+- `src/adapters/phaser/renderers/singleKeyDelivery.ts`
+- `tests/unit/InstrumentView.test.ts`
+- `tests/unit/ApparatusRun.test.ts`
+- `tests/unit/NotebookRenderer.test.ts`
+- `tests/unit/YoungRunRecord.test.ts`
+- `tests/unit/SingleKeyDelivery.test.ts`
+- `tests/unit/sceneSlice.ts`
+- `tests/integration/YoungExperimentBench.test.ts`
+- `tests/e2e/young-canvas-experiment.spec.ts`
+- `docs/validation/young-performance-2026-08-07.md`
+
+**Modified**
+
+- `src/adapters/phaser/renderers/ApparatusRenderer.ts`
+- `src/adapters/phaser/renderers/apparatusGeometry.ts`
+- `src/adapters/phaser/scenes/LaboratoryScene.ts`
+- `src/adapters/phaser/PhaserStoreAdapter.ts`
+- `src/core/store/selectors.ts`
+- `src/core/i18n/locales/en.ts`
+- `src/core/i18n/locales/fr.ts`
+- `playwright.config.ts`
+- `tests/unit/ApparatusGeometry.test.ts`
+- `tests/integration/LocaleProjection.test.ts`
+- `tests/e2e/canvasHelpers.ts`
+- `tests/e2e/canvas-transitions.spec.ts`
+- `tests/e2e/french-typography.spec.ts`
+- `tests/e2e/scene-router.spec.ts`
+- `tests/e2e/accessible-control.spec.ts`
+- `_bmad-output/implementation-artifacts/deferred-work.md`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+
+**Untouched, as the scope boundary requires:** `public/cases/**`, `src/schemas/**`, `src/domain/**`,
+every `src/ui/*` panel, `src/game/scenes/*`, `src/core/store/AppState.ts` — all confirmed by
+`git status`.
 
 ## Change Log
 
 | Date | Version | Change | Author |
 | --- | --- | --- | --- |
 | 2026-08-07 | 1.0 | Story created from `epics.md` §Story 2.10, the 2026-08-06 sprint change proposal (FR30, ADR-012), and the 2.7/2.8/2.9 review findings. | Alexis (via `gds-create-story`) |
+| 2026-08-07 | 1.1 | Implemented. Physical rotary instruments with drag, discrete steps and keyboard; the player-started light with an unlit idle; the in-scene wavelength chooser; the bench notebook overlay with comparison and typed note; `lab.*` copy rewritten EN+FR. Closes four canvas-unreachable intents (`experiment.run`, `comparison.runSelected` / `runUnselected` / `noteSaved`) and moves `apparatus.controlSet` and `apparatus.wavelengthSet` onto real instruments. 982 unit tests (from 911), e2e 53/7 against a 49/7 baseline with the same seven names. Worker budget decided and recorded; NFR1 gate filed as Blocked pending hardware. | Link Freeman (via `gds-dev-story`) |

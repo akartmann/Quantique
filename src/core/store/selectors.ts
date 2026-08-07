@@ -137,6 +137,41 @@ export const selectComparisonNote = (state: AppState): ComparisonNote | undefine
     return state.comparison.notes.find((note) => pairKey(note.runIds) === pairKey([pair[0].id, pair[1].id]));
 };
 
+/**
+ * The authored wavelengths the player may work at, in the order the bench offers them (Story 2.10).
+ *
+ * The fixed minimum path first, because it is always permitted and is the reset path back to the
+ * history the case is actually about; the comparisons after it. Read from
+ * `experiment.wavelengthComparison` rather than written down as 450 / 550 / 650: `reduceWavelengthSet`
+ * refuses an unauthored value with `unavailable-wavelength`, so a surface that hard-coded a choice
+ * would be offering the player a refusal.
+ *
+ * Empty for a case authoring no comparison at all, which the schema permits — the chooser then simply
+ * is not drawn, rather than drawn with one inert option.
+ */
+export type WavelengthChoice = Readonly<{ wavelengthNm: 450 | 550 | 650; mode: 'minimum' | 'advanced' }>;
+
+export const selectWavelengthChoices = (state: AppState): readonly WavelengthChoice[] => {
+    const comparison = state.caseDefinition.experiment.wavelengthComparison;
+    if (!comparison) return Object.freeze([]);
+    return Object.freeze([
+        { wavelengthNm: comparison.fixedMinimumPathNm, mode: 'minimum' } as WavelengthChoice,
+        ...comparison.advancedChoicesNm.map((wavelengthNm) => ({ wavelengthNm, mode: 'advanced' } as WavelengthChoice))
+    ]);
+};
+
+/**
+ * Whether the optional comparison is available yet — the same count `reduceWavelengthSet` gates on.
+ *
+ * A selector rather than arithmetic in the renderer, because the *rule* is the store's: the bench has
+ * to draw the locked state, and a surface that counted qualifying runs itself would be a second copy
+ * of a gate that already exists and could drift from it. The refusal still comes from the reducer on
+ * the click; this only decides how the choice is painted before one.
+ */
+export const selectAdvancedWavelengthUnlocked = (state: AppState): boolean =>
+    state.runs.filter((run) => run.modelInputs?.wavelengthMode === 'minimum' && run.modelInputs.wavelengthNm === 550).length
+        >= state.caseDefinition.requirements.minimumRuns;
+
 export const selectCasePhase = (state: AppState): CasePhase => state.phase;
 
 export const selectTheoryBoardDraft = (state: AppState): TheoryBoardDraft => state.theory;

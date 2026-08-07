@@ -5,6 +5,12 @@ import { expect, type Page } from '@playwright/test';
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../../src/adapters/phaser/designSurface';
 import { libraryArtifactCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
 import { BOOK_CLOSE_FADE_MS, BOOK_OPEN_MS, BOOK_TURN_MS } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
+// Importable in Node as of Story 2.10: `ApparatusRenderer` dropped its `BlendModes` **value** import
+// for `setBlendMode('ADD')`, which resolves through the same table. Imported rather than restated for
+// the reason every other duration here is — a literal silently stops covering the window the day the
+// animation changes, and a click inside that window reaches a locked control and fails looking exactly
+// like a dead one.
+import { RUN_ANIMATION_MS } from '../../src/adapters/phaser/renderers/ApparatusRenderer';
 
 /**
  * Clicking and observing the routed Phaser surface, shared by every canvas spec (Story 2.8).
@@ -60,6 +66,74 @@ export const clickDesign = async (page: Page, point: Readonly<{ x: number; y: nu
     );
 };
 
+/**
+ * Drags in **design space**, through the same live mapping {@link clickDesign} uses.
+ *
+ * ## Why it waits a frame twice
+ *
+ * Phaser processes pointer input **once per frame**, and the bench's instruments arm the drag on
+ * `pointerdown` and then track it on `scene.input.on('pointermove')`. A `down` and a `move` issued in
+ * the same tick are therefore handled against the state as it was *before* the press: the drag is
+ * never armed, the moves reach nothing, and the knob does not turn. A `move` and an `up` in one tick
+ * lose the last position the same way.
+ *
+ * It is load-dependent, which is what makes it worth a helper rather than a note. Run alone this
+ * passed every time; at `--workers=5` the whole sequence landed inside one frame and the walk failed
+ * three steps later, at a scene transition, with a routing error pointing nowhere near the cause —
+ * because two observations had been recorded at the *same* setting and the significant-measure gate
+ * correctly stayed shut.
+ *
+ * This is the same reasoning {@link waitForInputToSettle} exists for, applied inside a gesture.
+ */
+export const dragDesign = async (
+    page: Page,
+    from: Readonly<{ x: number; y: number }>,
+    to: Readonly<{ x: number; y: number }>
+): Promise<void> => {
+    const bounds = await canvas(page).boundingBox();
+    if (!bounds) throw new Error('The routed Phaser surface did not render.');
+    const at = (point: Readonly<{ x: number; y: number }>) => ({
+        x: bounds.x + (point.x / DESIGN_WIDTH) * bounds.width,
+        y: bounds.y + (point.y / DESIGN_HEIGHT) * bounds.height
+    });
+    const start = at(from);
+    const end = at(to);
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await waitForInputToSettle(page);
+    // Several intermediate positions rather than one jump: this is what a hand does, and it is also
+    // what gives the tracking handler something to follow.
+    await page.mouse.move(start.x + ((end.x - start.x) / 2), start.y + ((end.y - start.y) / 2), { steps: 4 });
+    await page.mouse.move(end.x, end.y, { steps: 4 });
+    await waitForInputToSettle(page);
+    await page.mouse.up();
+};
+
+/**
+ * Drags an instrument until the setting it drives has actually moved.
+ *
+ * **Bounded retry rather than a longer wait**, for the reason {@link clickUntilScene} gives about the
+ * click after the book closes: the thing being waited for is a Phaser *frame*, and frames stretch
+ * with the number of browsers on the machine. Every fixed wait tuned at five workers was wrong at
+ * nine — the drag arrived at a knob whose hit area had not been handed back after the run, armed
+ * nothing, and the walk recorded its second observation at the same setting as the first.
+ *
+ * This is not a way to make a dead control pass. The loop is bounded, `settled` is the caller's own
+ * assertion about the value the knob drives, and a knob that never turns still fails — with the
+ * failure landing on the drag rather than three steps later at a scene transition.
+ */
+export const dragDesignUntil = async (
+    page: Page,
+    from: Readonly<{ x: number; y: number }>,
+    to: Readonly<{ x: number; y: number }>,
+    settled: () => Promise<void>
+): Promise<void> => {
+    await expect(async () => {
+        await dragDesign(page, from, to);
+        await settled();
+    }).toPass({ timeout: 15_000, intervals: [150, 300, 600, 900] });
+};
+
 /** The stable hook `src/main.ts` stamps, so the active scene is observable without Phaser internals. */
 export const activeScene = (page: Page): Promise<string | null> =>
     page.locator('#game-container').getAttribute('data-active-scene');
@@ -111,6 +185,40 @@ export const waitForPageTurn = async (page: Page): Promise<void> => {
 
 export const waitForBookToClose = async (page: Page): Promise<void> => {
     await page.waitForTimeout(BOOK_CLOSE_FADE_MS + ANIMATION_MARGIN_MS);
+};
+
+/**
+ * How long past the run's own duration to wait before the bench is operable again.
+ *
+ * Larger than {@link ANIMATION_MARGIN_MS}, and the difference is the point. The run's *length* is
+ * deterministic — it is driven by elapsed time, not frames — but two things after it are not: the
+ * update frame on which it notices it has finished, and the frame on which Phaser applies the
+ * hit-area change that unlocks the instruments. Two frames is nothing at 60 FPS and about 400ms on a
+ * machine running five browsers at once, which is exactly where this was measured: the drag after a
+ * run arrived at a knob whose hit area was still disabled, the gesture never armed, and the walk went
+ * on to record its second observation at the *same* setting.
+ */
+const RUN_SETTLE_MS = 400;
+
+/**
+ * What one start-the-light step costs a walk, in wall-clock milliseconds.
+ *
+ * Exported so a spec that takes two of them can raise **its own** budget by what it actually spends,
+ * rather than by a round number somebody picks and nobody revisits. See
+ * `canvas-transitions.spec.ts`'s own note on the decision.
+ */
+export const RUN_STEP_COST_MS = RUN_ANIMATION_MS + RUN_SETTLE_MS;
+
+/**
+ * Waits out the light crossing the bench (Story 2.10).
+ *
+ * The bench locks its instruments, its wavelength chooser and its start control for the whole run —
+ * a control change mid-flight would contradict AC6's stale rule against a run already recorded — so a
+ * click issued inside this window correctly reaches nothing at all, and one issued a frame too early
+ * afterwards reaches a control that has not been handed back yet.
+ */
+export const waitForRunToResolve = async (page: Page): Promise<void> => {
+    await page.waitForTimeout(RUN_ANIMATION_MS + RUN_SETTLE_MS);
 };
 
 /**

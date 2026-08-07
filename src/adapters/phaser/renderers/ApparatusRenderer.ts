@@ -1,4 +1,4 @@
-import { BlendModes, type Scene } from 'phaser';
+import type { Scene } from 'phaser';
 
 import type { PhaserStoreAdapter } from '../PhaserStoreAdapter';
 import { uiTextStyle } from '../textStyles';
@@ -6,6 +6,7 @@ import type { AppState } from '../../../core/store/AppState';
 import { formatRecordedValue } from '../../../core/i18n/formatNumber';
 import { createTranslator, type Translator } from '../../../core/i18n/translate';
 import {
+    selectAdvancedWavelengthUnlocked,
     selectCasePhase,
     selectControlLabel,
     selectFormattedControlValue,
@@ -13,8 +14,8 @@ import {
     selectLocalizedColleagueHint,
     selectLocalizedError,
     selectContextualArtifacts,
-    selectPrimaryControl,
-    selectSignificantMeasureGate
+    selectSignificantMeasureGate,
+    selectWavelengthChoices
 } from '../../../core/store/selectors';
 import { resolveLocalizedText } from '../../../core/i18n/resolveLocalizedText';
 import { isSourceEligibleForInspection, type ContextualArtifact, type PrimaryControl } from '../../../domain/cases/CaseDefinition';
@@ -22,6 +23,14 @@ import { interferenceIntensity, rgbToInt, wavelengthToRgb } from '../../../domai
 import { AdvanceControl } from '../ui/AdvanceControl';
 import {
     ADVANCE_CONTROL_Y,
+    BENCH_CONTROL_FONT_SIZE,
+    BENCH_CONTROL_HEIGHT,
+    BENCH_CONTROL_ROW_Y,
+    BENCH_LEFT,
+    BENCH_MESSAGE_BOTTOM_Y,
+    BENCH_MESSAGE_FONT_SIZE,
+    BENCH_MESSAGE_GAP,
+    BENCH_MESSAGE_WRAP,
     CENTRE_Y,
     HINT_BOTTOM_MARGIN,
     HINT_LINE_FONT_SIZE,
@@ -29,6 +38,9 @@ import {
     HINT_SPEAKER_FONT_SIZE,
     HINT_SPEAKER_GAP,
     HINT_TEXT_WRAP,
+    NOTEBOOK_CONTROL_LABEL_WRAP,
+    NOTEBOOK_CONTROL_LEFT,
+    NOTEBOOK_CONTROL_WIDTH,
     REFERENCE_CONTROL_FONT_SIZE,
     REFERENCE_CONTROL_GAP,
     REFERENCE_CONTROL_LABEL_WRAP,
@@ -40,10 +52,16 @@ import {
     SCREEN_LABEL_Y,
     SIDE_COLUMN_LEFT,
     SIDE_COLUMN_WIDTH,
+    START_CONTROL_LABEL_WRAP,
+    START_CONTROL_LEFT,
+    START_CONTROL_WIDTH,
     referenceShelfFloor,
     screenXForDistance
 } from './apparatusGeometry';
+import { ApparatusInstrument } from './ApparatusInstrument';
+import { WavelengthChooser } from './WavelengthChooser';
 import { advanceTransitionForPhase, resolveAdvanceRefusal, resolveAdvanceView } from './advanceView';
+import { SingleKeyDelivery } from './singleKeyDelivery';
 import { TransientMessageSlot } from './transientMessage';
 
 const SOURCE_X = 92;
@@ -53,19 +71,52 @@ const FRINGE_ROW_STEP = 2;
 const WAVEFRONT_RINGS = 6;
 const WAVEFRONT_PERIOD_MS = 2600;
 
-/** Clearance between the bottom of the result readout and the first control row. */
+/** Clearance between the bottom of the result readout and the bench message under it. */
 const RESULT_READOUT_GAP = 14;
 const MAX_RESULT_FONT_SIZE = 19;
 const MIN_RESULT_FONT_SIZE = 15;
-/** Headroom above the readout before it would reach the painted screen and its label. */
+/** Headroom above the readout before it would reach the instruments and the chooser above. */
 const RESULT_READOUT_MAX_HEIGHT = 96;
 
 /**
+ * The run's three acts, in wall-clock milliseconds (Story 2.10, AC5).
+ *
+ * **Exported so the e2e spec waits the run out rather than guessing**, which is the rule
+ * `BOOK_OPEN_MS` and its siblings set: a literal in a spec silently stops covering the window the day
+ * the timing changes, and a click inside the window reaches a locked control and fails looking exactly
+ * like a dead one.
+ *
+ * 2.4s against AC5's three-second bound. The propagation is the part worth the time — it is the scene's
+ * one moment of real spectacle (`EXPERIENCE.md` §Feedback) — and the ignition and the resolve are short
+ * because a player recording six observations pays this cost six times.
+ *
+ * Every frame of it is driven by elapsed time, never a frame counter, so it is the same length on a
+ * school laptop as on a workstation.
+ */
+export const RUN_IGNITION_MS = 400;
+export const RUN_PROPAGATION_MS = 1500;
+export const RUN_RESOLVE_MS = 500;
+export const RUN_ANIMATION_MS = RUN_IGNITION_MS + RUN_PROPAGATION_MS + RUN_RESOLVE_MS;
+
+const START_FILL = 0xc2703a;
+const START_FILL_RUNNING = 0x6b4326;
+const BENCH_CONTROL_FILL = 0x1d4451;
+
+/**
+ * **Phaser is imported as a type only, as of Story 2.10.** The two additive `Graphics` used to need
+ * `BlendModes` as a *value*, which made this the one renderer no Vitest run could reach — Phaser
+ * touches `window` at import time and Vitest runs in Node — and is why `apparatusGeometry.ts` exists.
+ * `setBlendMode` accepts the mode's name and resolves it through the same `BlendModes` table
+ * internally, so `'ADD'` is the identical mode with no value import, and AC10's reduced-motion test on
+ * this renderer becomes writable (`tests/unit/ApparatusRun.test.ts`).
+ *
+ * `apparatusGeometry.ts` stays where it is regardless: a Playwright spec deriving a click target must
+ * not have to construct a renderer to get one, and the geometry / painting split is the same one
+ * `libraryGeometry.ts` and `characterStageView.ts` draw.
+ *
  * The right-hand column carrying the control that leaves the laboratory and the colleague hint that
  * answers a refusal (Story 2.6, generalized by Story 2.7). Its *placement* lives in
- * `apparatusGeometry.ts` and the control itself in `ui/AdvanceControl.ts`, neither of which imports
- * Phaser as a value, so a Playwright spec can derive the click target — this file cannot be imported
- * from one.
+ * `apparatusGeometry.ts` and the control itself in `ui/AdvanceControl.ts`.
  *
  * The control had to exist at all because `src/ui/theory/TheoryBoard.ts` was the only dispatcher of
  * `nextPhase: 'synthesis'` in the codebase, and it is a retired-but-mounted DOM panel. Story 2.7 found
@@ -86,6 +137,15 @@ export type ApparatusRendererOptions = Readonly<{
      * room; paging and closing at the bench stay ephemeral, as the archival-book rule requires.
      */
     openReference?: (artifact: ContextualArtifact) => boolean;
+    /**
+     * Opens the bench notebook over the bench (Story 2.10, AC8).
+     *
+     * The same shape and the same rule as {@link openReference}: the *scene* owns the overlay and
+     * suppresses this renderer's own input while it is up, because a click meant for the overlay that
+     * fell through would move a slit. Absent means the bench simply draws no notebook control — a
+     * control that does nothing is worse than no control at all.
+     */
+    openNotebook?: () => void;
 }>;
 
 /**
@@ -105,8 +165,6 @@ type ReferenceControl = Readonly<{
 
 export class ApparatusRenderer {
     private readonly objects: Phaser.GameObjects.GameObject[] = [];
-    private readonly controls: Phaser.GameObjects.Text[] = [];
-    private readonly readouts = new Map<PrimaryControl['id'], Phaser.GameObjects.Text>();
     private resultReadout?: Phaser.GameObjects.Text;
     private resultReadoutBottomY = 0;
     private visualGuidance?: Phaser.GameObjects.Text;
@@ -120,8 +178,6 @@ export class ApparatusRenderer {
     private title?: Phaser.GameObjects.Text;
     private guide?: Phaser.GameObjects.Text;
     private sourceLabel?: Phaser.GameObjects.Text;
-    private decreaseButtons: Phaser.GameObjects.Text[] = [];
-    private increaseButtons: Phaser.GameObjects.Text[] = [];
     private beamGraphics?: Phaser.GameObjects.Graphics;
     private wavefrontGraphics?: Phaser.GameObjects.Graphics;
     private fringeGraphics?: Phaser.GameObjects.Graphics;
@@ -134,6 +190,56 @@ export class ApparatusRenderer {
     private hintBackground?: Phaser.GameObjects.Rectangle;
     private hintSpeaker?: Phaser.GameObjects.Text;
     private hintLine?: Phaser.GameObjects.Text;
+
+    // --- The bench (Story 2.10) -----------------------------------------------------------------
+    private readonly instruments = new Map<PrimaryControl['id'], ApparatusInstrument>();
+    private wavelengthChooser?: WavelengthChooser;
+    private startSurface?: Phaser.GameObjects.Rectangle;
+    private startLabel?: Phaser.GameObjects.Text;
+    private notebookSurface?: Phaser.GameObjects.Rectangle;
+    private notebookLabel?: Phaser.GameObjects.Text;
+    private benchMessage?: Phaser.GameObjects.Text;
+    /**
+     * Which instrument the arrow keys reach (D4).
+     *
+     * Renderer-local, because there is no DOM focus on a canvas and this story must not introduce one
+     * — §Engine forbids a semantic control mirroring a Phaser gesture. Set by clicking or dragging an
+     * instrument, and drawn as a visible ring, which `EXPERIENCE.md` §Controls asks for and without
+     * which AC3's "with the knob focused" is unsatisfiable.
+     */
+    private focusedControlId?: PrimaryControl['id'];
+    /**
+     * Whether the light is crossing the bench right now.
+     *
+     * The single fact the animation loop, the input lock and the readout all read. It is ephemeral and
+     * renderer-local for the same reason the dialogue reading position is: it means nothing five
+     * seconds later, and a store field for it would be persisted, exported, re-validated and reset on
+     * replay.
+     */
+    private runInFlight = false;
+    private runElapsedMs = 0;
+    /** The recorded spacing the resolved pattern is painted from, or `undefined` when the bench is dark. */
+    private recordedSpacingMm?: number;
+    /**
+     * The localized answer to a refused start or a refused wavelength.
+     *
+     * Its own slot rather than the advance control's, because they answer different questions — and a
+     * `TransientMessageSlot` rather than a bare field, which is the defect Story 2.7 fixed in both
+     * renderers at once: a message cleared inside the render that drew it paints once and is erased by
+     * the next unrelated repaint.
+     */
+    private readonly benchError = new TransientMessageSlot<string>();
+    /** One handling per physical key press — see {@link SingleKeyDelivery}. */
+    private readonly keyDelivery = new SingleKeyDelivery();
+    /**
+     * Shown beside the hint when a dispatch is refused for a reason the gate has nothing to do with.
+     *
+     * Held in a slot with an explicit lifetime rather than in a bare field (Story 2.7, AC5): the old
+     * field was cleared inside the render that drew it, so the message painted once and any later
+     * repaint — a control nudge, the export's own completion notify, the refusal's follow-up render —
+     * erased it before the player could read it.
+     */
+    private readonly transientError = new TransientMessageSlot<string>();
     /**
      * Whether the player has actually asked to leave yet.
      *
@@ -144,15 +250,6 @@ export class ApparatusRenderer {
      * change that could clear the refusal.
      */
     private advanceRefused = false;
-    /**
-     * Shown beside the hint when a dispatch is refused for a reason the gate has nothing to do with.
-     *
-     * Held in a slot with an explicit lifetime rather than in a bare field (Story 2.7, AC5): the old
-     * field was cleared inside the render that drew it, so the message painted once and any later
-     * repaint — a control nudge, the export's own completion notify, the refusal's follow-up render —
-     * erased it before the player could read it.
-     */
-    private readonly transientError = new TransientMessageSlot<string>();
 
     // Live optical geometry, refreshed from store state and consumed by the animation loop.
     private slitTopY = CENTRE_Y - 30;
@@ -162,8 +259,6 @@ export class ApparatusRenderer {
     private currentWavelengthNm = 550;
     private wavelengthColor = rgbToInt(wavelengthToRgb(550));
     private fringeSignature = '';
-    private animPhaseMs = 0;
-    private measurementBoost = 0;
     private updateBound?: (time: number, delta: number) => void;
     private readonly reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     private motionAllowed = !this.reducedMotionQuery.matches;
@@ -187,13 +282,24 @@ export class ApparatusRenderer {
     // Reduced-motion can be toggled at runtime; keep the cached flag and the loop in sync when it changes.
     private readonly onReducedMotionChange = (): void => {
         this.motionAllowed = !this.reducedMotionQuery.matches;
+        // Turning `reduce` on mid-run resolves the run immediately rather than stranding it: the
+        // record is already made, and the frame the loop was travelling toward is the one to paint.
+        if (!this.motionAllowed && this.runInFlight) this.settleRun();
         this.syncAnimationLoop();
-        if (!this.motionAllowed) this.drawPropagation(0);
+        this.paintLight();
     };
 
-    /** The continuous loop runs only while motion is allowed AND the apparatus is visible (no book overlay). */
+    /**
+     * The light's update loop runs **only while a run is in flight** (ADR-012).
+     *
+     * It used to register from `create()` and run on `motionAllowed && inputEnabled`, which is the
+     * thing §Engine's don't-miss table names in as many words: the apparatus animated unattended, for
+     * nobody, against the NFR1 budget. It is not gated on `inputEnabled` either — a reference book
+     * opened over a run must not freeze the run, because a recorded run is a fact and not an
+     * interaction, and a frozen one would leave the bench locked with nothing to unlock it.
+     */
     private syncAnimationLoop(): void {
-        const shouldRun = this.motionAllowed && this.inputEnabled;
+        const shouldRun = this.motionAllowed && this.runInFlight;
         if (shouldRun && !this.updateBound) {
             this.updateBound = (_time, delta) => this.onUpdate(delta);
             this.scene.events.on('update', this.updateBound, this);
@@ -210,13 +316,12 @@ export class ApparatusRenderer {
         this.guide = this.scene.add.text(40, 62, '', uiTextStyle({ color: '#c7d7d9', fontSize: '15px', wordWrap: { width: 900 } }));
         this.objects.push(this.title, this.guide);
         this.createRichPattern();
-        const controlsTop = Math.max(440, this.scene.scale.height - 190);
-        this.storeAdapter.getState().caseDefinition.apparatus.primaryControls.forEach((control, index) => this.createControl(control.id, controlsTop + (index * 74)));
-        // The readout is bottom-anchored to the gap above the first control, so a string that needs
-        // an extra line grows upward into empty space instead of down over the control row. French
-        // runs 15–25% longer than English and `lab.result.emptyHint` is a third line at this width.
-        this.resultReadoutBottomY = controlsTop - RESULT_READOUT_GAP;
-        this.resultReadout = this.scene.add.text(40, this.resultReadoutBottomY, '', uiTextStyle({ color: '#f7f4ef', fontSize: `${MAX_RESULT_FONT_SIZE}px`, wordWrap: { width: 620 } }))
+        this.createBench();
+        // The readout is bottom-anchored above the bench message, which is itself bottom-anchored above
+        // the control row — so a string that needs an extra line grows upward into empty space instead
+        // of down over a control. French runs 15–25% longer than English.
+        this.resultReadoutBottomY = BENCH_MESSAGE_BOTTOM_Y;
+        this.resultReadout = this.scene.add.text(BENCH_LEFT, this.resultReadoutBottomY, '', uiTextStyle({ color: '#f7f4ef', fontSize: `${MAX_RESULT_FONT_SIZE}px`, wordWrap: { width: BENCH_MESSAGE_WRAP } }))
             .setOrigin(0, 1);
         this.objects.push(this.resultReadout);
         this.createSideColumn();
@@ -224,10 +329,10 @@ export class ApparatusRenderer {
         this.updatePhoneReadOnlyMode();
         window.addEventListener('resize', this.updatePhoneReadOnlyMode);
 
-        // Continuous light propagation runs off the scene update loop so it is smooth and
-        // frame-rate independent. Under reduced motion no loop registers and render() paints a static frame.
+        // No loop registers here. Under reduced motion none ever registers at all, and `render()`
+        // paints the resolved frame directly (AC9).
         this.reducedMotionQuery.addEventListener('change', this.onReducedMotionChange);
-        this.syncAnimationLoop();
+        this.scene.input.keyboard?.on('keydown', this.onKeyDown, this);
     }
 
     public render(state: AppState): void {
@@ -237,79 +342,274 @@ export class ApparatusRenderer {
         this.guide?.setText(t('lab.guide'));
         this.sourceLabel?.setText(t('lab.source'));
         this.screenLabel?.setText(t('lab.screen'));
-        this.decreaseButtons.forEach((button) => button.setText(t('lab.control.decrease')));
-        this.increaseButtons.forEach((button) => button.setText(t('lab.control.increase')));
-        state.caseDefinition.apparatus.primaryControls.forEach((control) => {
-            this.readouts.get(control.id)?.setText(t('lab.control.readout', {
-                label: selectControlLabel(state, control.id),
-                value: selectFormattedControlValue(state, control.id)
-            }));
-        });
+
         const latest = state.runs[state.runs.length - 1];
         const latestMatchesActiveSetup = latest?.modelInputs
             && latest.modelInputs.slitSpacingMm === state.activeControlValues.slitSpacingMm
             && latest.modelInputs.screenDistanceM === state.activeControlValues.screenDistanceM
             && latest.modelInputs.wavelengthNm === state.selectedWavelengthNm
             && latest.modelInputs.wavelengthMode === state.selectedWavelengthMode;
-        this.resultReadout?.setText(latest?.modelInputs
-            ? latestMatchesActiveSetup
-                ? t('lab.result.recorded', {
-                    value: formatRecordedValue(locale, latest.result.value, latest.result.unit),
-                    wavelength: latest.modelInputs.wavelengthNm,
-                    mode: t(`lab.wavelengthMode.${latest.modelInputs.wavelengthMode}`)
-                })
-                : t('lab.result.stale', { value: formatRecordedValue(locale, latest.result.value, latest.result.unit) })
-            : t('lab.result.emptyHint'));
-        this.fitResultReadout();
+
+        // AC5: the ignition is triggered by the recorded fact, never by the press — so the animation is
+        // driven by what was saved rather than racing it, and a refusal has no spectacle to unwind.
+        if (latest && latest.id !== this.lastRunId) this.beginRun();
+        this.lastRunId = latest?.id;
+
+        // AC6: the recorded value only paints while it still describes the bench in front of the
+        // player. `latestMatchesActiveSetup` is the same condition the stale readout uses — one rule.
+        this.recordedSpacingMm = latestMatchesActiveSetup ? latest?.result.value : undefined;
+
+        this.renderBench(state, t);
+        this.renderApparatusGeometry(state);
+        this.renderReadouts(state, t, latest, Boolean(latestMatchesActiveSetup));
         this.renderSideColumn(state, t);
         this.renderReferenceShelf(state, t);
-        this.renderApparatusGeometry(state, t, latestMatchesActiveSetup ? latest?.result.value : undefined);
-        if (latest && latest.id !== this.lastRunId) this.animateRecordedRun();
-        this.lastRunId = latest?.id;
-        // With no update loop (reduced motion), the store subscription is the only paint trigger.
-        if (!this.motionAllowed) this.drawPropagation(0);
+        this.paintLight();
     }
 
     public destroy(): void {
         window.removeEventListener('resize', this.updatePhoneReadOnlyMode);
         this.reducedMotionQuery.removeEventListener('change', this.onReducedMotionChange);
+        // A `keydown` listener on `scene.input.keyboard` outlives this renderer if it is not removed,
+        // and so does the arrow-key capture, which would go on swallowing page scrolling.
+        this.scene.input.keyboard?.off('keydown', this.onKeyDown, this);
+        this.scene.input.keyboard?.removeCapture(ARROW_KEY_CAPTURE);
         if (this.updateBound) this.scene.events.off('update', this.updateBound, this);
         this.updateBound = undefined;
-        // Kill every tween this renderer can start — including the `targets: this` measurementBoost tween
-        // and the resultReadout fade — so nothing writes to torn-down objects after destroy.
+        // Kill every tween this renderer can start — including any whose target is the renderer itself
+        // — so nothing writes to torn-down objects after destroy.
         this.scene.tweens.killTweensOf(this);
         this.scene.tweens.killTweensOf([this.sourceGlow, this.sourceCore, this.resultReadout].filter(Boolean) as Phaser.GameObjects.GameObject[]);
-        // The widget owns its own objects, so it releases them itself rather than through `objects`.
+        // Each widget owns its own objects and listeners, so it releases them itself.
         this.advanceControl?.destroy();
+        this.instruments.forEach((instrument) => instrument.destroy());
+        this.instruments.clear();
+        this.wavelengthChooser?.destroy();
         this.objects.forEach((object) => object.destroy());
-        this.objects.length = 0; this.controls.length = 0; this.readouts.clear();
-        this.decreaseButtons.length = 0; this.increaseButtons.length = 0;
+        this.objects.length = 0;
         this.title = undefined; this.guide = undefined; this.sourceLabel = undefined;
         this.resultReadout = undefined; this.visualGuidance = undefined; this.slitTop = undefined; this.slitBottom = undefined; this.screen = undefined; this.screenLabel = undefined;
         this.sourceGlow = undefined; this.sourceCore = undefined; this.barrier = undefined;
         this.beamGraphics = undefined; this.wavefrontGraphics = undefined; this.fringeGraphics = undefined;
-        this.advanceControl = undefined;
+        this.advanceControl = undefined; this.wavelengthChooser = undefined;
+        this.startSurface = undefined; this.startLabel = undefined;
+        this.notebookSurface = undefined; this.notebookLabel = undefined; this.benchMessage = undefined;
         this.hintBackground = undefined; this.hintSpeaker = undefined; this.hintLine = undefined;
         this.referenceHeading = undefined; this.referenceShelfFills = undefined; this.referenceControls.length = 0; this.hintPanelTop = undefined;
-        this.advanceRefused = false; this.transientError.clear();
-        this.lastRunId = undefined; this.fringeSignature = ''; this.measurementBoost = 0;
+        this.advanceRefused = false; this.transientError.clear(); this.benchError.clear();
+        this.focusedControlId = undefined;
+        this.runInFlight = false; this.runElapsedMs = 0; this.recordedSpacingMm = undefined;
+        this.lastRunId = undefined; this.fringeSignature = '';
     }
 
-    /** The book overlay temporarily owns pointer interaction without changing laboratory state. */
+    /** An overlay temporarily owns pointer interaction without changing laboratory state. */
     public setInputEnabled(enabled: boolean): void {
         this.inputEnabled = enabled;
         this.updatePhoneReadOnlyMode();
-        // Pause the animation loop while the book overlay covers the apparatus; resume when it closes.
+    }
+
+    // --- The bench ------------------------------------------------------------------------------
+
+    private createBench(): void {
+        const state = this.storeAdapter.getState();
+        state.caseDefinition.apparatus.primaryControls.forEach((control, index) => {
+            const instrument = new ApparatusInstrument(this.scene, {
+                index,
+                control,
+                // The renderer never mutates state: the instrument reports, this dispatches (AC2).
+                onValueChange: (value) => { this.storeAdapter.setControlValue(control.id, value); },
+                onFocus: () => this.focusInstrument(control.id)
+            });
+            instrument.create();
+            this.instruments.set(control.id, instrument);
+        });
+
+        const choices = selectWavelengthChoices(state);
+        if (choices.length > 0) {
+            this.wavelengthChooser = new WavelengthChooser(this.scene, choices, {
+                onChoose: (wavelengthNm) => this.chooseWavelength(wavelengthNm)
+            });
+            this.wavelengthChooser.create();
+        }
+
+        this.startSurface = this.scene.add
+            .rectangle(START_CONTROL_LEFT, BENCH_CONTROL_ROW_Y, START_CONTROL_WIDTH, BENCH_CONTROL_HEIGHT, START_FILL)
+            .setOrigin(0, 0);
+        this.startLabel = this.scene.add.text(
+            START_CONTROL_LEFT + (START_CONTROL_WIDTH / 2),
+            BENCH_CONTROL_ROW_Y + (BENCH_CONTROL_HEIGHT / 2),
+            '',
+            uiTextStyle({ color: '#10252c', fontSize: `${BENCH_CONTROL_FONT_SIZE}px`, align: 'center', wordWrap: { width: START_CONTROL_LABEL_WRAP } })
+        ).setOrigin(0.5, 0.5);
+        this.startSurface.on('pointerup', () => this.startTheLight());
+        this.objects.push(this.startSurface, this.startLabel);
+
+        if (this.options.openNotebook) {
+            this.notebookSurface = this.scene.add
+                .rectangle(NOTEBOOK_CONTROL_LEFT, BENCH_CONTROL_ROW_Y, NOTEBOOK_CONTROL_WIDTH, BENCH_CONTROL_HEIGHT, BENCH_CONTROL_FILL)
+                .setOrigin(0, 0);
+            this.notebookLabel = this.scene.add.text(
+                NOTEBOOK_CONTROL_LEFT + (NOTEBOOK_CONTROL_WIDTH / 2),
+                BENCH_CONTROL_ROW_Y + (BENCH_CONTROL_HEIGHT / 2),
+                '',
+                uiTextStyle({ color: '#f7f4ef', fontSize: `${BENCH_CONTROL_FONT_SIZE}px`, align: 'center', wordWrap: { width: NOTEBOOK_CONTROL_LABEL_WRAP } })
+            ).setOrigin(0.5, 0.5);
+            this.notebookSurface.on('pointerup', () => this.options.openNotebook?.());
+            this.objects.push(this.notebookSurface, this.notebookLabel);
+        }
+
+        // Bottom-anchored for the same reason the colleague hint is: a localized refusal is a sentence,
+        // French runs longer, and this surface does not scroll — so it grows upward into empty space.
+        this.benchMessage = this.scene.add.text(BENCH_LEFT, BENCH_MESSAGE_BOTTOM_Y, '', uiTextStyle({
+            color: '#f4d35e', fontSize: `${BENCH_MESSAGE_FONT_SIZE}px`, wordWrap: { width: BENCH_MESSAGE_WRAP }
+        })).setOrigin(0, 1);
+        this.objects.push(this.benchMessage);
+    }
+
+    private renderBench(state: AppState, t: Translator): void {
+        state.caseDefinition.apparatus.primaryControls.forEach((control) => {
+            this.instruments.get(control.id)?.render({
+                value: state.activeControlValues[control.id],
+                readout: t('lab.control.readout', {
+                    label: selectControlLabel(state, control.id),
+                    value: selectFormattedControlValue(state, control.id)
+                }),
+                decreaseLabel: t('lab.control.decrease'),
+                increaseLabel: t('lab.control.increase'),
+                focused: this.focusedControlId === control.id
+            });
+        });
+
+        const unlocked = selectAdvancedWavelengthUnlocked(state);
+        this.wavelengthChooser?.render({
+            heading: t('lab.wavelength.heading'),
+            choices: selectWavelengthChoices(state).map(({ wavelengthNm, mode }) => {
+                const locked = mode === 'advanced' && !unlocked;
+                return {
+                    wavelengthNm,
+                    label: t(mode === 'minimum'
+                        ? 'lab.wavelength.fixed'
+                        : locked ? 'lab.wavelength.comparisonLocked' : 'lab.wavelength.comparison',
+                    { value: wavelengthNm }),
+                    selected: state.selectedWavelengthNm === wavelengthNm,
+                    locked
+                };
+            })
+        });
+
+        this.startLabel?.setText(this.runInFlight ? t('lab.start.running') : t('lab.start'));
+        this.startSurface?.setFillStyle(this.runInFlight ? START_FILL_RUNNING : START_FILL);
+        this.notebookLabel?.setText(t('lab.notebook.open'));
+        this.updatePhoneReadOnlyMode();
+    }
+
+    /**
+     * Asks for the light, and answers a refusal.
+     *
+     * **One register, and that is stated rather than assumed.** `resolveAdvanceRefusal` splits a
+     * refusal between the authored colleague line and the localized error, and the two codes a
+     * colleague speaks for — `significant-measures-required` and `missing-contextual-sources` — gate
+     * the way *out* of the laboratory, not the light. Everything `experiment.run` can refuse with
+     * (`experiment-phase-required`, `advanced-wavelength-locked`, `invalid-young-model-input`,
+     * `progress-operation-active`) is a fact about the apparatus, and a colleague appearing to have
+     * explained one would be attributing a sentence to somebody who did not say it.
+     */
+    private startTheLight(): void {
+        if (!this.benchInteractive()) return;
+        const result = this.storeAdapter.runExperiment();
+        if (result.ok) return;
+        this.refuse(result.error);
+    }
+
+    private chooseWavelength(wavelengthNm: 450 | 550 | 650): void {
+        if (!this.benchInteractive()) return;
+        const result = this.storeAdapter.setWavelength(wavelengthNm);
+        if (result.ok) return;
+        this.refuse(result.error);
+    }
+
+    private refuse(error: Readonly<{ code: string; message: string }>): void {
+        const current = this.storeAdapter.getState();
+        // Anchored to the state the refusal happened against: a refused dispatch leaves the state
+        // object untouched, so the message survives every repaint until something really changes.
+        this.benchError.set(selectLocalizedError(current, error), current);
+        this.render(current);
+    }
+
+    private focusInstrument(controlId: PrimaryControl['id']): void {
+        if (this.focusedControlId === controlId) return;
+        this.focusedControlId = controlId;
+        // Capturing the arrows stops the page scrolling under the canvas, which is right while an
+        // instrument is focused and wrong otherwise — so the capture follows the focus rather than
+        // being taken for the whole session.
+        this.scene.input.keyboard?.addCapture(ARROW_KEY_CAPTURE);
+        this.render(this.storeAdapter.getState());
+    }
+
+    /**
+     * The arrow keys, and the one place that decides whether they reach an instrument.
+     *
+     * One check rather than three independent guards: the notebook overlay suppresses this renderer's
+     * input while its own note field has the keyboard, and a run in flight locks the bench so a control
+     * cannot change under a record already being made (AC6).
+     */
+    private readonly onKeyDown = (event: KeyboardEvent): void => {
+        // Phaser can deliver one press twice; a doubled arrow key would move the instrument two
+        // authored steps, which is AC3's "exactly one step" broken invisibly. See the guard's header.
+        if (!this.keyDelivery.accepts(event)) return;
+        if (!this.benchInteractive() || this.focusedControlId === undefined) return;
+        const direction = ARROW_STEPS[event.key];
+        if (direction === undefined) return;
+        this.instruments.get(this.focusedControlId)?.step(direction);
+    };
+
+    /** Whether the bench accepts input at all: not suppressed, not on a phone, not mid-run. */
+    private benchInteractive(): boolean {
+        return this.inputEnabled && !this.runInFlight && !window.matchMedia('(max-width: 767px)').matches;
+    }
+
+    // --- The run --------------------------------------------------------------------------------
+
+    /**
+     * The ignition, triggered by a run that has **already been recorded** (D2).
+     *
+     * Under `reduce` nothing animates and nothing registers: the resolved frame is painted from
+     * `render()` and the record is byte-identical to the motion path's, because the record was made
+     * before either path was chosen.
+     */
+    private beginRun(): void {
+        this.runElapsedMs = 0;
+        this.runInFlight = this.motionAllowed;
         this.syncAnimationLoop();
     }
+
+    private settleRun(): void {
+        this.runInFlight = false;
+        this.runElapsedMs = RUN_ANIMATION_MS;
+        this.syncAnimationLoop();
+    }
+
+    private onUpdate(delta: number): void {
+        this.runElapsedMs += delta;
+        if (this.runElapsedMs >= RUN_ANIMATION_MS) {
+            this.settleRun();
+            // Re-render rather than repaint: the readout, the start label and the input locks all
+            // change when the run resolves, and `render` is the one place that decides each of them.
+            this.render(this.storeAdapter.getState());
+            return;
+        }
+        this.paintLight();
+    }
+
+    // --- Painting -------------------------------------------------------------------------------
 
     private createRichPattern(): void {
         // Painted layers, back to front: fringe pattern under a soft additive glow of light.
         this.fringeGraphics = this.scene.add.graphics();
-        this.beamGraphics = this.scene.add.graphics().setBlendMode(BlendModes.ADD);
-        this.wavefrontGraphics = this.scene.add.graphics().setBlendMode(BlendModes.ADD);
+        this.beamGraphics = this.scene.add.graphics().setBlendMode('ADD');
+        this.wavefrontGraphics = this.scene.add.graphics().setBlendMode('ADD');
 
-        this.sourceGlow = this.scene.add.circle(SOURCE_X, CENTRE_Y, 26, this.wavelengthColor, 0.35).setBlendMode(BlendModes.ADD);
+        this.sourceGlow = this.scene.add.circle(SOURCE_X, CENTRE_Y, 26, this.wavelengthColor, 0.35).setBlendMode('ADD');
         this.sourceCore = this.scene.add.circle(SOURCE_X, CENTRE_Y, 13, 0xfff4d0);
         this.sourceLabel = this.scene.add.text(55, 232, '', uiTextStyle({ color: '#f7f4ef', fontSize: '14px' }));
         this.barrier = this.scene.add.rectangle(BARRIER_X, CENTRE_Y, 16, 186, 0x8db7c2);
@@ -326,10 +626,54 @@ export class ApparatusRenderer {
         );
     }
 
+    private renderReadouts(
+        state: AppState,
+        t: Translator,
+        latest: AppState['runs'][number] | undefined,
+        latestMatchesActiveSetup: boolean
+    ): void {
+        const locale = selectLocale(state);
+        // **Nothing is announced while the light is still crossing the bench.** The record is made on
+        // the press (D2), so the value is available two seconds before the pattern resolves on the
+        // screen — and printing it early answers the question the animation is in the middle of
+        // asking. The readout arrives with the pattern, which is what AC5 describes.
+        this.resultReadout?.setVisible(!this.runInFlight);
+        this.resultReadout?.setText(latest?.modelInputs
+            ? latestMatchesActiveSetup
+                ? t('lab.result.recorded', {
+                    value: formatRecordedValue(locale, latest.result.value, latest.result.unit),
+                    wavelength: latest.modelInputs.wavelengthNm,
+                    mode: t(`lab.wavelengthMode.${latest.modelInputs.wavelengthMode}`)
+                })
+                : t('lab.result.stale', { value: formatRecordedValue(locale, latest.result.value, latest.result.unit) })
+            : t('lab.result.emptyHint'));
+
+        // AC4's in-scene invitation, and AC5's in-flight state. The painted fringe preview is gone —
+        // a screen pattern with no run behind it is exactly what "dark until the player starts it"
+        // forbids (D7) — so this line is the whole of what the bench says about an unrun setup.
+        this.visualGuidance?.setText(this.runInFlight
+            ? t('lab.running')
+            : this.recordedSpacingMm === undefined
+                ? t('lab.idle', {
+                    slitSpacing: selectFormattedControlValue(state, 'slitSpacingMm'),
+                    screenDistance: selectFormattedControlValue(state, 'screenDistanceM')
+                })
+                : t('lab.pattern.recorded', { spacing: formatRecordedValue(locale, this.recordedSpacingMm, 'mm') }));
+
+        // Measured, floor-anchored stacking: the refusal grows up out of the gap above the control row,
+        // and the readout stacks on the refusal's *measured* top rather than on a constant that a
+        // longer French sentence could invalidate.
+        const message = this.benchError.read(state) ?? '';
+        this.benchMessage?.setText(message).setVisible(message.length > 0).setY(BENCH_MESSAGE_BOTTOM_Y);
+        const messageHeight = message.length > 0 ? (this.benchMessage?.height ?? 0) + BENCH_MESSAGE_GAP : 0;
+        this.resultReadoutBottomY = BENCH_MESSAGE_BOTTOM_Y - messageHeight - RESULT_READOUT_GAP;
+        this.fitResultReadout();
+    }
+
     /**
-     * Keeps the readout inside the gap above the controls. Bottom-anchored, so the common case costs
-     * one measurement and no reflow; the shrink loop only runs for a string long enough to reach the
-     * painted screen above, which is the same mechanism {@link LectureBookRenderer} uses for its
+     * Keeps the readout inside the gap above the bench message. Bottom-anchored, so the common case
+     * costs one measurement and no reflow; the shrink loop only runs for a string long enough to reach
+     * the instruments above, which is the same mechanism {@link LectureBookRenderer} uses for its
      * authored leaves. Called on state change, never per frame.
      */
     private fitResultReadout(): void {
@@ -342,30 +686,7 @@ export class ApparatusRenderer {
         readout.setY(this.resultReadoutBottomY);
     }
 
-    /** Visual-only measurement flash for a saved deterministic run; no domain calculation occurs here. */
-    private animateRecordedRun(): void {
-        // Kill the prior flash — including the `targets: this` boost tween — so a rapid re-run cannot run two concurrently.
-        this.scene.tweens.killTweensOf(this);
-        this.scene.tweens.killTweensOf([this.sourceGlow, this.sourceCore, this.resultReadout].filter(Boolean) as Phaser.GameObjects.GameObject[]);
-        if (!this.motionAllowed) {
-            this.sourceGlow?.setScale(1).setAlpha(0.35);
-            this.sourceCore?.setScale(1);
-            this.resultReadout?.setAlpha(1);
-            this.measurementBoost = 0;
-            this.drawPropagation(0);
-            return;
-        }
-        this.sourceCore?.setScale(1);
-        this.sourceGlow?.setScale(1);
-        this.scene.tweens.add({ targets: [this.sourceCore, this.sourceGlow], scale: 2.15, duration: 360, yoyo: true, repeat: 1, ease: 'Sine.easeInOut' });
-        // A brightness surge that decays over ~1.2s, read by the propagation painter as extra glow.
-        this.measurementBoost = 1;
-        this.scene.tweens.add({ targets: this, measurementBoost: 0, duration: 1200, ease: 'Cubic.easeOut' });
-        this.resultReadout?.setAlpha(0);
-        this.scene.tweens.add({ targets: this.resultReadout, alpha: 1, delay: 900, duration: 360, ease: 'Sine.easeOut' });
-    }
-
-    private renderApparatusGeometry(state: AppState, t: Translator, recordedSpacingMm: number | undefined): void {
+    private renderApparatusGeometry(state: AppState): void {
         const slitSpacing = state.activeControlValues.slitSpacingMm;
         const screenDistance = state.activeControlValues.screenDistanceM;
         const slitGapPx = 28 + ((slitSpacing - 0.1) / 0.4) * 92;
@@ -379,26 +700,19 @@ export class ApparatusRenderer {
         this.currentWavelengthNm = state.selectedWavelengthNm;
         this.wavelengthColor = rgbToInt(wavelengthToRgb(state.selectedWavelengthNm));
         this.sourceGlow?.setFillStyle(this.wavelengthColor, 0.35);
-
-        const previewSpacingPx = 10 + ((screenDistance - 1) / 3) * 14 + ((0.5 - slitSpacing) / 0.4) * 14;
-        this.bandSpacingPx = recordedSpacingMm === undefined ? previewSpacingPx : Math.max(8, Math.min(31, recordedSpacingMm * 4.6));
-
-        this.paintFringes();
-        const locale = selectLocale(state);
-        this.visualGuidance?.setText(recordedSpacingMm === undefined
-            // Same precision and unit as the readouts above: both come from the authored control, so
-            // the preview cannot drift from the value it is previewing when a step changes.
-            ? t('lab.preview', {
-                slitSpacing: selectFormattedControlValue(state, 'slitSpacingMm'),
-                screenDistance: selectFormattedControlValue(state, 'screenDistanceM')
-            })
-            : t('lab.pattern.recorded', { spacing: formatRecordedValue(locale, recordedSpacingMm, 'mm') }));
+        // **The pattern is painted from the recorded value and from nothing else.** There is no preview
+        // branch here any more: an unrecorded setup has no spacing, and the screen stays unlit.
+        if (this.recordedSpacingMm !== undefined) {
+            this.bandSpacingPx = Math.max(8, Math.min(31, this.recordedSpacingMm * 4.6));
+            this.paintFringes();
+        }
     }
 
     /**
      * Paints the interference pattern as a smooth vertical stack of intensity-shaded rows on the
      * screen, sampling the pure {@link interferenceIntensity} model. Redrawn only when the geometry,
-     * spacing, or wavelength changes — never per animation frame.
+     * spacing, or wavelength changes — never per animation frame. The *reveal* is an alpha on the whole
+     * object, so a run resolving does not regenerate the geometry.
      */
     private paintFringes(): void {
         const signature = `${this.screenX.toFixed(1)}|${this.bandSpacingPx.toFixed(2)}|${this.wavelengthColor}`;
@@ -417,53 +731,98 @@ export class ApparatusRenderer {
         }
     }
 
-    private onUpdate(delta: number): void {
-        this.animPhaseMs = (this.animPhaseMs + delta) % WAVEFRONT_PERIOD_MS;
-        this.drawPropagation(this.animPhaseMs / WAVEFRONT_PERIOD_MS);
+    /**
+     * The whole of what the light looks like, in one place, for the three states the bench has.
+     *
+     * **Dark** — no run, or the setup has moved on from the one that was run (AC4, AC6): the source is
+     * out, no wavefronts propagate, and the screen carries nothing beyond its own unlit bar.
+     * **Running** — the source ignites, the beam reaches the slits, wavefronts travel to the screen and
+     * the pattern resolves on it (AC5). **Resolved** — a still frame of the recorded pattern, with no
+     * loop registered and nothing moving.
+     *
+     * Called from the update loop while a run is in flight and from `render()` otherwise, so the
+     * reduced-motion path and the motion path end on the same picture rather than on two that agree by
+     * coincidence.
+     */
+    private paintLight(): void {
+        const beam = this.beamGraphics;
+        const rings = this.wavefrontGraphics;
+        const fringes = this.fringeGraphics;
+        if (!beam || !rings || !fringes) return;
+
+        const dark = this.recordedSpacingMm === undefined && !this.runInFlight;
+        if (dark) {
+            beam.clear();
+            rings.clear();
+            fringes.setVisible(false);
+            this.sourceGlow?.setAlpha(0).setScale(1);
+            this.sourceCore?.setAlpha(0.18).setScale(1);
+            return;
+        }
+
+        const ignition = this.runInFlight ? Math.min(1, this.runElapsedMs / RUN_IGNITION_MS) : 1;
+        this.sourceGlow?.setAlpha(ignition).setScale(1 + (0.9 * ignition));
+        this.sourceCore?.setAlpha(0.18 + (0.82 * ignition)).setScale(1 + (0.35 * ignition));
+
+        this.drawBeam(ignition);
+        if (this.runInFlight) {
+            const travelled = Math.max(0, this.runElapsedMs - RUN_IGNITION_MS);
+            this.drawWavefronts((travelled % WAVEFRONT_PERIOD_MS) / WAVEFRONT_PERIOD_MS, ignition);
+            // The pattern arrives over the last act, as an alpha on geometry that was painted once.
+            const resolving = this.runElapsedMs - (RUN_IGNITION_MS + RUN_PROPAGATION_MS);
+            const revealed = Math.min(1, Math.max(0, resolving / RUN_RESOLVE_MS));
+            fringes.setVisible(revealed > 0).setAlpha(revealed);
+            return;
+        }
+        // Resolved: the light stands still. No loop is registered and nothing here moves.
+        rings.clear();
+        fringes.setVisible(true).setAlpha(1);
+    }
+
+    /** Incident light: a soft beam wedge plus two crisp converging rays onto the slits. */
+    private drawBeam(intensity: number): void {
+        const beam = this.beamGraphics;
+        if (!beam) return;
+        beam.clear();
+        if (intensity <= 0) return;
+        beam.fillStyle(this.wavelengthColor, 0.14 * intensity);
+        beam.fillTriangle(SOURCE_X, CENTRE_Y, BARRIER_X, this.slitTopY, BARRIER_X, this.slitBottomY);
+        beam.lineStyle(2, 0xfff4d0, Math.min(1, 0.6 * intensity));
+        beam.lineBetween(SOURCE_X, CENTRE_Y, BARRIER_X, this.slitTopY);
+        beam.lineBetween(SOURCE_X, CENTRE_Y, BARRIER_X, this.slitBottomY);
     }
 
     /**
-     * Draws the travelling light: converging incident rays from the source to the slits, and
-     * expanding Huygens wavefronts from each slit whose additive overlap between the slits and the
-     * screen renders the interference visually. `basePhase01` in [0,1) advances the wavefronts;
-     * calling with a fixed value produces a static representative frame (reduced motion).
+     * Expanding Huygens wavefronts from each slit, whose additive overlap between the slits and the
+     * screen renders the interference visually. `basePhase01` in [0,1) advances them.
+     *
+     * The two slit positions are iterated without allocating an array per frame, which is the
+     * discipline §Performance asks for in a render path and which this method has always kept.
      */
-    private drawPropagation(basePhase01: number): void {
-        const beam = this.beamGraphics;
+    private drawWavefronts(basePhase01: number, intensity: number): void {
         const rings = this.wavefrontGraphics;
-        if (!beam || !rings) return;
-        const color = this.wavelengthColor;
-        const boost = 1 + this.measurementBoost * 1.4;
-
-        // Incident light: a soft beam wedge plus two crisp converging rays onto the slits.
-        beam.clear();
-        beam.fillStyle(color, 0.10 * boost);
-        beam.fillTriangle(SOURCE_X, CENTRE_Y, BARRIER_X, this.slitTopY, BARRIER_X, this.slitBottomY);
-        beam.lineStyle(2, 0xfff4d0, Math.min(1, 0.5 * boost));
-        beam.lineBetween(SOURCE_X, CENTRE_Y, BARRIER_X, this.slitTopY);
-        beam.lineBetween(SOURCE_X, CENTRE_Y, BARRIER_X, this.slitBottomY);
-
-        // Huygens wavefronts from each slit toward the screen; additive overlap = interference.
+        if (!rings) return;
         rings.clear();
         const maxRadius = Math.max(60, this.screenX - BARRIER_X + 24);
         const arcHalfAngleRad = (72 * Math.PI) / 180;
-        // Iterate the two slit Y positions without allocating an array each frame.
         for (let s = 0; s < 2; s += 1) {
             const slitY = s === 0 ? this.slitTopY : this.slitBottomY;
             for (let i = 0; i < WAVEFRONT_RINGS; i += 1) {
                 const p = (basePhase01 + i / WAVEFRONT_RINGS) % 1;
                 const radius = p * maxRadius;
                 if (radius < 4) continue;
-                // Fade in at birth, fade out as the wavefront expands; boosted during a measurement (clamped ≤1).
-                const alpha = Math.min(1, Math.min(1, p * 6) * (1 - p) * 0.55 * boost);
+                // Fade in at birth, fade out as the wavefront expands (clamped ≤1).
+                const alpha = Math.min(1, Math.min(1, p * 6) * (1 - p) * 0.6 * intensity);
                 if (alpha <= 0.01) continue;
-                rings.lineStyle(2, color, alpha);
+                rings.lineStyle(2, this.wavelengthColor, alpha);
                 rings.beginPath();
                 rings.arc(BARRIER_X, slitY, radius, -arcHalfAngleRad, arcHalfAngleRad, false);
                 rings.strokePath();
             }
         }
     }
+
+    // --- The side column (Story 2.6 / 2.7) ------------------------------------------------------
 
     /**
      * The control that leaves the laboratory, and the hint slot beneath it.
@@ -528,8 +887,6 @@ export class ApparatusRenderer {
             // The colleague answers this one, so any error still standing in the slot is superseded.
             this.transientError.clear();
         } else {
-            // Anchored to the state the refusal happened against: a refused dispatch leaves the state
-            // object untouched, so the message survives every repaint until something really changes.
             this.transientError.set(message ?? '', current);
         }
         this.render(current);
@@ -699,33 +1056,29 @@ export class ApparatusRenderer {
         this.updatePhoneReadOnlyMode();
     }
 
-    private createControl(controlId: PrimaryControl['id'], y: number): void {
-        // A French control label runs 15–25% longer than its English counterpart; the readout wraps
-        // rather than running under the step buttons at x = 390.
-        const readout = this.scene.add.text(40, y, '', uiTextStyle({ color: '#f7f4ef', fontSize: '18px', wordWrap: { width: 330 } }));
-        const decrease = this.createButton(390, y - 7, controlId, -1);
-        const increase = this.createButton(510, y - 7, controlId, 1);
-        this.decreaseButtons.push(decrease);
-        this.increaseButtons.push(increase);
-        this.readouts.set(controlId, readout);
-        this.objects.push(readout, decrease, increase);
-    }
-
-    private createButton(x: number, y: number, controlId: PrimaryControl['id'], direction: -1 | 1): Phaser.GameObjects.Text {
-        const button = this.scene.add.text(x, y, '', uiTextStyle({ backgroundColor: '#f4d35e', color: '#10252c', fontSize: '27px', padding: { x: 20, y: 8 } }));
-        button.on('pointerup', () => {
-            const state = this.storeAdapter.getState();
-            const control = selectPrimaryControl(state, controlId);
-            this.storeAdapter.setControlValue(control.id, state.activeControlValues[control.id] + (direction * control.step));
-        });
-        this.controls.push(button);
-        return button;
-    }
-
+    /**
+     * The one place input state is decided, for every control on this surface.
+     *
+     * It keeps its name and its sub-768px rule untouched — that decision is Story 2.12's and there are
+     * four entries in `deferred-work.md` about it already — and gains the run lock, so the bench is
+     * consistent with itself rather than acquiring a second, competing gate (AC6). The advance control
+     * and the reference shelf are deliberately **not** locked during a run: neither can change the
+     * setup a run was recorded against, and taking the way out away mid-animation would be a new
+     * restriction nothing asked for.
+     */
     private readonly updatePhoneReadOnlyMode = (): void => {
         const enabled = this.inputEnabled && !window.matchMedia('(max-width: 767px)').matches;
-        this.controls.forEach((control) => enabled ? control.setInteractive({ useHandCursor: true }) : control.disableInteractive());
-        // The advance control follows the same suppression. Without it, a click meant for the
+        const benchEnabled = enabled && !this.runInFlight;
+        this.instruments.forEach((instrument) => instrument.setInputEnabled(benchEnabled));
+        this.wavelengthChooser?.setInputEnabled(benchEnabled);
+        if (benchEnabled) {
+            this.startSurface?.setInteractive({ useHandCursor: true });
+            this.notebookSurface?.setInteractive({ useHandCursor: true });
+        } else {
+            this.startSurface?.disableInteractive();
+            this.notebookSurface?.disableInteractive();
+        }
+        // The advance control follows the overlay suppression. Without it, a click meant for the
         // reference book's page controls falls through to it and moves the player out of the
         // laboratory — the same defect the book overlay caused on the proposal cards (1.12 review).
         this.advanceControl?.setInputEnabled(enabled);
@@ -737,3 +1090,19 @@ export class ApparatusRenderer {
         });
     };
 }
+
+/** One authored step per press, in either direction. Both axes, because a knob has no single axis. */
+const ARROW_STEPS: Readonly<Record<string, -1 | 1 | undefined>> = {
+    ArrowLeft: -1,
+    ArrowDown: -1,
+    ArrowRight: 1,
+    ArrowUp: 1
+};
+
+/**
+ * Captured only while an instrument is focused, so the page still scrolls the rest of the time.
+ *
+ * A mutable array because `addCapture` / `removeCapture` take one; it is module-private and never
+ * written to.
+ */
+const ARROW_KEY_CAPTURE: string[] = ['LEFT', 'RIGHT', 'UP', 'DOWN'];

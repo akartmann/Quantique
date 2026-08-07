@@ -25,21 +25,52 @@ export const fr: Record<TranslationKey, string> = {
     'validation.session.noCollection': 'L’application ne recueille aucune réponse de séance.',
 
     // --- Laboratory surface ---------------------------------------------------------------------
-    'lab.title': 'Interférences de Young — surface visuelle du laboratoire',
-    'lab.guide': 'Utilisez les commandes sémantiques du laboratoire ou ces commandes visuelles équivalentes.',
+    // Voir `en.ts` : trois de ces chaînes désignaient les commandes sémantiques retirées.
+    'lab.title': 'Interférences de Young — la paillasse optique',
+    'lab.guide': 'Réglez chaque instrument, puis allumez la source pour enregistrer ce que montre l’écran.',
     'lab.source': 'source',
     'lab.screen': 'écran',
     'lab.control.readout': '{label} : {value}',
     'lab.control.decrease': '−',
     'lab.control.increase': '+',
-    'lab.result.emptyHint': 'Aucun interfrange enregistré pour l’instant. Passez à l’étape d’expérimentation et utilisez « Lancer l’expérience » dans les commandes sémantiques.',
+    'lab.result.emptyHint': 'Aucun interfrange enregistré. Allumez la source pour en enregistrer un.',
     'lab.result.recorded': 'Figure enregistrée : {value} à {wavelength} nm (parcours {mode}).',
-    'lab.result.stale': 'Dernier résultat enregistré : {value}. Le montage modifié est un aperçu non enregistré.',
-    'lab.preview': 'Aperçu visuel : {slitSpacing} d’écartement des fentes et {screenDistance} de distance à l’écran. Lancez l’expérience pour obtenir un interfrange enregistré exact.',
+    'lab.result.stale': 'Dernier résultat enregistré : {value}. Le montage modifié n’a pas été lancé.',
+    'lab.idle': 'La paillasse est éteinte : {slitSpacing} d’écartement des fentes, {screenDistance} de distance à l’écran. Allumez la source pour enregistrer une observation.',
+    'lab.running': 'La lumière traverse le montage…',
+    'lab.start.running': 'Source allumée…',
     'lab.pattern.recorded': 'Figure d’interférence enregistrée : les franges brillantes sont espacées de {spacing} dans le résultat du modèle de Young enregistré.',
     'lab.wavelengthMode.minimum': 'minimal',
     'lab.wavelengthMode.advanced': 'avancé',
+    // Les deux commandes de la paillasse. Hauteur fixe : le balayage typographique français mesure la
+    // chaîne entière, car une étiquette qui passe à la ligne dans un rectangle de 44 px est tronquée.
+    'lab.start': 'Allumer la source',
+    'lab.notebook.open': 'Carnet de mesures',
+    'lab.wavelength.heading': 'Longueur d’onde',
+    'lab.wavelength.fixed': '{value} nm — parcours minimal',
+    'lab.wavelength.comparison': '{value} nm — comparaison',
+    'lab.wavelength.comparisonLocked': '{value} nm — verrouillée',
     'lab.reference.heading': 'Références à portée de main',
+
+    // --- Le carnet de la paillasse (Story 2.10) --------------------------------------------------
+    'notebook.heading': 'Carnet de mesures',
+    'notebook.guide': 'Chaque observation enregistrée conserve son montage et son résultat. Choisissez-en deux à comparer.',
+    'notebook.empty': 'Aucune observation enregistrée. Allumez la source à la paillasse pour en enregistrer une.',
+    'notebook.observation': 'Observation {order}',
+    'notebook.row.settings': '{slitSpacing} · {screenDistance}',
+    'notebook.row.result': '{label} : {value}',
+    'notebook.row.meta': '{timestamp} · {wavelength} nm (parcours {mode}) · modèle {version}',
+    'notebook.select': 'Comparer',
+    'notebook.selected': 'Choisie',
+    'notebook.page.earlier': 'Précédentes',
+    'notebook.page.later': 'Suivantes',
+    'notebook.page.counter': '{from}–{to} sur {total}',
+    'notebook.note.label': 'Note de comparaison',
+    'notebook.note.empty': 'Saisissez ici votre comparaison, puis enregistrez-la.',
+    'notebook.note.save': 'Enregistrer la comparaison',
+    'notebook.note.saved': 'Note de comparaison enregistrée.',
+    'notebook.pairRequired': 'Choisissez deux observations enregistrées à comparer.',
+    'notebook.close': 'Fermer le carnet',
 
     // --- In-scene advance affordance (Story 2.7) -------------------------------------------------
     // See `en.ts` for the rule these follow. French runs 15–25% longer than English and each of these

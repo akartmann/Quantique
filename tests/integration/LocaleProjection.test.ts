@@ -61,7 +61,7 @@ describe('browser-resolved locale across the whole projection', () => {
     it('paints an English browser in English from the first render', () => {
         const scene = mountFakeSceneRenderer(bootWith(['en-GB']));
 
-        expect(scene.painted).toEqual(['Young interference — visual laboratory surface | Slit spacing: 0.25 mm']);
+        expect(scene.painted).toEqual(['Young interference — the optical bench | Slit spacing: 0.25 mm']);
     });
 
     it('paints a French browser in French from the first render, formatting included', () => {
@@ -69,7 +69,7 @@ describe('browser-resolved locale across the whole projection', () => {
 
         // One entry, not two: there is no English first paint to correct.
         expect(scene.painted).toEqual([
-            `Interférences de Young — surface visuelle du laboratoire | Écartement des fentes : 0,25${NARROW_NO_BREAK_SPACE}mm`
+            `Interférences de Young — la paillasse optique | Écartement des fentes : 0,25${NARROW_NO_BREAK_SPACE}mm`
         ]);
     });
 

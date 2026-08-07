@@ -65,6 +65,53 @@ export type PhaserStoreAdapter = Readonly<{
      * are told apart by the error's `code`.
      */
     advanceCase: (transition: AdvanceTransitionId) => ReturnType<AppStore['dispatch']>;
+    /**
+     * Starting the light — the whole activity of the `experiment` phase (Story 2.10, AC5).
+     *
+     * **It dispatches `experiment.run` and nothing else.** `reduceExperimentRun` builds the
+     * `RunRecord` from `calculateYoungFringeSpacing` and hands it to `reduceRecordRun` itself, so that
+     * dispatch *is* "recorded through `run.record`". A caller that also dispatched `run.record`
+     * alongside it would get `duplicate-run-id` on the second — or, with a fresh id, two runs for one
+     * press.
+     *
+     * The id and the timestamp are stamped **here**, never in the reducer: a reducer that read the
+     * clock or a random source would not be a pure function of its arguments, and `submitConclusion`
+     * set that precedent.
+     *
+     * Dispatch happens on the press and the animation is its consequence, never its source (D2). The
+     * record is then a pure function of the state the player pressed against, and a refusal
+     * (`experiment-phase-required`, `advanced-wavelength-locked`) arrives immediately rather than
+     * after three seconds of spectacle that implied success.
+     */
+    runExperiment: () => ReturnType<AppStore['dispatch']>;
+    /**
+     * Choosing the authored wavelength to work at (Story 2.10, AC7).
+     *
+     * 550 nm is always permitted and resets to the minimum path. An advanced choice is refused with
+     * `advanced-wavelength-locked` until `minimumRuns` fixed-550 nm observations exist, and with
+     * `unavailable-wavelength` if the case does not author it — so the caller reads the choices out of
+     * `experiment.wavelengthComparison` rather than writing 450 / 650 down.
+     */
+    setWavelength: (wavelengthNm: 450 | 550 | 650) => ReturnType<AppStore['dispatch']>;
+    /**
+     * Putting a saved observation into the comparison, and taking it out again (Story 2.10, AC8).
+     *
+     * The caller is expected to have read `state.comparison.selectedRunIds` first, the same rule
+     * {@link inspectSource} states: the reducer answers a third selection with
+     * `too-many-comparison-runs` and a repeat with `duplicate-comparison-run`, and both are correct
+     * answers to a genuinely duplicated dispatch — but a surface must not provoke a refusal the player
+     * did nothing to earn.
+     */
+    selectComparisonRun: (runId: string) => ReturnType<AppStore['dispatch']>;
+    unselectComparisonRun: (runId: string) => ReturnType<AppStore['dispatch']>;
+    /**
+     * Saving what the player made of the pair.
+     *
+     * Refused with `comparison-pair-required` unless exactly two are selected and with
+     * `invalid-comparison-note` on a blank one; the surface answers both with the existing localized
+     * errors rather than swallowing them. A note replaces the existing note for the same pair.
+     */
+    saveComparisonNote: (note: string) => ReturnType<AppStore['dispatch']>;
     subscribe: AppStore['subscribe'];
 }>;
 
@@ -100,5 +147,16 @@ export const createPhaserStoreAdapter = (store: AppStore): PhaserStoreAdapter =>
     requestRivalLabRevision: () => store.dispatch({ type: 'rivalLab.revisionRequested' }),
     inspectSource: (sourceId) => store.dispatch({ type: 'source.inspected', sourceId }),
     advanceCase: (transition) => ADVANCE_DISPATCHERS[transition](store),
+    // Both stamped here for the reason above: `reduceExperimentRun` is a pure function of the state
+    // and the action, and it stays one. Nothing else is dispatched — the reducer records the run.
+    runExperiment: () => store.dispatch({
+        type: 'experiment.run',
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString()
+    }),
+    setWavelength: (wavelengthNm) => store.dispatch({ type: 'apparatus.wavelengthSet', wavelengthNm }),
+    selectComparisonRun: (runId) => store.dispatch({ type: 'comparison.runSelected', runId }),
+    unselectComparisonRun: (runId) => store.dispatch({ type: 'comparison.runUnselected', runId }),
+    saveComparisonNote: (note) => store.dispatch({ type: 'comparison.noteSaved', note }),
     subscribe: store.subscribe
 });

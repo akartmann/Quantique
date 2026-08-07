@@ -4,11 +4,23 @@ import { expect, test } from '@playwright/test';
 
 import { advanceControlCentreOnBoard, lastProposalCardProbe } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
-// From `apparatusGeometry`, not `ApparatusRenderer`: that renderer imports Phaser as a *value*
-// (`BlendModes`), Phaser touches `window` at import time, and these specs run in Node. The routing
-// shell's geometry is split out of `PhasePlaceholderScene` for the same reason — it extends `Scene`,
-// and `libraryGeometry` out of `LibraryScene` and `LibraryRenderer` for the same reason again.
-import { advanceToSynthesisControlCentre } from '../../src/adapters/phaser/renderers/apparatusGeometry';
+// From `apparatusGeometry`, not `ApparatusRenderer`. That renderer stopped importing Phaser as a
+// *value* in Story 2.10, so it is technically importable here now — but a spec deriving a click target
+// must not have to construct a renderer to get one, and the geometry/painting split is the point. The
+// routing shell's geometry is split out of `PhasePlaceholderScene` for the same reason (it extends
+// `Scene`), and `libraryGeometry` out of `LibraryScene` and `LibraryRenderer` again.
+import {
+    KNOB_TRAVEL_RADIUS,
+    advanceToSynthesisControlCentre,
+    knobCentre,
+    notebookCloseControlCentre,
+    notebookControlCentre,
+    notebookNoteFieldCentre,
+    notebookSaveControlCentre,
+    notebookSelectionCentre,
+    startTheLightControlCentre
+} from '../../src/adapters/phaser/renderers/apparatusGeometry';
+import { KNOB_ARC_END_RAD } from '../../src/adapters/phaser/renderers/instrumentView';
 import { placeholderAdvanceControlCentre } from '../../src/adapters/phaser/scenes/phasePlaceholderGeometry';
 import { libraryAdvanceControlCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
 import { en } from '../../src/core/i18n/locales/en';
@@ -18,9 +30,13 @@ import {
     artifactAt,
     clickDesign,
     clickUntilScene,
+    dragDesignUntil,
     expectActiveScene,
     waitForBookToClose,
-    waitForBookToOpen
+    waitForBookToOpen,
+    waitForInputToSettle,
+    waitForRunToResolve,
+    RUN_STEP_COST_MS
 } from './canvasHelpers';
 
 /**
@@ -34,29 +50,32 @@ import {
  *
  * ## What is *not* a canvas click here, and why
  *
- * Every **transition** below is a canvas click. Four intents that *gate* those transitions still have
+ * Every **transition** below is a canvas click. Two intents that *gate* those transitions still have
  * no canvas dispatcher at all, so they stay on their current DOM path and are annotated inline with
  * the story that closes each:
  *
  * | Gating intent | Only dispatcher today | Owner |
  * | --- | --- | --- |
- * | `experiment.run` | `src/ui/apparatus/ApparatusControls.ts` | Story 2.10 |
- * | `comparison.runSelected` / `comparison.noteSaved` | `src/ui/notebook/NotebookPanel.ts` | Story 2.10 |
- * | `theory.supportRunSelected` / `theory.supportSourceSelected` | `src/ui/theory/TheoryBoard.ts` | unowned |
- * | `peerReview.requested` / `revision.saved` | `src/ui/review/ConclusionReviewPanel.ts` | unowned |
+ * | `theory.supportRunSelected` / `theory.supportSourceSelected` | `src/ui/theory/TheoryBoard.ts` | Story 2.11 |
+ * | `peerReview.requested` / `revision.saved` | `src/ui/review/ConclusionReviewPanel.ts` | Story 2.11 |
  *
  * **`source.inspected` left this table in Story 2.8.** The reading room dispatches it from the canvas
  * now, so the `context → prediction` step below is a genuine canvas walk rather than a DOM reach-in,
- * and this file no longer has to open the reference book to get out of the way of its own gate. The
- * reading room's own behaviour — the pickup, the book, the refusal, the suppression — is
- * `library-reading.spec.ts`; what stays here is only enough of it to reach the next transition.
+ * and this file no longer has to open the reference book to get out of the way of its own gate.
  *
- * So this is honestly **"each transition is dispatchable from the canvas"**, not "the Young case can be
- * completed with canvas clicks alone". The latter becomes true when 2.10 lands and is verified in full
- * by 2.12. `apparatus.controlSet` is the one exception in the list below: it *is* canvas-dispatchable
- * through the laboratory's step buttons, but those buttons export no geometry, so deriving a click
- * target for them would mean restating literals. It stays on the DOM path here and Story 2.10 gives it
- * the knob and the geometry.
+ * **`experiment.run`, `apparatus.controlSet` and the three `comparison.*` intents left it in Story
+ * 2.10.** The bench has real instruments, a control that starts the light, and a notebook overlay, so
+ * the `experiment → synthesis` and `synthesis → review` steps below are canvas walks too. The bench's
+ * own behaviour — the drag, the run, the lock, the comparison — is `young-canvas-experiment.spec.ts`;
+ * what stays here is only enough of it to reach the next transition.
+ *
+ * The remaining two rows were carried as *unowned* through the 2.7 development notes and the 2.7
+ * review before the 2.8 review assigned them to **Story 2.11** (`deferred-work.md` §Assigned). They
+ * must land before Story 2.12, whose completion check is "every player intent is dispatchable from the
+ * canvas" and which deletes their only dispatchers.
+ *
+ * So this is honestly **"each transition is dispatchable from the canvas"**, not yet "the Young case
+ * can be completed with canvas clicks alone" — two intents short of it, and 2.11 closes both.
  *
  * Canvas *text* is deliberately not asserted **anywhere in this file** — it cannot be read from the
  * DOM. That includes refusal messages, and the layer that owns them is `tests/unit/AdvanceView.test.ts`,
@@ -64,6 +83,27 @@ import {
  * against `resolveAdvanceView` directly. `french-typography.spec.ts` measures advance *label* widths and
  * says nothing about a refusal, so it is not the answer to "does a refused click say why".
  */
+
+/**
+ * The whole-case walk's own budget — the `canvas-transitions` decision Story 2.10 was asked to take.
+ *
+ * **Raised here, deliberately, rather than by capping `--workers` or splitting the spec**, and the
+ * measurements are why. At the 2.9 review this spec exceeded the default 30s budget at
+ * `--workers=9` and passed at 5; Story 2.10 then added two ~2.8s run animations to the same walk, a
+ * notebook overlay, and a typed note. Re-measured at HEAD: the *other* load-sensitive failures in this
+ * walk turned out not to be budget at all — they were fixed waits calibrated in frames, and
+ * {@link dragDesignUntil} removed them. What is left is honest wall-clock: the walk genuinely takes
+ * longer than 30s under nine parallel browsers because it genuinely does more.
+ *
+ * Capping the workers would slow every spec in the suite to fix one, and it would be fixing the wrong
+ * thing — the walk is not fragile now, it is long. Splitting it would break the one property it exists
+ * to assert, which is that **every** transition is reachable in a single continuous walk.
+ *
+ * So: the default budget plus what the two runs actually cost, read from the renderer that runs them,
+ * plus the same allowance again for the rest of the walk under load. Derived rather than rounded, so a
+ * change to the animation moves this with it instead of silently eating the margin.
+ */
+test.setTimeout(30_000 + (4 * RUN_STEP_COST_MS));
 
 const BOOK_CLOSE = bookCloseControlCentre();
 /**
@@ -82,10 +122,33 @@ const LABORATORY_ADVANCE = advanceToSynthesisControlCentre();
 const BOARD_ADVANCE = advanceControlCentreOnBoard('conclusion');
 const CARD = lastProposalCardProbe(DESIGN_HEIGHT);
 
-const SOURCE_NAMES = (JSON.parse(
+const CASE_DEFINITION = JSON.parse(
     readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
-) as { contextualArtifacts: { displayName: { en: string; fr: string } }[] })
-    .contextualArtifacts.map(({ displayName }) => displayName);
+) as {
+    contextualArtifacts: { displayName: { en: string; fr: string } }[];
+    apparatus: { primaryControls: { id: string; max: number }[] };
+};
+const SOURCE_NAMES = CASE_DEFINITION.contextualArtifacts.map(({ displayName }) => displayName);
+
+/** The bench's own controls (Story 2.10), every one derived from `apparatusGeometry`. */
+const START_THE_LIGHT = startTheLightControlCentre();
+const OPEN_THE_NOTEBOOK = notebookControlCentre();
+/**
+ * Which slot the screen-distance instrument stands in, read from the content rather than fixed at 1.
+ *
+ * The bench gives one slot per authored control in authored order, so a case that listed the two the
+ * other way round would put this drag on the slit spacing — and the run would still record, and the
+ * walk would still reach the theory board, and this spec would pass having varied the wrong thing.
+ */
+const SCREEN_DISTANCE_SLOT = CASE_DEFINITION.apparatus.primaryControls.findIndex(({ id }) => id === 'screenDistanceM');
+if (SCREEN_DISTANCE_SLOT < 0) throw new Error('The authored case must carry a screen-distance control.');
+/** Where a drag to the far end of the travel lands, read from the authored bound rather than as 4. */
+const FURTHEST_THROW = CASE_DEFINITION.apparatus.primaryControls[SCREEN_DISTANCE_SLOT]!.max;
+/** The far end of that knob's travel, derived from the arc the conversion module exports. */
+const SCREEN_DISTANCE_TRAVEL_END = {
+    x: knobCentre(SCREEN_DISTANCE_SLOT).x + (Math.cos(KNOB_ARC_END_RAD) * (KNOB_TRAVEL_RADIUS - 6)),
+    y: knobCentre(SCREEN_DISTANCE_SLOT).y + (Math.sin(KNOB_ARC_END_RAD) * (KNOB_TRAVEL_RADIUS - 6))
+};
 
 test('takes every forward transition of the Young case from the canvas', async ({ page }) => {
     await page.goto('/');
@@ -112,27 +175,50 @@ test('takes every forward transition of the Young case from the canvas', async (
     await expectActiveScene(page, 'Laboratory');
 
     // --- experiment → synthesis ----------------------------------------------------------------
-    // `experiment.run` is Story 2.10's; so is the knob that varies the throw. Two observations at
-    // different screen distances are what the significant-measure gate asks for.
-    await page.getByRole('button', { name: 'Run experiment' }).click();
-    await page.getByLabel('Screen distance (m)').fill('3');
-    await page.getByLabel('Screen distance (m)').press('Enter');
-    await page.getByRole('button', { name: 'Run experiment' }).click();
+    // A canvas walk since Story 2.10: the light is started from the bench's own control and the throw
+    // is varied on its own instrument. Two observations at **different** screen distances are what the
+    // significant-measure gate asks for — `configurationKey` reads a repeat at one setting as a
+    // replication, so pressing start twice would record two observations and leave the gate shut.
+    await clickDesign(page, START_THE_LIGHT);
+    await waitForRunToResolve(page);
+    // The setting is **observed**, never driven, and it is what the retry waits on. A lost drag would
+    // otherwise surface at the transition below as a routing error, because two observations at the
+    // same setting are a replication and the gate correctly stays shut.
+    await dragDesignUntil(page, knobCentre(SCREEN_DISTANCE_SLOT), SCREEN_DISTANCE_TRAVEL_END, async () => {
+        await expect(page.getByLabel('Screen distance (m)')).toHaveValue(String(FURTHEST_THROW), { timeout: 1_500 });
+    });
+    await clickDesign(page, START_THE_LIGHT);
+    await waitForRunToResolve(page);
+
+    // The comparison and its note are a **bench** act since Story 2.10 — the notebook is an overlay
+    // over the laboratory, so it is opened here rather than from the theory board the DOM panel used
+    // to be reachable from. The overlay suppresses the bench while it is up and hands it back on close.
+    await clickDesign(page, OPEN_THE_NOTEBOOK);
+    await waitForInputToSettle(page);
+    await clickDesign(page, notebookSelectionCentre(0));
+    await waitForInputToSettle(page);
+    await clickDesign(page, notebookSelectionCentre(1));
+    await waitForInputToSettle(page);
+    await clickDesign(page, notebookNoteFieldCentre());
+    await waitForInputToSettle(page);
+    // Deliberately short. The reducer only refuses a *blank* note, and what this walk is proving is
+    // that the intent is canvas-dispatchable at all; the note's content is
+    // `young-canvas-experiment.spec.ts`'s subject, and every character here is a keystroke through
+    // Phaser's input queue that this walk pays for twice over at nine workers.
+    await page.keyboard.type('Wider');
+    await clickDesign(page, notebookSaveControlCentre());
+    await waitForInputToSettle(page);
+    await clickDesign(page, notebookCloseControlCentre());
+    await waitForInputToSettle(page);
 
     await clickDesign(page, LABORATORY_ADVANCE);
     await expectActiveScene(page, 'TheoryBoard');
 
     // --- synthesis → review --------------------------------------------------------------------
     // Choosing the conclusion is a canvas act (Story 1.11) and sets the draft's claim and limitation.
-    // Its supporting evidence is not: the notebook comparison is Story 2.10's and the support
-    // selections are unowned in the 2.7–2.12 plan.
+    // Its supporting evidence is not: the two support selections are Story 2.11's, and they are the
+    // last DOM reach-in in this walk.
     await clickDesign(page, CARD);
-
-    const notebook = page.getByRole('region', { name: 'Measurement notebook' });
-    await notebook.getByRole('checkbox', { name: 'Select Observation 1 for comparison' }).check();
-    await notebook.getByRole('checkbox', { name: 'Select Observation 2 for comparison' }).check();
-    await notebook.getByLabel('Comparison note').fill('The recorded spacing differs across these two bounded configurations.');
-    await notebook.getByRole('button', { name: 'Save comparison note' }).click();
 
     const board = page.getByRole('region', { name: 'Theory board' });
     await board.getByRole('checkbox', { name: 'Select Observation 1 as conclusion support' }).check();

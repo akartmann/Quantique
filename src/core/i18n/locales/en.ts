@@ -29,23 +29,73 @@ export const en = {
     'validation.session.noCollection': 'The application does not collect session responses.',
 
     // --- Laboratory surface ---------------------------------------------------------------------
-    'lab.title': 'Young interference — visual laboratory surface',
-    'lab.guide': 'Use the semantic laboratory controls or these matching visual step controls.',
+    // Three of these named "the semantic laboratory controls" until Story 2.10. That surface is the
+    // canvas now: the bench is turned with its own instruments and started with its own control, so a
+    // line pointing at a retired DOM panel was telling the player to use something that is not there.
+    // `lab.title` lost "visual laboratory surface" for the same reason it gained a place instead — the
+    // player is standing at a bench, not looking at a surface.
+    'lab.title': 'Young interference — the optical bench',
+    'lab.guide': 'Turn each instrument to set the bench up, then start the light to record what the screen shows.',
     'lab.source': 'source',
     'lab.screen': 'screen',
     'lab.control.readout': '{label}: {value}',
+    // The glyphs on the discrete step affordances, which every draggable instrument keeps (ADR-012).
+    // They survive the retirement of the old text buttons because the affordance still carries them.
     'lab.control.decrease': '−',
     'lab.control.increase': '+',
-    'lab.result.emptyHint': 'No fringe spacing recorded yet. Enter the experiment stage and use Run experiment in the semantic controls.',
+    'lab.result.emptyHint': 'No fringe spacing recorded yet. Start the light to record one.',
     'lab.result.recorded': 'Recorded pattern: {value} at {wavelength} nm ({mode} path).',
-    'lab.result.stale': 'Last recorded result: {value}. The changed setup is an unrecorded preview.',
-    'lab.preview': 'Visual preview: {slitSpacing} slit spacing and {screenDistance} screen distance. Run experiment for an exact recorded fringe spacing.',
+    'lab.result.stale': 'Last recorded result: {value}. The changed setup has not been run.',
+    // AC4's in-scene invitation, and what replaced `lab.preview`. The painted fringe preview went with
+    // it: a screen pattern with no run behind it is exactly what "dark until the player starts it"
+    // forbids, and the sentence had to stop promising one.
+    'lab.idle': 'The bench is dark at {slitSpacing} slit spacing and {screenDistance} screen distance. Start the light to record an observation.',
+    'lab.running': 'The light is crossing the bench…',
+    // The **control's** in-flight label, which is a different string from the guidance line above it
+    // for a measurable reason: the control is a fixed-height rectangle and the French sentence
+    // overflows its 216px label bound at 15px, while the guidance line wraps at 620px and does not.
+    'lab.start.running': 'Light running…',
     'lab.pattern.recorded': 'Recorded interference pattern: bright bands are {spacing} apart in the saved Young model result.',
     'lab.wavelengthMode.minimum': 'minimum',
     'lab.wavelengthMode.advanced': 'advanced',
+    // The bench's own controls (Story 2.10). Both are fixed-height hit targets, so both are in the
+    // whole-string French sweep — a label that wraps to two lines inside a 44px rectangle clips.
+    'lab.start': 'Start the light',
+    'lab.notebook.open': 'Measurement notebook',
+    // The optional wavelength comparison, chosen in-scene (AC7). The advanced choices stay locked
+    // until two fixed-550 nm observations exist; a click on a locked one is answered by
+    // `error.advanced-wavelength-locked`, which already existed in both bundles.
+    'lab.wavelength.heading': 'Wavelength',
+    'lab.wavelength.fixed': '{value} nm — minimum path',
+    'lab.wavelength.comparison': '{value} nm — comparison',
+    'lab.wavelength.comparisonLocked': '{value} nm — locked',
     // The references kept to hand at the bench (Story 2.8). Re-reading one here records nothing and
     // changes no progression — the reading is recorded once, in the reading room.
     'lab.reference.heading': 'References to hand',
+
+    // --- The bench notebook (Story 2.10) ---------------------------------------------------------
+    // An overlay the player opens, not a permanent panel: the bench has no 620×364 band left for a run
+    // list with two selections and a note field, and this surface does not scroll (D3). It renders
+    // `record.result` and `record.experimentModelVersion` exactly as stored — no saved run is ever
+    // recalculated against a newer model.
+    'notebook.heading': 'Measurement notebook',
+    'notebook.guide': 'Every saved observation keeps the setup and the result it was recorded with. Choose two to compare them.',
+    'notebook.empty': 'No observation saved yet. Start the light at the bench to record one.',
+    'notebook.observation': 'Observation {order}',
+    'notebook.row.settings': '{slitSpacing} · {screenDistance}',
+    'notebook.row.result': '{label}: {value}',
+    'notebook.row.meta': '{timestamp} · {wavelength} nm ({mode} path) · model {version}',
+    'notebook.select': 'Compare',
+    'notebook.selected': 'Chosen',
+    'notebook.page.earlier': 'Earlier',
+    'notebook.page.later': 'Later',
+    'notebook.page.counter': '{from}–{to} of {total}',
+    'notebook.note.label': 'Comparison note',
+    'notebook.note.empty': 'Type your comparison here, then save it.',
+    'notebook.note.save': 'Save the comparison',
+    'notebook.note.saved': 'Comparison note saved.',
+    'notebook.pairRequired': 'Choose two saved observations to compare.',
+    'notebook.close': 'Close the notebook',
 
     // --- In-scene advance affordance (Story 2.7) -------------------------------------------------
     // One label per forward transition. Every phase's scene carries one of these controls, because a

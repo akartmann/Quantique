@@ -1,6 +1,18 @@
+import { readFileSync } from 'node:fs';
+
 import { expect, test } from '@playwright/test';
 
+// From `apparatusGeometry`, which imports Phaser not at all — the module exists so a spec can derive
+// a click target instead of restating one (Story 2.10).
+import { stepAffordanceCentre } from '../../src/adapters/phaser/renderers/apparatusGeometry';
+import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../../src/adapters/phaser/designSurface';
 import { enterYoungExperiment } from './youngExperimentHelpers';
+
+/** Which slot the slit-spacing instrument stands in, from the authored control order. */
+const SLIT_SPACING_SLOT = (JSON.parse(
+    readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
+) as { apparatus: { primaryControls: { id: string }[] } })
+    .apparatus.primaryControls.findIndex(({ id }) => id === 'slitSpacingMm');
 
 test('offers the authored slit-spacing control outside the canvas and announces normalized keyboard changes', async ({ page }) => {
     await page.goto('/');
@@ -69,9 +81,15 @@ test('projects Phaser pointer and touch changes through the same semantic readou
         throw new Error('The laboratory surface did not render.');
     }
 
-    const plusX = bounds.x + (540 / 1024) * bounds.width;
-    const plusY = bounds.y + (603 / 768) * bounds.height;
-    await page.mouse.click(plusX, plusY);
+    // Derived from the module that places the control (Story 2.10). It was `(540, 603)` against the
+    // retired `+` text button, with a private `1024`/`768` pair beside it — the coordinate stopped
+    // describing anything the day the bench grew instruments. What this spec is *about* is unchanged:
+    // a canvas gesture reaching the store, observed through whatever surface is still mounted.
+    const step = stepAffordanceCentre(SLIT_SPACING_SLOT, 1);
+    await page.mouse.click(
+        bounds.x + (step.x / DESIGN_WIDTH) * bounds.width,
+        bounds.y + (step.y / DESIGN_HEIGHT) * bounds.height
+    );
     await expect(control).toHaveValue('0.3');
 
     const touchContext = await browser.newContext({ hasTouch: true, viewport: { width: 1280, height: 720 } });
@@ -88,8 +106,8 @@ test('projects Phaser pointer and touch changes through the same semantic readou
     }
 
     await touchPage.touchscreen.tap(
-        touchBounds.x + (540 / 1024) * touchBounds.width,
-        touchBounds.y + (603 / 768) * touchBounds.height
+        touchBounds.x + (step.x / DESIGN_WIDTH) * touchBounds.width,
+        touchBounds.y + (step.y / DESIGN_HEIGHT) * touchBounds.height
     );
     await expect(touchControl).toHaveValue('0.3');
     await expect(touchPage.locator('#slitSpacingMm-readout')).toHaveText('0.30 mm');

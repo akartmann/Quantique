@@ -2,6 +2,9 @@ import { readFileSync } from 'node:fs';
 
 import { expect, test } from '@playwright/test';
 
+import { stepAffordanceCentre } from '../../src/adapters/phaser/renderers/apparatusGeometry';
+import { clickDesign } from './canvasHelpers';
+
 const expectActiveScene = async (page: import('@playwright/test').Page, sceneKey: string): Promise<void> => {
     await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', sceneKey);
 };
@@ -21,11 +24,22 @@ const AUTHORED_CONCLUSIONS: readonly Readonly<{ claim: string; limitation: strin
 ) as { conclusionProposals: { claim: { en: string }; limitation: { en: string } }[] })
     .conclusionProposals.map(({ claim, limitation }) => ({ claim: claim.en, limitation: limitation.en }));
 
-/** Clicks the laboratory apparatus "increase slit spacing" control on the canvas, in design coordinates. */
+/**
+ * Clicks the laboratory's "one step up" affordance on the slit-spacing instrument.
+ *
+ * **Derived, not restated** (Story 2.10). This was `(540, 603)` against the retired `+` text button
+ * and a private `1024`/`768` pair — three literals, all of which stopped describing anything the day
+ * the bench grew real instruments, and the spec then failed pointing nowhere near the cause.
+ * `apparatusGeometry.ts` imports Phaser not at all precisely so this can read it, and the slot comes
+ * from the authored control order rather than being fixed at zero.
+ */
+const SLIT_SPACING_SLOT = (JSON.parse(
+    readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
+) as { apparatus: { primaryControls: { id: string }[] } })
+    .apparatus.primaryControls.findIndex(({ id }) => id === 'slitSpacingMm');
+
 const clickApparatusIncrease = async (page: import('@playwright/test').Page): Promise<void> => {
-    const bounds = await page.locator('#game-container canvas').boundingBox();
-    if (!bounds) throw new Error('The routed Phaser surface did not render.');
-    await page.mouse.click(bounds.x + (540 / 1024) * bounds.width, bounds.y + (603 / 768) * bounds.height);
+    await clickDesign(page, stepAffordanceCentre(SLIT_SPACING_SLOT, 1));
 };
 
 test('walks the Young scene sequence, keeping the active scene mirroring the case phase', async ({ page }) => {

@@ -5,10 +5,17 @@ import { selectLocale } from '../../../core/store/selectors';
 import { registerCanvasBoundsRefresh } from '../canvasBounds';
 import { createPhaserStoreAdapter } from '../PhaserStoreAdapter';
 import { ApparatusRenderer } from '../renderers/ApparatusRenderer';
+import { NotebookRenderer } from '../renderers/NotebookRenderer';
 import { ReferenceBookPresenter } from '../renderers/ReferenceBookPresenter';
 
 /**
- * The bench, and the references kept beside it.
+ * The bench, the references kept beside it, and the notebook the observations go into.
+ *
+ * **The notebook is a second scene-owned overlay** (Story 2.10, AC8), built on exactly the shape the
+ * book established: this scene owns it, this scene suppresses its *own* apparatus input while it is
+ * open, and nothing reaches across a scene boundary. Two overlays over one bench means the
+ * suppression has to be a fact about *either* being up rather than about whichever one changed last —
+ * see {@link suppressApparatus}.
  *
  * **The book is owned by this scene** since Story 2.8, through its own {@link ReferenceBookPresenter}.
  * It used to be an always-running overlay scene that suppressed this one by calling
@@ -24,9 +31,21 @@ export class LaboratoryScene extends Scene {
     private disposeCanvasBounds?: () => void;
     private apparatusRenderer?: ApparatusRenderer;
     private referenceBook?: ReferenceBookPresenter;
+    private notebook?: NotebookRenderer;
 
     public constructor(private readonly store: AppStore) {
         super('Laboratory');
+    }
+
+    /**
+     * The apparatus accepts input only while **neither** overlay is up.
+     *
+     * Two independent `setInputEnabled(!visible)` calls would race: closing the book while the
+     * notebook is still open would hand input back to a bench nobody can see, and a click meant for a
+     * notebook row would fall through and move a slit. One rule, read from both presenters.
+     */
+    private suppressApparatus(): void {
+        this.apparatusRenderer?.setInputEnabled(!(this.referenceBook?.isOpen ?? false) && !(this.notebook?.isOpen ?? false));
     }
 
     public create(): void {
@@ -38,22 +57,36 @@ export class LaboratoryScene extends Scene {
         this.events.once('shutdown', this.shutdown, this);
 
         this.cameras.main.setBackgroundColor(0x10252c);
+        const adapter = createPhaserStoreAdapter(this.store);
         const presenter = new ReferenceBookPresenter(
             this,
             () => selectLocale(this.store.getState()),
-            (visible) => this.apparatusRenderer?.setInputEnabled(!visible)
+            () => this.suppressApparatus()
         );
         presenter.create();
         this.referenceBook = presenter;
 
-        this.apparatusRenderer = new ApparatusRenderer(this, createPhaserStoreAdapter(this.store), {
-            openReference: (artifact) => presenter.open(artifact)
+        this.apparatusRenderer = new ApparatusRenderer(this, adapter, {
+            openReference: (artifact) => presenter.open(artifact),
+            // Resolved through the field rather than captured, because the notebook is constructed
+            // *after* this renderer — see below.
+            openNotebook: () => this.notebook?.open()
         });
         this.apparatusRenderer.create();
-        // Suppressed at creation as well as on every visibility change. A scene-local presenter is
-        // always closed at `create()`, so this cannot currently be false — but it states the rule that
+
+        // Built after the bench, and on its own depth on top of that. Creation order is the only depth
+        // mechanism most of these renderers use, and an overlay built before the bench would be painted
+        // over by it — which is one of the three defects the 2.9 review found only by screenshotting.
+        // Belt and braces, because a later story reordering this block must not silently bury it.
+        const notebook = new NotebookRenderer(this, adapter, {
+            onVisibilityChange: () => this.suppressApparatus()
+        });
+        notebook.create();
+        this.notebook = notebook;
+        // Suppressed at creation as well as on every visibility change. Both scene-local overlays are
+        // closed at `create()`, so this cannot currently be false — but it states the rule that
         // mattered when the book outlived the scene, and it costs one call.
-        this.apparatusRenderer.setInputEnabled(!presenter.isOpen);
+        this.suppressApparatus();
         // The sticky canvas's bounds refresh, which the retired overlay scene used to own for the whole
         // session. Every routed scene registers its own now, and exactly one routed scene runs at a time.
         this.disposeCanvasBounds = registerCanvasBoundsRefresh(this);
@@ -63,6 +96,10 @@ export class LaboratoryScene extends Scene {
             this.apparatusRenderer?.render(state);
             // Re-publishes an open book so a locale change reaches its chrome and its rendition.
             this.referenceBook?.render();
+            // The notebook is a live projection of the runs and the comparison, so it repaints on
+            // every dispatch rather than only on a locale change — a run recorded, a selection made or
+            // a note saved all change what it shows. It is a no-op while closed.
+            this.notebook?.render(state);
         });
         this.apparatusRenderer.render(this.store.getState());
 
@@ -75,6 +112,8 @@ export class LaboratoryScene extends Scene {
         this.disposeCanvasBounds = undefined;
         this.referenceBook?.destroy();
         this.referenceBook = undefined;
+        this.notebook?.destroy();
+        this.notebook = undefined;
         this.apparatusRenderer?.destroy();
         this.apparatusRenderer = undefined;
     }
