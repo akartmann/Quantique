@@ -1,6 +1,6 @@
 {
   "id": "young-interference",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "openingDispute": {
     "en": "Does light travel as particles, waves, or something more subtle?",
     "fr": "La lumière se propage-t-elle comme des particules, comme des ondes, ou d’une manière plus subtile ?"
@@ -1146,7 +1146,8 @@
       "name": "Dr. Thea Young",
       "role": "lead",
       "portrait": {
-        "kind": "silhouette",
+        "kind": "asset",
+        "assetId": "thea-young-portrait",
         "accentColor": "#c9a227",
         "figure": { "build": "gowned", "pose": "raising-instrument", "hair": "upswept", "hairColor": "dark", "skinTone": "light" }
       }
@@ -1156,7 +1157,8 @@
       "name": "Elias Wren",
       "role": "builder",
       "portrait": {
-        "kind": "silhouette",
+        "kind": "asset",
+        "assetId": "elias-wren-portrait",
         "accentColor": "#4f8a8b",
         "figure": { "build": "suited", "pose": "holding-paper", "hair": "swept", "hairColor": "dark", "skinTone": "light", "spectacles": true }
       }
@@ -1166,7 +1168,8 @@
       "name": "Marianne Cole",
       "role": "analyst",
       "portrait": {
-        "kind": "silhouette",
+        "kind": "asset",
+        "assetId": "marianne-cole-portrait",
         "accentColor": "#9c6b98",
         "figure": { "build": "gowned", "pose": "holding-paper", "hair": "upswept", "hairColor": "auburn", "skinTone": "light" }
       }
@@ -1176,7 +1179,8 @@
       "name": "Samuel Hart",
       "role": "communicator",
       "portrait": {
-        "kind": "silhouette",
+        "kind": "asset",
+        "assetId": "samuel-hart-portrait",
         "accentColor": "#b8653f",
         "figure": { "build": "suited", "pose": "presenting", "hair": "cropped", "hairColor": "dark", "skinTone": "light", "moustache": true }
       }
@@ -1289,6 +1293,7 @@
   ],
   "rivalLab": {
     "name": "Mr. Arthur Bell",
+    "portraitAssetId": "arthur-bell-portrait",
     "accentColor": "#8c3b3b",
     "figure": { "build": "suited", "pose": "arms-folded", "hair": "cropped", "hairColor": "grey", "skinTone": "light", "moustache": true },
     "critiques": [
@@ -1633,12 +1638,37 @@
     }
   },
   "assets": {
-    "manifestVersion": "1.0.0",
+    "manifestVersion": "1.1.0",
     "entries": [
       {
         "id": "quantique-logo",
         "type": "image",
         "path": "/assets/logo.png"
+      },
+      {
+        "id": "thea-young-portrait",
+        "type": "image",
+        "path": "/cases/young-interference/assets/characters/thea-young.png"
+      },
+      {
+        "id": "elias-wren-portrait",
+        "type": "image",
+        "path": "/cases/young-interference/assets/characters/elias-wren.png"
+      },
+      {
+        "id": "marianne-cole-portrait",
+        "type": "image",
+        "path": "/cases/young-interference/assets/characters/marianne-cole.png"
+      },
+      {
+        "id": "samuel-hart-portrait",
+        "type": "image",
+        "path": "/cases/young-interference/assets/characters/samuel-hart.png"
+      },
+      {
+        "id": "arthur-bell-portrait",
+        "type": "image",
+        "path": "/cases/young-interference/assets/characters/arthur-bell.png"
       }
     ]
   }

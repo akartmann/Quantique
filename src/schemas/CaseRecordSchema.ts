@@ -282,7 +282,11 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // `feedback` and `revisionPath`, and the proposal claims and limitations — are byte-identical
         // to 1.14.0. Verified by diffing the file, not assumed: the 2.8 review asked for this allowlist
         // to be kept honest rather than widened on the assumption that they are.
-        || (definition.version === '1.15.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0'].includes(record.caseDefinitionVersion));
+        || (definition.version === '1.15.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0'].includes(record.caseDefinitionVersion))
+        // 1.16.0 adds only optional image references and their optional vector fallbacks. Neither
+        // field is recorded, evaluated, or used to gate progression; the pre-existing accent/figure
+        // remains the safe rendering fallback. The record fields recomputed below are unchanged.
+        || (definition.version === '1.16.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }

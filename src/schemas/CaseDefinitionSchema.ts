@@ -265,7 +265,12 @@ const ColleagueFigureSchema = z.object({
 }).strict();
 
 const ColleaguePortraitSchema = z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('asset'), assetId: stableId }).strict(),
+    z.object({
+        kind: z.literal('asset'),
+        assetId: stableId,
+        accentColor: z.string().regex(/^#[0-9a-f]{6}$/, 'An asset portrait fallback accent must be a lower-case #rrggbb colour.').optional(),
+        figure: ColleagueFigureSchema.optional()
+    }).strict(),
     // Lower-case six-digit hex only: the renderer parses it with `Number.parseInt(…, 16)`, and a
     // single canonical spelling keeps authored accents comparable at a glance.
     z.object({
@@ -356,6 +361,7 @@ const RivalLabCritiqueSchema = z.object({
 const RivalLabSchema = z.object({
     // Canonical: a proper noun, following the `Colleague.name` and `creatorOrOrigin` precedent.
     name: z.string().trim().min(1),
+    portraitAssetId: stableId.optional(),
     // The same lower-case #rrggbb rule the colleague silhouette uses: the renderer parses it with
     // `Number.parseInt(…, 16)`, and one canonical spelling keeps authored accents comparable.
     accentColor: z.string().regex(/^#[0-9a-f]{6}$/, 'A rival-lab accent must be a lower-case #rrggbb colour.'),
@@ -616,14 +622,29 @@ export const CaseDefinitionSchema = z.object({
     if (colleagueIds.size !== definition.colleagues.length) {
         context.addIssue({ code: 'custom', message: 'Colleague IDs must be stable and unique.', path: ['colleagues'] });
     }
-    const assetIds = new Set(definition.assets.entries.map(({ id }) => id));
+    const assetsById = new Map(definition.assets.entries.map((asset) => [asset.id, asset]));
     definition.colleagues.forEach((colleague, index) => {
         // A portrait naming an absent asset would pass the strict parse and then fail
         // `manifestsMatch` at load with a message about the manifest rather than the cast.
-        if (colleague.portrait.kind === 'asset' && !assetIds.has(colleague.portrait.assetId)) {
+        const portraitAsset = colleague.portrait.kind === 'asset'
+            ? assetsById.get(colleague.portrait.assetId)
+            : undefined;
+        if (colleague.portrait.kind === 'asset' && !portraitAsset) {
             context.addIssue({ code: 'custom', message: 'A colleague asset portrait must name an authored asset.', path: ['colleagues', index, 'portrait', 'assetId'] });
         }
+        if (colleague.portrait.kind === 'asset' && portraitAsset?.type !== 'image') {
+            context.addIssue({ code: 'custom', message: 'A colleague asset portrait must name an authored image asset.', path: ['colleagues', index, 'portrait', 'assetId'] });
+        }
     });
+
+    if (definition.rivalLab.portraitAssetId) {
+        const portraitAsset = assetsById.get(definition.rivalLab.portraitAssetId);
+        if (!portraitAsset) {
+            context.addIssue({ code: 'custom', message: 'A rival-lab portrait must name an authored asset.', path: ['rivalLab', 'portraitAssetId'] });
+        } else if (portraitAsset.type !== 'image') {
+            context.addIssue({ code: 'custom', message: 'A rival-lab portrait must name an authored image asset.', path: ['rivalLab', 'portraitAssetId'] });
+        }
+    }
 
     // Unique *within* each set: a prediction and a conclusion proposal may share an id without
     // ambiguity, because each is looked up against its own set.

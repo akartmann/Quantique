@@ -1,4 +1,35 @@
 {
-  "manifestVersion": "1.0.0",
-  "entries": [{ "id": "quantique-logo", "type": "image", "path": "/assets/logo.png" }]
+  "manifestVersion": "1.1.0",
+  "entries": [
+    {
+      "id": "quantique-logo",
+      "type": "image",
+      "path": "/assets/logo.png"
+    },
+    {
+      "id": "thea-young-portrait",
+      "type": "image",
+      "path": "/cases/young-interference/assets/characters/thea-young.png"
+    },
+    {
+      "id": "elias-wren-portrait",
+      "type": "image",
+      "path": "/cases/young-interference/assets/characters/elias-wren.png"
+    },
+    {
+      "id": "marianne-cole-portrait",
+      "type": "image",
+      "path": "/cases/young-interference/assets/characters/marianne-cole.png"
+    },
+    {
+      "id": "samuel-hart-portrait",
+      "type": "image",
+      "path": "/cases/young-interference/assets/characters/samuel-hart.png"
+    },
+    {
+      "id": "arthur-bell-portrait",
+      "type": "image",
+      "path": "/cases/young-interference/assets/characters/arthur-bell.png"
+    }
+  ]
 }

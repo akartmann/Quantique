@@ -189,7 +189,17 @@ const validYoungCase: CaseDefinition = {
         historicalComparison: { title: bilingual('Young and Opticks'), text: bilingual('The authored records remain fixed.'), sourceIds: ['young-lecture-1801', 'newton-opticks'] },
         deeperTheory: { title: bilingual('Deeper theory'), text: bilingual('A reconstruction is not the historical record.') }, replayLabel: bilingual('Start counterfactual replay')
     },
-    assets: { manifestVersion: '1.0.0', entries: [{ id: 'quantique-logo', type: 'image', path: '/assets/logo.png' }] }
+    assets: {
+        manifestVersion: '1.1.0',
+        entries: [
+            { id: 'quantique-logo', type: 'image', path: '/assets/logo.png' },
+            { id: 'thea-young-portrait', type: 'image', path: '/cases/young-interference/assets/characters/thea-young.png' },
+            { id: 'elias-wren-portrait', type: 'image', path: '/cases/young-interference/assets/characters/elias-wren.png' },
+            { id: 'marianne-cole-portrait', type: 'image', path: '/cases/young-interference/assets/characters/marianne-cole.png' },
+            { id: 'samuel-hart-portrait', type: 'image', path: '/cases/young-interference/assets/characters/samuel-hart.png' },
+            { id: 'arthur-bell-portrait', type: 'image', path: '/cases/young-interference/assets/characters/arthur-bell.png' }
+        ]
+    }
 };
 
 const cloneValidCase = (): CaseDefinition => structuredClone(validYoungCase);
@@ -481,14 +491,51 @@ describe('CaseDefinitionSchema', () => {
         });
     });
 
-    it('accepts an asset portrait whose asset is in the manifest', () => {
-        const definition = cloneValidCase();
-        definition.colleagues = [
-            { ...definition.colleagues[0], portrait: { kind: 'asset', assetId: 'quantique-logo' } },
-            ...definition.colleagues.slice(1)
-        ];
+    it('accepts an image portrait with its vector fallback and a separate rival portrait asset', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        ((definition.colleagues as Array<{ portrait: unknown }>)[0]).portrait = {
+            kind: 'asset',
+            assetId: 'thea-young-portrait',
+            accentColor: '#c9a227',
+            figure: { build: 'gowned', pose: 'raising-instrument', hair: 'upswept' }
+        };
+        (definition.rivalLab as Record<string, unknown>).portraitAssetId = 'arthur-bell-portrait';
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        expect(parsed.data.colleagues[0].portrait).toMatchObject({
+            kind: 'asset', assetId: 'thea-young-portrait', accentColor: '#c9a227', figure: { pose: 'raising-instrument' }
+        });
+        expect(parsed.data.rivalLab).toMatchObject({ portraitAssetId: 'arthur-bell-portrait', accentColor: '#8c3b3b' });
+    });
+
+    it('accepts an asset portrait without a vector fallback for legacy authored data', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        ((definition.colleagues as Array<{ portrait: unknown }>)[0]).portrait = { kind: 'asset', assetId: 'thea-young-portrait' };
 
         expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
+    });
+
+    it.each(['audio', 'document'])('rejects a colleague portrait that references a %s asset', (type) => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        const asset = (definition.assets as { entries: Array<{ id: string; type: string }> }).entries
+            .find(({ id }) => id === 'thea-young-portrait');
+        if (asset) asset.type = type;
+        ((definition.colleagues as Array<{ portrait: unknown }>)[0]).portrait = { kind: 'asset', assetId: 'thea-young-portrait' };
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
+
+    it.each(['audio', 'document'])('rejects a rival portrait that references a %s asset', (type) => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        const asset = (definition.assets as { entries: Array<{ id: string; type: string }> }).entries
+            .find(({ id }) => id === 'arthur-bell-portrait');
+        if (asset) asset.type = type;
+        (definition.rivalLab as Record<string, unknown>).portraitAssetId = 'arthur-bell-portrait';
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
     });
 
     it('accepts a nested all-of predicate within the bounded depth', () => {

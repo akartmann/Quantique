@@ -227,19 +227,24 @@ describe('the row is ordered by proposal, and carries the authored identity', ()
         expect([...prediction].sort()).toEqual([...conclusion].sort());
     });
 
-    it('takes each accent from the colleague their portrait authorises', () => {
+    it('authors each shipped portrait image with its preserved vector fallback', () => {
         const store = advanceTo(storeAt(), 'prediction');
-        const cast = boardCast(store, 'prediction');
-        const view = resolveCharacterStage({ cast, band: BAND, area: AREA, motionAllowed: true });
+        const expectedFallbacks = {
+            'thea-young': { accentColor: '#c9a227', figure: { build: 'gowned', pose: 'raising-instrument', hair: 'upswept', hairColor: 'dark', skinTone: 'light' } },
+            'elias-wren': { accentColor: '#4f8a8b', figure: { build: 'suited', pose: 'holding-paper', hair: 'swept', hairColor: 'dark', skinTone: 'light', spectacles: true } },
+            'marianne-cole': { accentColor: '#9c6b98', figure: { build: 'gowned', pose: 'holding-paper', hair: 'upswept', hairColor: 'auburn', skinTone: 'light' } },
+            'samuel-hart': { accentColor: '#b8653f', figure: { build: 'suited', pose: 'presenting', hair: 'cropped', hairColor: 'dark', skinTone: 'light', moustache: true } }
+        } as const;
 
-        view.figures.forEach((figure) => {
-            const colleague = selectColleagues(store.getState()).find(({ id }) => id === figure.colleagueId)!;
-            expect(colleague.portrait.kind).toBe('silhouette');
-            const authored = colleague.portrait.kind === 'silhouette' ? colleague.portrait.accentColor : '';
-            expect(figure.accentColor).toBe(Number.parseInt(authored.slice(1), 16));
+        selectColleagues(store.getState()).forEach((colleague) => {
+            const fallback = expectedFallbacks[colleague.id];
+            expect(fallback).toBeDefined();
+            expect(colleague.portrait).toEqual({
+                kind: 'asset',
+                assetId: `${colleague.id}-portrait`,
+                ...fallback
+            });
         });
-        // Four distinct accents, so "shares its accent with its card" is a claim with content.
-        expect(new Set(view.figures.map(({ accentColor }) => accentColor)).size).toBe(view.figures.length);
     });
 });
 

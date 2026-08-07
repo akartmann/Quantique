@@ -296,6 +296,18 @@ describe('portable case records', () => {
             .toMatchObject({ ok: false, error: { code: 'incompatible-case-record' } });
     });
 
+    it.each(['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0'])(
+        'accepts a %s record against the 1.16.0 presentational portrait definition',
+        (recordVersion) => {
+            const portraitDefinition = { ...definition, version: '1.16.0' } as CaseDefinition;
+            const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: recordVersion });
+
+            expect(parsed.success).toBe(true);
+            if (!parsed.success) return;
+            expect(validateCaseRecordForDefinition(parsed.data, portraitDefinition)).toMatchObject({ ok: true });
+        }
+    );
+
     it('still rejects a record from an unrelated definition version', () => {
         const localized = { ...definition, version: '1.6.0' } as CaseDefinition;
         const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: '0.9.0' });

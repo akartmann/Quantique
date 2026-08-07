@@ -157,6 +157,8 @@ export type RivalLabCritique = Readonly<{
  */
 export type RivalLab = Readonly<{
     name: string;
+    /** Optional image asset; the accent and figure remain the vector fallback when it is unavailable. */
+    portraitAssetId?: string;
     accentColor: string;
     /**
      * How he is drawn — the same optional block a colleague's portrait carries, and the same reason:

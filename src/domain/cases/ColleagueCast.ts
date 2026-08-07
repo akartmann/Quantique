@@ -72,7 +72,14 @@ export type ColleagueFigure = Readonly<{
  * card stripe, the dialogue speaker name and the figure all read that one field and have to agree.
  */
 export type ColleaguePortrait =
-    | Readonly<{ kind: 'asset'; assetId: string }>
+    | Readonly<{
+        kind: 'asset';
+        assetId: string;
+        /** Optional so existing asset-only authored data remains representable if its texture is unavailable. */
+        accentColor?: string;
+        /** Optional vector fallback appearance for a missing or failed texture. */
+        figure?: ColleagueFigure;
+    }>
     | Readonly<{ kind: 'silhouette'; accentColor: string; figure?: ColleagueFigure }>;
 
 export type Colleague = Readonly<{
