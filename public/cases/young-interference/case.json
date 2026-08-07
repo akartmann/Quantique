@@ -1145,25 +1145,41 @@
       "id": "thea-young",
       "name": "Dr. Thea Young",
       "role": "lead",
-      "portrait": { "kind": "silhouette", "accentColor": "#c9a227" }
+      "portrait": {
+        "kind": "silhouette",
+        "accentColor": "#c9a227",
+        "figure": { "build": "gowned", "pose": "raising-instrument", "hair": "upswept", "hairColor": "dark", "skinTone": "light" }
+      }
     },
     {
       "id": "elias-wren",
       "name": "Elias Wren",
       "role": "builder",
-      "portrait": { "kind": "silhouette", "accentColor": "#4f8a8b" }
+      "portrait": {
+        "kind": "silhouette",
+        "accentColor": "#4f8a8b",
+        "figure": { "build": "suited", "pose": "holding-paper", "hair": "swept", "hairColor": "dark", "skinTone": "light", "spectacles": true }
+      }
     },
     {
       "id": "marianne-cole",
       "name": "Marianne Cole",
       "role": "analyst",
-      "portrait": { "kind": "silhouette", "accentColor": "#9c6b98" }
+      "portrait": {
+        "kind": "silhouette",
+        "accentColor": "#9c6b98",
+        "figure": { "build": "gowned", "pose": "holding-paper", "hair": "upswept", "hairColor": "auburn", "skinTone": "light" }
+      }
     },
     {
       "id": "samuel-hart",
       "name": "Samuel Hart",
       "role": "communicator",
-      "portrait": { "kind": "silhouette", "accentColor": "#b8653f" }
+      "portrait": {
+        "kind": "silhouette",
+        "accentColor": "#b8653f",
+        "figure": { "build": "suited", "pose": "presenting", "hair": "cropped", "hairColor": "dark", "skinTone": "light", "moustache": true }
+      }
     }
   ],
   "predictionProposals": [
@@ -1274,6 +1290,7 @@
   "rivalLab": {
     "name": "Mr. Arthur Bell",
     "accentColor": "#8c3b3b",
+    "figure": { "build": "suited", "pose": "arms-folded", "hair": "cropped", "hairColor": "grey", "skinTone": "light", "moustache": true },
     "critiques": [
       {
         "id": "critique-spacing-thin-evidence",

@@ -447,6 +447,40 @@ describe('CaseDefinitionSchema', () => {
         expect(parsed.data.conclusionProposals[0].supportPredicate).toMatchObject({ kind: 'all-of' });
     });
 
+    /**
+     * The figure block is **additive**: this fixture is the cast as it stood before the vocabulary
+     * existed, and it still validates. That is what lets a case ship without one and get four people
+     * who differ anyway, from their roles alone.
+     */
+    it('accepts a silhouette portrait that authors no figure at all', () => {
+        const parsed = CaseDefinitionSchema.safeParse(validYoungCase);
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        expect(parsed.data.colleagues[0].portrait).toMatchObject({ kind: 'silhouette' });
+    });
+
+    it('parses an authored figure through to the output rather than stripping it', () => {
+        const definition = cloneValidCase();
+        definition.colleagues = definition.colleagues.map((colleague, index) => index === 0
+            ? {
+                ...colleague,
+                portrait: { kind: 'silhouette', accentColor: '#c9a227', figure: { build: 'gowned', pose: 'raising-instrument', hair: 'upswept' } }
+            }
+            : colleague);
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        // Read off the parse output, not the fixture: a schema that dropped `figure` would pass an
+        // assertion made against the input and ship four identical silhouettes.
+        expect(parsed.data.colleagues[0].portrait).toMatchObject({
+            kind: 'silhouette',
+            figure: { build: 'gowned', pose: 'raising-instrument', hair: 'upswept' }
+        });
+    });
+
     it('accepts an asset portrait whose asset is in the manifest', () => {
         const definition = cloneValidCase();
         definition.colleagues = [
@@ -486,6 +520,18 @@ describe('CaseDefinitionSchema', () => {
         ['an unknown colleague field', (definition: Record<string, unknown>) => { (definition.colleagues as Array<Record<string, unknown>>)[0].pronouns = 'she/her'; }],
         ['an unknown colleague role', (definition: Record<string, unknown>) => { (definition.colleagues as Array<{ role: string }>)[0].role = 'sceptic'; }],
         ['a non-hex silhouette accent', (definition: Record<string, unknown>) => { (definition.colleagues as Array<{ portrait: { accentColor: string } }>)[0].portrait.accentColor = 'gold'; }],
+        // The figure vocabulary is closed on purpose: the room is lit warm and dark, and an authored
+        // value outside these ramps is a person who does not sit in that light. A typo in a pose is
+        // rejected at the content boundary rather than silently falling back to a default pose.
+        ['an unknown figure pose', (definition: Record<string, unknown>) => {
+            (definition.colleagues as Array<{ portrait: Record<string, unknown> }>)[0].portrait.figure = { pose: 'brooding' };
+        }],
+        ['a free-form figure hair colour', (definition: Record<string, unknown>) => {
+            (definition.colleagues as Array<{ portrait: Record<string, unknown> }>)[0].portrait.figure = { hairColor: '#c9a227' };
+        }],
+        ['an unknown figure field', (definition: Record<string, unknown>) => {
+            (definition.colleagues as Array<{ portrait: Record<string, unknown> }>)[0].portrait.figure = { hat: 'top' };
+        }],
         ['an unknown support predicate kind', (definition: Record<string, unknown>) => { (definition.conclusionProposals as Array<{ supportPredicate: { kind: string } }>)[2].supportPredicate.kind = 'always'; }],
         ['a non-positive minimum-runs count', (definition: Record<string, unknown>) => {
             (definition.conclusionProposals as Array<{ supportPredicate: unknown }>)[2].supportPredicate = { kind: 'minimum-runs', count: 0 };

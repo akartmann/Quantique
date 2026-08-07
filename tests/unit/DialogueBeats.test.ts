@@ -67,8 +67,8 @@ const stateAt = (phase: CasePhase, locale: Locale = 'en') =>
 describe('selectDialogueBeats', () => {
     it('returns the beats of the scene mirroring the live phase, attributed and in order', () => {
         expect(selectDialogueBeats(stateAt('prediction'))).toEqual([
-            { id: 'framing', speaker: 'Dr. Thea Young — Lead', text: 'Say what you expect.' },
-            { id: 'commit', speaker: 'Marianne Cole — Analyst', text: 'Commit to one now.' }
+            { id: 'framing', speakerId: 'thea-young', speaker: 'Dr. Thea Young — Lead', text: 'Say what you expect.' },
+            { id: 'commit', speakerId: 'marianne-cole', speaker: 'Marianne Cole — Analyst', text: 'Commit to one now.' }
         ]);
     });
 
@@ -81,8 +81,8 @@ describe('selectDialogueBeats', () => {
 
     it('resolves the authored prose and the role label in the active locale', () => {
         expect(selectDialogueBeats(stateAt('prediction', 'fr'))).toEqual([
-            { id: 'framing', speaker: 'Dr. Thea Young — Responsable', text: 'Dites ce que vous attendez.' },
-            { id: 'commit', speaker: 'Marianne Cole — Analyste', text: 'Engagez-vous dès maintenant.' }
+            { id: 'framing', speakerId: 'thea-young', speaker: 'Dr. Thea Young — Responsable', text: 'Dites ce que vous attendez.' },
+            { id: 'commit', speakerId: 'marianne-cole', speaker: 'Marianne Cole — Analyste', text: 'Engagez-vous dès maintenant.' }
         ]);
     });
 
@@ -113,7 +113,7 @@ describe('selectDialogueBeats', () => {
         } as unknown as CaseDefinition;
 
         expect(selectDialogueBeats({ ...createInitialAppState(degraded), phase: 'prediction' })).toEqual([
-            { id: 'orphan', speaker: 'Unattributed speaker', text: 'A line.' }
+            { id: 'orphan', speakerId: 'arthur-bell', speaker: 'Unattributed speaker', text: 'A line.' }
         ]);
         // The two fallbacks must stay distinct in both locales. Sharing one is the defect this exists to
         // prevent, and it would read as a passing test the moment the speaker slot borrowed the card's.
@@ -150,6 +150,6 @@ describe('selectDialogueBeats', () => {
         } as unknown as CaseDefinition;
 
         expect(selectDialogueBeats({ ...createInitialAppState(degraded, 'fr'), phase: 'prediction' })[0])
-            .toEqual({ id: 'framing', speaker: 'Dr. Thea Young — Responsable', text: 'Say what you expect.' });
+            .toEqual({ id: 'framing', speakerId: 'thea-young', speaker: 'Dr. Thea Young — Responsable', text: 'Say what you expect.' });
     });
 });

@@ -2,6 +2,9 @@ import type { Scene } from 'phaser';
 
 import type { PhaserStoreAdapter } from '../PhaserStoreAdapter';
 import { uiTextStyle } from '../textStyles';
+import { CharacterStage, RIVAL_FIGURE_MAX_HEIGHT, RIVAL_FIGURE_MAX_WIDTH } from './CharacterStage';
+import { resolveFigureAppearance } from './figureAppearance';
+import { LaboratoryDecor } from './LaboratoryDecor';
 import type { AppState } from '../../../core/store/AppState';
 import { createTranslator } from '../../../core/i18n/translate';
 import { selectLocale, selectLocalizedError, selectLocalizedRivalLabCritique } from '../../../core/store/selectors';
@@ -46,6 +49,37 @@ const CANVAS_BOTTOM_MARGIN = 16;
 const CONTROL_FILL = 0x1d4451;
 const ACCENT_FALLBACK = 0x8c3b3b;
 
+/**
+ * The right-hand column Mr. Arthur Bell is staged in (Story 2.9).
+ *
+ * Width is what this surface can afford, and here there is some: the prose is a single unbounded body
+ * with no card grid to fit, so narrowing the wrap costs height, and the height it costs is absorbed by
+ * the clamp that already holds the guide above the floor-anchored revise control. That is the opposite
+ * of the proposal boards, where vertical space is the scarce thing.
+ *
+ * He is anchored to the **canvas floor**, not to the prose's measured bottom, for the same reason the
+ * revise control is: the objection is unbounded by design and truncating it is the one thing this
+ * surface must not do, so anything measured from below it has no ceiling on a 1024×768 surface that
+ * does not scroll. His column starts to the right of the narrowed prose and ends inside the surface, so
+ * he cannot overlap either the body or the control — the control is floor-anchored at the *left*, 260px
+ * wide from `TEXT_LEFT`, and stops well short of him.
+ */
+export const RIVAL_LAB_STAGE_COLUMN_WIDTH = 200;
+/** Between the figure's feet and the canvas floor, matching the margin everything else respects. */
+const STAGE_FLOOR_MARGIN = CANVAS_BOTTOM_MARGIN;
+/** Below the heading row, so he stands in the room rather than in front of the title. */
+const STAGE_TOP = 78;
+
+/**
+ * The id Bell is staged under.
+ *
+ * Deliberately **not** a `colleagues[].id`, and deliberately not resolvable through
+ * `selectColleagueById`: AC4 requires that he is never rendered as a member of the cast, and the
+ * cheapest way to guarantee it is that the identifier he is staged with does not exist in that
+ * collection. Nothing iterating `colleagues[]` can reach him, and nothing here reads that collection.
+ */
+export const RIVAL_LAB_STAGE_FIGURE_ID = 'rival-lab';
+
 export const RIVAL_LAB_HEADING_FONT_SIZE = 25;
 export const RIVAL_LAB_SPEAKER_FONT_SIZE = 15;
 /**
@@ -57,9 +91,24 @@ export const RIVAL_LAB_BODY_FONT_SIZE = 16;
 export const RIVAL_LAB_GUIDE_FONT_SIZE = 15;
 export const RIVAL_LAB_CONTROL_FONT_SIZE = 15;
 
-/** The wrap bound the French typography check measures against, derived rather than restated. */
-export const rivalLabTextWrapWidth = (width: number = RIVAL_LAB_SURFACE_WIDTH): number =>
-    width - ACCENT_WIDTH - ACCENT_GAP;
+/**
+ * The wrap bound the French typography check measures against, derived rather than restated.
+ *
+ * The default is the **staged** width, not the bare surface: Story 2.9 reserves a column on the right
+ * and every text on this surface now wraps against what is left of it. Leaving the default at the full
+ * surface would have left the spec measuring 918 while the renderer painted 718 — a rectangle nothing
+ * draws, which is precisely how `SUBMIT_WIDTH` vs `ADVANCE_CONTROL_WIDTH` kept a check green through
+ * the clipping it existed to catch.
+ */
+export const rivalLabTextWrapWidth = (
+    width: number = RIVAL_LAB_SURFACE_WIDTH - RIVAL_LAB_STAGE_COLUMN_WIDTH
+): number => width - ACCENT_WIDTH - ACCENT_GAP;
+
+/** The strip Bell stands in: the right of the surface, clear of the narrowed prose. */
+export const rivalLabStageColumn = (): Readonly<{ x: number; width: number }> => ({
+    x: RIVAL_LAB_SURFACE_LEFT + RIVAL_LAB_SURFACE_WIDTH - RIVAL_LAB_STAGE_COLUMN_WIDTH,
+    width: RIVAL_LAB_STAGE_COLUMN_WIDTH
+});
 export const RIVAL_LAB_CONTROL_LABEL_WRAP = CONTROL_WIDTH - (2 * CONTROL_LABEL_PADDING);
 
 /** The revise control's top edge: a fixed home at the canvas floor. See {@link RivalLabRenderer.layout}. */
@@ -87,6 +136,10 @@ export class RivalLabRenderer {
     private controlLabel?: Phaser.GameObjects.Text;
     /** Shown in place of the guide line until the next render, so a refused click is not silent. */
     private transientError?: string;
+    /** Story 2.9: Mr. Arthur Bell, staged as a character rather than named in a speaker slot alone. */
+    private characterStage?: CharacterStage;
+    /** His laboratory. Painted once, reads nothing, never repaints. */
+    private decor?: LaboratoryDecor;
 
     public constructor(
         private readonly scene: Scene,
@@ -94,7 +147,14 @@ export class RivalLabRenderer {
     ) {}
 
     public create(): void {
-        const wrapWidth = rivalLabTextWrapWidth(RIVAL_LAB_SURFACE_WIDTH);
+        // First of everything: creation order is the only depth mechanism here, and the room has to sit
+        // behind the prose, the control, and Bell alike.
+        this.decor = new LaboratoryDecor(this.scene);
+        this.decor.reserve();
+        const band = this.stageBand();
+        this.decor.create(this.scene.scale.width, band.top + band.height, band.top);
+
+        const wrapWidth = rivalLabTextWrapWidth();
         this.accent = this.scene.add.rectangle(RIVAL_LAB_SURFACE_LEFT, HEADING_Y, ACCENT_WIDTH, CONTROL_HEIGHT, ACCENT_FALLBACK).setOrigin(0, 0);
         // Every string is created empty and written in `render`: `create()` runs once, and the locale
         // can change at any time.
@@ -116,6 +176,35 @@ export class RivalLabRenderer {
         this.controlLabel = this.scene.add.text(0, 0, '', uiTextStyle({
             color: '#f7f4ef', fontSize: `${RIVAL_LAB_CONTROL_FONT_SIZE}px`, align: 'center', wordWrap: { width: RIVAL_LAB_CONTROL_LABEL_WRAP }
         })).setOrigin(0.5, 0.5);
+
+        // Built here, from the authored `rivalLab` record — **never** from `colleagues[]` and never
+        // through `selectColleagueById` (AC4, D3). `rivalLab.accentColor` is the very field
+        // `selectLocalizedRivalLabCritique` returns, so the figure and the critique cannot disagree
+        // about his colour, and neither path carries anything about which conclusion the evidence
+        // supports. It owns its own objects and releases them itself, so it is not pushed onto
+        // `this.objects`.
+        const { rivalLab } = this.storeAdapter.getState().caseDefinition;
+        this.characterStage = new CharacterStage(this.scene, {
+            build: 'rival',
+            maxFigure: { width: RIVAL_FIGURE_MAX_WIDTH, height: RIVAL_FIGURE_MAX_HEIGHT },
+            // His plaque is read at the same size as the speaker line it stands in for: it is most of a
+            // surface away from the attribution at the far left, and his column is wide enough that
+            // there is nothing to save by shrinking it.
+            nameFontSize: RIVAL_LAB_SPEAKER_FONT_SIZE,
+            roleFontSize: RIVAL_LAB_SPEAKER_FONT_SIZE - 2
+        });
+        this.characterStage.create([{
+            colleagueId: RIVAL_LAB_STAGE_FIGURE_ID,
+            accentColor: Number.parseInt(rivalLab.accentColor.slice(1), 16),
+            name: rivalLab.name,
+            // Resolved here rather than in the stage, exactly as a colleague's is — and through
+            // `rivalLab.role`, never `colleague.role.*`, because he is not one of them (AC4).
+            roleLabel: createTranslator(selectLocale(this.storeAdapter.getState()))('rivalLab.role'),
+            // Resolved through `'rival'`, which is not a `ColleagueRole` and cannot be mistaken for
+            // one: he holds no role on the team, and the default pose that falls out of it — arms
+            // folded, waiting to be convinced — is his character note rather than a job.
+            appearance: resolveFigureAppearance('rival', rivalLab.figure)
+        }]);
 
         this.control.on('pointerup', () => this.requestRevision());
         this.objects.push(this.accent, this.heading, this.speaker, this.body, this.guide, this.control, this.controlLabel);
@@ -140,9 +229,32 @@ export class RivalLabRenderer {
         if (critique) this.accent?.setFillStyle(Number.parseInt(critique.accentColor.slice(1), 16));
 
         this.layout();
+        // He is the only figure on this surface, so he is always the one speaking: the emphasis pair
+        // exists to separate a speaker from a receded cast, and with a cast of one the receded state
+        // would just be a dimmer picture of the same person.
+        this.characterStage?.render({
+            band: this.stageBand(),
+            area: rivalLabStageColumn(),
+            speakerColleagueId: RIVAL_LAB_STAGE_FIGURE_ID
+        });
+    }
+
+    /**
+     * The band Bell stands in: the full height between the heading row and the canvas floor.
+     *
+     * Read from `scene.scale` rather than from a remembered `768`, and anchored to the floor rather
+     * than to the prose above it — the objection is unbounded, so a figure measured from its bottom
+     * would have no ceiling.
+     */
+    private stageBand(): Readonly<{ top: number; height: number }> {
+        return { top: STAGE_TOP, height: this.scene.scale.height - STAGE_TOP - STAGE_FLOOR_MARGIN };
     }
 
     public destroy(): void {
+        this.characterStage?.destroy();
+        this.characterStage = undefined;
+        this.decor?.destroy();
+        this.decor = undefined;
         this.objects.forEach((object) => object.destroy());
         this.objects.length = 0;
         this.accent = undefined;

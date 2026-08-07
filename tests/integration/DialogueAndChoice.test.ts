@@ -171,12 +171,21 @@ describe('authored dialogue beats', () => {
     // Exact equality, not `toMatchObject`: AC3's separation turns on the projection carrying *nothing*
     // beyond what a dialogue widget needs, and a matcher that ignores extra keys would pass just as
     // happily if a defensibility signal were added to it.
-    it('projects nothing beyond what the widget renders', () => {
+    /**
+     * `speakerId` joined this list in Story 2.9 and is the only field here that is not drawn as text:
+     * character staging needs to know *whose* figure to foreground, and the alternative was
+     * reverse-matching the formatted, localized, degradable `speaker` string back to a cast member.
+     *
+     * The list is exhaustive on purpose. It is the assertion that nothing about which conclusion the
+     * evidence supports ever reaches a display projection (ADR-006) — a rule no type can state, since
+     * an added field would type-check everywhere.
+     */
+    it('projects nothing beyond what the surface needs', () => {
         const beats = beatsAt('synthesis');
 
         expect(beats.length).toBeGreaterThan(0);
         for (const beat of beats) {
-            expect(Object.keys(beat).sort()).toEqual(['id', 'speaker', 'text']);
+            expect(Object.keys(beat).sort()).toEqual(['id', 'speaker', 'speakerId', 'text']);
         }
     });
 

@@ -3,9 +3,13 @@ import type { Scene } from 'phaser';
 import type { PhaserStoreAdapter, ProposalKind } from '../PhaserStoreAdapter';
 import { uiTextStyle } from '../textStyles';
 import { AdvanceControl, ADVANCE_CONTROL_HEIGHT, advanceControlCentre, advanceControlLabelWrap } from '../ui/AdvanceControl';
-import { DialogueBox } from '../ui/DialogueBox';
-import { ProposalChoice } from '../ui/ProposalChoice';
+import { DialogueBox, dialogueAdvanceControlCentre } from '../ui/DialogueBox';
+import { ProposalChoice, proposalMarkerWrap, proposalTextWrapWidth } from '../ui/ProposalChoice';
 import { advanceTransitionForPhase, resolveAdvanceRefusal } from './advanceView';
+import { CharacterStage } from './CharacterStage';
+import { presentColleagueIds, type StageCastMember } from './characterStageView';
+import { resolveFigureAppearance, type FigureAppearance } from './figureAppearance';
+import { LaboratoryDecor } from './LaboratoryDecor';
 import { TransientMessageSlot } from './transientMessage';
 import type { AppState } from '../../../core/store/AppState';
 import { createTranslator, type Translator } from '../../../core/i18n/translate';
@@ -50,10 +54,11 @@ export const PROPOSAL_SURFACE_WIDTH = 944;
 const CARD_LEFT = PROPOSAL_SURFACE_LEFT;
 const CARD_WIDTH = PROPOSAL_SURFACE_WIDTH;
 
-const HEADING_Y = 30;
-const GUIDE_Y = 68;
-/** Between the heading's measured bottom and the guide line, when the heading grows past its slot. */
-const HEADING_GAP = 6;
+const HEADING_Y = 12;
+/** Between the heading's measured bottom and the dialogue panel below it. */
+const HEADING_GAP = 8;
+/** Between the guide line and the first card. The guide sits with the cards, not with the chrome. */
+const GUIDE_TO_CARDS_GAP = 8;
 
 /**
  * The submit control, on the conclusion board only (Story 2.5).
@@ -138,9 +143,40 @@ export const advanceControlCentreOnBoard = (kind: ProposalKind): Readonly<{ x: n
 export const boardAdvanceControlLabelWrap = (kind: ProposalKind): number =>
     advanceControlLabelWrap(advanceControlBounds(kind).width);
 
-/** The measured floor of the control column, so nothing below it can be drawn underneath the column. */
+/**
+ * The measured floor of the control column.
+ *
+ * It no longer pushes the dialogue panel down, and reclaiming that is what made a room possible on the
+ * conclusion board. The panel used to span the full surface, so it had to clear a column two controls
+ * tall — 104px of the surface's height spent on *vertical* clearance for something sitting in a corner.
+ * The panel is now {@link DIALOGUE_PANEL_WIDTH} and the column stands beside it, so the two share a row
+ * instead of stacking. What the floor still bounds is the room's own ceiling, so no figure's head is
+ * drawn behind the controls.
+ */
 const controlColumnBottom = (kind: ProposalKind): number =>
     advanceControlBounds(kind).y + ADVANCE_CONTROL_HEIGHT;
+
+/**
+ * The dialogue panel's width — the surface less the control column, not the whole surface.
+ *
+ * The same number the heading and the guide already wrap against, and for the same reason: the column
+ * is a permanent feature of this surface's top row, and everything sharing that row wraps against what
+ * is left rather than running underneath it. The panel was the one thing that did not, and it paid for
+ * that by being pushed below the column entirely.
+ */
+export const DIALOGUE_PANEL_WIDTH = BOARD_TEXT_WRAP;
+
+/**
+ * The design-space centre of the dialogue panel's own advance control, **as this board draws it**.
+ *
+ * Exported for the same reason `boardAdvanceControlLabelWrap` is, and the browser suite proved the
+ * need immediately: `dialogue-advance.spec.ts` derived this point from the widget helper but passed
+ * `PROPOSAL_SURFACE_WIDTH`, which was the panel's width until Story 2.9 narrowed it to make room for
+ * the control column beside it. The spec went on clicking where the control used to be. One exported
+ * value that the board and the spec both read is the only arrangement where that cannot happen.
+ */
+export const boardDialogueAdvanceControlCentre = (): Readonly<{ x: number; y: number }> =>
+    dialogueAdvanceControlCentre({ x: PROPOSAL_SURFACE_LEFT, y: DIALOGUE_TOP, width: DIALOGUE_PANEL_WIDTH });
 /**
  * Where the dialogue panel sits when the guide above it has not been measured yet — `create()` builds
  * the panel before the first `render` writes any copy into the guide, so there is nothing to measure.
@@ -152,47 +188,117 @@ const controlColumnBottom = (kind: ProposalKind): number =>
  * measurement" defect the 1.11 review found one layer down, and the guide slot also carries the
  * transient error, so a three-line refusal message shared that budget (1.12 review).
  */
-export const DIALOGUE_TOP = 118;
-/** Between the measured bottom of the guide line and the dialogue panel. */
-const DIALOGUE_GAP = 12;
-/** Between the measured bottom of the dialogue panel and the first card. */
-const CARDS_GAP = 12;
+export const DIALOGUE_TOP = 54;
 const CARD_GAP = 10;
 const CANVAS_BOTTOM_MARGIN = 16;
-/**
- * The floor on a card's height.
- *
- * The budget it protects, measured at the authored content: a one-line beat leaves ≈126px per card and
- * a two-line French beat ≈121px, against ≈114px of conclusion card content — attribution, a two-line
- * claim at 16px, and a two-line stated limitation at 13px placed under the claim's measured height.
- *
- * On its own this floor is **not** what keeps the cards on the canvas: it bounds each card's height, and
- * an unbounded panel above them pushes their *top* down regardless, so past roughly eighteen wrapped
- * beat lines the last cards began below y=768 — on a fixed 1024×768 `Scale.FIT` surface with no scroll,
- * that is a phase the player cannot complete, because the card they must click is not merely ugly but
- * absent. The clamp in {@link ColleagueRenderer.cardGeometry} is what actually bounds the top, and this
- * floor is the budget it clamps against (1.12 review).
- */
-const MIN_CARD_HEIGHT = 72;
 
 /**
- * A design-space point that lies inside the **last** proposal card, whatever the dialogue panel above it
- * measures to — for a browser test that needs to click a card without restating the band as literals.
+ * A design-space point that lies inside the **last** proposal card — for a browser test that needs to
+ * click a card without restating the band as literals.
  *
- * Anchored to the canvas floor rather than the band's top, which is the whole point: the top moves with
- * the beat being read, and a fixed mid-surface coordinate silently lands in a {@link CARD_GAP} the moment
- * a beat wraps one line further (1.12 review found exactly that in `dialogue-advance.spec.ts`, under a
- * comment asserting the cards divide the space continuously — they do not, there are gaps between them).
- *
- * The cards always fill down to within `CARD_GAP` of the bottom margin: integer division of the
- * available height leaves at most that much unused, and the {@link MIN_CARD_HEIGHT} clamp only ever makes
- * the last card taller relative to the floor. So a point one inset above that is inside it either way.
+ * Anchored to the canvas floor, which since the layout inverted is not merely convenient but exact: the
+ * cards *are* anchored there now, so the last one always occupies the same rectangle whatever the beat
+ * above measures to. Before, the top moved with the beat being read and a fixed mid-surface coordinate
+ * silently landed in a {@link CARD_GAP} the moment a beat wrapped one line further (1.12 review found
+ * exactly that in `dialogue-advance.spec.ts`, under a comment asserting the cards divide the space
+ * continuously — they do not, there are gaps between them).
  */
 export const lastProposalCardProbe = (
     canvasHeight: number
 ): Readonly<{ x: number; y: number }> => ({
     x: PROPOSAL_SURFACE_LEFT + (PROPOSAL_SURFACE_WIDTH / 2),
     y: canvasHeight - CANVAS_BOTTOM_MARGIN - CARD_GAP - 4
+});
+
+/**
+ * The room the cast stands in, and the band of surface it is allowed (Story 2.9, design revision).
+ *
+ * ## The layout was inverted, and that is the change
+ *
+ * The first version hung the cards off the dialogue panel's measured bottom and clamped them when the
+ * panel grew — "overlap beats absence", because an unbounded panel could otherwise push the last card
+ * off a surface that does not scroll. The figures then had to live in a 56px column carved out of each
+ * card, which is what made them tokens in a margin.
+ *
+ * It now runs the other way. **The cards are anchored to the canvas floor and take a fixed height**
+ * derived from their own measured content; the **room takes everything above them**. A long French
+ * beat now costs the room some ceiling instead of costing the cards their place — the panel overlays
+ * the décor, the figures shrink to what is left, and the cards never move at all. That removes the
+ * clamp's whole failure mode rather than bounding it, and it is strictly better for the reader: the
+ * thing they must click stops being the thing that gets squeezed.
+ *
+ * ## The card heights, measured rather than guessed
+ *
+ * From `ProposalChoice`'s own layout: attribution at y+10, body at y+32 wrapping to at most
+ * `BODY_MAX_LINES` at 16px (≈42px), and — conclusion only — a stated limitation under the body's
+ * measured height, at most `LIMITATION_MAX_LINES` at 13px (≈34px), plus a bottom inset. A prediction
+ * card therefore needs ≈84px and a conclusion card ≈114px, and the two boards get different numbers
+ * because they genuinely hold different content. Sharing one number is what made the cards 119px tall
+ * on a board that needed 84.
+ *
+ * ## What the room gets
+ *
+ * Prediction: 768 − 16 − (4 × 92 + 3 × 8) = **360px**. Conclusion: 768 − 16 − (4 × 120 + 3 × 8) =
+ * **240px**. The dialogue panel overlays the top of that, the figures stand on the floor line at the
+ * bottom of it, and the guide line — which doubles as the refusal slot — sits just above the cards.
+ *
+ * ## And the cards get their full width back
+ *
+ * With the figures in the room rather than in the cards, `contentInset` and `markerGutter` return to
+ * the widget's defaults and the text wrap goes back to **744px** from the 714 the column had cost.
+ * The longest French claim gains about eighteen characters of headroom it did not have.
+ */
+export const PREDICTION_CARD_HEIGHT = 88;
+export const CONCLUSION_CARD_HEIGHT = 116;
+export const proposalCardHeight = (kind: ProposalKind): number =>
+    kind === 'conclusion' ? CONCLUSION_CARD_HEIGHT : PREDICTION_CARD_HEIGHT;
+
+/** Between the room's floor line and the guide line below it. */
+const STAGE_TO_CARDS_GAP = 6;
+/**
+ * The band reserved between the room and the cards for the guide line.
+ *
+ * Reserved rather than measured, because the room is painted **once** in `create()` and the guide's
+ * wrapped height is not known until the first `render` — and an unreserved guide is drawn straight
+ * across the name plaques, which is what the first pass of this layout did. Two lines of French at
+ * 15px, which is the taller of the two cases the shipped copy produces.
+ */
+const GUIDE_BAND_HEIGHT = 40;
+/** Between the dialogue panel's measured bottom and the top of the space the figures may occupy. */
+const STAGE_UNDER_PANEL_GAP = 8;
+
+/**
+ * The bound the board actually draws its card text at, exported so a spec reads it rather than the
+ * widget's default.
+ *
+ * The two are the same number again now that the figure column is gone, which is exactly why this
+ * indirection stays: `SUBMIT_WIDTH` and `ADVANCE_CONTROL_WIDTH` were also the same number, right up
+ * until one of them moved and a spec went on measuring a rectangle nothing painted.
+ */
+export const boardProposalTextWrapWidth = (): number => proposalTextWrapWidth(PROPOSAL_SURFACE_WIDTH);
+export const boardProposalMarkerWrap = (): number => proposalMarkerWrap();
+
+/**
+ * The band of canvas the room occupies, measured up from the cards rather than down from the chrome.
+ *
+ * Total over the card count, so a case authoring three proposals gets a taller room rather than a gap
+ * where a fourth would have been.
+ */
+export const proposalStageBand = (
+    kind: ProposalKind,
+    canvasHeight: number,
+    cardCount: number
+): Readonly<{ top: number; height: number }> => {
+    const cards = Math.max(cardCount, 1);
+    const cardsBlock = (cards * proposalCardHeight(kind)) + ((cards - 1) * CARD_GAP);
+    const floor = canvasHeight - CANVAS_BOTTOM_MARGIN - cardsBlock - GUIDE_BAND_HEIGHT - STAGE_TO_CARDS_GAP;
+    return { top: 0, height: Math.max(0, floor) };
+};
+
+/** The horizontal extent the figures are spread across: the full proposal surface. */
+export const proposalStageArea = (): Readonly<{ x: number; width: number }> => ({
+    x: PROPOSAL_SURFACE_LEFT,
+    width: PROPOSAL_SURFACE_WIDTH
 });
 
 /** A colleague with no silhouette accent of their own still gets a legible, neutral stripe. */
@@ -204,6 +310,19 @@ const accentOf = (colleague: Colleague | undefined): number => colleague?.portra
     // An `asset` portrait's image is not preloaded by these scenes, and portrait art is still out of
     // scope. It reads as the same neutral stripe rather than a missing texture.
     : NEUTRAL_ACCENT;
+
+/**
+ * What a colleague looks like, from whatever the case authored plus their role.
+ *
+ * Both halves are defended: a colleague with no `figure` block still gets a pose from their role, and
+ * a proposal whose `colleagueId` no longer resolves gets a plain standing figure rather than an
+ * exception. `create()` runs synchronously inside `dispatch() → notify()`, so a throw here would
+ * advance the phase and skip every later subscriber (1.10 review).
+ */
+const appearanceOf = (colleague: Colleague | undefined): FigureAppearance => resolveFigureAppearance(
+    colleague?.role ?? 'lead',
+    colleague?.portrait.kind === 'silhouette' ? colleague.portrait.figure : undefined
+);
 
 type ProposalCard = Readonly<{ proposalId: string; choice: ProposalChoice }>;
 
@@ -218,6 +337,11 @@ export class ColleagueRenderer {
     private submitLabel?: Phaser.GameObjects.Text;
     /** Story 2.7: the way on from this board, whichever phase it is currently hosting. */
     private advanceControl?: AdvanceControl;
+    /** Story 2.9: the colleagues, full-length, standing in the room above the cards. */
+    private characterStage?: CharacterStage;
+    /** The room itself. Painted once, reads nothing, never repaints. */
+    private decor?: LaboratoryDecor;
+    private roomPainted = false;
     /**
      * Shown in place of the guide line so a refused click is not silent, and — for the opposite case —
      * so a submission that draws no challenge is not silent either. The acknowledgement is deliberately
@@ -255,12 +379,22 @@ export class ColleagueRenderer {
 
     public create(): void {
         const state = this.storeAdapter.getState();
+        // **First of everything**, because creation order is the only depth mechanism these renderers
+        // use: the room has to sit behind the chrome, the figures, and the cards alike. The object is
+        // built here so its layer takes the bottom of the display list; the room is *painted* on the
+        // first render, once the dialogue panel has a measured height to compose against.
+        this.decor = new LaboratoryDecor(this.scene);
+        this.decor.reserve();
         // Text is authored empty here and populated by render(): create() runs once, but the
         // language can change at any time, so every string comes from the store subscription.
         // Both boards give the right of their top rows to the control column, so the heading and the
         // guide wrap against the space that is actually left rather than running underneath it.
         this.heading = this.scene.add.text(CARD_LEFT, HEADING_Y, '', uiTextStyle({ color: '#f7f4ef', fontSize: '25px', wordWrap: { width: BOARD_TEXT_WRAP } }));
-        this.guide = this.scene.add.text(CARD_LEFT, GUIDE_Y, '', uiTextStyle({ color: '#c7d7d9', fontSize: '15px', wordWrap: { width: BOARD_TEXT_WRAP } }));
+        // Placed with the cards rather than with the chrome (Story 2.9, design revision). It is the
+        // slot a refused click is answered in, so it belongs beside the thing that was clicked — and
+        // moving it out of the top stack is part of what bought the room its height. It wraps against
+        // the full surface here, because nothing shares its row.
+        this.guide = this.scene.add.text(CARD_LEFT, 0, '', uiTextStyle({ color: '#c7d7d9', fontSize: '15px', wordWrap: { width: CARD_WIDTH } }));
         this.objects.push(this.heading, this.guide);
 
         if (this.kind === 'conclusion') {
@@ -284,7 +418,7 @@ export class ColleagueRenderer {
         this.dialogueBox = new DialogueBox(this.scene, {
             x: CARD_LEFT,
             y: DIALOGUE_TOP,
-            width: CARD_WIDTH,
+            width: DIALOGUE_PANEL_WIDTH,
             // Advancing changes the panel's measured height, so the cards below it have to move. It
             // dispatches nothing and touches no state: beat position is widget-local and ephemeral.
             onAdvance: () => this.relayoutCards()
@@ -305,6 +439,31 @@ export class ColleagueRenderer {
             choice.create();
             this.cards.push({ proposalId: proposal.proposalId, choice });
         });
+
+        // **After the cards, deliberately** — and this is the one ordering decision on this surface
+        // that is not free. Creation order is the only depth mechanism these renderers use, and the
+        // figure column is reserved *inside* each card, out of its content inset. A card paints an
+        // opaque background across its whole width, column included, so a stage created first is a
+        // stage nobody can see: the figures were drawn, positioned and tweened correctly, and every
+        // one of them sat behind a rectangle. That is what a screenshot at 1280×720 found and what no
+        // assertion in this suite could have.
+        //
+        // Drawing them on top is safe for the two things depth usually threatens:
+        //
+        // - **Card text.** What protects it is the reserved inset, not the order. The column ends
+        //   exactly where the text begins ({@link PROPOSAL_CARD_GUTTERS}), so a figure has nothing to
+        //   overlap — and if a future geometry change made them overlap, the truncation guard and the
+        //   visible result would both say so immediately.
+        // - **Clicks.** Phaser hit-tests topmost-first among **interactive** objects only, and a
+        //   figure is never made interactive (see `CharacterStage.create`). An inert object above a
+        //   card cannot swallow the click that chooses it — which is precisely why that rule is a rule
+        //   and not a preference.
+        //
+        // Like `advanceControl`, the stage owns its display objects and releases them itself, so it is
+        // deliberately **not** pushed onto `this.objects`.
+        this.characterStage = new CharacterStage(this.scene, { build: 'colleague' });
+        this.characterStage.create(this.stageCast(state, createTranslator(selectLocale(state))));
+
         this.applyInputState();
     }
 
@@ -323,12 +482,9 @@ export class ColleagueRenderer {
         // guessed would be holding an opinion about a conclusion (ADR-006).
         this.advanceControl?.render({ label: t(advanceTransitionForPhase(selectCasePhase(state)).labelKey), isReady: true });
 
-        // Placed against the heading's *measured* bottom, not the constant. Giving both boards' top
-        // rows to the control column narrowed every heading's wrap to `BOARD_TEXT_WRAP`, which
-        // strictly increases the chance one wraps — and a 25px heading at a constant `HEADING_Y` has only
-        // 38px before `GUIDE_Y`. The floor keeps this a safety net: today's EN and FR headings all fit
-        // one line and do not move, so the derived click targets stay where they are (2.5 review).
-        this.guide?.setY(Math.max(GUIDE_Y, HEADING_Y + (this.heading?.height ?? 0) + HEADING_GAP));
+        // The guide is placed with the cards in `layoutAndRenderCards`, against their measured top —
+        // not here, and not against the heading. It moved out of the top stack so the room could have
+        // that height, and it reads better beside the cards it talks about anyway.
 
         // Set before rendering the panel, because the guide's height is only known once its copy is in.
         this.dialogueBox?.setTop(this.dialogueTop());
@@ -337,7 +493,7 @@ export class ColleagueRenderer {
         // is therefore the conversation's identity, and it is what the widget keys its reading position
         // on — the beat ids cannot serve, because the schema lets them repeat across scenes and this one
         // renderer instance survives the `synthesis → review` transition (1.12 review).
-        this.dialogueBox?.render(selectDialogueBeats(state), t, selectCasePhase(state));
+        this.dialogueBox?.render(selectDialogueBeats(state), t, selectCasePhase(state), this.speakerAccents(state));
         this.layoutAndRenderCards(state, t);
     }
 
@@ -350,11 +506,149 @@ export class ColleagueRenderer {
         this.dialogueBox = undefined;
         this.advanceControl?.destroy();
         this.advanceControl = undefined;
+        this.characterStage?.destroy();
+        this.characterStage = undefined;
+        this.decor?.destroy();
+        this.decor = undefined;
+        this.roomPainted = false;
         this.heading = undefined;
         this.guide = undefined;
         this.submitControl = undefined;
         this.submitLabel = undefined;
         this.transientGuide.clear();
+    }
+
+    /**
+     * Who stands in this board's figure column, and in what order.
+     *
+     * **Proposal order, not cast order**, which is what makes AC3's adjacency mean anything: the two
+     * boards attribute in different orders — prediction is `thea, elias, marianne, samuel`, conclusion
+     * is `marianne, elias, thea, samuel` — so a fixed cast order would put three of the four colleagues
+     * beside somebody else's draft on the conclusion board.
+     *
+     * Presence itself is derived through {@link presentColleagueIds} rather than authored, because
+     * `scenarioScript.scenes[].cast?` belongs to Story 3.4. For the shipped Young case the proposers,
+     * the beat speakers, and the whole cast are the same four people, so the derivation is not
+     * observable today — it goes through the shared pure function anyway so 3.4 replaces one call.
+     *
+     * Cheap and defensive, because `create()` runs synchronously inside `dispatch() → notify()`: a
+     * throw here would advance the phase, skip every later subscriber, and break `dispatch`'s `Result`
+     * contract (1.10 review). A proposal whose `colleagueId` no longer resolves gets the same
+     * `NEUTRAL_ACCENT` its card stripe does, and an empty name — never an exception.
+     */
+    private stageCast(state: AppState, t: Translator): readonly StageCastMember[] {
+        const authored = this.kind === 'prediction'
+            ? state.caseDefinition.predictionProposals
+            : state.caseDefinition.conclusionProposals;
+        const scene = state.caseDefinition.scenarioScript.scenes.find(({ phase }) => phase === selectCasePhase(state));
+
+        return presentColleagueIds({
+            proposerIds: authored.map(({ colleagueId }) => colleagueId),
+            speakerIds: (scene?.dialogueBeats ?? []).map(({ speakerId }) => speakerId),
+            castIds: state.caseDefinition.colleagues.map(({ id }) => id)
+        }).map((colleagueId) => {
+            const colleague = state.caseDefinition.colleagues.find(({ id }) => id === colleagueId);
+            return {
+                colleagueId,
+                accentColor: accentOf(colleague),
+                // Canonical proper noun, and the role resolved through the i18n layer — the same pair
+                // the card's attribution line draws, so the plaque and the card cannot disagree.
+                name: colleague?.name ?? t('colleague.unattributedSpeaker'),
+                roleLabel: colleague ? t(`colleague.role.${colleague.role}`) : '',
+                appearance: appearanceOf(colleague)
+            };
+        });
+    }
+
+    /**
+     * Puts the cast back on its floor line.
+     *
+     * Called from `render` **and** from the dialogue advance, because both change the stage and only
+     * one of them is a state change: the panel's measured height moves what the room has left, and the
+     * speaker changes with the reading position, which is widget-local by design and dispatches
+     * nothing.
+     *
+     * The speaker is read from `DialogueBox`, not reverse-matched from the formatted attribution — that
+     * is what `speakerId` on the projection is for. A beat attributed to a colleague this build no
+     * longer authors resolves to nobody, and the resolver foregrounds nobody rather than throwing.
+     *
+     * The **selected** colleague goes in too, and that is what carries AC3 now that the figures stand
+     * in a row rather than beside their own card: choosing a proposal brings its author forward. It is
+     * the player's own choice reflected back, never an evaluation of it — nothing here can see which
+     * conclusion the evidence supports, and `CharacterStageView.test.ts` asserts that at source level.
+     */
+    private stageFigures(state: AppState): void {
+        const selectedId = this.selectedId(state);
+        const authored = this.kind === 'prediction'
+            ? state.caseDefinition.predictionProposals
+            : state.caseDefinition.conclusionProposals;
+
+        this.characterStage?.render({
+            band: this.stageBand(),
+            area: proposalStageArea(),
+            speakerColleagueId: this.dialogueBox?.getCurrentBeat()?.speakerId,
+            selectedColleagueId: authored.find(({ id }) => id === selectedId)?.colleagueId
+        });
+    }
+
+    /**
+     * Paints the room, once, on the first render that has a measured panel to compose against.
+     *
+     * Not in `create()`, because the strip the player can see is bounded above by the dialogue panel
+     * and the panel's height is not known until it has copy in it — `create()` builds it empty. Not on
+     * every render either: a backdrop repainted on every state change is a cost paid on every keystroke
+     * for a picture that never changes, which is the rule `ReadingRoomDecor` states in its own header.
+     *
+     * Once is enough because neither bound moves afterwards. The floor is derived from the card count,
+     * which is fixed for a case; the ceiling is the panel's *first* measured bottom, and a later beat
+     * that wraps one line further lowers the figures rather than the room.
+     */
+    private paintRoomOnce(): void {
+        if (this.roomPainted || !this.decor) return;
+        this.roomPainted = true;
+        const band = this.stageBand();
+        this.decor.create(this.scene.scale.width, band.top + band.height, band.top);
+    }
+
+    /**
+     * The room's band: everything above the cards, less what the dialogue panel is covering.
+     *
+     * The figures stand under the panel rather than behind it. `dialogueBox.getBottomY()` is measured,
+     * so a beat that wraps to three lines in French lowers the room's ceiling and the figures shrink —
+     * which is exactly the trade the inverted layout was for, and it costs the cards nothing.
+     */
+    private stageBand(): Readonly<{ top: number; height: number }> {
+        const band = proposalStageBand(this.kind, this.scene.scale.height, this.cards.length);
+        // Below the panel *and* below the control column: the panel no longer stacks under the column,
+        // so the room is the one thing that still has to clear both, and a figure's head drawn behind
+        // the submit control would be exactly the overlap the layout rules forbid.
+        const top = Math.min(
+            Math.max(
+                (this.dialogueBox?.getBottomY() ?? DIALOGUE_TOP) + STAGE_UNDER_PANEL_GAP,
+                controlColumnBottom(this.kind) + STAGE_UNDER_PANEL_GAP
+            ),
+            band.top + band.height
+        );
+        return { top, height: Math.max(0, band.top + band.height - top) };
+    }
+
+    /**
+     * Each colleague's authored accent as a CSS colour, keyed by id, for the dialogue panel.
+     *
+     * The panel writes the speaker's attribution in their own colour — the one idea taken wholesale
+     * from the reference art, and the thing that makes four voices in one slot separable at a glance.
+     * It is reinforcement and never the signal: the attribution names them in words either way.
+     *
+     * Built from `colleagues[]` only. The rival is not in it and must not be (AC4); his surface holds
+     * no `DialogueBox` at all.
+     */
+    private speakerAccents(state: AppState): Readonly<Record<string, string>> {
+        return Object.fromEntries(state.caseDefinition.colleagues
+            .filter(({ portrait }) => portrait.kind === 'silhouette')
+            .map((colleague) => [
+                colleague.id,
+                colleague.portrait.kind === 'silhouette' ? colleague.portrait.accentColor : ''
+            ]));
     }
 
     /** The accent is the one thing the localized projection does not carry, because it is not text. */
@@ -433,51 +727,43 @@ export class ColleagueRenderer {
      * The dialogue panel's top edge: below the guide line's *measured* bottom, and never above
      * {@link DIALOGUE_TOP}.
      *
-     * The floor is what keeps this a safety net rather than a layout change. Today's guide — one line in
-     * English, two in French — measures to at or above the constant, so the panel does not move and the
-     * click target the browser tests derive stays where it was. What the measurement adds is the case the
-     * constant could not survive: a three-line guide, or a three-line French transient error in the same
-     * slot, now pushes the panel down instead of being drawn over by it.
+     * Unchanged in rule and changed in consequence. It still clears the guide on the left and the
+     * control column on the right, both measured — but the panel now floats **over the room** rather
+     * than above the cards, so what it pushes when it grows is the figures' available height, not the
+     * cards' position. The floor keeps it a safety net for the chrome above it.
      */
     private dialogueTop(): number {
-        const guideBottom = (this.guide?.y ?? GUIDE_Y) + (this.guide?.height ?? 0);
-        // The panel spans the full width, so it has to clear the control column on the right as well as
-        // the guide on the left. This is the same rule the guide gets, and for the same reason — but
-        // unlike the guide's, this term **binds today, on every conclusion-board render**, and saying so
-        // is the point: the column there is two controls tall, its floor is 112, and 112 + `DIALOGUE_GAP`
-        // is 124 against a `DIALOGUE_TOP` of 118. The panel and the cards below it sit 6px lower than
-        // they did before Story 2.7 added the second control. That is a real layout change and not a
-        // safety net that never fires. On the prediction board the column is one control tall (floor 70)
-        // and the term does not bind.
-        //
-        // The 6px does not come out of the cards' budget: `cardGeometry` clamps `top` against its own
-        // floor, so a lower panel costs overlap rather than card height — the documented "overlap beats
-        // absence" trade, bounded by the clamp.
-        return Math.max(DIALOGUE_TOP, guideBottom + DIALOGUE_GAP, controlColumnBottom(this.kind) + DIALOGUE_GAP);
+        return Math.max(DIALOGUE_TOP, HEADING_Y + (this.heading?.height ?? 0) + HEADING_GAP);
     }
 
     /**
-     * The vertical band the cards divide, taken from the dialogue panel's *measured* bottom rather than
-     * a constant: a longer French beat pushes the cards down instead of being drawn over by them.
+     * Where the cards sit: **anchored to the canvas floor**, at the height their own content needs.
      *
-     * The measured top is **clamped**, because the panel it is measured from has no ceiling of its own —
-     * the beat body is deliberately unbounded so it can never truncate (AC1), and `LocalizedTextSchema`
-     * sets no maximum length. Past the clamp the panel and the cards overlap, which is a legible layout
-     * fault an author can see and fix; unclamped, the cards silently leave the canvas and the phase
-     * becomes uncompletable, which an author cannot see at all. Overlap beats absence.
+     * This inverts what the board used to do. The cards used to hang off the dialogue panel's measured
+     * bottom and be clamped when it grew, on the documented grounds that "overlap beats absence" — an
+     * unbounded beat could otherwise push the last card off a surface that does not scroll, and a card
+     * the player cannot click is a phase they cannot complete.
+     *
+     * Anchoring to the floor removes that failure mode instead of bounding it. The panel now overlays
+     * the room above the cards, so a long French beat costs the room some ceiling and the figures some
+     * height, and costs the cards nothing at all. Nothing the player must click can move.
+     *
+     * The height comes from {@link proposalCardHeight}, which differs by board because the content
+     * does: a conclusion card carries a stated limitation under its claim and a prediction card does
+     * not.
      */
     private cardGeometry(count: number): Readonly<{ top: number; height: number }> {
-        const measuredTop = (this.dialogueBox?.getBottomY() ?? DIALOGUE_TOP) + CARDS_GAP;
         const cards = Math.max(count, 1);
-        const limit = this.scene.scale.height - CANVAS_BOTTOM_MARGIN
-            - (cards * MIN_CARD_HEIGHT) - ((cards - 1) * CARD_GAP);
-        const top = Math.min(measuredTop, Math.max(DIALOGUE_TOP, limit));
-        const available = this.scene.scale.height - top - CANVAS_BOTTOM_MARGIN;
-        return { top, height: Math.max(MIN_CARD_HEIGHT, Math.floor(available / cards) - CARD_GAP) };
+        const height = proposalCardHeight(this.kind);
+        const block = (cards * height) + ((cards - 1) * CARD_GAP);
+        return { top: this.scene.scale.height - CANVAS_BOTTOM_MARGIN - block, height };
     }
 
     private layoutAndRenderCards(state: AppState, t: Translator): void {
         const { top, height } = this.cardGeometry(this.cards.length);
+        // Bottom-anchored to the cards' top, so a three-line French refusal grows upward into the room
+        // instead of down over the first card.
+        this.guide?.setY(top - GUIDE_TO_CARDS_GAP - (this.guide?.height ?? 0));
         const projections = new Map(this.project(state).map((proposal) => [proposal.proposalId, proposal]));
         const selectedId = this.selectedId(state);
 
@@ -487,6 +773,10 @@ export class ColleagueRenderer {
             card.choice.setBounds(top + (index * (height + CARD_GAP)), height);
             card.choice.render(proposal, card.proposalId === selectedId, t);
         });
+        // Re-staged in the same pass, from the same measured geometry, so the room and the cards can
+        // never disagree about where the floor is.
+        this.paintRoomOnce();
+        this.stageFigures(state);
     }
 
     /**

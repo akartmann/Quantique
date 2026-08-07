@@ -1,5 +1,5 @@
 import type { Locale } from '../../core/i18n/Locale';
-import type { Colleague, ColleagueHint, ConclusionProposal, PredictionProposal, ReadingGateHint } from './ColleagueCast';
+import type { Colleague, ColleagueFigure, ColleagueHint, ConclusionProposal, PredictionProposal, ReadingGateHint } from './ColleagueCast';
 import type { ScenarioScript } from './ScenarioScript';
 
 /**
@@ -158,6 +158,12 @@ export type RivalLabCritique = Readonly<{
 export type RivalLab = Readonly<{
     name: string;
     accentColor: string;
+    /**
+     * How he is drawn — the same optional block a colleague's portrait carries, and the same reason:
+     * AC4 wants him visually distinct from the cast without that distinction being his colour.
+     * Unauthored he stands with his arms folded, which is his character note rather than a default.
+     */
+    figure?: ColleagueFigure;
     critiques: readonly RivalLabCritique[];
 }>;
 

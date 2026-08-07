@@ -81,7 +81,7 @@ const makeRect = (): FakeRect => {
 };
 
 /** The widget creates its objects in a fixed order; these hold on to the ones the assertions read. */
-const mount = () => {
+const mount = (onAdvance?: (index: number) => void) => {
     const texts: FakeText[] = [];
     const rects: FakeRect[] = [];
     const scene = {
@@ -91,7 +91,7 @@ const mount = () => {
         }
     } as unknown as Scene;
 
-    const box = new DialogueBox(scene, { x: 40, y: 118, width: 944 });
+    const box = new DialogueBox(scene, { x: 40, y: 118, width: 944, onAdvance });
     box.create();
 
     // Creation order in `create()`: panel, speaker, body, counter, control, controlLabel.
@@ -116,8 +116,14 @@ afterAll(() => { vi.unstubAllGlobals(); });
 
 const t = createTranslator('en');
 
+/**
+ * `speakerId` is derived from the beat id rather than fixed, so a test can tell one beat's speaker
+ * from another's — which is the whole point of the field: the owner reads it to decide which figure to
+ * foreground, and a fixture that gave every beat the same speaker could not catch a `getCurrentBeat`
+ * that returned the wrong one.
+ */
 const beats = (...ids: readonly string[]): readonly DialogueBeatView[] =>
-    ids.map((id) => ({ id, speaker: `Speaker ${id}`, text: `Line ${id}.` }));
+    ids.map((id) => ({ id, speakerId: `colleague-${id}`, speaker: `Speaker ${id}`, text: `Line ${id}.` }));
 
 describe('DialogueBox reading position', () => {
     it('opens on the first beat and counts from one', () => {
@@ -193,6 +199,73 @@ describe('DialogueBox reading position', () => {
         // Never past the end, and never reading `undefined.text`.
         expect(ui.counter.text).toBe('1 / 1');
         expect(ui.body.text).toBe('Line a.');
+    });
+});
+
+/**
+ * The accessor character staging reads (Story 2.9).
+ *
+ * The reading position is widget-local and deliberately not in the store, so this is the only way an
+ * owner can learn *whose* line is showing — and the alternative it exists to prevent is reverse-matching
+ * the formatted, localized, degradable `speaker` string back to a cast member.
+ *
+ * It has to be valid at the two moments the owner uses it: straight after `render()`, and inside
+ * `onAdvance`. Both are asserted, along with the two cases where the index moves without a click.
+ */
+describe('DialogueBox.getCurrentBeat', () => {
+    it('reports the beat on screen, and follows the reader', () => {
+        const ui = mount();
+        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis');
+        expect(ui.box.getCurrentBeat()?.speakerId).toBe('colleague-a');
+
+        ui.click();
+
+        expect(ui.box.getCurrentBeat()?.speakerId).toBe('colleague-b');
+    });
+
+    /**
+     * Read from inside `onAdvance`, which is where `ColleagueRenderer` re-stages from. `advance()`
+     * repaints *before* notifying, so the accessor must already be reporting the new beat by then — a
+     * callback that saw the old one would foreground the previous speaker on every advance.
+     */
+    it('already reports the new beat when onAdvance fires', () => {
+        const seen: (string | undefined)[] = [];
+        const ui = mount(() => seen.push(ui.box.getCurrentBeat()?.speakerId));
+        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis');
+
+        ui.click();
+
+        expect(seen).toEqual(['colleague-b']);
+    });
+
+    it('resets to the first beat when the conversation changes', () => {
+        const ui = mount();
+        ui.box.render(beats('intro', 'close'), t, 'synthesis');
+        ui.click();
+        expect(ui.box.getCurrentBeat()?.speakerId).toBe('colleague-close');
+
+        ui.box.render(beats('intro', 'close'), t, 'review');
+
+        expect(ui.box.getCurrentBeat()?.speakerId).toBe('colleague-intro');
+    });
+
+    it('follows the defensive clamp when the same conversation arrives shorter', () => {
+        const ui = mount();
+        ui.box.render(beats('a', 'b', 'c'), t, 'synthesis');
+        ui.click();
+        ui.click();
+
+        ui.box.render(beats('a'), t, 'synthesis');
+
+        expect(ui.box.getCurrentBeat()?.speakerId).toBe('colleague-a');
+    });
+
+    /** A scene that authors no conversation foregrounds nobody, and the owner has nothing to guard. */
+    it('reports nothing when no conversation is authored', () => {
+        const ui = mount();
+        ui.box.render([], t, 'context');
+
+        expect(ui.box.getCurrentBeat()).toBeUndefined();
     });
 });
 

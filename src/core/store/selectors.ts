@@ -238,6 +238,21 @@ export const selectLocalizedConclusionProposals = (state: AppState): readonly Lo
 /** One resolved line of authored dialogue, ready for a widget that knows nothing about the store. */
 export type DialogueBeatProjection = Readonly<{
     id: string;
+    /**
+     * Who is speaking, as the authored `colleagues[].id` — carried **beside** the formatted line, not
+     * instead of it.
+     *
+     * The projection used to drop the id and keep only {@link speaker}, which is exactly enough to
+     * *print* an attribution and not nearly enough to *stage* one: character staging has to know which
+     * figure to foreground, and the only other route to that is reverse-matching a formatted,
+     * localized, degradable string back to a cast member (Story 2.9). It carries no defensibility and
+     * cannot: it is the beat's authored `speakerId` and nothing else.
+     *
+     * It is **not** guaranteed to resolve. A degraded cached `case.json` can name a colleague this
+     * build no longer authors, in which case {@link speaker} already falls back to
+     * `colleague.unattributedSpeaker` and a consumer must foreground nothing rather than throw.
+     */
+    speakerId: string;
     /** The attributed speaker line, already formatted. */
     speaker: string;
     text: string;
@@ -261,6 +276,7 @@ export const selectDialogueBeats = (state: AppState): readonly DialogueBeatProje
     const t = createTranslator(locale);
     return beats.map((beat) => Object.freeze({
         id: beat.id,
+        speakerId: beat.speakerId,
         speaker: formatAttribution(t, projectAttribution(state, beat.speakerId, 'colleague.unattributedSpeaker')),
         text: resolveLocalizedText(beat.text, locale)
     }));

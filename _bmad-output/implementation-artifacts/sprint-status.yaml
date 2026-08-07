@@ -67,7 +67,7 @@
 # ============================================================================
 
 generated: 2026-08-04T18:18:39+0200
-last_updated: 2026-08-07  # story 2.9 contexted and ready for dev
+last_updated: 2026-08-07  # story 2.9 implemented, ready for review
 project: Quantique
 project_key: NOKEY
 tracking_system: file-system
@@ -100,7 +100,7 @@ development_status:
   # ---- delivers the reusable advance affordance 2.8/2.10/2.11 consume. 2.12 STRICTLY LAST.
   2-7-in-scene-phase-transitions: done  # new; unblocks every story below; implemented 2026-08-07 — all six transitions canvas-dispatchable; two intents in the review→debrief chain still unowned (see deferred-work.md) and block 2.12
   2-8-library-reading-room-and-reference-book: done  # new; implemented 2026-08-07, reviewed 2026-08-07 — reading room + book on canvas, source.inspected canvas-dispatchable, LectureBookScene overlay + scene reach-in retired, case.json at 1.13.0 (readingGateHints + reviewed-needs-rendition); review applied 32 patches, deferred 3, assigned the two review→debrief intents to 2.11
-  2-9-colleague-and-rival-lab-characters: ready-for-dev  # new; coded vector silhouettes, no art assets; effort M / risk Low; story contexted 2026-08-07 — adds speakerId to the dialogue projection, one Phaser-free staging resolver, a figure column on both boards, Bell staged off the critique projection; no case.json change
+  2-9-colleague-and-rival-lab-characters: review  # new; coded vector silhouettes, no art assets; effort M / risk Low; implemented 2026-08-07 — speakerId on the dialogue projection + DialogueBox.getCurrentBeat, Phaser-free characterStageView resolver, CharacterStage renderer (Graphics only, tweens only, no update loop), 56px figure column on both boards, Bell staged off the rival-lab record with a distinct build; stage.speaking authored EN+FR; no case.json change. Open for review: the per-row figure column reading of AC3, and the name/role label living on the adjacent attribution line rather than in the column (see Completion Notes)
   2-10-physical-apparatus-and-player-started-light: backlog  # new; knob drag + start-the-light; effort L / risk Med
   2-11-debrief-scene-and-replay: backlog  # new; retires the last PhasePlaceholderScene; effort M / risk Low
   2-12-retire-dom-presentation-panels: backlog  # new; LAST — requires 2.7-2.11 done; effort M / risk HIGH

@@ -9,7 +9,10 @@ import {
     PROPOSAL_SURFACE_WIDTH,
     SUBMIT_CONTROL_FONT_SIZE,
     SUBMIT_CONTROL_LABEL_WRAP,
-    boardAdvanceControlLabelWrap
+    boardAdvanceControlLabelWrap,
+    boardProposalMarkerWrap,
+    boardProposalTextWrapWidth,
+    DIALOGUE_PANEL_WIDTH
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 // From `apparatusGeometry`, not `ApparatusRenderer`: that renderer imports Phaser as a *value*
 // (`BlendModes`), Phaser touches `window` at import time, and these specs run in Node.
@@ -73,13 +76,16 @@ import {
     dialogueSpeakerWrapWidth
 } from '../../src/adapters/phaser/ui/DialogueBox';
 import {
+    BODY_MAX_LINES,
+    LIMITATION_MAX_LINES,
     PROPOSAL_ATTRIBUTION_FONT_SIZE,
     PROPOSAL_LIMITATION_FONT_SIZE,
     PROPOSAL_MARKER_FONT_SIZE,
-    PROPOSAL_MARKER_WRAP,
-    PROPOSAL_BODY_FONT_SIZE,
-    proposalTextWrapWidth
+    PROPOSAL_BODY_FONT_SIZE
 } from '../../src/adapters/phaser/ui/ProposalChoice';
+// The name-and-role plaque under each staged figure (Story 2.9). The role is the longest French label
+// in the game after the prose, and it sits in a fixed slot — so it belongs in both sweeps.
+import { FIGURE_NAME_FONT_SIZE, FIGURE_ROLE_FONT_SIZE } from '../../src/adapters/phaser/renderers/characterStageView';
 
 /**
  * AC4: French renders without missing glyphs or clipping at 1280×720.
@@ -97,13 +103,36 @@ test.use({ viewport: { width: 1280, height: 720 }, locale: 'fr-FR' });
 const FRENCH_GLYPHS = [...'éèêëàâçîïôûùÿœŒÉÈÊÀÂÇÎÏÔÛÙ«»’—'];
 
 /**
- * Derived from the widgets rather than restated as literals: these bounds are a function of the
- * surface width and each widget's own gutters, and a layout change that did not update a hard-coded
- * copy here would leave the check measuring against a bound the game no longer uses.
+ * Derived from the widgets and their hosts rather than restated as literals: these bounds are a
+ * function of the surface width and the gutters the host actually passes, and a layout change that did
+ * not update a hard-coded copy here would leave the check measuring against a bound the game no longer
+ * uses.
+ *
+ * **The board's resolved bound, not the widget's default** (Story 2.9).
+ *
+ * The two are the same number today — the figure column that briefly narrowed the cards is gone, and
+ * the figures stand in the room instead — which is exactly why the indirection stays. `SUBMIT_WIDTH`
+ * and `ADVANCE_CONTROL_WIDTH` were also the same number, right up until one of them moved and this
+ * file went on measuring a rectangle nothing painted.
  */
-const CARD_TEXT_WRAP_WIDTH = proposalTextWrapWidth(PROPOSAL_SURFACE_WIDTH);
-const DIALOGUE_BODY_WRAP_WIDTH = dialogueBodyWrapWidth(PROPOSAL_SURFACE_WIDTH);
-const DIALOGUE_SPEAKER_WRAP_WIDTH = dialogueSpeakerWrapWidth(PROPOSAL_SURFACE_WIDTH);
+const CARD_TEXT_WRAP_WIDTH = boardProposalTextWrapWidth();
+const CARD_MARKER_WRAP = boardProposalMarkerWrap();
+/**
+ * The slot one figure's plaque occupies: the proposal surface divided by the shipped cast size.
+ *
+ * Read from the content rather than fixed at four — a case authoring three colleagues gives each a
+ * wider slot and one authoring five a narrower one, and the narrower case is the one that clips.
+ */
+const FIGURE_SLOT_WIDTH = PROPOSAL_SURFACE_WIDTH / (JSON.parse(
+    readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
+) as { colleagues: unknown[] }).colleagues.length;
+/**
+ * The dialogue panel is narrower than the surface since Story 2.9 — it shares its row with the control
+ * column instead of stacking below it, which is what bought the room its height. Both bounds are
+ * derived from the width the board actually passes the widget.
+ */
+const DIALOGUE_BODY_WRAP_WIDTH = dialogueBodyWrapWidth(DIALOGUE_PANEL_WIDTH);
+const DIALOGUE_SPEAKER_WRAP_WIDTH = dialogueSpeakerWrapWidth(DIALOGUE_PANEL_WIDTH);
 const RIVAL_LAB_TEXT_WRAP_WIDTH = rivalLabTextWrapWidth();
 
 /**
@@ -224,8 +253,14 @@ const WRAPPED_SURFACES = [
     // The dialogue speaker slot's own fallback, which is a different string from the card's above.
     { key: 'colleague.unattributedSpeaker', font: UI_FONT_STACK, fontSize: DIALOGUE_SPEAKER_FONT_SIZE, wrapWidth: DIALOGUE_SPEAKER_WRAP_WIDTH },
     { key: 'proposal.limitation', font: UI_FONT_STACK, fontSize: PROPOSAL_LIMITATION_FONT_SIZE, wrapWidth: CARD_TEXT_WRAP_WIDTH },
-    { key: 'proposal.selected', font: UI_FONT_STACK, fontSize: PROPOSAL_MARKER_FONT_SIZE, wrapWidth: PROPOSAL_MARKER_WRAP },
-    { key: 'proposal.choose', font: UI_FONT_STACK, fontSize: PROPOSAL_MARKER_FONT_SIZE, wrapWidth: PROPOSAL_MARKER_WRAP },
+    { key: 'proposal.selected', font: UI_FONT_STACK, fontSize: PROPOSAL_MARKER_FONT_SIZE, wrapWidth: CARD_MARKER_WRAP },
+    { key: 'proposal.choose', font: UI_FONT_STACK, fontSize: PROPOSAL_MARKER_FONT_SIZE, wrapWidth: CARD_MARKER_WRAP },
+    // The role on each figure's plaque. `colleague.role.builder` is the longest of the four in French
+    // and the plaque's slot is fixed, so this is the bound most likely to clip on the whole surface.
+    { key: 'colleague.role.lead', font: UI_FONT_STACK, fontSize: FIGURE_ROLE_FONT_SIZE, wrapWidth: FIGURE_SLOT_WIDTH },
+    { key: 'colleague.role.builder', font: UI_FONT_STACK, fontSize: FIGURE_ROLE_FONT_SIZE, wrapWidth: FIGURE_SLOT_WIDTH },
+    { key: 'colleague.role.analyst', font: UI_FONT_STACK, fontSize: FIGURE_ROLE_FONT_SIZE, wrapWidth: FIGURE_SLOT_WIDTH },
+    { key: 'colleague.role.communicator', font: UI_FONT_STACK, fontSize: FIGURE_ROLE_FONT_SIZE, wrapWidth: FIGURE_SLOT_WIDTH },
     // Dialogue widget chrome (Story 1.12). The advance control is a fixed hit target, so its label is
     // bounded by the control rather than by the panel; the counter has its own narrow column.
     { key: 'dialogue.advance', font: UI_FONT_STACK, fontSize: DIALOGUE_CONTROL_FONT_SIZE, wrapWidth: DIALOGUE_CONTROL_LABEL_WRAP },
@@ -287,6 +322,15 @@ const CONTROL_LABEL = longestFrench(caseDefinition.apparatus.primaryControls.map
 const SPACING = '0,2200 mm';
 
 const COLLEAGUE_NAME = longestFrench(caseDefinition.colleagues.map(({ name }) => name));
+/**
+ * Every colleague's name at the size and slot the **figure plaque** draws it (Story 2.9).
+ *
+ * Not an entry in `WRAPPED_SURFACES`: that table is keyed by translation key and cannot hold two
+ * bounds for one key, and `colleague.unattributedSpeaker` already sits there against the *dialogue*
+ * speaker slot. These are authored proper nouns rather than interface copy anyway, so they belong with
+ * the rest of the content sweep.
+ */
+const FIGURE_PLAQUE_NAMES = caseDefinition.colleagues.map(({ name }) => name);
 const ROLE_LABEL = longestFrench([
     fr['colleague.role.lead'], fr['colleague.role.builder'], fr['colleague.role.analyst'], fr['colleague.role.communicator']
 ]);
@@ -473,6 +517,30 @@ test('keeps every French string inside the wrap bound of the surface that holds 
     expect(overflowing).toEqual([]);
 });
 
+/**
+ * The plaque under each staged figure (Story 2.9) — the surface AC1 is satisfied on.
+ *
+ * Whole strings, not tokens: the plaque reserves the height of **one** line for the name and one for
+ * the role, so a label that wraps to two is drawn over the figure below it or over the guide. The
+ * roles are swept as interface copy in the fixed-height table; these are the authored proper nouns.
+ */
+test('keeps every colleague name on one line of its figure plaque', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
+
+    const widths = await measure(page, FIGURE_PLAQUE_NAMES.map((text) => ({
+        font: UI_FONT_STACK, fontSize: FIGURE_NAME_FONT_SIZE, text
+    })));
+
+    const overflowing = FIGURE_PLAQUE_NAMES
+        .map((name, index) => ({ name, width: widths[index]! }))
+        .filter(({ width }) => width > FIGURE_SLOT_WIDTH)
+        .map(({ name, width }) => `${name} (${Math.round(width)}px > ${Math.round(FIGURE_SLOT_WIDTH)}px)`);
+
+    expect(overflowing).toEqual([]);
+    expect(FIGURE_PLAQUE_NAMES.length).toBeGreaterThan(0);
+});
+
 test('keeps the authored proposal copy inside the colleague card, in both locales', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
@@ -494,6 +562,67 @@ test('keeps the authored proposal copy inside the colleague card, in both locale
         .map(({ label, text, width }) => `${label}: "${text}" (${Math.round(width)}px)`);
 
     expect(overflowing).toEqual([]);
+});
+
+/**
+ * The truncation guard (Story 2.9, AC7) — the arbiter of the figure column's width.
+ *
+ * **A per-token sweep provably cannot catch this.** The test above measures each word against the wrap
+ * bound, which catches an unbreakable token wider than the card; it says nothing about how many *lines*
+ * the whole string takes. `ProposalChoice` sets `maxLines: BODY_MAX_LINES`, and Phaser's `maxLines`
+ * **clips** — a claim that needs a third line simply loses it, with no error, no overflow, and nothing
+ * visible in a token-width check. Reserving the figure column narrowed the wrap from 744 to
+ * {@link CARD_TEXT_WRAP_WIDTH}, so this is the check that says whether that was affordable.
+ *
+ * Both bounds are read rather than restated: the wrap from the board that paints it, the line limit
+ * from the widget that enforces it. If this fails, **narrow the figure column** — do not raise
+ * `BODY_MAX_LINES` and do not shrink the 16px body.
+ *
+ * Verified by mutation while it was written: widening `PROPOSAL_FIGURE_COLUMN_WIDTH` to 140 fails this
+ * test on the longest French prediction text, and restoring it passes again.
+ */
+test('keeps every authored claim inside its two clipped lines at the board’s real wrap', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
+
+    const authored = [
+        ...PROPOSAL_TEXTS.map((text, index) => ({ label: `prediction text ${index + 1}`, fontSize: PROPOSAL_BODY_FONT_SIZE, maxLines: BODY_MAX_LINES, text })),
+        ...CONCLUSION_CLAIMS.map((text, index) => ({ label: `conclusion claim ${index + 1}`, fontSize: PROPOSAL_BODY_FONT_SIZE, maxLines: BODY_MAX_LINES, text })),
+        ...CONCLUSION_LIMITATIONS.map((text, index) => ({ label: `conclusion limitation ${index + 1}`, fontSize: PROPOSAL_LIMITATION_FONT_SIZE, maxLines: LIMITATION_MAX_LINES, text }))
+    ];
+
+    // Greedy word wrap at the card's bound, which is what Phaser's `advancedWordWrap: false` does:
+    // break at whitespace, never inside a token, and start a new line when the next word would exceed
+    // the bound. Measured in the page so the metrics are the browser's own, exactly as elsewhere here.
+    const lineCounts = await page.evaluate(({ samples, font, wrapWidth }) => {
+        const context = document.createElement('canvas').getContext('2d');
+        if (!context) throw new Error('Canvas 2D is unavailable.');
+        return samples.map(({ fontSize, text }) => {
+            context.font = `${fontSize}px ${font}`;
+            let lines = 1;
+            let current = '';
+            for (const word of text.split(/[^\S  ]+/).filter(Boolean)) {
+                const candidate = current ? `${current} ${word}` : word;
+                if (current && context.measureText(candidate).width > wrapWidth) {
+                    lines += 1;
+                    current = word;
+                } else {
+                    current = candidate;
+                }
+            }
+            return lines;
+        });
+    }, { samples: authored.map(({ fontSize, text }) => ({ fontSize, text })), font: UI_FONT_STACK, wrapWidth: CARD_TEXT_WRAP_WIDTH });
+
+    const clipped = authored
+        .map((sample, index) => ({ ...sample, lines: lineCounts[index]! }))
+        .filter(({ lines, maxLines }) => lines > maxLines)
+        .map(({ label, lines, maxLines, text }) => `${label}: ${lines} lines > ${maxLines} at ${CARD_TEXT_WRAP_WIDTH}px — "${text}"`);
+
+    expect(clipped).toEqual([]);
+    // A guard on the sweep: an empty list would make the assertion above vacuously true, which is how
+    // a spec starts passing because the content it measures stopped being found.
+    expect(authored.length).toBeGreaterThan(0);
 });
 
 test('keeps the authored dialogue inside the panel that holds it, in both locales', async ({ page }) => {
@@ -642,7 +771,14 @@ test('fits every French fixed-height control label on one line', async ({ page }
         ...ADVANCE_CONTROLS.map(({ key, bound }) => ({ key, fontSize: ADVANCE_CONTROL_FONT_SIZE, bound })),
         { key: 'theoryBoard.submit', fontSize: SUBMIT_CONTROL_FONT_SIZE, bound: SUBMIT_CONTROL_LABEL_WRAP },
         { key: 'rivalLab.revise', fontSize: RIVAL_LAB_CONTROL_FONT_SIZE, bound: RIVAL_LAB_CONTROL_LABEL_WRAP },
-        { key: 'dialogue.advance', fontSize: DIALOGUE_CONTROL_FONT_SIZE, bound: DIALOGUE_CONTROL_LABEL_WRAP }
+        { key: 'dialogue.advance', fontSize: DIALOGUE_CONTROL_FONT_SIZE, bound: DIALOGUE_CONTROL_LABEL_WRAP },
+        // Every role, on its figure's plaque (Story 2.9). One line in a fixed slot, which is exactly
+        // the shape this whole-string sweep exists for — the per-token pass cannot tell a label that
+        // wraps to two lines from one that does not, and the plaque reserves the height for one.
+        { key: 'colleague.role.lead', fontSize: FIGURE_ROLE_FONT_SIZE, bound: FIGURE_SLOT_WIDTH },
+        { key: 'colleague.role.builder', fontSize: FIGURE_ROLE_FONT_SIZE, bound: FIGURE_SLOT_WIDTH },
+        { key: 'colleague.role.analyst', fontSize: FIGURE_ROLE_FONT_SIZE, bound: FIGURE_SLOT_WIDTH },
+        { key: 'colleague.role.communicator', fontSize: FIGURE_ROLE_FONT_SIZE, bound: FIGURE_SLOT_WIDTH }
     ] as const;
 
     const widths = await measure(page, FIXED_HEIGHT_CONTROLS.map(({ key, fontSize }) => ({

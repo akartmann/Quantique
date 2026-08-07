@@ -150,6 +150,11 @@ export const fr: Record<TranslationKey, string> = {
     'proposal.selected': '✓ Retenue',
     'proposal.choose': 'Retenir celle-ci',
 
+    // --- Character staging (Story 2.9) ------------------------------------------------------------
+    // Deliberately the shortest true rendering: the column is narrow and the marker must hold one line.
+    // "Prend la parole" is the fuller phrase and is roughly three times the width.
+    'stage.speaking': 'Parle',
+
     // --- Rival lab --------------------------------------------------------------------------------
     'rivalLab.role': 'Laboratoire rival',
     'rivalLab.heading': 'Une objection venue d’en face',

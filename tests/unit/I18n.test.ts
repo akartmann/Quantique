@@ -78,6 +78,25 @@ describe('locale resources', () => {
     });
 
     /**
+     * Character staging's own interface surface (Story 2.9).
+     *
+     * One key, and it still gets a named assertion, for the reason the reading room's list above
+     * exists: the symmetry checks prove `en` and `fr` agree and that nothing shipped blank, and neither
+     * can notice a key that was **never authored** — a surface missing from both bundles passes both of
+     * them. "Chrome gets localized and content does not" is this project's most-repeated defect, and
+     * every new content surface is supposed to join this file with the story that introduces it rather
+     * than with the review that finds the gap.
+     *
+     * The figures' *names* are canonical proper nouns from `case.json` and are deliberately not here;
+     * their *roles* resolve through the `colleague.role.*` family, which the cast tests already cover.
+     */
+    it('authors the staging marker in both locales', () => {
+        expect(en['stage.speaking'].trim().length).toBeGreaterThan(0);
+        expect(fr['stage.speaking'].trim().length).toBeGreaterThan(0);
+        expect(fr['stage.speaking']).not.toBe(en['stage.speaking']);
+    });
+
+    /**
      * The enum families the detail panel resolves rather than re-authoring.
      *
      * AC3 requires the source type, provenance category, and rights status to be readable **as text**

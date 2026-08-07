@@ -26,11 +26,33 @@ import type { LocalizedProposalProjection } from '../../../core/store/selectors'
  */
 
 const ACCENT_WIDTH = 8;
-const TEXT_LEFT_OFFSET = 26;
-/** Leaves the choice marker its own right-hand column so the body never wraps underneath it. */
-const MARKER_GUTTER = 200;
-const MARKER_WRAP = 160;
 const MARKER_RIGHT_INSET = 16;
+
+/**
+ * The card's two horizontal gutters, as **defaults** a host may narrow (Story 2.9).
+ *
+ * They were private constants until a host needed to reserve a figure column inside the card without
+ * the widget learning what a figure is. They are options rather than a fork of the widget, and they
+ * default to the geometry the card already had, so a host that passes neither draws exactly what it
+ * drew before. That is the shape the 2.8 review asked for and the trap it warned about in the same
+ * breath: default an *option* to today's value, never default a required wiring argument to a no-op.
+ *
+ * `PROPOSAL_MARKER_GUTTER` is measured **from the card's right edge**, which is what it geometrically
+ * is: the strip the choice marker owns. The private constant it replaces was `200` measured from the
+ * card's left, which folded the content inset into the same number and so could not notice a widened
+ * inset at all — widening the inset would have moved the text right without narrowing its wrap, and
+ * `BODY_MAX_LINES = 2` clips silently. `200 - 26 = 174` is the same strip written honestly, and
+ * `proposalTextWrapWidth` returns the identical 744 for a 944-wide card.
+ */
+export const PROPOSAL_CONTENT_INSET = 26;
+export const PROPOSAL_MARKER_GUTTER = 174;
+
+export type ProposalChoiceGutters = Readonly<{
+    /** From the card's left edge to the text. The figure column, when a host reserves one, lives here. */
+    contentInset?: number;
+    /** From the card's right edge to the text: the strip the choice marker owns. */
+    markerGutter?: number;
+}>;
 
 const ATTRIBUTION_TOP = 10;
 const BODY_TOP = 32;
@@ -48,9 +70,15 @@ const BODY_TOP = 32;
  * wrong claim. This was 3 until the 1.12 review; the cards were 143px tall before this story shrank
  * them to make room for the dialogue panel, and the line bound was not lowered with them. Keeping it
  * at 2 makes the overflow unreachable by construction rather than something a clamp has to catch.
+ *
+ * Exported since Story 2.9 so `french-typography.spec.ts` can assert the longest French claim still
+ * wraps within it at the board's real bound, rather than restating `2` beside a constant it would then
+ * stop tracking. That guard is the arbiter of the figure column's width: a per-token sweep provably
+ * cannot catch this, because every individual token fits and it is the *count of lines* that overflows.
  */
-const BODY_MAX_LINES = 2;
-const LIMITATION_MAX_LINES = 2;
+export const BODY_MAX_LINES = 2;
+/** Also clipped, also line-bounded, and exported for the same guard as {@link BODY_MAX_LINES}. */
+export const LIMITATION_MAX_LINES = 2;
 const LIMITATION_TOP_GAP = 6;
 
 const FILL_IDLE = 0x16323b;
@@ -62,9 +90,35 @@ export const PROPOSAL_BODY_FONT_SIZE = 16;
 export const PROPOSAL_LIMITATION_FONT_SIZE = 13;
 export const PROPOSAL_MARKER_FONT_SIZE = 15;
 
-/** The in-card wrap bound the French typography check measures against, derived rather than restated. */
-export const proposalTextWrapWidth = (width: number): number => width - MARKER_GUTTER;
-export const PROPOSAL_MARKER_WRAP = MARKER_WRAP;
+/**
+ * The in-card wrap bound the French typography check measures against, derived rather than restated.
+ *
+ * **Both gutters, because both narrow it.** Its predecessor took only the width and subtracted a
+ * single constant, which was exactly true while the content inset never moved — and silently wrong the
+ * moment a host reserved space on the left, since the text would start further in and keep its old
+ * bound. `BODY_MAX_LINES = 2` clips rather than overflows, so that error has no visible symptom at all
+ * until a French claim loses its third line. A host must therefore pass the same pair it passes the
+ * widget, and `french-typography.spec.ts` reads the *board's* resolved bound rather than these
+ * defaults — `SUBMIT_WIDTH` vs `ADVANCE_CONTROL_WIDTH` in `ColleagueRenderer` is the recorded case of
+ * a spec measuring a rectangle nothing paints and passing through the very clipping it existed to
+ * catch.
+ */
+export const proposalTextWrapWidth = (
+    width: number,
+    { contentInset = PROPOSAL_CONTENT_INSET, markerGutter = PROPOSAL_MARKER_GUTTER }: ProposalChoiceGutters = {}
+): number => width - contentInset - markerGutter;
+
+/**
+ * The marker's own wrap, derived from the gutter it lives in rather than declared beside it.
+ *
+ * The two were independent constants (`MARKER_GUTTER 200`, `MARKER_WRAP 160`) that happened to agree,
+ * and a host narrowing one without the other would have left the marker wrapping into the claim. The
+ * marker is right-anchored at {@link MARKER_RIGHT_INSET} from the card's edge, so the clear space it
+ * has is precisely the gutter less that inset — 158 at the default, against a longest French marker
+ * (`Retenir celle-ci`) of ≈115px at 15px.
+ */
+export const proposalMarkerWrap = (markerGutter: number = PROPOSAL_MARKER_GUTTER): number =>
+    markerGutter - MARKER_RIGHT_INSET;
 
 export type ProposalChoiceOptions = Readonly<{
     x: number;
@@ -74,7 +128,7 @@ export type ProposalChoiceOptions = Readonly<{
     accentColor: number;
     /** The owner dispatches. The widget does not know the store exists. */
     onChoose: () => void;
-}>;
+} & ProposalChoiceGutters>;
 
 export class ProposalChoice {
     private readonly objects: Phaser.GameObjects.GameObject[] = [];
@@ -95,9 +149,9 @@ export class ProposalChoice {
     }
 
     public create(): void {
-        const { x, width } = this.options;
-        const textLeft = x + TEXT_LEFT_OFFSET;
-        const wrapWidth = proposalTextWrapWidth(width);
+        const { x, width, contentInset = PROPOSAL_CONTENT_INSET, markerGutter = PROPOSAL_MARKER_GUTTER } = this.options;
+        const textLeft = x + contentInset;
+        const wrapWidth = proposalTextWrapWidth(width, { contentInset, markerGutter });
 
         this.background = this.scene.add.rectangle(x, this.top, width, this.height, FILL_IDLE).setOrigin(0, 0);
         this.background.on('pointerup', () => this.options.onChoose());
@@ -117,7 +171,7 @@ export class ProposalChoice {
         })).setOrigin(0, 0);
         // The choice marker is a label, never colour alone (AC2).
         this.marker = this.scene.add.text(x + width - MARKER_RIGHT_INSET, 0, '', uiTextStyle({
-            color: '#c7d7d9', fontSize: `${PROPOSAL_MARKER_FONT_SIZE}px`, align: 'right', wordWrap: { width: MARKER_WRAP }
+            color: '#c7d7d9', fontSize: `${PROPOSAL_MARKER_FONT_SIZE}px`, align: 'right', wordWrap: { width: proposalMarkerWrap(markerGutter) }
         })).setOrigin(1, 0);
 
         this.objects.push(this.background, this.accent, this.attribution, this.body, this.limitation, this.marker);

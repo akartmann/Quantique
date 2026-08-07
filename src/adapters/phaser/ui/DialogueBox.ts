@@ -32,8 +32,30 @@ import type { Translator } from '../../../core/i18n/translate';
  * carried for that structural match and for diagnostics, **not** as the idempotence key. What makes
  * `render` idempotent is the `conversationId` the owner supplies; see {@link DialogueBox.render} for why
  * deriving it from these ids is unsound.
+ *
+ * `speakerId` is carried for the same structural reason and is **not read by this widget at all**: the
+ * panel prints {@link speaker}, the already-formatted attribution, and knows nothing about a cast. It
+ * is here so an owner reading {@link DialogueBox.getCurrentBeat} can resolve who is speaking without
+ * reverse-matching a localized string (Story 2.9).
  */
-export type DialogueBeatView = Readonly<{ id: string; speaker: string; text: string }>;
+export type DialogueBeatView = Readonly<{ id: string; speakerId: string; speaker: string; text: string }>;
+
+/**
+ * The accent each speaker's attribution is written in, keyed by `speakerId` (Story 2.9, design
+ * revision).
+ *
+ * Supplied by the owner, because the accents live in `case.json` and this widget knows nothing about
+ * the store. A speaker missing from the map — a degraded cached case — falls back to
+ * {@link DEFAULT_SPEAKER_COLOR} rather than throwing or printing nothing.
+ *
+ * **This is reinforcement, never the signal.** The attribution already names the speaker in words, so
+ * a reader who cannot separate the four colours loses nothing: colour tells them *faster*, not
+ * *instead*. That is the same rule the proposal card's choice marker follows.
+ */
+export type SpeakerAccents = Readonly<Record<string, string>>;
+
+/** Speaker colour when a beat names someone the case no longer authors. The slot's original gold. */
+export const DEFAULT_SPEAKER_COLOR = '#f4d35e';
 
 export type DialogueBoxOptions = Readonly<{
     x: number;
@@ -105,6 +127,8 @@ export class DialogueBox {
     private controlLabel?: Phaser.GameObjects.Text;
 
     private beats: readonly DialogueBeatView[] = [];
+    /** Speaker accents from the last `render`, so `advance` can recolour without the owner's help. */
+    private accents: SpeakerAccents = {};
     /**
      * Which conversation is loaded, so `render` can tell "same again" from "a new one". Supplied by the
      * owner; never derived from the beats. See {@link render}.
@@ -170,8 +194,14 @@ export class DialogueBox {
      * sharing them would make the second open on its *last* beat, already labelled `dialogue.end`, with
      * its earlier beats unreachable (1.12 review).
      */
-    public render(beats: readonly DialogueBeatView[], t: Translator, conversationId: string): void {
+    public render(
+        beats: readonly DialogueBeatView[],
+        t: Translator,
+        conversationId: string,
+        accents: SpeakerAccents = {}
+    ): void {
         this.loadBeats(beats, conversationId);
+        this.accents = accents;
         // Retained so advancing can repaint without the owner having to hand the translator back. The
         // locale cannot change without a `render`, so this is never stale.
         this.translator = t;
@@ -199,6 +229,9 @@ export class DialogueBox {
         const isLast = this.index >= this.beats.length - 1;
 
         this.speaker?.setText(beat.speaker);
+        // The speaker's own accent, so four voices in one panel are told apart at a glance — the one
+        // idea worth taking wholesale from the reference art.
+        this.speaker?.setColor(this.accents[beat.speakerId] ?? DEFAULT_SPEAKER_COLOR);
         this.body?.setText(beat.text);
         this.counter?.setText(t('dialogue.counter', { index: this.index + 1, total: this.beats.length }));
         // The end-state label appears on the last beat, as the story asks — the control keeps its place
@@ -248,6 +281,23 @@ export class DialogueBox {
         return this.bottomY;
     }
 
+    /**
+     * The beat currently on screen, or `undefined` when no conversation is authored for this scene.
+     *
+     * An accessor alongside {@link getBottomY} and {@link isComplete}, and deliberately nothing more:
+     * the reading position is widget-local and ephemeral, and an owner that needs to know *whose* line
+     * is showing — to stage that colleague — has no other way to ask. It stays a read: this widget
+     * knows nothing about the stage, the cast, or the store, and adding the index to `AppState` to make
+     * the question easier would contradict the contract in this file's header and have to be cleared on
+     * every phase move and every replay.
+     *
+     * Valid at the two moments the owner needs it: after `render()` (index 0 on a new conversation,
+     * clamped otherwise) and inside `onAdvance`, which fires after `paint()`.
+     */
+    public getCurrentBeat(): DialogueBeatView | undefined {
+        return this.beats[this.index];
+    }
+
     /** True once the last beat has been advanced past — the same moment `onComplete` fires. */
     public isComplete(): boolean {
         return this.beats.length === 0 || this.completed;
@@ -263,6 +313,7 @@ export class DialogueBox {
         this.control = undefined;
         this.controlLabel = undefined;
         this.beats = [];
+        this.accents = {};
         this.conversationId = undefined;
         this.translator = undefined;
         this.index = 0;

@@ -1,6 +1,10 @@
+---
+baseline_commit: 10a90af194d1594b63e375f3eee4a09e8dc58b2d
+---
+
 # Story 2.9: Colleague and rival-lab characters on stage
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -66,64 +70,64 @@ so that the investigation feels like a conversation with people rather than a wa
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Carry the speaker's identity to the surface (AC2)**
-  - [ ] `src/core/store/selectors.ts`: add `speakerId: beat.speakerId` to `DialogueBeatProjection`. Keep `speaker` (the formatted attribution) exactly as it is — `DialogueBox` and `formatAttribution` both depend on it. **This is the load-bearing change of the story:** the projection today drops the `colleagueId` and keeps only the formatted string, so there is no way to know *whose* figure to foreground. Do not try to reverse-match the formatted string to a cast member.
-  - [ ] `src/adapters/phaser/ui/DialogueBox.ts`: add `speakerId: string` to `DialogueBeatView` (it is documented as structurally `DialogueBeatProjection`; keep them matched), and expose the reading position so the owner can resolve the current speaker — `public getCurrentBeat(): DialogueBeatView | undefined`. It joins `getBottomY()` and `isComplete()` as an accessor; **do not** make the widget aware of the stage, the cast, or the store.
-  - [ ] Verify the beat index is readable at the two moments the owner needs it: after `render()` (index 0 on a new conversation, clamped otherwise) and inside the existing `onAdvance` callback. `ColleagueRenderer.relayoutCards()` is already the `onAdvance` handler — re-stage from there.
-  - [ ] A `speakerId` absent from `colleagues[]` (degraded cached `case.json`) must foreground nothing and throw nothing. `projectAttribution` already handles the label side via `colleague.unattributedSpeaker`.
+- [x] **Task 1 — Carry the speaker's identity to the surface (AC2)**
+  - [x] `src/core/store/selectors.ts`: add `speakerId: beat.speakerId` to `DialogueBeatProjection`. Keep `speaker` (the formatted attribution) exactly as it is — `DialogueBox` and `formatAttribution` both depend on it. **This is the load-bearing change of the story:** the projection today drops the `colleagueId` and keeps only the formatted string, so there is no way to know *whose* figure to foreground. Do not try to reverse-match the formatted string to a cast member.
+  - [x] `src/adapters/phaser/ui/DialogueBox.ts`: add `speakerId: string` to `DialogueBeatView` (it is documented as structurally `DialogueBeatProjection`; keep them matched), and expose the reading position so the owner can resolve the current speaker — `public getCurrentBeat(): DialogueBeatView | undefined`. It joins `getBottomY()` and `isComplete()` as an accessor; **do not** make the widget aware of the stage, the cast, or the store.
+  - [x] Verify the beat index is readable at the two moments the owner needs it: after `render()` (index 0 on a new conversation, clamped otherwise) and inside the existing `onAdvance` callback. `ColleagueRenderer.relayoutCards()` is already the `onAdvance` handler — re-stage from there.
+  - [x] A `speakerId` absent from `colleagues[]` (degraded cached `case.json`) must foreground nothing and throw nothing. `projectAttribution` already handles the label side via `colleague.unattributedSpeaker`.
 
-- [ ] **Task 2 — The Phaser-free staging resolver (AC1, AC2, AC3, AC7)**
-  - [ ] New `src/adapters/phaser/renderers/characterStageView.ts`, following `advanceView.ts` exactly: pure, no Phaser value import, no selectors import, no store import. It is what the unit tests drive.
-  - [ ] Input: the already-resolved cast (`{ colleagueId, accentColor, name, roleLabel }[]` — resolved strings, never `LocalizedText`), the current `speakerColleagueId | undefined`, the row bands to stage into, the column geometry, and `motionAllowed`.
-  - [ ] Output per figure: `{ colleagueId, x, y, width, height, scale, alpha, isSpeaker }`, plus the emphasis targets the renderer tweens toward. Freeze the result (`Object.freeze`) as every other projection here does.
-  - [ ] Export every geometry constant. **Nothing in this module may accept, return, or reference a defensibility field** — that is what AC3 and ADR-006 pin, and Task 7's source-level test enforces it.
-  - [ ] Positions are **total over the row count**: given N rows, every row gets a figure band, so a coordinate derived for four never lands in a gap at three. `libraryArtifactCentre` is the precedent.
+- [x] **Task 2 — The Phaser-free staging resolver (AC1, AC2, AC3, AC7)**
+  - [x] New `src/adapters/phaser/renderers/characterStageView.ts`, following `advanceView.ts` exactly: pure, no Phaser value import, no selectors import, no store import. It is what the unit tests drive.
+  - [x] Input: the already-resolved cast (`{ colleagueId, accentColor, name, roleLabel }[]` — resolved strings, never `LocalizedText`), the current `speakerColleagueId | undefined`, the row bands to stage into, the column geometry, and `motionAllowed`.
+  - [x] Output per figure: `{ colleagueId, x, y, width, height, scale, alpha, isSpeaker }`, plus the emphasis targets the renderer tweens toward. Freeze the result (`Object.freeze`) as every other projection here does.
+  - [x] Export every geometry constant. **Nothing in this module may accept, return, or reference a defensibility field** — that is what AC3 and ADR-006 pin, and Task 7's source-level test enforces it.
+  - [x] Positions are **total over the row count**: given N rows, every row gets a figure band, so a coordinate derived for four never lands in a gap at three. `libraryArtifactCentre` is the precedent.
 
-- [ ] **Task 3 — The staging renderer (AC1, AC5, AC6)**
-  - [ ] New `src/adapters/phaser/renderers/CharacterStage.ts` on the standard renderer contract: `create()` / `render(state)` / `destroy()`.
-  - [ ] `create()`: one `Graphics` silhouette per figure plus its name/role label, **drawn once**. Flat display objects, not a `Container` (see `DialogueBox`'s docstring for why). Text created empty; every string written in `render(state)` through `createTranslator(locale)` — never in `create()`.
-  - [ ] Draw the silhouette with fill commands only (head, shoulders, torso taper) tinted from the authored accent. Never re-stroke per frame: emphasis is applied with `setScale` / `setAlpha` / position, which reuse the existing geometry. No `loader` entry, no texture, no `assets.entries` addition.
-  - [ ] Emphasis: `motionAllowed` → one short tween (≈160–200 ms, `Cubic.easeOut`) on scale/alpha/x. `reduce` → apply the target values immediately, register **no** update loop, start **no** tween. Subscribe to `window.matchMedia('(prefers-reduced-motion: reduce)')` and its `change` event; `ApparatusRenderer.ts:168-205` is the reference for the cached flag plus the `change` handler.
-  - [ ] `destroy()`: remove the media-query listener, `scene.tweens.killTweensOf(this)` **and** `killTweensOf` every figure object, destroy all display objects, clear the arrays. The `targets: this` case is called out in AC6 and in the renderer contract because it is the one the codebase has already been bitten by.
-  - [ ] No `update()` loop under any condition — tweens only. That is what makes AC5's "no update loop registers" true by construction rather than by a flag.
+- [x] **Task 3 — The staging renderer (AC1, AC5, AC6)**
+  - [x] New `src/adapters/phaser/renderers/CharacterStage.ts` on the standard renderer contract: `create()` / `render(state)` / `destroy()`.
+  - [x] `create()`: one `Graphics` silhouette per figure plus its name/role label, **drawn once**. Flat display objects, not a `Container` (see `DialogueBox`'s docstring for why). Text created empty; every string written in `render(state)` through `createTranslator(locale)` — never in `create()`.
+  - [x] Draw the silhouette with fill commands only (head, shoulders, torso taper) tinted from the authored accent. Never re-stroke per frame: emphasis is applied with `setScale` / `setAlpha` / position, which reuse the existing geometry. No `loader` entry, no texture, no `assets.entries` addition.
+  - [x] Emphasis: `motionAllowed` → one short tween (≈160–200 ms, `Cubic.easeOut`) on scale/alpha/x. `reduce` → apply the target values immediately, register **no** update loop, start **no** tween. Subscribe to `window.matchMedia('(prefers-reduced-motion: reduce)')` and its `change` event; `ApparatusRenderer.ts:168-205` is the reference for the cached flag plus the `change` handler.
+  - [x] `destroy()`: remove the media-query listener, `scene.tweens.killTweensOf(this)` **and** `killTweensOf` every figure object, destroy all display objects, clear the arrays. The `targets: this` case is called out in AC6 and in the renderer contract because it is the one the codebase has already been bitten by.
+  - [x] No `update()` loop under any condition — tweens only. That is what makes AC5's "no update loop registers" true by construction rather than by a flag.
 
-- [ ] **Task 4 — Stage the boards (AC1, AC2, AC3)**
-  - [ ] `ColleagueRenderer` owns one `CharacterStage`, constructed in `create()` and destroyed in `destroy()` alongside `dialogueBox` and `advanceControl` (it owns its own objects, so it is deliberately **not** pushed onto `this.objects` — follow the `AdvanceControl` precedent at line 276).
-  - [ ] Reserve a **left figure column** inside the proposal band. Each figure occupies the row of the card whose proposal that colleague authored, so the connection in AC3 is adjacency plus a shared accent plus a shared name. **Row order is proposal order, not cast order** — the two differ: prediction is `thea, elias, marianne, samuel`; conclusion is `marianne, elias, thea, samuel`.
-  - [ ] `ProposalChoice` gains two options with exported defaults so the board can reserve the column without the widget knowing why: `contentInset` (today's `TEXT_LEFT_OFFSET = 26`) and `markerGutter` (today's `MARKER_GUTTER = 200`). `proposalTextWrapWidth` takes them rather than restating them. Do not fork the widget.
-  - [ ] **`proposalTextWrapWidth` is imported by `tests/e2e/french-typography.spec.ts`.** Widening its signature ripples there: the spec must pass the values the *board* passes, not the widget's defaults, or it measures a rectangle that is never painted and keeps passing through exactly the truncation it exists to catch. That failure mode is recorded verbatim in `ColleagueRenderer.ts:70-81` about `SUBMIT_WIDTH` vs `ADVANCE_CONTROL_WIDTH` — the cheapest guard is to export the board's resolved bound as a named function and have both read it.
-  - [ ] Re-stage on `render()` **and** on the dialogue advance (`relayoutCards`), because the card bands move with the panel's measured height and the speaker changes without any state change.
-  - [ ] **Figures are never interactive.** Do not call `setInteractive` on a figure, its label, or any backing shape. Phaser draws in creation order and hit-tests topmost-first, so an interactive object over a card would swallow the click that chooses that proposal — an inert card with a live hand cursor, which is the exact defect class the 1.12 review found in `DialogueBox`.
-  - [ ] **Create the stage before the cards**, so a figure can never paint over card text even if a future geometry change makes the column and the card overlap. The column is reserved, so this should be belt-and-braces — write it down as the reason, since creation order is the only depth mechanism these renderers use.
-  - [ ] **Read the width budget below before choosing a single number.** Getting this wrong truncates authored claims silently.
+- [x] **Task 4 — Stage the boards (AC1, AC2, AC3)**
+  - [x] `ColleagueRenderer` owns one `CharacterStage`, constructed in `create()` and destroyed in `destroy()` alongside `dialogueBox` and `advanceControl` (it owns its own objects, so it is deliberately **not** pushed onto `this.objects` — follow the `AdvanceControl` precedent at line 276).
+  - [x] Reserve a **left figure column** inside the proposal band. Each figure occupies the row of the card whose proposal that colleague authored, so the connection in AC3 is adjacency plus a shared accent plus a shared name. **Row order is proposal order, not cast order** — the two differ: prediction is `thea, elias, marianne, samuel`; conclusion is `marianne, elias, thea, samuel`.
+  - [x] `ProposalChoice` gains two options with exported defaults so the board can reserve the column without the widget knowing why: `contentInset` (today's `TEXT_LEFT_OFFSET = 26`) and `markerGutter` (today's `MARKER_GUTTER = 200`). `proposalTextWrapWidth` takes them rather than restating them. Do not fork the widget.
+  - [x] **`proposalTextWrapWidth` is imported by `tests/e2e/french-typography.spec.ts`.** Widening its signature ripples there: the spec must pass the values the *board* passes, not the widget's defaults, or it measures a rectangle that is never painted and keeps passing through exactly the truncation it exists to catch. That failure mode is recorded verbatim in `ColleagueRenderer.ts:70-81` about `SUBMIT_WIDTH` vs `ADVANCE_CONTROL_WIDTH` — the cheapest guard is to export the board's resolved bound as a named function and have both read it.
+  - [x] Re-stage on `render()` **and** on the dialogue advance (`relayoutCards`), because the card bands move with the panel's measured height and the speaker changes without any state change.
+  - [x] **Figures are never interactive.** Do not call `setInteractive` on a figure, its label, or any backing shape. Phaser draws in creation order and hit-tests topmost-first, so an interactive object over a card would swallow the click that chooses that proposal — an inert card with a live hand cursor, which is the exact defect class the 1.12 review found in `DialogueBox`.
+  - [x] **Create the stage before the cards**, so a figure can never paint over card text even if a future geometry change makes the column and the card overlap. The column is reserved, so this should be belt-and-braces — write it down as the reason, since creation order is the only depth mechanism these renderers use.
+  - [x] **Read the width budget below before choosing a single number.** Getting this wrong truncates authored claims silently.
 
-- [ ] **Task 5 — Stage Mr. Arthur Bell (AC4)**
-  - [ ] `RivalLabRenderer` reserves a right-hand stage column and narrows its prose by passing the reduced width to the existing `rivalLabTextWrapWidth(width)` helper — which already takes a width, so no new restatement.
-  - [ ] Stage Bell through a **distinct input path**, not through the cast array: `selectLocalizedRivalLabCritique` already returns `{ speaker, line, accentColor }` and carries no defensibility field. He must never be pushed into `colleagues[]`, never resolved through `selectColleagueById`, and never counted by anything iterating the cast.
-  - [ ] Make him visually distinct as a *silhouette*, not as a colour: a different build (taller, frock coat, hat brim) and a plinth or lectern. His accent is the authored `#8c3b3b`. Colour alone is explicitly insufficient (AC2's rule applies to the whole surface).
-  - [ ] No score, timer, counter, setback, red failure treatment, or shake. The one control stays the floor-anchored revise control, unchanged.
-  - [ ] Vertical space is available here: the body is unbounded prose and the guide is clamped above a floor-anchored control, so narrowing the wrap costs height that the existing clamp already absorbs. Do not anchor Bell to the prose's measured bottom — anchor him to the canvas, for the same reason the revise control is.
-  - [ ] **Decide the 8px accent stripe explicitly.** `RivalLabRenderer` already draws a full-height accent rectangle in Bell's colour (`:98`, `:191-192`). Once he is a figure, keep it as a framing device *or* retire it — but say which and why in Completion Notes. Leaving two unrelated things carrying the same colour for no stated reason is what the reviews keep finding.
+- [x] **Task 5 — Stage Mr. Arthur Bell (AC4)**
+  - [x] `RivalLabRenderer` reserves a right-hand stage column and narrows its prose by passing the reduced width to the existing `rivalLabTextWrapWidth(width)` helper — which already takes a width, so no new restatement.
+  - [x] Stage Bell through a **distinct input path**, not through the cast array: `selectLocalizedRivalLabCritique` already returns `{ speaker, line, accentColor }` and carries no defensibility field. He must never be pushed into `colleagues[]`, never resolved through `selectColleagueById`, and never counted by anything iterating the cast.
+  - [x] Make him visually distinct as a *silhouette*, not as a colour: a different build (taller, frock coat, hat brim) and a plinth or lectern. His accent is the authored `#8c3b3b`. Colour alone is explicitly insufficient (AC2's rule applies to the whole surface).
+  - [x] No score, timer, counter, setback, red failure treatment, or shake. The one control stays the floor-anchored revise control, unchanged.
+  - [x] Vertical space is available here: the body is unbounded prose and the guide is clamped above a floor-anchored control, so narrowing the wrap costs height that the existing clamp already absorbs. Do not anchor Bell to the prose's measured bottom — anchor him to the canvas, for the same reason the revise control is.
+  - [x] **Decide the 8px accent stripe explicitly.** `RivalLabRenderer` already draws a full-height accent rectangle in Bell's colour (`:98`, `:191-192`). Once he is a figure, keep it as a framing device *or* retire it — but say which and why in Completion Notes. Leaving two unrelated things carrying the same colour for no stated reason is what the reviews keep finding.
 
-- [ ] **Task 6 — Locales (AC1, AC2)**
-  - [ ] Every new player-facing string goes in **both** `src/core/i18n/locales/en.ts` and `fr.ts` in the same edit. The figure label reuses `colleague.attribution` / `colleague.role.*` / `rivalLab.role` — do not author a second attribution format.
-  - [ ] Add a small speaking marker for the foregrounded figure (suggested key `stage.speaking`) so AC2's "label" is a real label rather than the dialogue panel's speaker slot doing double duty. Keep it short: it sits in a fixed-width column and the French must fit on one line.
-  - [ ] **No `case.json` change and no `CaseDefinition.version` bump.** `portrait: { kind: 'silhouette', accentColor }` and `rivalLab.accentColor` already exist and are already validated. `scenarioScript.scenes[].cast?` belongs to **Story 3.4** — do not add it here.
+- [x] **Task 6 — Locales (AC1, AC2)**
+  - [x] Every new player-facing string goes in **both** `src/core/i18n/locales/en.ts` and `fr.ts` in the same edit. The figure label reuses `colleague.attribution` / `colleague.role.*` / `rivalLab.role` — do not author a second attribution format.
+  - [x] Add a small speaking marker for the foregrounded figure (suggested key `stage.speaking`) so AC2's "label" is a real label rather than the dialogue panel's speaker slot doing double duty. Keep it short: it sits in a fixed-width column and the French must fit on one line.
+  - [x] **No `case.json` change and no `CaseDefinition.version` bump.** `portrait: { kind: 'silhouette', accentColor }` and `rivalLab.accentColor` already exist and are already validated. `scenarioScript.scenes[].cast?` belongs to **Story 3.4** — do not add it here.
 
-- [ ] **Task 7 — Tests (AC7)**
-  - [ ] `tests/unit/CharacterStageView.test.ts`: stage positions at 3 and 4 rows and at two canvas sizes (so a memorised dimension fails); speaker emphasis; no speaker; a `speakerId` not in the cast; the `motionAllowed` split.
-  - [ ] `tests/unit/CharacterStageView.test.ts` (or a sibling): the **ADR-006 reachability test**. Read `characterStageView.ts` and `CharacterStage.ts` with `readFileSync` and assert neither mentions `selectDefensibleConclusionProposalIds`, `selectDefensibleConclusionIds`, `supportPredicate`, or `defensible`. `tests/e2e/canvasHelpers.ts` is the precedent for reading a project file inside a test. An argument in a comment is not an assertion.
-  - [ ] The **reduced-motion assertion**: inject the structural slice (`{ tweens: { add, killTweensOf } }`, `{ add: { graphics, text } }`) rather than a real `Phaser.Game` — `SceneRouterTarget` is the reference pattern. Assert `tweens.add` is never called under `reduce`, and that the final scale/alpha/position match the motion path's targets.
-  - [ ] `tests/integration/CharacterStaging.test.ts`: build the store from the authored Young case (as `RivalLabCritique.test.ts` does), and prove through public actions and selectors that (a) `selectDialogueBeats` carries `speakerId` for every beat in `prediction`, `synthesis`, and `review`, and that the phase transitions swap the conversation; (b) resolving the stage at successive reading positions foregrounds successively different colleagues, for a conversation whose speakers actually differ (`prediction` and `synthesis` each have three distinct speakers); (c) the accents come from `portrait.accentColor`. **Be honest about the seam:** the reading position is widget-local and is deliberately *not* in the store, so no public action can move it — the test drives the store for the beats and the resolver for the position, and asserts the pair. Do not add an `AppState` beat-index field to make a test easier; that contradicts `DialogueBox`'s stated contract and would have to be cleared on every phase move and replay.
-  - [ ] `tests/e2e/french-typography.spec.ts`: update `CARD_TEXT_WRAP_WIDTH` to the new derived bound, add the narrowed marker wrap and any new fixed-height label to the **whole-string** `FIXED_HEIGHT_CONTROLS` sweep, and **add the truncation guard**: the longest French proposal text and conclusion claim must still wrap to no more than `BODY_MAX_LINES` lines at the new wrap. A per-token sweep provably cannot catch this. `BODY_MAX_LINES` must be exported so the spec reads it rather than restating `2`.
-  - [ ] `tests/unit/DialogueBox.test.ts:119` builds its beats through a `beats(...ids)` helper — extend the fixture with `speakerId` and add coverage for `getCurrentBeat()` across a conversation change (index resets) and a shorter list (the defensive clamp). `tests/unit/DialogueBeats.test.ts` covers the projection side.
-  - [ ] Check `tests/e2e/dialogue-advance.spec.ts` and `canvas-transitions.spec.ts` still land inside the cards: `lastProposalCardProbe` uses the band's centre x, which the figure column shifts content within but does not move — verify rather than assume.
+- [x] **Task 7 — Tests (AC7)**
+  - [x] `tests/unit/CharacterStageView.test.ts`: stage positions at 3 and 4 rows and at two canvas sizes (so a memorised dimension fails); speaker emphasis; no speaker; a `speakerId` not in the cast; the `motionAllowed` split.
+  - [x] `tests/unit/CharacterStageView.test.ts` (or a sibling): the **ADR-006 reachability test**. Read `characterStageView.ts` and `CharacterStage.ts` with `readFileSync` and assert neither mentions `selectDefensibleConclusionProposalIds`, `selectDefensibleConclusionIds`, `supportPredicate`, or `defensible`. `tests/e2e/canvasHelpers.ts` is the precedent for reading a project file inside a test. An argument in a comment is not an assertion.
+  - [x] The **reduced-motion assertion**: inject the structural slice (`{ tweens: { add, killTweensOf } }`, `{ add: { graphics, text } }`) rather than a real `Phaser.Game` — `SceneRouterTarget` is the reference pattern. Assert `tweens.add` is never called under `reduce`, and that the final scale/alpha/position match the motion path's targets.
+  - [x] `tests/integration/CharacterStaging.test.ts`: build the store from the authored Young case (as `RivalLabCritique.test.ts` does), and prove through public actions and selectors that (a) `selectDialogueBeats` carries `speakerId` for every beat in `prediction`, `synthesis`, and `review`, and that the phase transitions swap the conversation; (b) resolving the stage at successive reading positions foregrounds successively different colleagues, for a conversation whose speakers actually differ (`prediction` and `synthesis` each have three distinct speakers); (c) the accents come from `portrait.accentColor`. **Be honest about the seam:** the reading position is widget-local and is deliberately *not* in the store, so no public action can move it — the test drives the store for the beats and the resolver for the position, and asserts the pair. Do not add an `AppState` beat-index field to make a test easier; that contradicts `DialogueBox`'s stated contract and would have to be cleared on every phase move and replay.
+  - [x] `tests/e2e/french-typography.spec.ts`: update `CARD_TEXT_WRAP_WIDTH` to the new derived bound, add the narrowed marker wrap and any new fixed-height label to the **whole-string** `FIXED_HEIGHT_CONTROLS` sweep, and **add the truncation guard**: the longest French proposal text and conclusion claim must still wrap to no more than `BODY_MAX_LINES` lines at the new wrap. A per-token sweep provably cannot catch this. `BODY_MAX_LINES` must be exported so the spec reads it rather than restating `2`.
+  - [x] `tests/unit/DialogueBox.test.ts:119` builds its beats through a `beats(...ids)` helper — extend the fixture with `speakerId` and add coverage for `getCurrentBeat()` across a conversation change (index resets) and a shorter list (the defensive clamp). `tests/unit/DialogueBeats.test.ts` covers the projection side.
+  - [x] Check `tests/e2e/dialogue-advance.spec.ts` and `canvas-transitions.spec.ts` still land inside the cards: `lastProposalCardProbe` uses the band's centre x, which the figure column shifts content within but does not move — verify rather than assume.
 
-- [ ] **Task 8 — Verify (AC5, AC6, and the standing gates)**
-  - [ ] `npm run typecheck`, `npm test`, `npm run test:e2e`. **Measure your own baseline first** and compare failure *names*, not counts — see §Baseline below.
-  - [ ] Manual check at 1280×720 in **EN and FR**: figures legible, no label truncated, no figure painted over card text or the advance control, Bell distinct from the cast, and under `prefers-reduced-motion: reduce` the boards paint a static staged frame with no tween.
-  - [ ] Confirm by grep that `CharacterStage` registers no `scene.events.on('update')` and that `destroy()` removes the media listener and kills `targets: this` tweens.
-  - [ ] NFR1 spot check only. The full 10-minute re-profile at 1280×720 with drag, staging, and propagation together is **Story 2.10's AC**, not this one — but note if staging visibly costs frames.
+- [x] **Task 8 — Verify (AC5, AC6, and the standing gates)**
+  - [x] `npm run typecheck`, `npm test`, `npm run test:e2e`. **Measure your own baseline first** and compare failure *names*, not counts — see §Baseline below.
+  - [x] Manual check at 1280×720 in **EN and FR**: figures legible, no label truncated, no figure painted over card text or the advance control, Bell distinct from the cast, and under `prefers-reduced-motion: reduce` the boards paint a static staged frame with no tween.
+  - [x] Confirm by grep that `CharacterStage` registers no `scene.events.on('update')` and that `destroy()` removes the media listener and kills `targets: this` tweens.
+  - [x] NFR1 spot check only. The full 10-minute re-profile at 1280×720 with drag, staging, and propagation together is **Story 2.10's AC**, not this one — but note if staging visibly costs frames.
 
 ## Dev Notes
 
@@ -294,14 +298,286 @@ At `52d6412` the 2.8 review measured, after its patches: `typecheck` clean, `npm
 
 ### Agent Model Used
 
+Claude Opus 5 (`claude-opus-5[1m]`), via `gds-dev-story`.
+
 ### Debug Log References
+
+**Baseline, measured at `10a90af` before the first edit** — names, not counts, as §Baseline requires:
+
+- `npm run typecheck` — clean.
+- `npm test` — **808 passing across 50 files**.
+- `npm run test:e2e` — **47 passed / 7 failed** on chromium. Failure names: `accessibility`, `curated-record`, `inquiry-recognition`, `offline-reload`, `progress-portability`, `theory-board`, `young-experiment` — exactly the seven carried since before 2.8, all on retired-DOM controls that Story 2.12 owns.
+
+**Final:** typecheck clean; `npm test` **859 passing across 53 files**; `npm run test:e2e` **48 passed / 7 failed**, the same seven names. The extra pass is this story's truncation guard.
+
+**Two defects found by screenshotting the running game, neither reachable by any assertion in the suite.** Both are recorded here because the story's own guidance pointed the wrong way on the first and had no opinion on the second:
+
+1. **Every figure was invisible.** Task 4 says to create the stage *before* the cards so a figure can never paint over card text. But the figure column is reserved *inside* each card, out of its content inset, and a card paints an opaque background across its whole width — so a stage created first is a stage behind four rectangles. The figures were resolved, positioned and tweened correctly the entire time. The stage is now created **after** the cards; what actually protects the card text is the reserved inset, and what protects the click is that a figure is never interactive (Phaser hit-tests topmost-first among *interactive* objects only). The reasoning is written into `ColleagueRenderer.create()`.
+2. **Mr. Arthur Bell rendered at 24% of his intended size.** The figure-size override lived only on `CharacterStage` while `resolveCharacterStage` went on capping at the boards' 44×78, so the renderer's fit ratio came out at 78/330 and he was drawn at a quarter of the space he was placed in. `maxFigure` now lives in `CharacterStageInput` and both halves read one maximum. Regression-tested on both sides of the seam (`CharacterStageView.test.ts`, `CharacterStage.test.ts`).
+
+A third, smaller one: the shared rim light guessed at the silhouette's left edge and hung in the air beside Bell where his coat narrows at the waist. Each build now paints its own rim.
+
+**Mutation-proven, as §Previous story intelligence requires — both were broken on purpose and confirmed to fail:**
+
+- **ADR-006 reachability.** Adding `selectDefensibleConclusionProposalIds` to `CharacterStage.ts` fails `CharacterStageView.test.ts`; removing it passes. It also fired for real while being written, on the word "defensible" in `characterStageView.ts`'s own docstring — the prose was rewritten rather than the test weakened, which is why that module explains the rule without naming the terms.
+- **The truncation guard.** Widening `PROPOSAL_FIGURE_COLUMN_WIDTH` from 56 to 140 fails it on the longest French prediction text (`3 lines > 2 at 630px`); restoring it passes.
+
+**Manual check at 1280×720, EN and FR, driven through the real app.** Prediction board: four figures in the reserved column, each beside its own card, speaker foregrounded and badged, others receded; advancing the conversation re-stages to the new speaker (verified FR beat 2 → Marianne Cole, badge `Parle`). Rival lab: Bell full height at the right, hat, flared coat, plinth, name plaque, clear of both the prose and the floor-anchored revise control. Under `prefers-reduced-motion: reduce` both boards paint a complete static staged frame with no tween. No label truncated, no figure over card text or a control in either locale.
 
 ### Completion Notes List
 
+## Second design revision, 2026-08-07 — one silhouette recoloured is not four people
+
+Alexis supplied a design board of the narrative cast — twenty-four painted vignettes covering the
+Merrow, Young, Hale and Voss teams and their four challengers — and asked for the people to be
+redrawn against it. It named the defect the first revision had left standing.
+
+The revision below got the *size* right: full-length figures in a painted room, not busts in a margin.
+It got the *picture* wrong. Every figure was **one body, tinted per colleague**. That satisfies AC2's
+letter on the cards, where the attribution line names the author in words, and breaks it on the stage,
+where colour was doing all the work: a reader who cannot tell teal from plum could not tell Elias Wren
+from Marianne Cole. AC2 says in as many words that identity must not rest on colour alone. It was
+resting on colour alone, and no test caught it because the tests asserted placement, not appearance.
+
+### What the board specifies, and what was built from it
+
+Five of the board's twenty-four vignettes are this case's cast. They are specific people: Wren wears
+spectacles and carries a clipboard at a blackboard; Cole is gowned with her hair pinned up, reading a
+sheet; Hart has a moustache and an arm out mid-explanation; Young holds a lens up to the light; Bell
+stands with his arms folded in tweed. Take every colour out of that description and all five are still
+distinguishable — which is the specification.
+
+A figure is now assembled from an authored appearance rather than tinted:
+
+- **A closed authored vocabulary.** `portrait.figure` on a colleague and `figure` on `rivalLab`, both
+  optional, both validated by one schema: `build` (suited/gowned), `pose` (five), `hair`, `hairColor`,
+  `skinTone`, `spectacles`, `moustache`. Enums and booleans only — **no authored colour beyond the
+  accent already there**. The room is lit warm and dark and a free `hairColor` would eventually carry
+  one that does not sit in that light; the ramps are curated for the lamp. Four skin tones, spaced to
+  survive the amber cast, because the wider cast includes Priya Sen, Maya Rao and David Lin and a
+  single default tone would need correcting the moment their case ships rather than now.
+- **Additive, so nothing that validated before stops validating.** Every field and the whole block are
+  optional, and a case authoring nothing still gets four people who differ, because the **role implies
+  the pose** — an instrument maker holds a clipboard, a communicator explains with their hands. What a
+  role must *not* imply is build, hair or face: nothing about being an analyst implies a gown, and
+  inferring a character's presentation from their role or their name is how a named character gets
+  drawn wrong. Two tests pin that distinction in both directions.
+- **`figureAppearance.ts` is Phaser-free**, for the reason `characterStageView.ts` is: `CharacterStage`
+  imports Phaser, Phaser touches `window` at import time, and Vitest runs in Node. The palette and the
+  defaults are the assertable part, so they live outside the file that draws.
+- **Four tones of one accent per garment** — coat, trousers/skirt, linen, and a lit edge — derived
+  rather than authored, so a recoloured colleague stays consistent and no author can write a highlight
+  darker than their own shadow. Asserted as an *ordering* over six accents including pure black and
+  pure white, not as four literals.
+- **The plaque follows the board's typography**: the name in amber serif, the role beneath in a muted
+  warm grey.
+
+### Defects this pass found, all of them only reachable by looking
+
+- **`shade()` lightened a near-black accent and `tint()` darkened a white one.** Both targets are
+  colours rather than pure black and pure white — a shadow in this room keeps a trace of cold blue, a
+  highlight stays oil-lamp warm — so a naive mix inverts at the ends of the ramp. Invisible on the four
+  accents this case ships; the property test over six accents is what surfaced it. Each channel is now
+  clamped to the direction the function names.
+- **The presenting arm reached 13px past its own sleeve** and read as a stub, then as a T-pose against
+  the vertical resting arm. The forearm now drops from a bent elbow and reaches `0.92 × width`.
+- **The blackboard closed its brass frame around Elias Wren's head.** Décor is not told where the cast
+  stands and should not be — but the cast is laid out in equal slots across the same surface, so the
+  middle is the one place a prop that size is guaranteed to fall *between* two people. Moved there,
+  narrowed, and its frame dimmed: at the brightness it had, a rectangle behind the cast out-read every
+  face in front of it.
+- **Shoulders were a hard horizontal edge four-fifths of the figure's width**, above a much narrower
+  body — every colleague had wings. Narrowed to 0.35, sloped, and the deltoid caps set inside the
+  shoulder line instead of centred on it, which had been adding their own radius to the silhouette.
+- **The neck was painted in a shade of the coat**, leaving a dark bar under every chin; and it was four
+  fifths of a head-radius long, so everyone craned. It is skin now, and half that.
+- **The head was correctly proportioned and therefore illegible.** A board's band gives a colleague
+  around 130px, not the 230 the figure is stroked at, so a classical eighth-of-the-height head is 16px
+  across — too small to carry hair, spectacles or a moustache, which is to say too small to carry the
+  identity the whole revision is for. Nudged to a sixth, the same stylization the board uses.
+- **The conclusion board's room read as a rendering fault.** Its props are fractions of the strip,
+  which composes correctly right up until the strip is shorter than the props are tall: at ~60px the
+  sash windows were nine pixels high and the blackboard a bright line. `LaboratoryDecor` now refuses to
+  compose below 130px and paints flat wall instead — the same judgement `MIN_LEGIBLE_FIGURE_HEIGHT`
+  already makes about the cast, in the same place and for the same reason.
+- **Bell's coat stopped just above his plinth** and he read as robed. Raised to 0.26, so the longer-coat
+  cue survives and he has legs to stand on. His folded hands were two full-size discs sitting on his
+  chest like buttons; folded arms tuck each hand under the opposite elbow, so what shows is small and
+  at the ends of the bar.
+
+### AC4 after the change
+
+Bell's distinction from the cast is still four cues and still none of them his colour: he is taller, he
+stands on a plinth, his coat falls to a fuller skirt, and he is authored **arms-folded** — the one
+posture on the stage that reads as judgement rather than work, and one no colleague's role produces
+(asserted). The **top hat was dropped**: nobody in the reference wears one indoors and it read as
+caricature. What he *is* — the folded arms, the grey hair, the moustache — is authored on
+`rivalLab.figure` in the same vocabulary a colleague uses, because there is no reason for a second one.
+
+### Verification
+
+Typecheck clean. **891 unit and integration tests** across 54 files (870 before). E2E **49 passed /
+7 failed** — the same seven baseline names, unchanged. Screenshotted on the running game in EN, FR and
+under `reduce`, on the prediction board, the conclusion board and the rival lab; the French plaque
+carries `Constructrice ou constructeur d'appareils` on one line.
+
+### Still not done, and still the reviewer's call
+
+Both open items from the revision below stand unchanged. The conclusion board still withholds its cast
+below the legibility floor, and the only lever is where the stated limitation lives. The laboratory
+bench and the debrief still have no décor, for the reasons given there.
+
+---
+
+## Design revision, 2026-08-07 — the first implementation was rejected
+
+Alexis rejected the first pass on sight ("le design est catastrophique") against a reference mock of a
+classic point-and-click adventure: full-length characters standing in a rendered Victorian optics
+laboratory, and a dialogue panel where each speaker's name carries their own colour. The rejection was
+correct. What shipped first was four 44×78 shoulders-up busts in a 74px column carved out of each
+proposal card — decorative tokens in a margin, not colleagues in a room.
+
+Three decisions were taken with Alexis before rewriting: **décor band with full-length figures over
+compact cards**; **décor on every scene**; and the reference's **SCUMM verb bar and inventory grid are
+visual reference only** — this game has no takeable objects and no verbs, its fourteen player intents
+are investigative acts, and a verb bar would be a whole new interaction model (a sprint change, not
+this story).
+
+**What changed**
+
+- **Figures are full-length and stand in a row**, ≈76×230 at a 1:3 proportion, on one floor line, in a
+  painted laboratory. `resolveCharacterStage` lays them across a band instead of one-per-card-row.
+- **The layout inverted.** Cards used to hang off the dialogue panel's measured bottom and be clamped
+  when it grew ("overlap beats absence"). Cards are now **anchored to the canvas floor** at a fixed
+  height derived from their own content, and the **room takes what is above them**. A long French beat
+  now costs the room some ceiling rather than costing the cards their place — the clamp's failure mode
+  is removed rather than bounded, and the thing the player must click can no longer move.
+- **The row bought AC1 outright.** Each figure gets a slot ≈236px wide, so its **name and role are
+  written on a plaque beneath it** — the thing the 74px column could not afford and that the first pass
+  had to argue its way around. The longest French role measures ≈210px at 11px against 236.
+- **The cards got their full width back**: `contentInset` and `markerGutter` return to the widget
+  defaults and the text wrap goes from 714 back to **744px**.
+- **Each speaker's name is written in their own accent** in the dialogue panel — the reference's best
+  idea, taken wholesale. Reinforcement, never the signal: the attribution names them in words anyway.
+- **AC3's connection is now made by acting.** With the figures in a row rather than beside their own
+  card, choosing a proposal brings its author forward. That is the player's own choice reflected back,
+  never an evaluation of it — the ADR-006 source sweep still passes and now covers `LaboratoryDecor`
+  too.
+- **New `LaboratoryDecor`**: sash windows onto a grey city, a blackboard carrying the chromatic-
+  aberration diagram in chalk (no text — a painted string would be a surface outside the i18n layer),
+  panelled dado, boards in perspective, a brass optical rail, and one warm lamp. `ReadingRoomDecor`'s
+  pattern exactly: fill commands only, no asset, no store, no motion, painted once.
+- **The dialogue panel narrowed** to `DIALOGUE_PANEL_WIDTH` so the control column sits *beside* it
+  rather than above it, and the guide line moved down beside the cards. Those two reclaims are what
+  bought the room its height — the panel used to spend 104px clearing a column standing in a corner.
+
+**Three defects found by screenshotting the running game, none reachable by any assertion**
+
+1. **Every figure invisible.** Task 4 says to create the stage before the cards. But the column was
+   *inside* each card and a card paints an opaque background across its full width, so the stage sat
+   behind four rectangles. Fixed by creating it after the cards; the reserved inset is what protects
+   the card text, and non-interactivity is what protects the click.
+2. **The rival at 24% of his size.** The figure-size override lived only on `CharacterStage` while the
+   resolver kept capping at the boards' maximum. `maxFigure` now lives in `CharacterStageInput`;
+   regression-tested on both sides of the seam.
+3. **The whole room on top of everything.** A `Graphics` joins the display list when
+   `scene.add.graphics()` runs, not when it is filled — so painting the room on first render (needed,
+   because it composes against the panel's measured height) put every layer above the chrome, the
+   cards and the cast. Fixed by separating `reserve()` from `create()`.
+
+**The one thing this layout cannot do, and what would fix it**
+
+The **conclusion board cannot host the cast.** Its four cards each carry a claim *and* a stated
+limitation — 488px of a 768px surface — so after the panel and the guide there is ≈60px of room. Four
+people drawn into 60px are four dots with names under them. `MIN_LEGIBLE_FIGURE_HEIGHT` withholds them:
+the room is painted and the cast is not, because a stage that cannot be legible is not a stage. The
+prediction board, whose cards carry no limitation, gets ≈150px figures and reads as intended.
+
+This is a property of the card layout, not a preference. Freeing the stated limitation from the card —
+showing it for the *chosen* proposal only — returns ≈140px and would let the cast stand on both boards.
+That is a content/UX decision and is left to the reviewer rather than taken here.
+
+**Décor scope, honestly**
+
+Done on the three surfaces Story 2.9 owns: both proposal boards and the rival lab. Not done on the
+other two, and deliberately: `DebriefScene` is a `PhasePlaceholderScene` that **Story 2.11 deletes and
+rebuilds**, so a room painted into it is work thrown away; and the laboratory bench is Story 2.10's
+surface, already draws its own optical apparatus across the full canvas, and is the one scene with a
+live animation loop and an NFR1 budget. The reading room has had its own décor since 2.8. Say the word
+and I will take the bench on as part of 2.10.
+
+---
+
+
+**The width budget, measured rather than assumed** (the numbers §The width and height budget asks to be recorded):
+
+| | Before | After |
+| --- | --- | --- |
+| Card content inset | 26 | **82** (26 + a 56px figure column) |
+| Marker gutter, from the card's right edge | 174 | **148** |
+| Card text wrap | 744 | **714** |
+| Marker wrap | 160 | **132** |
+
+At ≈7.6px per character for 16px UI text, 714 carries ≈94 characters a line and ≈188 over two, against the longest French prediction text's **177**. The longest French marker, `Retenir celle-ci`, is ≈115px at 15px against 132. The arbiter is not this arithmetic but the whole-string truncation guard, which measures every authored claim and limitation at the board's real wrap in both locales and passes; the mutation above shows it failing at 140.
+
+`proposalTextWrapWidth` was also made honest while it was widened: it took only the width and subtracted one constant, which could not notice a widened content inset at all — the text would start further in and keep its old bound, and `BODY_MAX_LINES = 2` clips silently. It now takes both gutters, and `PROPOSAL_MARKER_GUTTER` is measured from the card's right edge (174 = the old 200 less the inset it had folded in), so the defaults return exactly today's 744.
+
+**Decisions taken, with their reasons:**
+
+- **The 8px rival-lab accent stripe is kept, in Bell's colour** (Task 5 asks for this to be decided explicitly). It is not a second thing carrying the same signal, because the two identify different things: the stripe frames the *surface*, which belongs to the rival laboratory, and the figure is the *person*. `TEXT_LEFT` is also derived from its width, so retiring it would shift every text on the surface and move the derived click targets for no gain. His plinth is deliberately painted in neutral stone rather than his accent, for the opposite reason — it is furniture he stands on, not part of him.
+- **A figure's name and role are the attribution line beside it**, not a second plaque in the column — on the boards. This is the story's own Task 4 reading ("adjacency plus a shared accent plus a shared name") and the measurement forces it: the column is 74px, which at 11px is ≈13 characters a line, so `Dr. Thea Young` wraps to two lines and `Constructrice ou constructeur d'appareils` to four, against a card row a 78px figure already stands in. Widening the column to fit them costs the claims their clipped second line. On the **rival lab** the trade reverses — one figure, a 200px column, and his attribution 900px away at the far left — so his badge carries his name at the speaker line's own size. The choice is an explicit `labelMode` option rather than something inferred from `build`. **This is open question 3 and the reviewer should confirm it.**
+- **Presence is derived** through `presentColleagueIds` (proposers in proposal order, then any beat speaker who authored nothing, then the whole cast), so Story 3.4 replaces one call. Not observable in the shipped Young case, where all three sets are the same four people — which the integration test states rather than hides.
+- **Row order is proposal order**, so a colleague stands beside their own draft. The two boards genuinely differ (`thea, elias, marianne, samuel` vs `marianne, elias, thea, samuel`), and there is a test asserting they differ so the pairing is provably doing work.
+- **Motion is a duration, not a flag.** The resolver returns `transitionMs: 0` under `reduce` with *identical* figure targets, so the static frame is the frame the tween would have ended on — asserted by running both paths and comparing, rather than by trusting a branch.
+- **`roleLabel` was removed from the staging types.** It would have been carried through two modules and read by nothing, which is dead weight pretending to be a contract.
+
+**Honest about the seam:** the dialogue reading position is widget-local and deliberately not in the store, so no public action can move it. `CharacterStaging.test.ts` drives the *store* for the beats and the *resolver* for the position and asserts the pair; it does not pretend to be an end-to-end play. No `AppState` beat-index field was added. Its `advanceTo` helper also asserts the phase it claims to have reached — an earlier draft let a refused `review` transition fall on the floor and read `synthesis`'s conversation while believing it was reading `review`'s.
+
+**Not done, and why:** NFR1 was spot-checked only — staging cost no visible frames, and the full 10-minute re-profile is Story 2.10's AC, not this one. `case.json` is untouched and unversioned, no `src/ui/*` panel was touched, no scene file changed, and no dependency was added.
+
 ### File List
+
+**New**
+
+- `src/adapters/phaser/renderers/characterStageView.ts`
+- `src/adapters/phaser/renderers/CharacterStage.ts`
+- `src/adapters/phaser/renderers/LaboratoryDecor.ts`
+- `src/adapters/phaser/renderers/figureAppearance.ts`
+- `tests/unit/FigureAppearance.test.ts`
+- `tests/unit/CharacterStageView.test.ts`
+- `tests/unit/CharacterStage.test.ts` — a sibling for the reduced-motion and destroy assertions, which need the structural scene slice
+- `tests/integration/CharacterStaging.test.ts`
+
+**Modified**
+
+- `public/cases/young-interference/case.json` — five authored `figure` blocks; no other field touched
+- `src/domain/cases/ColleagueCast.ts`
+- `src/domain/cases/CaseDefinition.ts`
+- `src/schemas/CaseDefinitionSchema.ts`
+- `src/core/store/selectors.ts`
+- `src/adapters/phaser/ui/DialogueBox.ts`
+- `src/adapters/phaser/ui/ProposalChoice.ts`
+- `src/adapters/phaser/renderers/ColleagueRenderer.ts`
+- `src/adapters/phaser/renderers/RivalLabRenderer.ts`
+- `src/core/i18n/locales/en.ts`
+- `src/core/i18n/locales/fr.ts`
+- `src/adapters/phaser/renderers/LaboratoryDecor.ts`
+- `tests/unit/CaseDefinition.test.ts`
+- `tests/unit/CharacterStage.test.ts`
+- `tests/unit/DialogueBox.test.ts`
+- `tests/unit/DialogueBeats.test.ts`
+- `tests/unit/I18n.test.ts`
+- `tests/integration/DialogueAndChoice.test.ts`
+- `tests/e2e/french-typography.spec.ts`
+- `tests/e2e/dialogue-advance.spec.ts`
+- `_bmad-output/implementation-artifacts/2-9-colleague-and-rival-lab-characters.md`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
 
 ## Change Log
 
 | Date | Version | Change | Author |
 | --- | --- | --- | --- |
 | 2026-08-07 | 1.0 | Story created from `epics.md` §Story 2.9, the 2026-08-06 sprint change proposal, and the 2.7/2.8 review findings. | Alexis (via `gds-create-story`) |
+| 2026-08-07 | 1.3 | **Second design revision, against the supplied cast design board.** Figures are no longer one silhouette recoloured: a new optional authored vocabulary (`portrait.figure` / `rivalLab.figure` — build, pose, hair, skin, spectacles, moustache; enums and booleans only, no authored colour) drives a rebuilt painter, with role-derived pose defaults so a case authoring nothing still gets people who differ. New Phaser-free `figureAppearance.ts` resolves it and derives four garment tones per accent. Amber-serif plaques per the board. Seven defects found by property test and screenshot — inverted `shade`/`tint` at the ends of the ramp, a 13px "reach", the blackboard framing Wren's head, winged shoulders, a cloth-coloured neck, a head too small to carry a face at the size the band allows, and a conclusion-board room that composed into a bright line — all fixed. Bell keeps four non-colour cues; his top hat dropped. | Amelia (via `gds-dev-story`) |
+| 2026-08-07 | 1.2 | **Design revision after rejection.** Figures rewritten full-length in a row on a painted laboratory floor, each with a name-and-role plaque; board layout inverted so cards anchor to the floor and the room takes what is above; dialogue panel narrowed and speaker names coloured by accent; guide moved beside the cards; new `LaboratoryDecor`; cards recover their full 744px text wrap. Three defects found by screenshot (figures behind card backgrounds, rival at 24% size, décor painted over the entire surface) fixed with regression tests. Conclusion board's cast withheld below a legibility floor — see Completion Notes. | Amelia (via `gds-dev-story`) |
+| 2026-08-07 | 1.1 | Implemented. `speakerId` added to the dialogue projection and a `getCurrentBeat()` accessor to `DialogueBox`; new Phaser-free `characterStageView` resolver and `CharacterStage` renderer drawing coded vector silhouettes with no asset; a 56px figure column on both proposal boards funded by narrowing the marker gutter; Mr. Arthur Bell staged off the rival-lab record with a distinct build, plinth and name plaque; `stage.speaking` authored EN+FR. Two defects found by screenshotting the running game (figures hidden behind card backgrounds; the rival drawn at 24% of his placed size) and fixed with regression tests. ADR-006 reachability and the French truncation guard both mutation-proven. | Amelia (via `gds-dev-story`) |

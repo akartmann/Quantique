@@ -18,15 +18,62 @@ import type { LocalizedText, PrimaryControl } from './CaseDefinition';
 export type ColleagueRole = 'lead' | 'builder' | 'analyst' | 'communicator';
 
 /**
+ * How an authored figure differs from every other figure on the stage, with colour taken away.
+ *
+ * AC2 of Story 2.9 requires that identity never rest on colour alone. The first two implementations
+ * drew one silhouette recoloured per colleague, which satisfied the rule on the cards and broke it on
+ * the stage; this is the fix. Each field is a **closed vocabulary**, never free-form art direction:
+ * the room is lit warm and dark, and an authored `#hair` would eventually be a colour that does not
+ * sit in that light. `src/adapters/phaser/renderers/figureAppearance.ts` maps each value to a tone.
+ *
+ * Every field is optional and unauthored figures still differ, because the role implies the pose —
+ * an instrument maker holds a clipboard, a communicator explains with their hands. What a role must
+ * **not** imply is build, hair or face: nothing about being an analyst implies a gown, and inferring a
+ * character's presentation from their role or their name is how a named character gets drawn wrong.
+ */
+export type FigureBuild = 'suited' | 'gowned';
+
+/**
+ * What the figure is doing with their hands.
+ *
+ * Five, because five is what the design board shows and because each is a silhouette still distinct at
+ * 76px wide — a sixth would be a difference nobody could see.
+ */
+export type FigurePose =
+    | 'at-rest'
+    | 'arms-folded'
+    | 'holding-paper'
+    | 'raising-instrument'
+    | 'presenting';
+
+/** Cropped and combed, swept with a fringe, or pinned up with a bun. */
+export type FigureHair = 'cropped' | 'swept' | 'upswept';
+export type FigureHairColor = 'dark' | 'auburn' | 'fair' | 'grey';
+export type FigureSkinTone = 'light' | 'tan' | 'brown' | 'deep';
+
+export type ColleagueFigure = Readonly<{
+    build?: FigureBuild;
+    pose?: FigurePose;
+    hair?: FigureHair;
+    hairColor?: FigureHairColor;
+    skinTone?: FigureSkinTone;
+    spectacles?: boolean;
+    moustache?: boolean;
+}>;
+
+/**
  * A discriminated union so a case can ship a cast without commissioning portrait art.
  *
  * `silhouette` draws an accent-coloured stand-in from the case data alone; `asset` names an entry
  * that must already exist in `assets.entries`, because `loadCaseDefinition`'s `manifestsMatch`
  * requires `case.json` and `asset-manifest.json` to agree exactly.
+ *
+ * `figure` refines the silhouette and never replaces it: the accent is still the garment, because the
+ * card stripe, the dialogue speaker name and the figure all read that one field and have to agree.
  */
 export type ColleaguePortrait =
     | Readonly<{ kind: 'asset'; assetId: string }>
-    | Readonly<{ kind: 'silhouette'; accentColor: string }>;
+    | Readonly<{ kind: 'silhouette'; accentColor: string; figure?: ColleagueFigure }>;
 
 export type Colleague = Readonly<{
     /** Canonical: a stable key, never display text. */

@@ -187,6 +187,17 @@ export const en = {
     'proposal.selected': '✓ Chosen',
     'proposal.choose': 'Choose this',
 
+    // --- Character staging (Story 2.9) ------------------------------------------------------------
+    // The marker under the foregrounded figure. It is what makes the speaker identifiable by a *label*
+    // and not by scale and colour alone (AC2) — the dialogue panel's own speaker slot names them, but a
+    // slot at the top of the panel cannot say which of the four figures below it is the one talking.
+    //
+    // It sits in a fixed-width figure column beside the cards, so it has to hold one line in French at
+    // its authored size; `french-typography.spec.ts` measures it as a whole string for that reason. The
+    // figure's *name and role* are not repeated here — they are the attribution line drawn on the same
+    // row, immediately to its right. See `CharacterStage`'s docstring for the measurement.
+    'stage.speaking': 'Speaking',
+
     // --- Rival lab --------------------------------------------------------------------------------
     // Interface chrome only. The critique *lines* are content and live in case.json as `LocalizedText`,
     // like every other prose a player reads. The rival's name is a canonical proper noun and is

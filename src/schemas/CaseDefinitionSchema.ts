@@ -246,11 +246,33 @@ const ReadingGateHintSchema = z.object({
 
 const ColleagueRoleSchema = z.enum(['lead', 'builder', 'analyst', 'communicator']);
 
+/**
+ * How a figure is drawn, as a closed vocabulary rather than free-form art direction.
+ *
+ * Enums and booleans only, and **no authored colour** beyond the accent that is already there: the
+ * room is lit warm and dark, and a free `hairColor` would eventually carry one that does not sit in
+ * that light. Every field is optional and the whole block is optional, so this is additive — no case
+ * that validated before this schema changed stops validating now.
+ */
+const ColleagueFigureSchema = z.object({
+    build: z.enum(['suited', 'gowned']).optional(),
+    pose: z.enum(['at-rest', 'arms-folded', 'holding-paper', 'raising-instrument', 'presenting']).optional(),
+    hair: z.enum(['cropped', 'swept', 'upswept']).optional(),
+    hairColor: z.enum(['dark', 'auburn', 'fair', 'grey']).optional(),
+    skinTone: z.enum(['light', 'tan', 'brown', 'deep']).optional(),
+    spectacles: z.boolean().optional(),
+    moustache: z.boolean().optional()
+}).strict();
+
 const ColleaguePortraitSchema = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('asset'), assetId: stableId }).strict(),
     // Lower-case six-digit hex only: the renderer parses it with `Number.parseInt(…, 16)`, and a
     // single canonical spelling keeps authored accents comparable at a glance.
-    z.object({ kind: z.literal('silhouette'), accentColor: z.string().regex(/^#[0-9a-f]{6}$/, 'A silhouette accent must be a lower-case #rrggbb colour.') }).strict()
+    z.object({
+        kind: z.literal('silhouette'),
+        accentColor: z.string().regex(/^#[0-9a-f]{6}$/, 'A silhouette accent must be a lower-case #rrggbb colour.'),
+        figure: ColleagueFigureSchema.optional()
+    }).strict()
 ]);
 
 const ColleagueSchema = z.object({
@@ -337,6 +359,9 @@ const RivalLabSchema = z.object({
     // The same lower-case #rrggbb rule the colleague silhouette uses: the renderer parses it with
     // `Number.parseInt(…, 16)`, and one canonical spelling keeps authored accents comparable.
     accentColor: z.string().regex(/^#[0-9a-f]{6}$/, 'A rival-lab accent must be a lower-case #rrggbb colour.'),
+    // The same optional block a colleague's portrait carries, validated by the same schema — he is
+    // drawn by the same renderer and there is no second vocabulary for him to be authored in.
+    figure: ColleagueFigureSchema.optional(),
     // `.min(1)` only. Full coverage of the conclusion proposals is a cross-field rule and lives in the
     // top-level refinement, where the message can name what is actually missing.
     critiques: z.array(RivalLabCritiqueSchema).min(1)

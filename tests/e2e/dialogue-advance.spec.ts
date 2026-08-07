@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test';
 
 import {
+    DIALOGUE_PANEL_WIDTH,
     DIALOGUE_TOP,
     PROPOSAL_SURFACE_LEFT,
-    PROPOSAL_SURFACE_WIDTH,
+    boardDialogueAdvanceControlCentre,
     lastProposalCardProbe
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
-import { dialogueAdvanceControlCentre } from '../../src/adapters/phaser/ui/DialogueBox';
 import { DESIGN_HEIGHT, DESIGN_WIDTH, canvas, clickDesign } from './canvasHelpers';
 
 /**
@@ -21,12 +21,16 @@ import { DESIGN_HEIGHT, DESIGN_WIDTH, canvas, clickDesign } from './canvasHelper
  * pinning pixels or card bands would pin a layout that AC1 requires to move with the beat being read.
  */
 
-/** Derived from the widget, never restated: the panel's gutters are the widget's business. */
-const ADVANCE = dialogueAdvanceControlCentre({
-    x: PROPOSAL_SURFACE_LEFT,
-    y: DIALOGUE_TOP,
-    width: PROPOSAL_SURFACE_WIDTH
-});
+/**
+ * Derived from the **board**, never restated: the panel's gutters are the widget's business and the
+ * panel's width is the board's.
+ *
+ * This used to call the widget helper with `PROPOSAL_SURFACE_WIDTH`, which was the panel's width right
+ * up until Story 2.9 narrowed the panel so the control column could sit beside it instead of above it.
+ * The click then landed on empty canvas and this spec failed — which is the good outcome, and the
+ * reason the board exports one resolved point for both to read.
+ */
+const ADVANCE = boardDialogueAdvanceControlCentre();
 
 /** Inside the last card wherever the band starts. Derived, never a mid-surface guess — see the helper. */
 const CARD = lastProposalCardProbe(DESIGN_HEIGHT);
@@ -49,7 +53,7 @@ const panelShot = async (page: import('@playwright/test').Page): Promise<Buffer>
         clip: {
             x: bounds.x + (PROPOSAL_SURFACE_LEFT * scaleX),
             y: bounds.y + (DIALOGUE_TOP * scaleY),
-            width: PROPOSAL_SURFACE_WIDTH * scaleX,
+            width: DIALOGUE_PANEL_WIDTH * scaleX,
             height: 120 * scaleY
         }
     });
