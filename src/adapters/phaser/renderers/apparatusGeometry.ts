@@ -111,12 +111,8 @@ export const REFERENCE_HEADING_Y = ADVANCE_CONTROL_Y + ADVANCE_CONTROL_HEIGHT + 
 /** The bound a reference label wraps to, derived from the column rather than restated. */
 export const REFERENCE_CONTROL_LABEL_WRAP = SIDE_COLUMN_WIDTH - (2 * REFERENCE_CONTROL_PADDING);
 
-/**
- * Room kept clear between the lowest reference control and the tallest hint the content schema
- * permits: four wrapped lines at {@link HINT_LINE_FONT_SIZE} over an attributed speaker line, plus the
- * panel's own padding top and bottom.
- */
-export const REFERENCE_SHELF_HINT_CLEARANCE = 120;
+/** Between the lowest reference control and the top of the hint panel under it. */
+export const REFERENCE_SHELF_HINT_GAP = 12;
 
 /** Between the hint's last line and the canvas floor. */
 export const HINT_BOTTOM_MARGIN = 24;
@@ -126,10 +122,23 @@ export const HINT_BOTTOM_MARGIN = 24;
  *
  * The colleague's hint grows *upward* from the canvas floor and the shelf grows *downward* from the
  * control above it, so the two approach each other. This is the line where the renderer stops adding
- * controls — measured against the same floor margin the hint uses, so the two cannot be changed apart.
+ * controls.
+ *
+ * **Measured, not reserved.** This used to subtract a fixed 120px "clearance" sized for four wrapped
+ * lines. A hint line is capped at 320 characters, which at `HINT_TEXT_WRAP` is closer to seven lines,
+ * and the longest shipped French hint already needs ~160px — the shelf cleared it only because the two
+ * shipped labels happen to stop short. `hintPanelTop` is the hint panel's *own measured top* from the
+ * pass that just laid it out, so a longer sentence pushes the shelf instead of being painted over by
+ * it. This is the same rule the reading room's detail panel and gate band follow, and the same defect
+ * the 1.11, 1.12, 2.5, 2.6 and 2.7 reviews each found: an object placed against a constant while the
+ * object beside it grew with French copy.
+ *
+ * @param hintPanelTop The measured top of the hint panel, or `undefined` when no hint is showing.
  */
-export const referenceShelfFloor = (canvasHeight: number): number =>
-    canvasHeight - HINT_BOTTOM_MARGIN - REFERENCE_SHELF_HINT_CLEARANCE;
+export const referenceShelfFloor = (canvasHeight: number, hintPanelTop?: number): number =>
+    hintPanelTop === undefined
+        ? canvasHeight - HINT_BOTTOM_MARGIN
+        : hintPanelTop - REFERENCE_SHELF_HINT_GAP;
 /** Between the attributed speaker line and the hint prose under it. */
 export const HINT_SPEAKER_GAP = 4;
 export const HINT_PADDING = 12;

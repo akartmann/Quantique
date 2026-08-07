@@ -85,7 +85,7 @@ export const en = {
     // Both are neutral by design: an artifact that cannot be read is a fact about the archive, never a
     // mistake the player made, and neither line may present it as evidence.
     'library.artifact.unavailable': 'The rights for this one have not been reviewed, so it cannot be read here or cited as evidence.',
-    'library.artifact.noRendition': 'No local copy of this one is held here, so there is nothing to read from the shelf. Its details above are still on the record.',
+    'library.artifact.noRendition': 'No local copy of this one is held here, so there is nothing to read from the shelf. Its provenance is described above, but it cannot be entered on the record as a reading.',
 
     // --- Deterministic experiment result --------------------------------------------------------
     // The canonical `ExperimentResult.label` stays English in the record and is compared for string

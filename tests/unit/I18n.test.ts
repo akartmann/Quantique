@@ -7,6 +7,7 @@ import { fr } from '../../src/core/i18n/locales/fr';
 import { createTranslator, translate, translateError } from '../../src/core/i18n/translate';
 import { formatMeasurement, formatNumber } from '../../src/core/i18n/formatNumber';
 import { resolveLocalizedText, resolveLocalizedTextList } from '../../src/core/i18n/resolveLocalizedText';
+import { SourceProvenanceCategorySchema, SourceRightsStatusSchema, SourceTypeSchema } from '../../src/schemas/CaseDefinitionSchema';
 
 /** U+202F. Asserted as a code point: a plain space would pass locally and drift across ICU builds. */
 const NARROW_NO_BREAK_SPACE = '\u202F';
@@ -85,15 +86,21 @@ describe('locale resources', () => {
      * status should be.
      */
     it('authors a readable label for every source type, provenance category, and rights status', () => {
-        const SOURCE_TYPES = ['lecture-record', 'published-book', 'reconstruction', 'interpretive-essay', 'fictionalized-account'] as const;
-        const PROVENANCE = ['primary-material', 'reconstruction', 'later-interpretation', 'deliberate-fiction'] as const;
-        const RIGHTS = ['reviewed', 'incomplete', 'unavailable'] as const;
-
+        // Derived from the schema, never transcribed: a hand-copied roster stops being updated, and a
+        // fourth provenance category would leave this test green while a player read a blank rights
+        // line or a raw enum value in the detail panel — the exact failure it exists to prevent.
         const required = [
-            ...SOURCE_TYPES.map((value) => `source.type.${value}` as const),
-            ...PROVENANCE.map((value) => `source.provenanceName.${value}` as const),
-            ...RIGHTS.map((value) => `source.rights.${value}` as const)
+            ...SourceTypeSchema.options.map((value) => `source.type.${value}` as const),
+            ...SourceProvenanceCategorySchema.options.map((value) => `source.provenanceName.${value}` as const),
+            ...SourceRightsStatusSchema.options.map((value) => `source.rights.${value}` as const)
         ];
+
+        // The derivation itself must be live: an enum that resolved to nothing would make the loop
+        // below vacuous, which is the shape of defect this review pass removed twice elsewhere.
+        expect(required.length).toBe(
+            SourceTypeSchema.options.length + SourceProvenanceCategorySchema.options.length + SourceRightsStatusSchema.options.length
+        );
+        expect(required.length).toBeGreaterThan(0);
 
         required.forEach((key) => {
             expect(en[key], `${key} (en)`).toBeDefined();

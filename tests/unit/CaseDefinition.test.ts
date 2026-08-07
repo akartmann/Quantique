@@ -13,6 +13,29 @@ const bilingual = (english: string, french = `${english} [fr]`): LocalizedText =
 const bilingualList = (english: readonly string[], french = english.map((entry) => `${entry} [fr]`)): LocalizedTextList =>
     ({ en: [...english], fr: [...french] });
 
+const localLectureRendition = (sectionId = 'young-bakerian-page-12'): TextualRendition => ({
+    readerLabel: bilingual('Read the lecture record'),
+    citation: {
+        reuseStatement: bilingual('Public Domain Mark source.'),
+        citationText: 'Young, The Bakerian lecture.',
+        archiveUrl: 'https://wellcomecollection.org/works/u5dr8rgg'
+    },
+    // One rendition per shipped locale, page-for-page aligned: the transcription of record plus a
+    // translation of it.
+    renditions: [
+        {
+            locale: 'en',
+            kind: 'transcription',
+            sections: [{ id: sectionId, heading: 'Printed page 12', paragraphs: ['Opening text.'], sourcePages: [12] }]
+        },
+        {
+            locale: 'fr',
+            kind: 'translation',
+            sections: [{ id: sectionId, heading: 'Page imprimée 12', paragraphs: ['Texte d’ouverture.'], sourcePages: [12] }]
+        }
+    ]
+});
+
 const validYoungCase: CaseDefinition = {
     id: 'young-interference',
     version: '1.0.0',
@@ -25,7 +48,8 @@ const validYoungCase: CaseDefinition = {
             sourceType: 'lecture-record',
             provenance: { category: 'primary-material', reference: 'young-1801-lecture' },
             rightsStatus: 'reviewed',
-            caseRelationship: bilingual('Contemporary account of Young’s interference demonstration.')
+            caseRelationship: bilingual('Contemporary account of Young’s interference demonstration.'),
+            textualRendition: localLectureRendition('young-bakerian-page-12')
         },
         {
             id: 'newton-opticks',
@@ -34,7 +58,8 @@ const validYoungCase: CaseDefinition = {
             sourceType: 'published-book',
             provenance: { category: 'primary-material', reference: 'newton-opticks-1704' },
             rightsStatus: 'reviewed',
-            caseRelationship: bilingual('Earlier source that frames the corpuscular account considered by Young.')
+            caseRelationship: bilingual('Earlier source that frames the corpuscular account considered by Young.'),
+            textualRendition: localLectureRendition('newton-opticks-page-1')
         }
     ],
     prediction: { required: true },
@@ -179,28 +204,6 @@ const withBeats = (beats: readonly unknown[]): Record<string, unknown> => {
     return definition;
 };
 
-const localLectureRendition = (): TextualRendition => ({
-    readerLabel: bilingual('Read the lecture record'),
-    citation: {
-        reuseStatement: bilingual('Public Domain Mark source.'),
-        citationText: 'Young, The Bakerian lecture.',
-        archiveUrl: 'https://wellcomecollection.org/works/u5dr8rgg'
-    },
-    // One rendition per shipped locale, page-for-page aligned: the transcription of record plus a
-    // translation of it.
-    renditions: [
-        {
-            locale: 'en',
-            kind: 'transcription',
-            sections: [{ id: 'young-bakerian-page-12', heading: 'Printed page 12', paragraphs: ['Opening text.'], sourcePages: [12] }]
-        },
-        {
-            locale: 'fr',
-            kind: 'translation',
-            sections: [{ id: 'young-bakerian-page-12', heading: 'Page imprimée 12', paragraphs: ['Texte d’ouverture.'], sourcePages: [12] }]
-        }
-    ]
-});
 
 describe('CaseDefinitionSchema', () => {
     it('accepts focused source records in the minimal Young contract', () => {
@@ -908,6 +911,22 @@ describe('CaseDefinitionSchema', () => {
             const source = (definition.contextualArtifacts as Array<Record<string, unknown>>)[0];
             source.rightsStatus = 'incomplete';
             source.textualRendition = localLectureRendition();
+        }],
+        /**
+         * The converse rule, and the one that closes a soft-lock rather than a provenance claim
+         * (Story 2.8 review).
+         *
+         * `isSourceEligibleForInspection` is `rightsStatus === 'reviewed'` alone, so context readiness
+         * demands this artifact be inspected — while the reading room refuses to open an artifact with
+         * nothing to read and therefore never dispatches `source.inspected` for it. Authored this way,
+         * the case could never be finished: the gate stays shut forever and the colleague keeps naming
+         * a reference the room has just said cannot be read. Rejecting it at load is what makes that
+         * unauthorable.
+         */
+        ['a reviewed source with nothing to read', (definition: Record<string, unknown>) => {
+            const source = (definition.contextualArtifacts as Array<Record<string, unknown>>)[0];
+            source.rightsStatus = 'reviewed';
+            delete source.textualRendition;
         }],
         ['duplicate stable section ID', (definition: Record<string, unknown>) => {
             const rendition = structuredClone(localLectureRendition()) as unknown as { renditions: Array<{ sections: Array<{ id: string; heading: string; paragraphs: string[]; sourcePages: number[] }> }> };

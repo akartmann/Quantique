@@ -21,8 +21,10 @@ import { RivalLabRenderer } from '../renderers/RivalLabRenderer';
  * `RivalLab` is a routable key but not an authorable one, so no `scenarioScript` entry maps to it. See
  * `ScenarioScript.ts`.
  *
- * Its `isOverlayVisible` reader and `setInputEnabled` hook went with the always-running book scene in
- * Story 2.8; the renderer keeps its own `setInputEnabled`, which nothing in this phase now calls.
+ * Its `isOverlayVisible` reader and its renderer's `setInputEnabled` hook both went with the
+ * always-running book scene in Story 2.8. Nothing suppresses this phase, because no book can be open
+ * in it — and the hook was removed rather than left in place, so a later story cannot quietly re-wire
+ * cross-scene suppression through a method with no callers.
  */
 export class RivalLabScene extends Scene {
     private unsubscribe?: () => void;

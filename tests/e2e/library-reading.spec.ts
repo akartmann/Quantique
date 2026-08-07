@@ -1,18 +1,19 @@
-import { readFileSync } from 'node:fs';
-
 import { expect, test } from '@playwright/test';
 
 import { bookCloseControlCentre, bookNextControlCentre, bookSummaryToggleCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
-import { libraryAdvanceControlCentre, libraryArtifactCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
+import { libraryAdvanceControlCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
 import { advanceControlCentreOnBoard, lastProposalCardProbe } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { en } from '../../src/core/i18n/locales/en';
 import {
+    ARTIFACT_COUNT,
     DESIGN_HEIGHT,
     DESIGN_WIDTH,
+    artifactAt,
     clickDesign,
     clickUntilScene,
     expectActiveScene,
     waitForBookToClose,
+    waitForInputToSettle,
     waitForBookToOpen,
     waitForPageTurn
 } from './canvasHelpers';
@@ -37,17 +38,6 @@ import {
  * Every click target is **derived** from exported geometry. The 1.12 review set that rule after a spec
  * pinned a literal that had silently drifted into the gap between two cards, and AC7 restates it.
  */
-
-const ARTIFACT_COUNT = (JSON.parse(
-    readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
-) as { contextualArtifacts: unknown[] }).contextualArtifacts.length;
-
-/** One object per authored artifact, at the count the room actually draws. */
-const artifactAt = (index: number): Readonly<{ x: number; y: number }> => {
-    const centre = libraryArtifactCentre(index, ARTIFACT_COUNT, DESIGN_WIDTH);
-    if (!centre) throw new Error(`The reading room draws no object at index ${index}.`);
-    return centre;
-};
 
 const LEAVE_THE_ROOM = libraryAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT);
 const BOOK_CLOSE = bookCloseControlCentre();
@@ -97,27 +87,48 @@ test('re-opens a reference already on the record, without refusing it', async ({
     await expectActiveScene(page, 'Library');
 
     // AC2's "re-opening an already-inspected artifact is a no-op success, never an error the surface
-    // must explain away". The store answers a second `source.inspected` with
-    // `duplicate-inspected-source`, so a room that dispatched one would paint a refusal here — and the
-    // player would have done nothing but read the same page twice.
+    // must explain away". `LibraryRenderer.pickUp` short-circuits on `selectIsSourceInspected` and opens
+    // the book **without dispatching**; a room that dispatched anyway would be answered with
+    // `duplicate-inspected-source`, and `pickUp` would paint that refusal and return *without opening*.
     //
-    // What proves it: the second read leaves the record intact and the room still openable. If the
-    // re-read had been dispatched and refused, the walk below would still work — so the assertion that
-    // carries the weight is the *integration* test's, which shows the reducer refusing a duplicate.
-    // This one pins that the surface stays usable across a re-read.
-    await readReference(page, 0);
+    // How that difference is made observable. Every reference is read first, so the way out is unlocked
+    // — then the re-open is the only thing standing between the player and the exit. An open book
+    // suppresses the room underneath it (`setInputEnabled(false)`), so:
+    //
+    //   guard present  → the book opens → the exit is covered → the room does not change
+    //   guard removed  → the dispatch is refused → no book opens → the exit is live → the room is left
+    //
+    // The 2.8 review found the previous version of this test passing with the guard deleted, because it
+    // only walked out at the end — which both branches do. This one cannot.
     await readReference(page, 0);
     await readReference(page, 1);
 
+    await clickDesign(page, artifactAt(0));
+    await waitForBookToOpen(page);
+    await clickDesign(page, LEAVE_THE_ROOM);
+    await expectActiveScene(page, 'Library');
+
+    // …and the room is genuinely leavable once the re-opened book is closed, so the assertion above is
+    // a suppression rather than a gate that was never open.
+    await clickDesign(page, BOOK_CLOSE);
     await clickUntilScene(page, LEAVE_THE_ROOM, 'Colleagues');
 });
 
 test('reveals and dismisses the reference summary from the book itself', async ({ page }) => {
-    // Re-pointed from `curated-record.spec.ts`, which drove this through the retired DOM panel. The
-    // assertion is the same one and it is sharper here: the summary's own close control shares the
-    // close control's coordinate, so if "Show summary" had not opened, that second click would have
-    // closed the *book* — and the page-turn afterwards would then have done nothing and left the room
-    // reachable. Closing the book last and leaving is what proves it was open the whole time.
+    // Re-pointed from `curated-record.spec.ts`, which drove this through the retired DOM panel and
+    // ended on a DOM assertion that genuinely proved the book was still open.
+    //
+    // The canvas equivalent, and why the order matters. The summary's dismiss control sits at the same
+    // coordinate as the book's close control, so one click means "close the summary" when the summary
+    // is up and "close the book" when it is not. Reading the *other* reference first unlocks the way
+    // out, which turns that ambiguity into an observable difference:
+    //
+    //   summary opened      → the click dismisses it → the book is still open → the exit stays covered
+    //   summary never opened → the click closes the book → the exit is live → the room is left
+    //
+    // The 2.8 review proved the previous version passed with `drawSummary` disabled entirely, because
+    // its trailing clicks landed in the gate band — a non-interactive rectangle — and the walk finished
+    // regardless.
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
     page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
@@ -125,17 +136,28 @@ test('reveals and dismisses the reference summary from the book itself', async (
     await page.goto('/');
     await expectActiveScene(page, 'Library');
 
+    await readReference(page, 1);
+
     await clickDesign(page, artifactAt(0));
     await waitForBookToOpen(page);
     await clickDesign(page, BOOK_SUMMARY);
+    await waitForInputToSettle(page);
     await clickDesign(page, BOOK_CLOSE);
-    // Still open on the spread: paging works, which the summary panel has no control for.
+    // The *close-fade* wait, deliberately, not the shorter input settle: `isOverlayVisible` stays true
+    // for the whole 180ms fade and keeps the room suppressed while it runs, so a shorter wait cannot
+    // tell "the summary was dismissed and the book is still open" from "the book is on its way out".
+    // Waiting the fade out means a book that was closing is gone by the time the exit is tested.
+    await waitForBookToClose(page);
+
+    await clickDesign(page, LEAVE_THE_ROOM);
+    await expectActiveScene(page, 'Library');
+
+    // Back on the spread, so paging still works — a control the summary panel does not carry.
     await clickDesign(page, BOOK_NEXT);
     await waitForPageTurn(page);
 
     await clickDesign(page, BOOK_CLOSE);
     await waitForBookToClose(page);
-    await readReference(page, 1);
     await clickUntilScene(page, LEAVE_THE_ROOM, 'Colleagues');
 
     expect(errors).toEqual([]);
@@ -153,11 +175,25 @@ test('opens and closes the reference book under reduced motion', async ({ page }
     await page.goto('/');
     await expectActiveScene(page, 'Library');
 
-    for (let index = 0; index < ARTIFACT_COUNT; index += 1) {
+    // Every reference but the last, opened and closed with no animation wait at all.
+    for (let index = 0; index < ARTIFACT_COUNT - 1; index += 1) {
         await clickDesign(page, artifactAt(index));
         await clickDesign(page, BOOK_CLOSE);
     }
 
+    // The last is left open, and the way out — unlocked by the readings above — must be covered by it.
+    // Without this the test proved only that *closing* worked: a book that never opened would leave the
+    // same record behind and the same walk would finish.
+    //
+    // `waitForInputToSettle` is not an animation wait — under `reduce` there is no tween to wait out,
+    // which is the whole point of this test. It is the two frames Phaser needs to apply the hit-area
+    // change, without which the next click races the suppression it is meant to observe.
+    await clickDesign(page, artifactAt(ARTIFACT_COUNT - 1));
+    await waitForInputToSettle(page);
+    await clickDesign(page, LEAVE_THE_ROOM);
+    await expectActiveScene(page, 'Library');
+
+    await clickDesign(page, BOOK_CLOSE);
     await clickUntilScene(page, LEAVE_THE_ROOM, 'Colleagues');
 });
 

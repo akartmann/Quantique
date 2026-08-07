@@ -21,11 +21,25 @@ import {
     HINT_TEXT_WRAP
 } from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import { advanceControlLabelWrap } from '../../src/adapters/phaser/ui/AdvanceControl';
+import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../../src/adapters/phaser/designSurface';
+// The room's own type sizes, read from the renderer that draws them rather than restated. The 2.8
+// review found six of them copied into this table as literals — the same shape of defect that
+// produced `CONTROL_INNER_WIDTH = 134` and that AC7 exists to close.
+import {
+    ARTIFACT_LABEL_FONT_SIZE,
+    ARTIFACT_READ_FONT_SIZE,
+    DETAIL_META_FONT_SIZE,
+    DETAIL_RELATIONSHIP_FONT_SIZE,
+    GUIDE_FONT_SIZE,
+    HEADING_FONT_SIZE
+} from '../../src/adapters/phaser/renderers/LibraryRenderer';
 // `LectureBookRenderer` imports Phaser as a *type* only, so its exported geometry is readable here.
 import { BOOK_CONTROL_MIN_FONT_SIZE, bookControlLabelWrap } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
 // `libraryGeometry` imports Phaser not at all — `LibraryScene` and `LibraryRenderer` both import it as
 // a value, which is exactly why the room's layout lives in its own module (Story 2.8).
 import {
+    ARTIFACT_LABEL_PADDING,
+    ARTIFACT_SPINE_WIDTH,
     GATE_LINE_FONT_SIZE,
     detailTextWrap,
     gateLineTextWrap,
@@ -93,26 +107,53 @@ const DIALOGUE_SPEAKER_WRAP_WIDTH = dialogueSpeakerWrapWidth(PROPOSAL_SURFACE_WI
 const RIVAL_LAB_TEXT_WRAP_WIDTH = rivalLabTextWrapWidth();
 
 /**
+ * How many references the shipped case puts on the shelf.
+ *
+ * Read from the content, because every bound below that depends on it narrows as it grows. The full
+ * `caseDefinition` parse further down carries the authored strings; this is only the count, and it is
+ * needed before the bounds table.
+ */
+const LIBRARY_ARTIFACT_COUNT = (JSON.parse(
+    readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
+) as { contextualArtifacts: unknown[] }).contextualArtifacts.length;
+
+/**
  * The reading room's bounds (Story 2.8), derived from `libraryGeometry` at the shipped canvas size.
  *
- * The design dimensions come from Phaser's own game config, and the geometry module takes them as
- * arguments rather than closing over them (AC7) — so this spec has to supply them once, here, named,
- * instead of scattering `1024` and `768` through the table below.
+ * The geometry module takes the canvas size as arguments rather than closing over it (AC7), so this
+ * spec has to supply it — from `designSurface.ts`, the module that states it once, and never as a
+ * literal of its own. The 2.8 review found this file declaring a fresh `1024`/`768` pair in the same
+ * commit that created `designSurface.ts` to stop exactly that, while `deferred-work.md` recorded the
+ * item as fully closed.
  */
-const LIBRARY_CANVAS_WIDTH = 1024;
-const LIBRARY_CANVAS_HEIGHT = 768;
+const LIBRARY_CANVAS_WIDTH = DESIGN_WIDTH;
+const LIBRARY_CANVAS_HEIGHT = DESIGN_HEIGHT;
 const LIBRARY_ROOM_WRAP = libraryShelfBand(LIBRARY_CANVAS_WIDTH).width;
 const LIBRARY_DETAIL_WRAP = detailTextWrap(LIBRARY_CANVAS_WIDTH, LIBRARY_CANVAS_HEIGHT);
 const LIBRARY_GATE_WRAP = gateLineTextWrap(LIBRARY_CANVAS_WIDTH);
 /**
  * The title strip on an object, at the count the shipped case actually draws.
  *
- * Two artifacts, not one: the objects narrow as the count grows, so measuring the single-object width
- * would check a bound the room never uses and let a French display name overflow the one it does.
+ * The count comes from `case.json`, not from a literal: objects narrow as the count grows, so a case
+ * that shipped three would leave this measuring a 218px bound against a room drawing 144px, and every
+ * French title would clip while this check stayed green. `library-reading.spec.ts` reads the count the
+ * same way.
  */
 const LIBRARY_ARTIFACT_LABEL_WRAP = libraryArtifactLabelBand(
-    libraryArtifactPlacements(2, LIBRARY_CANVAS_WIDTH)[0]!
+    libraryArtifactPlacements(LIBRARY_ARTIFACT_COUNT, LIBRARY_CANVAS_WIDTH)[0]!
 ).width;
+
+/**
+ * The board the read marker has to itself, right-anchored at the fore-edge.
+ *
+ * The marker carries no `wordWrap`, so the plaque's bound does not apply to it: what constrains it is
+ * the width of the front board, less the inset it is anchored at. Measuring it against the plaque's
+ * wrap — as this spec did — checked a bound the object never uses.
+ */
+const LIBRARY_READ_MARKER_BOUND = (() => {
+    const placement = libraryArtifactPlacements(LIBRARY_ARTIFACT_COUNT, LIBRARY_CANVAS_WIDTH)[0]!;
+    return placement.width - ARTIFACT_SPINE_WIDTH - ARTIFACT_LABEL_PADDING;
+})();
 
 /**
  * Every in-scene advance control, with the bound of the host that draws it (Story 2.7).
@@ -193,17 +234,19 @@ const WRAPPED_SURFACES = [
     // The reading room (Story 2.8). The chrome wraps at the shelf's own width; the detail panel's
     // metadata rows and the colleague's gate line each wrap at their band's derived bound. Every one
     // of these bounds is read from `libraryGeometry`, which is Phaser-free precisely so this spec can.
-    { key: 'library.heading', font: UI_FONT_STACK, fontSize: 22, wrapWidth: LIBRARY_ROOM_WRAP },
-    { key: 'library.guide', font: UI_FONT_STACK, fontSize: 15, wrapWidth: LIBRARY_ROOM_WRAP },
-    { key: 'library.detail.creator', font: UI_FONT_STACK, fontSize: 13, wrapWidth: LIBRARY_DETAIL_WRAP },
-    { key: 'library.detail.classification', font: UI_FONT_STACK, fontSize: 13, wrapWidth: LIBRARY_DETAIL_WRAP },
-    { key: 'library.detail.rights', font: UI_FONT_STACK, fontSize: 13, wrapWidth: LIBRARY_DETAIL_WRAP },
+    { key: 'library.heading', font: UI_FONT_STACK, fontSize: HEADING_FONT_SIZE, wrapWidth: LIBRARY_ROOM_WRAP },
+    { key: 'library.guide', font: UI_FONT_STACK, fontSize: GUIDE_FONT_SIZE, wrapWidth: LIBRARY_ROOM_WRAP },
+    { key: 'library.detail.creator', font: UI_FONT_STACK, fontSize: DETAIL_META_FONT_SIZE, wrapWidth: LIBRARY_DETAIL_WRAP },
+    { key: 'library.detail.classification', font: UI_FONT_STACK, fontSize: DETAIL_META_FONT_SIZE, wrapWidth: LIBRARY_DETAIL_WRAP },
+    { key: 'library.detail.rights', font: UI_FONT_STACK, fontSize: DETAIL_META_FONT_SIZE, wrapWidth: LIBRARY_DETAIL_WRAP },
     { key: 'library.artifact.unavailable', font: UI_FONT_STACK, fontSize: GATE_LINE_FONT_SIZE, wrapWidth: LIBRARY_GATE_WRAP },
     { key: 'library.artifact.noRendition', font: UI_FONT_STACK, fontSize: GATE_LINE_FONT_SIZE, wrapWidth: LIBRARY_GATE_WRAP },
     // The bench's reference shelf heading, in the laboratory's side column.
     { key: 'lab.reference.heading', font: UI_FONT_STACK, fontSize: REFERENCE_HEADING_FONT_SIZE, wrapWidth: SIDE_COLUMN_WIDTH },
-    // The read marker on an object's corner. Short by design, and the narrowest bound in the room.
-    { key: 'library.artifact.read', font: UI_FONT_STACK, fontSize: 12, wrapWidth: LIBRARY_ARTIFACT_LABEL_WRAP }
+    // The read marker on an object's corner. It is created with **no** `wordWrap` and anchored to the
+    // fore-edge, so the plaque's wrap bound was never its constraint — it is measured against the clear
+    // board between the spine and the corner it sits in, which is the bound it actually has.
+    { key: 'library.artifact.read', font: UI_FONT_STACK, fontSize: ARTIFACT_READ_FONT_SIZE, wrapWidth: LIBRARY_READ_MARKER_BOUND }
 ] as const;
 
 /** Book controls are a fixed hit-test width and shrink to fit down to 10px before they would clip. */
@@ -321,11 +364,11 @@ const READING_GATE_LINES = caseDefinition.readingGateHints.flatMap(({ id, line }
  * the head of the detail panel — and the bench's reference shelf draws it a third time.
  */
 const LIBRARY_ARTIFACT_TEXTS = caseDefinition.contextualArtifacts.flatMap(({ id, displayName, caseRelationship }) => [
-    { label: `artifact name ${id} [fr]`, text: displayName.fr, wrapWidth: LIBRARY_ARTIFACT_LABEL_WRAP, fontSize: 13 },
-    { label: `artifact name ${id} [en]`, text: displayName.en, wrapWidth: LIBRARY_ARTIFACT_LABEL_WRAP, fontSize: 13 },
+    { label: `artifact name ${id} [fr]`, text: displayName.fr, wrapWidth: LIBRARY_ARTIFACT_LABEL_WRAP, fontSize: ARTIFACT_LABEL_FONT_SIZE },
+    { label: `artifact name ${id} [en]`, text: displayName.en, wrapWidth: LIBRARY_ARTIFACT_LABEL_WRAP, fontSize: ARTIFACT_LABEL_FONT_SIZE },
     { label: `artifact name ${id} on the bench [fr]`, text: displayName.fr, wrapWidth: REFERENCE_CONTROL_LABEL_WRAP, fontSize: REFERENCE_CONTROL_FONT_SIZE },
-    { label: `artifact relationship ${id} [fr]`, text: caseRelationship.fr, wrapWidth: LIBRARY_DETAIL_WRAP, fontSize: 14 },
-    { label: `artifact relationship ${id} [en]`, text: caseRelationship.en, wrapWidth: LIBRARY_DETAIL_WRAP, fontSize: 14 }
+    { label: `artifact relationship ${id} [fr]`, text: caseRelationship.fr, wrapWidth: LIBRARY_DETAIL_WRAP, fontSize: DETAIL_RELATIONSHIP_FONT_SIZE },
+    { label: `artifact relationship ${id} [en]`, text: caseRelationship.en, wrapWidth: LIBRARY_DETAIL_WRAP, fontSize: DETAIL_RELATIONSHIP_FONT_SIZE }
 ]);
 
 const LONGEST_CONVERSATION = Math.max(

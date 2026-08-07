@@ -10,11 +10,12 @@ import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/Lect
 // and `libraryGeometry` out of `LibraryScene` and `LibraryRenderer` for the same reason again.
 import { advanceToSynthesisControlCentre } from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import { placeholderAdvanceControlCentre } from '../../src/adapters/phaser/scenes/phasePlaceholderGeometry';
-import { libraryAdvanceControlCentre, libraryArtifactCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
+import { libraryAdvanceControlCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
 import { en } from '../../src/core/i18n/locales/en';
 import {
     DESIGN_HEIGHT,
     DESIGN_WIDTH,
+    artifactAt,
     clickDesign,
     clickUntilScene,
     expectActiveScene,
@@ -85,19 +86,6 @@ const SOURCE_NAMES = (JSON.parse(
     readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
 ) as { contextualArtifacts: { displayName: { en: string; fr: string } }[] })
     .contextualArtifacts.map(({ displayName }) => displayName);
-
-/**
- * One object on the reading room's shelf, at the count the room actually draws.
- *
- * Derived, never restated: the objects narrow as the count grows, so a coordinate written down for two
- * artifacts would land in the gap between four of them — the drift the 1.12 review found and AC7
- * restates.
- */
-const artifactAt = (index: number): Readonly<{ x: number; y: number }> => {
-    const centre = libraryArtifactCentre(index, SOURCE_NAMES.length, DESIGN_WIDTH);
-    if (!centre) throw new Error(`The reading room draws no object at index ${index}.`);
-    return centre;
-};
 
 test('takes every forward transition of the Young case from the canvas', async ({ page }) => {
     await page.goto('/');

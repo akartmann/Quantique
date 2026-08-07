@@ -17,6 +17,7 @@ import type { PhaserStoreAdapter } from '../PhaserStoreAdapter';
 import {
     DETAIL_PADDING,
     GATE_LINE_FONT_SIZE,
+    GATE_LINE_MIN_FONT_SIZE,
     GATE_PADDING,
     GATE_SPEAKER_FONT_SIZE,
     GATE_SPEAKER_GAP,
@@ -33,7 +34,7 @@ import {
     type LibraryRect
 } from '../scenes/libraryGeometry';
 import { advanceTransitionForPhase, resolveAdvanceRefusal, resolveAdvanceView } from './advanceView';
-import { ReadingRoomDecor } from './ReadingRoomDecor';
+import { GILT, GILT_BRIGHT, ReadingRoomDecor } from './ReadingRoomDecor';
 import { TransientMessageSlot } from './transientMessage';
 import { AdvanceControl } from '../ui/AdvanceControl';
 import { uiTextStyle } from '../textStyles';
@@ -92,8 +93,6 @@ const BINDING_UNAVAILABLE = 0x3c3831;
 const BINDING_SPINE: readonly number[] = [0x431a15, 0x1a2a20];
 const BINDING_SPINE_UNAVAILABLE = 0x2b2823;
 
-const GILT = 0xb98f34;
-const GILT_BRIGHT = 0xe8c86a;
 /** The plaque carrying a reference's title. Cream, because the title has to be the legible thing. */
 const PLAQUE_FILL = 0xe6d9bb;
 const PLAQUE_EDGE = 0x8a6b33;
@@ -101,34 +100,49 @@ const PLAQUE_EDGE = 0x8a6b33;
 const RIBBON_READ = 0xc4923a;
 
 const GATE_FILL = 0x150e07;
-const GATE_ACCENT = 0xb98f34;
+/** The gate's rule reads as the same brass as the shelf's gilt, so re-toning one re-tones both. */
+const GATE_ACCENT = GILT;
 
 /** Walnut and bottle green, in place of the shared widget's laboratory teals. */
 const ADVANCE_PALETTE = { fill: 0x3f2e1d, fillReady: 0x2f5138 } as const;
 
 const HEADING_Y = 26;
-const HEADING_FONT_SIZE = 22;
+export const HEADING_FONT_SIZE = 22;
 const GUIDE_Y = 58;
-const GUIDE_FONT_SIZE = 15;
+export const GUIDE_FONT_SIZE = 15;
 
-const DETAIL_TITLE_FONT_SIZE = 18;
-const DETAIL_META_FONT_SIZE = 13;
-const DETAIL_RELATIONSHIP_FONT_SIZE = 14;
+export const DETAIL_TITLE_FONT_SIZE = 18;
+export const DETAIL_META_FONT_SIZE = 13;
+export const DETAIL_RELATIONSHIP_FONT_SIZE = 14;
 /** Between two stacked lines in the detail panel, measured from the previous line's *measured* bottom. */
 const DETAIL_LINE_GAP = 6;
 /** Between the metadata block and the case-relationship prose under it. */
 const DETAIL_RELATIONSHIP_GAP = 14;
+/**
+ * The floor every shrink loop in the panel stops at. Below this the type is no longer scientific copy
+ * a player can read at 1280×720, so the surface crops instead of shrinking further.
+ */
+const DETAIL_MIN_FONT_SIZE = 11;
+/**
+ * Two lines at {@link DETAIL_RELATIONSHIP_FONT_SIZE} plus its leading — the least the case relationship
+ * can occupy and still say anything. The metadata above it shrinks rather than take this.
+ */
+const DETAIL_RELATIONSHIP_MIN_HEIGHT = 38;
 
-const ARTIFACT_LABEL_FONT_SIZE = 13;
-const ARTIFACT_READ_FONT_SIZE = 12;
+export const ARTIFACT_LABEL_FONT_SIZE = 13;
+/** The plaque is a fixed band, so a title that outgrows it shrinks rather than spilling onto the boards. */
+export const ARTIFACT_LABEL_MIN_FONT_SIZE = 10;
+export const ARTIFACT_READ_FONT_SIZE = 12;
 
 export type LibraryRendererOptions = Readonly<{
     /**
-     * Opens an artifact in the scene's own reference book. `false` means it carries no rendition to
-     * read, which this renderer answers with authored copy — a presenter does not write player-facing
-     * strings.
+     * Opens an artifact in the scene's own reference book.
+     *
+     * Returns nothing: this renderer has already established that the artifact is readable before it
+     * calls, and it — not the presenter — owns every player-facing string. A boolean return would be a
+     * second, unchecked authority on the same question.
      */
-    openBook: (artifact: ContextualArtifact) => boolean;
+    openBook: (artifact: ContextualArtifact) => void;
 }>;
 
 /**
@@ -477,19 +491,52 @@ export class LibraryRenderer {
 
         this.artifactObjects.forEach(({ artifactId, placement, surface, spine, label, readMarker }, index) => {
             const artifact = artifacts.find(({ id }) => id === artifactId);
-            if (!artifact) return;
+            if (!artifact) {
+                // The premise stated above is that the set can change under us. A volume whose artifact
+                // has gone must leave the room, not keep its last fill and its last title: its pointer
+                // handler closed over the artifact this object was *built* from, so a click on a stale
+                // object would dispatch `source.inspected` for an id the reducer answers with
+                // `unknown-source-id`. `ApparatusRenderer.renderReferenceShelf` hides for the same reason.
+                surface.setVisible(false).disableInteractive();
+                spine.setVisible(false);
+                label.setVisible(false);
+                readMarker.setVisible(false);
+                return;
+            }
             const readable = isSourceEligibleForInspection(artifact) && Boolean(artifact.textualRendition);
             const inspected = selectIsSourceInspected(state, artifactId);
             const focused = artifactId === this.focusedArtifactId;
 
-            surface.setFillStyle(readable ? BINDING_COVERS[index % BINDING_COVERS.length]! : BINDING_UNAVAILABLE);
-            spine.setFillStyle(readable ? BINDING_SPINE[index % BINDING_SPINE.length]! : BINDING_SPINE_UNAVAILABLE);
-            label.setText(resolveLocalizedText(artifact.displayName, locale));
-            readMarker.setText(inspected ? t('library.artifact.read') : '');
+            surface.setVisible(true).setFillStyle(readable ? BINDING_COVERS[index % BINDING_COVERS.length]! : BINDING_UNAVAILABLE);
+            spine.setVisible(true).setFillStyle(readable ? BINDING_SPINE[index % BINDING_SPINE.length]! : BINDING_SPINE_UNAVAILABLE);
+            label.setVisible(true).setText(resolveLocalizedText(artifact.displayName, locale));
+            readMarker.setVisible(true).setText(inspected ? t('library.artifact.read') : '');
+            this.clampArtifactLabel(label, placement);
 
             if (!detail) return;
             this.paintBinding(detail, placement, { readable, inspected, focused });
         });
+    }
+
+    /**
+     * Keeps a volume's title inside the plaque bound onto it.
+     *
+     * `displayName` has no maximum length in the content schema, and the label is origin-centred, so an
+     * overflow spills symmetrically onto the leather above *and* below the plaque rather than running
+     * off one edge where it might be noticed. The French typography sweep measures token widths, which
+     * cannot see a line count, so nothing else catches this.
+     */
+    private clampArtifactLabel(label: Phaser.GameObjects.Text, placement: LibraryRect): void {
+        const band = libraryArtifactLabelBand(placement);
+        // Reset first, for the same reason the relationship does: this object is reused across locales.
+        label.setFontSize(ARTIFACT_LABEL_FONT_SIZE);
+        for (
+            let fontSize = ARTIFACT_LABEL_FONT_SIZE;
+            fontSize >= ARTIFACT_LABEL_MIN_FONT_SIZE && label.height > band.height;
+            fontSize -= 1
+        ) {
+            label.setFontSize(fontSize);
+        }
     }
 
     /** The gilt work, the title plaque and the read ribbon for one volume. */
@@ -619,39 +666,70 @@ export class LibraryRenderer {
         // wrap to a different number of lines in French than in English, and placing the one below
         // against a fixed offset is the defect the 1.11, 1.12, 2.5, 2.6 and 2.7 reviews each found.
         const panel = libraryDetailPanelBand(this.scene.scale.width, this.scene.scale.height);
-        let cursor = panel.y + DETAIL_PADDING;
-        [this.detailTitle, this.detailCreator, this.detailClassification, this.detailRights].forEach((text) => {
-            if (!text) return;
-            text.setVisible(true).setY(cursor);
-            cursor += text.height + DETAIL_LINE_GAP;
-        });
+        const cursor = this.stackMetadata(panel);
         this.detailRelationship?.setVisible(true).setY(cursor + DETAIL_RELATIONSHIP_GAP - DETAIL_LINE_GAP);
         this.clampRelationship(panel);
     }
 
     /**
+     * Stacks the four metadata lines from the top of the panel and returns the cursor under them.
+     *
+     * Shrunk as a block, not clamped individually, if the stack would leave the relationship below it
+     * no room: `displayName` and `creatorOrOrigin` carry **no** maximum length in the content schema
+     * (unlike an authored gate line, capped at 320), so "the metadata is short" is a property of the
+     * shipped case rather than a guarantee. Every size is reset to its authored value first — measuring
+     * a shrunken object and concluding it fits is how a temporary clamp becomes permanent.
+     */
+    private stackMetadata(panel: LibraryRect): number {
+        const meta = [this.detailCreator, this.detailClassification, this.detailRights];
+        const stacked = [this.detailTitle, ...meta];
+        const floor = panel.y + panel.height - DETAIL_PADDING - DETAIL_RELATIONSHIP_MIN_HEIGHT;
+
+        const restack = (shrinkBy: number): number => {
+            this.detailTitle?.setFontSize(Math.max(DETAIL_TITLE_FONT_SIZE - shrinkBy, DETAIL_MIN_FONT_SIZE));
+            meta.forEach((text) => text?.setFontSize(Math.max(DETAIL_META_FONT_SIZE - shrinkBy, DETAIL_MIN_FONT_SIZE)));
+            let cursor = panel.y + DETAIL_PADDING;
+            stacked.forEach((text) => {
+                if (!text) return;
+                text.setVisible(true).setY(cursor);
+                cursor += text.height + DETAIL_LINE_GAP;
+            });
+            return cursor;
+        };
+
+        let cursor = restack(0);
+        for (let shrinkBy = 1; shrinkBy <= DETAIL_META_FONT_SIZE - DETAIL_MIN_FONT_SIZE && cursor > floor; shrinkBy += 1) {
+            cursor = restack(shrinkBy);
+        }
+        return cursor;
+    }
+
+    /**
      * Keeps the case relationship inside the panel it shares with the metadata above it.
      *
-     * The metadata lines are short and bounded by the content schema; the relationship is unbounded
-     * authored prose and runs 15–25% longer in French. Where two objects share a vertical budget, the
-     * one that can grow is the one that gets clamped — this canvas does not scroll, so the alternative
-     * is prose running out of the bottom of the panel and over the way out of the room.
+     * The relationship is unbounded authored prose and runs 15–25% longer in French. Where two objects
+     * share a vertical budget, the one that can grow is the one that gets clamped — this canvas does not
+     * scroll, so the alternative is prose running out of the bottom of the panel and over the way out of
+     * the room.
      */
     private clampRelationship(panel: LibraryRect): void {
         const text = this.detailRelationship;
         if (!text) return;
+        // Restored before measuring. The object is reused for every artifact and every locale, so a
+        // shrink taken for a long French relationship would otherwise measure as "already fits" for the
+        // next artifact and never come back — every later reference drawn at the minimum size.
+        text.setFontSize(DETAIL_RELATIONSHIP_FONT_SIZE).setCrop();
         const available = (panel.y + panel.height - DETAIL_PADDING) - text.y;
         if (available <= 0) {
             text.setVisible(false);
             return;
         }
-        for (let fontSize = DETAIL_RELATIONSHIP_FONT_SIZE; fontSize >= 11 && text.height > available; fontSize -= 1) {
+        for (let fontSize = DETAIL_RELATIONSHIP_FONT_SIZE; fontSize >= DETAIL_MIN_FONT_SIZE && text.height > available; fontSize -= 1) {
             text.setFontSize(fontSize);
         }
         // Defensive: an unusually long authored relationship is cropped rather than painted over the
         // advance control below.
         if (text.height > available) text.setCrop(0, 0, text.width, available);
-        else text.setCrop();
     }
 
     /**
@@ -698,6 +776,32 @@ export class LibraryRenderer {
         this.gateLine
             ?.setVisible(true)
             .setY(hasSpeaker ? band.y + GATE_PADDING + (this.gateSpeaker?.height ?? 0) + GATE_SPEAKER_GAP : band.y + GATE_PADDING);
+        this.clampGateLine(band);
+    }
+
+    /**
+     * Keeps the colleague's line inside the gate band.
+     *
+     * The band reserves room for the longest line the content schema permits, but that reserve is
+     * computed against the *wrap width* — the renderer additionally spends `GATE_PADDING` at the top,
+     * the speaker's measured height, and `GATE_SPEAKER_GAP` before the line even starts, and the
+     * attribution wraps to two lines at a long French colleague name. Shrinking to a floor and then
+     * cropping is what makes this band's stated contract true rather than aspirational: this canvas does
+     * not scroll, and the alternative is an authored line painting over the way out of the room.
+     */
+    private clampGateLine(band: LibraryRect): void {
+        const text = this.gateLine;
+        if (!text) return;
+        text.setFontSize(GATE_LINE_FONT_SIZE).setCrop();
+        const available = (band.y + band.height - GATE_PADDING) - text.y;
+        if (available <= 0) {
+            text.setVisible(false);
+            return;
+        }
+        for (let fontSize = GATE_LINE_FONT_SIZE; fontSize >= GATE_LINE_MIN_FONT_SIZE && text.height > available; fontSize -= 1) {
+            text.setFontSize(fontSize);
+        }
+        if (text.height > available) text.setCrop(0, 0, text.width, available);
     }
 
     // --- Acting -----------------------------------------------------------------------------------

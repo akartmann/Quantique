@@ -68,9 +68,15 @@ const PrimaryControlSchema = z.object({
 });
 
 const RecoveryRouteSchema = z.enum(['replication', 'control-change', 'source-comparison']);
-const SourceProvenanceCategorySchema = z.enum(['primary-material', 'reconstruction', 'later-interpretation', 'deliberate-fiction']);
-const SourceTypeSchema = z.enum(['lecture-record', 'published-book', 'reconstruction', 'interpretive-essay', 'fictionalized-account']);
-const SourceRightsStatusSchema = z.enum(['reviewed', 'incomplete', 'unavailable']);
+/**
+ * The three artifact-classification enums are exported so `I18n.test.ts` can derive its required
+ * `source.*` key roster from them rather than transcribing the members. A hand-copied list is a list
+ * that stops being updated: a fourth provenance category would have been added here and not there,
+ * and the test would have kept passing while the detail panel rendered a raw enum value.
+ */
+export const SourceProvenanceCategorySchema = z.enum(['primary-material', 'reconstruction', 'later-interpretation', 'deliberate-fiction']);
+export const SourceTypeSchema = z.enum(['lecture-record', 'published-book', 'reconstruction', 'interpretive-essay', 'fictionalized-account']);
+export const SourceRightsStatusSchema = z.enum(['reviewed', 'incomplete', 'unavailable']);
 
 const TextualRenditionSectionSchema = z.object({
     id: stableId,
@@ -532,6 +538,26 @@ export const CaseDefinitionSchema = z.object({
     definition.contextualArtifacts.forEach((artifact, index) => {
         if (artifact.textualRendition && artifact.rightsStatus !== 'reviewed') {
             context.addIssue({ code: 'custom', message: 'Only reviewed sources may provide a local textual rendition.', path: ['contextualArtifacts', index, 'textualRendition'] });
+        }
+        // The converse, and the one that matters at play time (Story 2.8 review).
+        //
+        // `isSourceEligibleForInspection` is `rightsStatus === 'reviewed'` alone, so
+        // `evaluateContextReadiness` requires every reviewed artifact to be *inspected* before the
+        // player may leave the reading room. But the room refuses to open an artifact with no rendition
+        // — correctly, per AC3 — and so never dispatches `source.inspected` for it, while the reducer
+        // would have accepted it. The result was authorable content that shut the context gate forever:
+        // readiness could never reach `ready`, and the colleague's hint kept naming a reference the room
+        // had just said could not be read. Unreachable with shipped Young content, and an unconditional
+        // soft-lock once Story 2.12 removes the DOM panel that dispatches unconditionally.
+        //
+        // Closed here rather than at play time because a case that cannot be finished is a content
+        // defect, and the cheapest place to say so is at load, once, with the artifact's own path.
+        if (artifact.rightsStatus === 'reviewed' && !artifact.textualRendition) {
+            context.addIssue({
+                code: 'custom',
+                message: 'A reviewed source must provide a local textual rendition: context readiness requires it to be inspected, and a source with nothing to read can never be.',
+                path: ['contextualArtifacts', index, 'textualRendition']
+            });
         }
     });
     if (definition.debrief.historicalComparison.sourceIds.some((sourceId) => !sourceIds.has(sourceId)

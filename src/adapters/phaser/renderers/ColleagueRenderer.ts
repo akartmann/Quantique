@@ -218,7 +218,6 @@ export class ColleagueRenderer {
     private submitLabel?: Phaser.GameObjects.Text;
     /** Story 2.7: the way on from this board, whichever phase it is currently hosting. */
     private advanceControl?: AdvanceControl;
-    private inputEnabled = true;
     /**
      * Shown in place of the guide line so a refused click is not silent, and — for the opposite case —
      * so a submission that draws no challenge is not silent either. The acknowledgement is deliberately
@@ -306,19 +305,6 @@ export class ColleagueRenderer {
             choice.create();
             this.cards.push({ proposalId: proposal.proposalId, choice });
         });
-        this.applyInputState();
-    }
-
-    /**
-     * Lets the overlaying reference book suppress this surface while it is open — the same contract
-     * `ApparatusRenderer.setInputEnabled` provides, and it now covers the dialogue advance control as
-     * well as the cards. Without it, a click meant for the book's page controls fell through to the
-     * card underneath and rewrote the player's prediction or conclusion: the book's own full-canvas
-     * surface is disabled for the whole of its open, turn, and fade animations while the overlay is
-     * still painted.
-     */
-    public setInputEnabled(enabled: boolean): void {
-        this.inputEnabled = enabled;
         this.applyInputState();
     }
 
@@ -513,10 +499,12 @@ export class ColleagueRenderer {
     }
 
     private applyInputState(): void {
-        this.cards.forEach(({ choice }) => choice.setInputEnabled(this.inputEnabled));
-        this.dialogueBox?.setInputEnabled(this.inputEnabled);
-        this.advanceControl?.setInputEnabled(this.inputEnabled);
-        if (this.inputEnabled) this.submitControl?.setInteractive({ useHandCursor: true });
-        else this.submitControl?.disableInteractive();
+        // No book can be open in this phase since the always-on overlay was retired (Story 2.8), so
+        // there is nothing left to suppress *for* — but the widgets still need enabling on every
+        // relayout, because a card rebuilt under a new proposal set starts inert.
+        this.cards.forEach(({ choice }) => choice.setInputEnabled(true));
+        this.dialogueBox?.setInputEnabled(true);
+        this.advanceControl?.setInputEnabled(true);
+        this.submitControl?.setInteractive({ useHandCursor: true });
     }
 }

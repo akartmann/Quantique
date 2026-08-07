@@ -245,7 +245,12 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // `context → prediction` advance since 1.2.0, against `inspectedSourceIds`, which every listed
         // version already persists. So a record restored from any of them meets exactly the gate it
         // met before; 1.12.0 only changes what the refusal *says*.
-        || (definition.version === '1.12.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0'].includes(record.caseDefinitionVersion));
+        || (definition.version === '1.12.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0'].includes(record.caseDefinitionVersion))
+        // 1.13.0 requires a reviewed contextual artifact to carry a textual rendition (Story 2.8
+        // review). It is a *validation* change with no progress-bearing effect: the shipped artifacts
+        // already satisfied it, so no saved record can encode a state the new rule would reject, and
+        // `inspectedSourceIds` means exactly what it did before.
+        || (definition.version === '1.13.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }

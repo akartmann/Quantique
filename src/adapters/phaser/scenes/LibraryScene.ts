@@ -34,6 +34,13 @@ export class LibraryScene extends Scene {
     }
 
     public create(): void {
+        // Registered before anything it releases exists. A throw anywhere below would otherwise
+        // leak the scroll listener and a store subscription that keeps rendering a half-built scene:
+        // `SceneRouter` catches the throw and clears `activeSceneKey`, so nothing ever stops this scene
+        // and nothing ever fires the handler that would have disposed them. `PhasePlaceholderScene`
+        // has always had this order; these two did not.
+        this.events.once('shutdown', this.shutdown, this);
+
         const presenter = new ReferenceBookPresenter(
             this,
             () => selectLocale(this.store.getState()),
@@ -63,7 +70,6 @@ export class LibraryScene extends Scene {
         });
         this.libraryRenderer.render(this.store.getState());
 
-        this.events.once('shutdown', this.shutdown, this);
     }
 
     private shutdown(): void {

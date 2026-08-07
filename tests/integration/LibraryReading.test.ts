@@ -215,3 +215,61 @@ describe('what a completed reading unblocks', () => {
         expect(store.dispatch({ type: 'prediction.proposalChosen', proposalId })).toMatchObject({ ok: true });
     });
 });
+
+/**
+ * AC3's unusable-artifact branches, which the shipped case cannot reach (2.8 review).
+ *
+ * `LibraryRenderer.pickUp` guards on `isSourceEligibleForInspection` and on the presence of a
+ * rendition before it dispatches, and both Young artifacts are `reviewed` with a rendition — so those
+ * two branches, and the two localized lines they paint, had never been executed by any test. What can
+ * be pinned without a canvas is the *store-side* half: what the reducer does with each shape, which is
+ * what makes the renderer's guards necessary rather than decorative.
+ */
+describe('an artifact the room cannot open', () => {
+    const withFirstArtifact = (patch: Record<string, unknown>): CaseDefinition => {
+        const [first, ...rest] = definition.contextualArtifacts;
+        return { ...definition, contextualArtifacts: [{ ...first, ...patch }, ...rest] } as CaseDefinition;
+    };
+
+    it('is refused by the reducer when its rights are unreviewed, so the surface must not dispatch', () => {
+        const ineligible = withFirstArtifact({ rightsStatus: 'incomplete', textualRendition: undefined });
+        const store = createStore(createInitialAppState(ineligible, 'en'));
+        const [firstId] = artifactIds();
+
+        const result = store.dispatch({ type: 'source.inspected', sourceId: firstId });
+
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.error.code).toBe('source-not-eligible');
+        // Which is why `pickUp` answers this one with authored copy instead: dispatching would provoke
+        // a refusal the player did nothing to earn.
+        expect(selectIsSourceInspected(store.getState(), firstId)).toBe(false);
+    });
+
+    it('leaves context readiness permanently incomplete, which is why the schema now forbids authoring it', () => {
+        // The dead end recorded in `deferred-work.md` for Story 3.1: an ineligible artifact counts as
+        // missing forever, and no action can clear it. Pinned here so the day the domain rule changes,
+        // this test is what says so.
+        const ineligible = withFirstArtifact({ rightsStatus: 'incomplete', textualRendition: undefined });
+        const store = createStore(createInitialAppState(ineligible, 'en'));
+
+        artifactIds().forEach((sourceId) => store.dispatch({ type: 'source.inspected', sourceId }));
+
+        expect(selectContextualReadiness(store.getState()).status).toBe('incomplete');
+        expect(selectContextualReadiness(store.getState()).missingArtifactIds).toContain(artifactIds()[0]);
+    });
+
+    it('cannot be authored as reviewed-with-nothing-to-read, because the gate could never be satisfied', () => {
+        // The sibling shape, closed at the schema in this review rather than deferred: the reducer
+        // *would* have accepted it, so nothing downstream could have caught it.
+        const [first, ...rest] = definition.contextualArtifacts;
+        const { textualRendition: _dropped, ...withoutRendition } = first;
+        const unreadable = { ...definition, contextualArtifacts: [withoutRendition, ...rest] };
+
+        const parsed = CaseDefinitionSchema.safeParse(unreadable);
+
+        expect(parsed.success).toBe(false);
+        if (!parsed.success) {
+            expect(parsed.error.issues.some(({ path }) => path.join('.') === 'contextualArtifacts.0.textualRendition')).toBe(true);
+        }
+    });
+});

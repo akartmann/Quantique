@@ -126,6 +126,8 @@ export class ApparatusRenderer {
     private wavefrontGraphics?: Phaser.GameObjects.Graphics;
     private fringeGraphics?: Phaser.GameObjects.Graphics;
     private lastRunId?: string;
+    /** The hint panel's measured top from this render pass, so the reference shelf can yield to it. */
+    private hintPanelTop?: number;
     private inputEnabled = true;
     /** Story 2.6: the way out of the laboratory, and the colleague who answers a refused attempt. */
     private advanceControl?: AdvanceControl;
@@ -288,7 +290,7 @@ export class ApparatusRenderer {
         this.beamGraphics = undefined; this.wavefrontGraphics = undefined; this.fringeGraphics = undefined;
         this.advanceControl = undefined;
         this.hintBackground = undefined; this.hintSpeaker = undefined; this.hintLine = undefined;
-        this.referenceHeading = undefined; this.referenceShelfFills = undefined; this.referenceControls.length = 0;
+        this.referenceHeading = undefined; this.referenceShelfFills = undefined; this.referenceControls.length = 0; this.hintPanelTop = undefined;
         this.advanceRefused = false; this.transientError.clear();
         this.lastRunId = undefined; this.fringeSignature = ''; this.measurementBoost = 0;
     }
@@ -569,6 +571,7 @@ export class ApparatusRenderer {
             this.hintBackground?.setSize(SIDE_COLUMN_WIDTH, 0).setVisible(false);
             this.hintLine?.setVisible(false);
             this.hintSpeaker?.setVisible(false);
+            this.hintPanelTop = undefined;
             return;
         }
 
@@ -586,6 +589,9 @@ export class ApparatusRenderer {
             ?.setSize(SIDE_COLUMN_WIDTH, Math.max(0, floor + HINT_PADDING - panelTop))
             .setY(floor + HINT_PADDING)
             .setVisible(true);
+        // Handed to the shelf pass below, which runs after this one and must yield to a measured hint
+        // rather than to a constant guess at how tall one can get.
+        this.hintPanelTop = panelTop;
     }
 
     /**
@@ -643,8 +649,13 @@ export class ApparatusRenderer {
         const locale = selectLocale(state);
         this.referenceHeading.setText(t('lab.reference.heading'));
         const artifacts = selectContextualArtifacts(state);
-        const floor = referenceShelfFloor(this.scene.scale.height);
+        const floor = referenceShelfFloor(this.scene.scale.height, this.hintPanelTop);
         let cursor = REFERENCE_HEADING_Y + this.referenceHeading.height + REFERENCE_HEADING_GAP_BELOW;
+        let shown = 0;
+        // Once one control does not fit, none below it does either: the shelf is truncated from the
+        // bottom rather than sieved. Skipping the tall one and drawing the next in its place would put
+        // the second reference where the first should be, with nothing to say the first exists.
+        let truncated = false;
 
         fills.clear();
         fills.fillStyle(0x1d4451, 1);
@@ -663,7 +674,8 @@ export class ApparatusRenderer {
             // The hint grows upward from the canvas floor into this same column. Where the two would
             // meet, the shelf yields: the hint is what the player is being asked to act on, and the
             // reference is still reachable from the reading room.
-            if (cursor + height > floor) {
+            if (truncated || cursor + height > floor) {
+                truncated = true;
                 hide();
                 return;
             }
@@ -676,7 +688,11 @@ export class ApparatusRenderer {
             hitArea.setVisible(true).setPosition(SIDE_COLUMN_LEFT, cursor).setSize(SIDE_COLUMN_WIDTH, height, true);
             label.setVisible(true).setPosition(SIDE_COLUMN_LEFT + REFERENCE_CONTROL_PADDING, cursor + REFERENCE_CONTROL_PADDING);
             cursor += height + REFERENCE_CONTROL_GAP;
+            shown += 1;
         });
+        // A labelled shelf with nothing on it is what the constructor docstring says this must never
+        // be. The heading is only true while at least one reference is actually reachable.
+        this.referenceHeading.setVisible(shown > 0);
         // Re-applied because visibility just changed: a control this pass hid must not stay clickable,
         // and one it revealed must not stay inert. One rule for input state, re-run, rather than a
         // second copy of it inline here.

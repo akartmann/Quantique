@@ -85,7 +85,6 @@ export class RivalLabRenderer {
     private guide?: Phaser.GameObjects.Text;
     private control?: Phaser.GameObjects.Rectangle;
     private controlLabel?: Phaser.GameObjects.Text;
-    private inputEnabled = true;
     /** Shown in place of the guide line until the next render, so a refused click is not silent. */
     private transientError?: string;
 
@@ -141,12 +140,6 @@ export class RivalLabRenderer {
         if (critique) this.accent?.setFillStyle(Number.parseInt(critique.accentColor.slice(1), 16));
 
         this.layout();
-    }
-
-    /** Lets the overlaying reference book suppress the revise control while it is open. */
-    public setInputEnabled(enabled: boolean): void {
-        this.inputEnabled = enabled;
-        this.applyInputState();
     }
 
     public destroy(): void {
@@ -212,8 +205,7 @@ export class RivalLabRenderer {
 
     private applyInputState(): void {
         if (!this.control) return;
-        if (this.inputEnabled) this.control.setInteractive({ useHandCursor: true });
-        else this.control.disableInteractive();
+        this.control.setInteractive({ useHandCursor: true });
     }
 }
 

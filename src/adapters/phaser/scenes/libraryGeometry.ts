@@ -140,17 +140,36 @@ export { ADVANCE_CONTROL_HEIGHT, ADVANCE_CONTROL_WIDTH } from '../ui/AdvanceCont
  *
  * Sized for the worst case the content schema permits rather than for the shipped copy: a
  * `readingGateHint` line is capped at 320 characters per locale, which at
- * {@link GATE_LINE_FONT_SIZE} wrapped to {@link gateLineTextWrap} is four lines, over an attributed
- * speaker line and two paddings. The renderer still shrinks to fit inside it — an authored line is
- * clamped rather than allowed to paint over the control above, because this canvas does not scroll.
+ * {@link GATE_LINE_FONT_SIZE} wrapped to {@link gateLineTextWrap} is three lines, over an attributed
+ * speaker line, a {@link GATE_SPEAKER_GAP}, and {@link GATE_PADDING} at the top and the foot.
+ *
+ * 118px, not the 108 this shipped with. The 2.8 review recomputed the reserve against what
+ * `renderGate` actually spends and found the band 3px short of its own stated worst case — the test
+ * guarding it had omitted both paddings and the speaker gap, so it demanded 75px and passed. 118 holds
+ * the schema maximum at the authored size *and* the clamped maximum under a two-line French
+ * attribution, with 6px still clear of the advance control above.
+ *
+ * `LibraryRenderer.clampGateLine` shrinks to {@link GATE_LINE_MIN_FONT_SIZE} and then crops, so the
+ * band is a guarantee rather than an estimate even past that: this canvas does not scroll, and the
+ * alternative is authored prose painting over the way out of the room.
  */
-export const GATE_BAND_HEIGHT = 108;
+export const GATE_BAND_HEIGHT = 118;
 export const GATE_BOTTOM_MARGIN = 20;
 export const GATE_PADDING = 16;
 export const GATE_LINE_FONT_SIZE = 14;
+/** The floor `clampGateLine` shrinks to before it crops instead. */
+export const GATE_LINE_MIN_FONT_SIZE = 11;
 export const GATE_SPEAKER_FONT_SIZE = 13;
 /** Between the attributed speaker line and the prose under it. */
 export const GATE_SPEAKER_GAP = 4;
+/**
+ * Everything the renderer spends inside the band before the colleague's prose starts, plus the foot
+ * padding under it: `GATE_PADDING` at the top, the attributed speaker line, `GATE_SPEAKER_GAP`, and
+ * `GATE_PADDING` again at the bottom. Exported so the band's clearance test measures what the renderer
+ * actually does rather than a looser model of it.
+ */
+export const gateLineChromeHeight = (speakerLines = 1): number =>
+    (2 * GATE_PADDING) + (Math.ceil(GATE_SPEAKER_FONT_SIZE * 1.35) * speakerLines) + GATE_SPEAKER_GAP;
 
 // --- Bands ----------------------------------------------------------------------------------------
 

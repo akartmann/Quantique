@@ -9,6 +9,7 @@ import { rivalLabReviseControlCentre } from '../../src/adapters/phaser/renderers
 import { advanceToSynthesisControlCentre } from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import { en } from '../../src/core/i18n/locales/en';
 import { fr } from '../../src/core/i18n/locales/fr';
+import { DESIGN_HEIGHT, canvas, clickDesign, expectActiveScene } from './canvasHelpers';
 
 /**
  * AC1 and AC3 on the canvas — the only place the route into and out of the rival lab actually happens.
@@ -25,11 +26,9 @@ import { fr } from '../../src/core/i18n/locales/fr';
  * browser, with the French bundle demonstrably live.
  */
 
-const canvas = (page: import('@playwright/test').Page) => page.locator('#game-container canvas');
-
-const CARD = lastProposalCardProbe(768);
+const CARD = lastProposalCardProbe(DESIGN_HEIGHT);
 const SUBMIT = submitConclusionControlCentre();
-const REVISE = rivalLabReviseControlCentre(768);
+const REVISE = rivalLabReviseControlCentre(DESIGN_HEIGHT);
 const ADVANCE = advanceToSynthesisControlCentre();
 
 /** The curated record is the one localized DOM panel, so its button names are derived per locale. */
@@ -38,15 +37,6 @@ const SOURCE_NAMES = (JSON.parse(
 ) as { contextualArtifacts: { displayName: { en: string; fr: string } }[] })
     .contextualArtifacts.map(({ displayName }) => displayName);
 
-const clickDesign = async (page: import('@playwright/test').Page, point: Readonly<{ x: number; y: number }>): Promise<void> => {
-    const bounds = await canvas(page).boundingBox();
-    if (!bounds) throw new Error('The routed Phaser surface did not render.');
-    await page.mouse.click(bounds.x + (point.x / 1024) * bounds.width, bounds.y + (point.y / 768) * bounds.height);
-};
-
-const expectActiveScene = async (page: import('@playwright/test').Page, sceneKey: string): Promise<void> => {
-    await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', sceneKey);
-};
 
 /**
  * Walks to the theory board on **thin evidence** — no comparison saved, no support selected — which

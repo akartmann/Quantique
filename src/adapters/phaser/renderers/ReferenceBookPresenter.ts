@@ -46,6 +46,8 @@ export class ReferenceBookPresenter {
     private rendition?: LocalizedTextualRendition;
     private pagination?: LecturePagination;
     private spreadIndex = 0;
+    /** The locale the current presentation was built for, so {@link render} can tell a real change from a repaint. */
+    private publishedLocale?: Locale;
 
     /**
      * @param getLocale Read on every publish and on every chrome redraw inside the book. Required,
@@ -100,17 +102,29 @@ export class ReferenceBookPresenter {
         this.rendition = undefined;
         this.pagination = undefined;
         this.spreadIndex = 0;
+        this.publishedLocale = undefined;
         this.renderer?.hide();
     }
 
     /**
-     * Re-publishes the open book for the live locale.
+     * Re-publishes the open book when the locale has changed under it.
      *
      * A no-op when nothing is open, so a scene can call it unconditionally from its store subscription
-     * rather than guarding at every call site.
+     * rather than guarding at every call site — and a no-op when the language has not moved, which is
+     * the load-bearing half.
+     *
+     * **Why it is not an unconditional re-publish.** A scene calls this on *every* dispatch, and every
+     * publish reaches `LectureBookRenderer.show()`, which calls `killTweensOf(overlay)`. During the
+     * book's open tween that kills the animation mid-flight without re-running it and without the
+     * `wasClosing` recovery that restores full alpha and scale — leaving the overlay painted at a
+     * partial transform while its input is live and its controls hit-test unscaled design coordinates.
+     * The player then clicks a control they can see and hits nothing. That window is reachable today
+     * from the DOM panels still live in `context` and `experiment`, which dispatch while the book opens.
+     * Republishing only on a real locale change removes the window and the wasted re-pagination with it.
      */
     public render(): void {
         if (!this.artifact) return;
+        if (this.getLocale() === this.publishedLocale) return;
         this.publish();
     }
 
@@ -121,6 +135,7 @@ export class ReferenceBookPresenter {
         this.rendition = undefined;
         this.pagination = undefined;
         this.spreadIndex = 0;
+        this.publishedLocale = undefined;
     }
 
     private moveSpread(direction: -1 | 1): void {
@@ -136,6 +151,7 @@ export class ReferenceBookPresenter {
         const textualRendition = artifact?.textualRendition;
         if (!artifact || !textualRendition || !this.renderer) return;
         const locale = this.getLocale();
+        this.publishedLocale = locale;
         this.rendition = resolveRendition(textualRendition, locale);
         this.pagination = paginateLectureRendition(this.rendition);
         const spread = getLectureSpread(this.pagination, this.spreadIndex);

@@ -7,6 +7,7 @@ import {
     lastProposalCardProbe
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { dialogueAdvanceControlCentre } from '../../src/adapters/phaser/ui/DialogueBox';
+import { DESIGN_HEIGHT, DESIGN_WIDTH, canvas, clickDesign } from './canvasHelpers';
 
 /**
  * AC1's advance control, exercised on the canvas — the only place it can be.
@@ -20,8 +21,6 @@ import { dialogueAdvanceControlCentre } from '../../src/adapters/phaser/ui/Dialo
  * pinning pixels or card bands would pin a layout that AC1 requires to move with the beat being read.
  */
 
-const canvas = (page: import('@playwright/test').Page) => page.locator('#game-container canvas');
-
 /** Derived from the widget, never restated: the panel's gutters are the widget's business. */
 const ADVANCE = dialogueAdvanceControlCentre({
     x: PROPOSAL_SURFACE_LEFT,
@@ -30,13 +29,7 @@ const ADVANCE = dialogueAdvanceControlCentre({
 });
 
 /** Inside the last card wherever the band starts. Derived, never a mid-surface guess — see the helper. */
-const CARD = lastProposalCardProbe(768);
-
-const clickDesign = async (page: import('@playwright/test').Page, point: Readonly<{ x: number; y: number }>): Promise<void> => {
-    const bounds = await canvas(page).boundingBox();
-    if (!bounds) throw new Error('The routed Phaser surface did not render.');
-    await page.mouse.click(bounds.x + (point.x / 1024) * bounds.width, bounds.y + (point.y / 768) * bounds.height);
-};
+const CARD = lastProposalCardProbe(DESIGN_HEIGHT);
 
 /**
  * A screenshot of just the dialogue panel's band, not the whole canvas.
@@ -50,8 +43,8 @@ const clickDesign = async (page: import('@playwright/test').Page, point: Readonl
 const panelShot = async (page: import('@playwright/test').Page): Promise<Buffer> => {
     const bounds = await canvas(page).boundingBox();
     if (!bounds) throw new Error('The routed Phaser surface did not render.');
-    const scaleX = bounds.width / 1024;
-    const scaleY = bounds.height / 768;
+    const scaleX = bounds.width / DESIGN_WIDTH;
+    const scaleY = bounds.height / DESIGN_HEIGHT;
     return page.screenshot({
         clip: {
             x: bounds.x + (PROPOSAL_SURFACE_LEFT * scaleX),

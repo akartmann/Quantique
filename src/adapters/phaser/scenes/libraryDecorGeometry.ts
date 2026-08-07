@@ -211,7 +211,9 @@ export const libraryFilledShelves = (
         // tail does. Below `FLAT_STACK_MIN_WIDTH` it stays empty — a two-pixel book is a smear.
         const tail = rightEdge - cursor;
         if (tail >= FLAT_STACK_MIN_WIDTH) {
-            const stackHeight = Math.min(3, Math.max(1, Math.floor(random.between(1, 4))));
+            // `between` is half-open, so the floor already yields exactly 1, 2 or 3 — the clamps this
+            // once carried could never fire and only made the range look uncertain.
+            const stackHeight = Math.floor(random.between(1, 4));
             for (let level = 0; level < stackHeight; level += 1) {
                 const width = tail - random.between(0, 6);
                 flat.push(Object.freeze({

@@ -61,7 +61,7 @@ export const fr: Record<TranslationKey, string> = {
     'library.detail.classification': '{type} · {provenance}',
     'library.detail.rights': 'Statut des droits : {status}',
     'library.artifact.unavailable': 'Les droits de ce document n’ont pas été vérifiés : il ne peut être lu ici ni cité comme pièce.',
-    'library.artifact.noRendition': 'Aucune copie locale de ce document n’est conservée ici, il n’y a donc rien à lire sur l’étagère. Ses informations ci-dessus restent consignées.',
+    'library.artifact.noRendition': 'Aucune copie locale de ce document n’est conservée ici, il n’y a donc rien à lire sur l’étagère. Sa provenance est décrite ci-dessus, mais il ne peut être consigné comme lecture.',
 
     // --- Deterministic experiment result --------------------------------------------------------
     'experiment.result.fringeSpacing': 'Interfrange',

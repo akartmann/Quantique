@@ -1,9 +1,7 @@
 import type { Scene } from 'phaser';
 
 import {
-    BAY_PLANK_HEIGHT,
     CASE_CORNICE_HEIGHT,
-    CASE_PILASTER_WIDTH,
     FLOORBOARD_HEIGHT,
     SPINE_TINT_COUNT,
     libraryCaseAlcoves,
@@ -81,10 +79,21 @@ const WOOD = 0x4a2f1a;
 const WOOD_LIT = 0x6b452a;
 const WOOD_DARK = 0x2c1b0f;
 
-const GILT = 0xb98f34;
-const GILT_BRIGHT = 0xe8c86a;
+export const GILT = 0xb98f34;
+export const GILT_BRIGHT = 0xe8c86a;
 
 const LAMPLIGHT = 0xffcd8a;
+
+/**
+ * Seeds for the generated shelving, one per bay so the two walls are not twins.
+ *
+ * Arbitrary by design and fixed by necessity: the room must be identical on every visit, so nothing
+ * here may reach for `Math.random()`. They were previously the room's retired teal and green colour
+ * literals, which worked but read as a leftover paste the next reader would "correct".
+ */
+const LEFT_BAY_SEED = 0x51b3a7;
+const RIGHT_BAY_SEED = 0x2f8d41;
+const ALCOVE_SEED = 0x51b3;
 
 const FLOOR = 0x241708;
 const FLOOR_SEAM = 0x140c05;
@@ -123,8 +132,8 @@ export class ReadingRoomDecor {
         this.paintWainscotAndFloor(back, canvasWidth, canvasHeight);
 
         const bays = this.layer();
-        this.paintBay(bays, libraryLeftBayBand(canvasHeight), 0x51b3a7);
-        this.paintBay(bays, libraryRightBayBand(canvasWidth, canvasHeight), 0x2f8d41);
+        this.paintBay(bays, libraryLeftBayBand(canvasHeight), LEFT_BAY_SEED);
+        this.paintBay(bays, libraryRightBayBand(canvasWidth, canvasHeight), RIGHT_BAY_SEED);
 
         // One warm source high in the room, so the whole picture has a direction to its light rather
         // than being uniformly dim. Centred above the case, which is where the eye should land first.
@@ -157,7 +166,7 @@ export class ReadingRoomDecor {
         libraryShelfLights(shelf).forEach(({ x }) => this.paintShelfWash(graphics, interior, x));
 
         libraryCaseAlcoves(shelf, placements).forEach((alcove, index) => {
-            libraryFilledShelves(alcove, { seed: 0x51b3 + (index * 977), rowHeight: alcove.height, plankHeight: 0, padding: 2 })
+            libraryFilledShelves(alcove, { seed: ALCOVE_SEED + (index * 977), rowHeight: alcove.height, plankHeight: 0, padding: 2 })
                 .forEach((row) => this.paintShelfRow(graphics, row));
         });
 
@@ -457,4 +466,6 @@ export class ReadingRoomDecor {
     }
 }
 
-export { CASE_PILASTER_WIDTH, BAY_PLANK_HEIGHT, GILT, GILT_BRIGHT, LAMPLIGHT, WOOD, WOOD_DARK, WOOD_LIT };
+// `GILT` and `GILT_BRIGHT` are exported at their declaration above: the room's brass is toned in
+// one place and `LibraryRenderer` reads it from here. Nothing else in this module is public — the
+// re-export block that once laundered two otherwise-unused imports past the unused-import rule is gone.

@@ -70,7 +70,8 @@ test('a single inspect control records a readable source as evidence', async ({ 
         'Thomas Young’s 1801 lecture record is recorded as inspected evidence.'
     );
 
-    // ...and the book opens, with only a compact attribution block in HTML (no paginated document).
+    // ...and the panel's compact attribution block appears. This was never the paginated book — that
+    // is the canvas's, and since Story 2.8 it is the canvas's alone.
     const attribution = context.getByRole('group', { name: 'Read the lecture record — source attribution' });
     await expect(attribution).toBeVisible();
     await expect(attribution.getByRole('link', { name: 'View the cited archive facsimile (opens in a new tab).' })).toHaveAttribute(
@@ -113,7 +114,16 @@ test('uses the authored reader label from the case definition as the book identi
     ).toBeVisible();
 });
 
-test('auto-closes on entering the experiment phase yet reopens an already-inspected book without re-recording', async ({ page }) => {
+/**
+ * Renamed by the 2.8 review: no book is involved here any more.
+ *
+ * `src/main.ts` made `onLectureBookPresentationChange` a no-op when `LectureBookScene` was retired, so
+ * the DOM panel's "read" projection has nowhere to draw and the assertions below are about the
+ * *inspection record* alone — which is still what this panel dispatches, and still worth pinning until
+ * Story 2.12 deletes it. The book's own open, close and re-open behaviour moved to
+ * `library-reading.spec.ts`, on the canvas, where it now lives.
+ */
+test('keeps the inspection record intact across the gate, and re-inspects without recording twice', async ({ page }) => {
     await page.goto('/');
 
     const record = page.getByRole('region', { name: 'Curated Record' });
@@ -124,14 +134,16 @@ test('auto-closes on entering the experiment phase yet reopens an already-inspec
     await record.getByRole('button', { name: 'Inspect Opticks reference' }).click();
     await expect(record.getByText('Inspection recorded')).toHaveCount(2);
 
-    // Advance through the gate; entering the experiment phase dismisses the lingering book.
+    // Advance through the gate. The attribution group went with the retired overlay, so its absence is
+    // the panel's own projection being gone rather than a book being dismissed.
     await context.getByRole('button', { name: 'Continue to prediction' }).click();
     await context.getByLabel('Tentative prediction').fill('A stable, evenly spaced pattern should appear.');
     await context.getByRole('button', { name: 'Record a prediction' }).click();
     await context.getByRole('button', { name: 'Continue to experimentation' }).click();
     await expect(context.getByRole('group', { name: /source attribution/ })).toHaveCount(0);
 
-    // Re-inspecting an already-recorded readable source still opens the book, without a new record.
+    // Re-inspecting an already-recorded readable source is still accepted, and still records nothing
+    // new — the DOM panel's half of the rule `LibraryRenderer.pickUp` enforces on the canvas.
     await record.getByRole('button', { name: 'Inspect Thomas Young’s 1801 lecture record' }).click();
     await expect(youngAttribution).toBeVisible();
     await expect(record.getByText('Inspection recorded')).toHaveCount(2);

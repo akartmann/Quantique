@@ -193,9 +193,24 @@ describe.each(CANVASES)('the case around the featured references on $name', ({ w
     it('leaves no filler when a high count fills the case, rather than a negative rectangle', () => {
         // Four references consume the interior end to end. The guard has to return nothing rather than
         // a rectangle with a negative width, which would paint backwards across the whole case.
-        libraryCaseAlcoves(shelf(), libraryArtifactPlacements(4, width)).forEach((alcove) => {
-            expect(alcove.width).toBeGreaterThan(0);
-        });
+        //
+        // Asserted on the list, not on its members: at this count the list is empty, so a `forEach` over
+        // it runs zero times and passes with zero assertions — which is how the 2.8 review found this
+        // test passing against a function that could have returned `[]` unconditionally.
+        expect(libraryCaseAlcoves(shelf(), libraryArtifactPlacements(4, width))).toStrictEqual([]);
+    });
+
+    it('never returns a negative or zero-width alcove at any count the case can hold', () => {
+        // The property the test above is named for, asserted where it can actually fail: every count
+        // from an empty case up to one that overfills it, with the non-empty results checked and the
+        // empty ones required to be empty rather than silently skipped.
+        for (let count = 0; count <= 6; count += 1) {
+            const alcoves = libraryCaseAlcoves(shelf(), libraryArtifactPlacements(count, width));
+            alcoves.forEach((alcove) => {
+                expect(alcove.width, `count ${count}: ${JSON.stringify(alcove)}`).toBeGreaterThan(0);
+                expect(alcove.height, `count ${count}: ${JSON.stringify(alcove)}`).toBeGreaterThan(0);
+            });
+        }
     });
 });
 
@@ -222,16 +237,32 @@ describe('the generated shelving', () => {
     });
 
     it('stands every book on its own shelf, never through the one above', () => {
-        libraryFilledShelves(BAY, { seed: 7 }).forEach((row) => {
+        // Compared against the *previous row*, which is the only comparison that can fail. Measuring a
+        // spine against its own plank restates the constructor (`y = plank.y - height`), so the old
+        // assertions here reduced to `0 >= -plank.height` and `plank.y <= plank.y + 0.001` — true for
+        // any generator at all. Found by the 2.8 review.
+        const rows = libraryFilledShelves(BAY, { seed: 7 });
+        expect(rows.length).toBeGreaterThan(1);
+        rows.forEach((row, index) => {
+            const above = rows[index - 1];
             row.spines.forEach((spine) => {
-                expect(spine.y).toBeGreaterThanOrEqual(row.plank.y - row.plank.height - spine.height);
-                expect(spine.y + spine.height).toBeLessThanOrEqual(row.plank.y + 0.001);
+                expect(spine.y + spine.height, JSON.stringify(spine)).toBeLessThanOrEqual(row.plank.y + 0.001);
+                if (above) {
+                    expect(spine.y, `row ${index}: ${JSON.stringify(spine)}`).toBeGreaterThanOrEqual(above.plank.y);
+                }
             });
         });
     });
 
-    it('never overlaps two books in the same row', () => {
-        libraryFilledShelves(BAY, { seed: 7 }).forEach((row) => {
+    it('never overlaps two books in the same row, and fills every row it reports', () => {
+        // The non-emptiness guards are the load-bearing part. Every pairwise assertion below is skipped
+        // for an empty or single-book row, so a generator that returned bare rows would satisfy the
+        // overlap check by having nothing to overlap — the failure mode the 2.8 review found twice in
+        // this file.
+        const rows = libraryFilledShelves(BAY, { seed: 7 });
+        expect(rows.length).toBeGreaterThan(0);
+        rows.forEach((row, rowIndex) => {
+            expect(row.spines.length, `row ${rowIndex} is empty`).toBeGreaterThan(0);
             row.spines.forEach((spine, index) => {
                 const next = row.spines[index + 1];
                 if (!next) return;

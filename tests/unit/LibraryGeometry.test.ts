@@ -5,6 +5,8 @@ import {
     ARTIFACT_GAP,
     ARTIFACT_MAX_WIDTH,
     GATE_LINE_FONT_SIZE,
+    GATE_LINE_MIN_FONT_SIZE,
+    gateLineChromeHeight,
     GATE_SPEAKER_FONT_SIZE,
     detailTextWrap,
     gateLineTextWrap,
@@ -139,15 +141,45 @@ describe.each(CANVASES)('the reading room laid out on $name', ({ width, height }
     it('reserves enough gate clearance for the longest line the content schema permits', () => {
         // `readingGateHints` caps a line at 320 characters per locale. A conservative average advance
         // of 6.2px per character at 14px UI type — French runs wider than English, and this is above
-        // the measured mean for both — gives the wrapped line count the band has to hold, over an
-        // attributed speaker line and two paddings.
+        // the measured mean for both — gives the wrapped line count the band has to hold.
+        //
+        // The chrome comes from `gateLineChromeHeight`, which is what `LibraryRenderer.renderGate`
+        // itself spends: `GATE_PADDING` at the top, the attributed speaker line, `GATE_SPEAKER_GAP`,
+        // and `GATE_PADDING` again at the foot. The 2.8 review found this test omitting all of it and
+        // therefore standing 36px looser than the code it guards — it demanded 75px of a 108px band
+        // while the renderer actually needed 111px, so the schema's worst case overflowed and the test
+        // still passed. Sharing one exported function is what stops the two drifting again.
         const MAX_AUTHORED_CHARACTERS = 320;
         const AVERAGE_ADVANCE_PX = 6.2;
         const lineHeight = Math.ceil(GATE_LINE_FONT_SIZE * 1.35);
         const wrappedLines = Math.ceil((MAX_AUTHORED_CHARACTERS * AVERAGE_ADVANCE_PX) / gateLineTextWrap(width));
-        const needed = (wrappedLines * lineHeight) + Math.ceil(GATE_SPEAKER_FONT_SIZE * 1.35);
+        const needed = (wrappedLines * lineHeight) + gateLineChromeHeight();
 
         expect(libraryGateLineBand(width, height).height).toBeGreaterThanOrEqual(needed);
+    });
+
+    it('still holds the schema maximum when a French attribution wraps to two lines', () => {
+        // The case the reserve above does not cover, and the reason `clampGateLine` exists rather than
+        // the band simply being made taller: a long colleague name wraps the attribution, and widening
+        // the band far enough for every combination would push it into the advance control above it.
+        // Below the shrink floor the renderer crops, so this asserts the *clamped* worst case fits.
+        const MAX_AUTHORED_CHARACTERS = 320;
+        const AVERAGE_ADVANCE_PX = 6.2;
+        const clampedLineHeight = Math.ceil(GATE_LINE_MIN_FONT_SIZE * 1.35);
+        const wrappedLines = Math.ceil((MAX_AUTHORED_CHARACTERS * AVERAGE_ADVANCE_PX) / gateLineTextWrap(width));
+        const needed = (wrappedLines * clampedLineHeight) + gateLineChromeHeight(2);
+
+        expect(libraryGateLineBand(width, height).height).toBeGreaterThanOrEqual(needed);
+    });
+
+    it('keeps the gate band clear of the advance control above it', () => {
+        // The two share a vertical budget at the foot of a canvas that does not scroll, so the band
+        // growing to fit a longer line must never be allowed to reach the way out of the room.
+        const control = libraryAdvanceControlBounds(width, height);
+        const band = libraryGateLineBand(width, height);
+
+        expect(band.y).toBeGreaterThanOrEqual(control.y + control.height);
+        expect(band.y + band.height).toBeLessThanOrEqual(height);
     });
 });
 
