@@ -542,6 +542,28 @@ describe('CharacterStage staging', () => {
         expect(ui.graphics[0]!.scale).toBe(1);
     });
 
+    it('fits Arthur portrait uniformly by width in the rival column', () => {
+        prefersReduce = true;
+        const textureKey = 'case:young-interference:arthur-bell-portrait';
+        const cast: readonly StageCastMember[] = [{ ...RIVAL_CAST[0]!, portraitTextureKey: textureKey }];
+        const ui = mount('rival', [textureKey]);
+        ui.stage.create(cast);
+
+        ui.stage.render({
+            band: RIVAL_BAND,
+            area: { x: 784, width: 200 },
+            speakerColleagueId: 'rival-lab',
+            cast,
+            t
+        });
+
+        const expectedScale = 180 / 351;
+        expect([ui.images[0]!.originX, ui.images[0]!.originY]).toEqual([0.5, 720 / 768]);
+        expect(ui.images[0]!.scaleX).toBeCloseTo(expectedScale, 10);
+        expect(ui.images[0]!.scaleY).toBeCloseTo(expectedScale, 10);
+        expect(680 * ui.images[0]!.scaleY).toBeCloseTo(680 * expectedScale, 10);
+    });
+
     /** Silhouettes are stroked once in `create()` and never redrawn: emphasis reuses the geometry (D5). */
     it('never re-strokes a figure on a re-stage', () => {
         prefersReduce = true;
