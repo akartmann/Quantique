@@ -89,7 +89,7 @@ development_status:
   1-11-colleague-cast-and-proposal-system: done  # new (pivot)
   1-12-phaser-dialogue-and-choice-ui: done  # new (pivot)
   epic-1-retrospective: skipped
-  epic-2: in-progress  # reopened 2026-08-06 by sprint-change-proposal-2026-08-06.md
+  epic-2: done  # reopened 2026-08-06 by sprint-change-proposal-2026-08-06.md
   2-1-young-contextual-record-and-prediction: done  # rework:pivot -> library reading + choice-of-4 prediction; superseded-impl: delivered via DOM CuratedRecord + LectureBookScene overlay, not LibraryScene -> see 2.7/2.8
   2-2-young-double-slit-experiment: done  # kept (deterministic model reused)
   2-3-young-synthesis-debrief-and-replay: done  # rework:pivot -> significant-measure gate + colleague conclusion; superseded-impl: debrief/replay delivered via DOM HistoricalDebriefPanel, DebriefScene still a placeholder -> see 2.11
