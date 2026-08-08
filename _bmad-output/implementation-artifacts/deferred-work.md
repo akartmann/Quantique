@@ -136,3 +136,7 @@ The current `_bmad-output/planning-artifacts/epics.md` FR coverage map still con
 ## Deferred from: code review of 2-12-retire-dom-presentation-panels (2026-08-07)
 
 - **NFR1 10-minute representative low-end-hardware profile remains incomplete.** `docs/validation/young-performance-2026-08-07-story-2-12.md:11` records the required AC9 release gate as blocked/not yet run. Deferred by Alexis as **not urgent**. It remains required before Story 2.12 can be marked done.
+
+## Deferred from: PNG-backed Young characters review (2026-08-08)
+
+- **Full Chromium E2E gate is non-green in the restricted direct-preview runner.** The portrait-focused offline spec passed 5/5, but the whole Chromium run reported 50 passed / 6 failed in existing dialogue, boot, validation, export-artifact, and experiment flows. `playwright.config.ts` already documents analogous baseline contention/retired-DOM failures. Re-run `npm run test:e2e` in the standard npm-capable environment before a release claim; this change did not modify those paths.
