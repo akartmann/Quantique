@@ -11,10 +11,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium",
-    "test:e2e:offline": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test tests/e2e/offline-reload.spec.ts --project=chromium",
-    "test:e2e:cross-browser": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium --project=firefox --project=webkit",
-    "test:e2e:a11y": "PLAYWRIGHT_BROWSERS_PATH=0 playwright test tests/e2e/accessibility.spec.ts --project=chromium"
+    "test:e2e": "cross-env PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium",
+    "test:e2e:offline": "cross-env PLAYWRIGHT_BROWSERS_PATH=0 playwright test tests/e2e/offline-reload.spec.ts --project=chromium",
+    "test:e2e:cross-browser": "cross-env PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium --project=firefox --project=webkit",
+    "test:e2e:a11y": "cross-env PLAYWRIGHT_BROWSERS_PATH=0 playwright test tests/e2e/accessibility.spec.ts --project=chromium"
   },
   "dependencies": {
     "idb": "8.0.3",
@@ -24,6 +24,7 @@
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",
     "@playwright/test": "1.61.1",
+    "cross-env": "^10.1.0",
     "playwright": "1.61.1",
     "typescript": "~5.7.2",
     "vite": "8.1.5",
