@@ -35,6 +35,12 @@ npm run test:e2e:cross-browser # Chromium, Firefox, and WebKit boot-shell covera
 
 Browser tests build and serve the production artifact automatically. The offline-reload check is intentionally Chromium-only because Playwright WebKit cannot perform the forced offline reload used by this test; the shared boot-shell and accessibility checks run in Chromium, Firefox, and WebKit.
 
+## Continuous integration and releases
+
+GitHub Actions runs locked dependency installation, typechecking, unit tests, a production build, and the Chromium end-to-end suite for every pull request and every push to `main`.
+
+To create a release, push a version tag beginning with `v` (for example, `v0.1.0`). The release workflow repeats the same checks, packages the production `dist/` directory as `quantique-<tag>.zip`, and attaches that archive to a GitHub Release generated from the tag.
+
 ## Delivery constraints
 
 The production build is static-hostable. The boot shell remains semantic HTML with a keyboard-operable entry button; Phaser is visual-only. The minimal service worker caches same-origin production assets after a successful online load so the boot shell can reload offline. It does not use accounts, telemetry, advertising, remote configuration, cloud save, or a backend.

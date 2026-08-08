@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build production site
+        run: npm run build
+
+      - name: Install Chromium
+        run: PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium
+
+      - name: Run Chromium end-to-end tests
+        run: npm run test:e2e
+
+      - name: Derive release asset name
+        shell: bash
+        run: |
+          asset_tag="$(printf '%s' "$GITHUB_REF_NAME" | tr -c '[:alnum:]._- ' '-')"
+          echo "RELEASE_ASSET=quantique-${asset_tag}.zip" >> "$GITHUB_ENV"
+
+      - name: Archive production site
+        run: zip -r "$RELEASE_ASSET" dist
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$RELEASE_ASSET" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$RELEASE_ASSET" --title "$GITHUB_REF_NAME" --generate-notes
+          fi
