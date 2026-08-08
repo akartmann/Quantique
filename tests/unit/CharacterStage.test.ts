@@ -236,10 +236,10 @@ describe('CharacterStage under prefers-reduced-motion: reduce', () => {
     });
 
     /**
-     * The static frame is the frame the motion path ends on — not an approximation of it. Asserted by
-     * running both paths and comparing, so the two cannot drift into different pictures.
+     * First paint is already the final frame. A new visual that starts at Phaser's default origin and
+     * only names this target in a tween enters the room from the upper-right before the tween finishes.
      */
-    it('stages the same frame the motion path would have ended on', () => {
+    it('writes a new visual directly to the normal-motion target before later emphasis tweens', () => {
         prefersReduce = true;
         const still = mount();
         still.stage.create(CAST);
@@ -250,13 +250,20 @@ describe('CharacterStage under prefers-reduced-motion: reduce', () => {
         moving.stage.create(CAST);
         moving.stage.render(stage({ speakerColleagueId: 'thea-young' }));
 
+        expect(moving.tweens).toHaveLength(0);
+        moving.graphics.forEach((visual, index) => {
+            expect(visual.x).toBe(still.graphics[index]!.x);
+            expect(visual.y).toBe(still.graphics[index]!.y);
+            expect(visual.scale).toBeCloseTo(still.graphics[index]!.scale, 10);
+            expect(visual.alpha).toBe(still.graphics[index]!.alpha);
+        });
+
+        moving.stage.render(stage({ speakerColleagueId: 'elias-wren' }));
+
         expect(moving.tweens).toHaveLength(2);
         moving.tweens.forEach((tween, index) => {
             expect(tween.duration).toBe(EMPHASIS_TWEEN_MS);
-            expect(tween.x).toBe(still.graphics[index]!.x);
-            expect(tween.y).toBe(still.graphics[index]!.y);
-            expect(tween.scale).toBeCloseTo(still.graphics[index]!.scale, 10);
-            expect(tween.alpha).toBe(still.graphics[index]!.alpha);
+            expect(tween.targets).toBe(moving.graphics[index]);
         });
     });
 
@@ -265,13 +272,13 @@ describe('CharacterStage under prefers-reduced-motion: reduce', () => {
         const ui = mount();
         ui.stage.create(CAST);
         ui.stage.render(stage({ speakerColleagueId: 'thea-young' }));
-        expect(ui.tweens).toHaveLength(2);
+        expect(ui.tweens).toHaveLength(0);
 
         prefersReduce = true;
         mediaListeners.forEach((listener) => listener());
 
-        // No new tween, and the figures are now where the tweens were headed.
-        expect(ui.tweens).toHaveLength(2);
+        // No tween is introduced, and the figures remain at their resolved static targets.
+        expect(ui.tweens).toHaveLength(0);
         expect(ui.graphics[0]!.alpha).toBe(SPEAKER_ALPHA);
         expect(ui.graphics[1]!.alpha).toBe(RECEDED_ALPHA);
     });
@@ -336,7 +343,7 @@ describe('CharacterStage staging', () => {
         expect(ui.images[0]!.visible).toBe(false);
     });
 
-    it('tweens a portrait to the exact frame the reduced-motion path writes', () => {
+    it('stages a new portrait at the normal-motion target before later emphasis tweens', () => {
         const textureKey = 'case:young-interference:thea-young-portrait';
         const cast = portraitCast(textureKey);
 
@@ -350,15 +357,19 @@ describe('CharacterStage staging', () => {
         moving.stage.create(cast);
         moving.stage.render(stage({ cast, speakerColleagueId: 'thea-young' }));
 
-        expect(moving.tweens).toHaveLength(1);
-        expect(moving.tweens[0]).toMatchObject({
-            targets: moving.images[0],
+        expect(moving.tweens).toHaveLength(0);
+        expect(moving.images[0]).toMatchObject({
             x: still.images[0]!.x,
             y: still.images[0]!.y,
-            scale: still.images[0]!.scaleX,
-            alpha: still.images[0]!.alpha,
-            duration: EMPHASIS_TWEEN_MS
+            scaleX: still.images[0]!.scaleX,
+            scaleY: still.images[0]!.scaleY,
+            alpha: still.images[0]!.alpha
         });
+
+        moving.stage.render(stage({ cast }));
+
+        expect(moving.tweens).toHaveLength(1);
+        expect(moving.tweens[0]).toMatchObject({ targets: moving.images[0], duration: EMPHASIS_TWEEN_MS });
     });
 
     it('rebuilds the visual when a cast member portrait texture key changes', () => {
@@ -540,6 +551,34 @@ describe('CharacterStage staging', () => {
         ui.stage.render({ band: RIVAL_BAND, area: { x: 784, width: 200 }, speakerColleagueId: 'rival-lab', cast: RIVAL_CAST, t });
 
         expect(ui.graphics[0]!.scale).toBe(1);
+    });
+
+    it('stages a new rival at his final position without an entrance tween', () => {
+        const renderRival = (ui: ReturnType<typeof mount>) => ui.stage.render({
+            band: RIVAL_BAND,
+            area: { x: 784, width: 200 },
+            speakerColleagueId: 'rival-lab',
+            cast: RIVAL_CAST,
+            t
+        });
+
+        prefersReduce = true;
+        const still = mount('rival');
+        still.stage.create(RIVAL_CAST);
+        renderRival(still);
+
+        prefersReduce = false;
+        const moving = mount('rival');
+        moving.stage.create(RIVAL_CAST);
+        renderRival(moving);
+
+        expect(moving.tweens).toHaveLength(0);
+        expect(moving.graphics[0]).toMatchObject({
+            x: still.graphics[0]!.x,
+            y: still.graphics[0]!.y,
+            scale: still.graphics[0]!.scale,
+            alpha: still.graphics[0]!.alpha
+        });
     });
 
     it('fits Arthur portrait uniformly by width in the rival column', () => {

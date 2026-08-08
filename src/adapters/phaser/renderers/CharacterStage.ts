@@ -147,6 +147,8 @@ type Figure = {
     member: StageCastMember;
     visual: Phaser.GameObjects.Graphics | Phaser.GameObjects.Image;
     visualKind: 'vector' | 'portrait';
+    /** A visual must be placed before it can meaningfully animate between emphasis states. */
+    isStaged: boolean;
     name: Phaser.GameObjects.Text;
     role: Phaser.GameObjects.Text;
     badge: Phaser.GameObjects.Text;
@@ -292,7 +294,15 @@ export class CharacterStage {
                 color: BADGE_COLOR, fontSize: `${this.badgeFontSize}px`, align: 'center'
             })).setOrigin(0.5, 0);
 
-            this.figures.push({ member, visual, visualKind: hasPortrait ? 'portrait' : 'vector', name, role, badge });
+            this.figures.push({
+                member,
+                visual,
+                visualKind: hasPortrait ? 'portrait' : 'vector',
+                isStaged: false,
+                name,
+                role,
+                badge
+            });
         });
         // A rebuild re-measures at the new slot width, so the cached bound must not suppress it.
         this.labelWrapWidth = undefined;
@@ -425,10 +435,12 @@ export class CharacterStage {
         figure.visual.setVisible(true);
         this.scene.tweens.killTweensOf(figure.visual);
 
-        if (transitionMs === 0) {
-            // Reduced motion: the targets are written straight in. No tween is started and no loop is
-            // registered, so `render()` alone paints a complete static frame (AC5).
+        if (transitionMs === 0 || !figure.isStaged) {
+            // Reduced motion and a new/rebuilt visual both begin at the resolved target. Starting a
+            // tween from Phaser's default coordinates makes a character visibly enter from the canvas
+            // origin; only an already staged visual has a meaningful prior emphasis state to animate.
             figure.visual.setPosition(staged.x, y).setScale(scale).setAlpha(staged.alpha);
+            figure.isStaged = true;
             return;
         }
         this.scene.tweens.add({
