@@ -41,7 +41,7 @@ jobs:
         run: PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install --with-deps chromium
 
       - name: Run Chromium end-to-end tests
-        run: npm run test:e2e
+        run: npm run test:e2e -- --workers=1
 
       - name: Derive release asset name
         shell: bash
