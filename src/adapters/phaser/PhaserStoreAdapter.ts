@@ -33,6 +33,14 @@ export const ADVANCE_TRANSITION_IDS = [
 
 export type AdvanceTransitionId = typeof ADVANCE_TRANSITION_IDS[number];
 
+/** The only authored revisits that preserve the ongoing investigation. */
+export const REVISIT_TRANSITION_IDS = [
+    'experiment-to-prediction',
+    'theory-board-to-experiment'
+] as const;
+
+export type RevisitTransitionId = typeof REVISIT_TRANSITION_IDS[number];
+
 export type PhaserStoreAdapter = Readonly<{
     getState: AppStore['getState'];
     setControlValue: (controlId: PrimaryControl['id'], value: number) => ReturnType<AppStore['dispatch']>;
@@ -65,6 +73,8 @@ export type PhaserStoreAdapter = Readonly<{
      * are told apart by the error's `code`.
      */
     advanceCase: (transition: AdvanceTransitionId) => ReturnType<AppStore['dispatch']>;
+    /** Revisit an earlier authored workspace without resetting the investigation. */
+    revisitCase: (transition: RevisitTransitionId) => ReturnType<AppStore['dispatch']>;
     /**
      * Starting the light — the whole activity of the `experiment` phase (Story 2.10, AC5).
      *
@@ -197,6 +207,11 @@ const ADVANCE_DISPATCHERS: Readonly<Record<AdvanceTransitionId, (store: AppStore
     'debrief-replay': (store) => store.dispatch({ type: 'case.replayStarted' })
 };
 
+const REVISIT_DISPATCHERS: Readonly<Record<RevisitTransitionId, (store: AppStore) => ReturnType<AppStore['dispatch']>>> = {
+    'experiment-to-prediction': (store) => store.dispatch({ type: 'case.phaseRetreat', previousPhase: 'prediction' }),
+    'theory-board-to-experiment': (store) => store.dispatch({ type: 'case.phaseRetreat', previousPhase: 'experiment' })
+};
+
 export const createPhaserStoreAdapter = (store: AppStore): PhaserStoreAdapter => ({
     getState: store.getState,
     setControlValue: (controlId, value) => store.dispatch({
@@ -214,6 +229,7 @@ export const createPhaserStoreAdapter = (store: AppStore): PhaserStoreAdapter =>
     requestRivalLabRevision: () => store.dispatch({ type: 'rivalLab.revisionRequested' }),
     inspectSource: (sourceId) => store.dispatch({ type: 'source.inspected', sourceId }),
     advanceCase: (transition) => ADVANCE_DISPATCHERS[transition](store),
+    revisitCase: (transition) => REVISIT_DISPATCHERS[transition](store),
     // Both stamped here for the reason above: `reduceExperimentRun` is a pure function of the state
     // and the action, and it stays one. Nothing else is dispatched — the reducer records the run.
     runExperiment: () => store.dispatch({

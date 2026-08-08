@@ -6,6 +6,7 @@ import {
     acceptsAdvanceClick,
     advanceRefusalRegister,
     advanceTransitionForPhase,
+    revisitTransitionForPhase,
     resolveAdvanceRefusal,
     resolveAdvanceView,
     type AdvanceViewInput
@@ -64,6 +65,15 @@ const namesMachinery = (label: string): string[] => [
 ];
 
 describe('the phase → transition mapping', () => {
+    it('maps only the laboratory and theory-board phases to authored revisit moves', () => {
+        expect(revisitTransitionForPhase('experiment')).toEqual({ transition: 'experiment-to-prediction', labelKey: 'revisit.toColleagues' });
+        expect(revisitTransitionForPhase('synthesis')).toEqual({ transition: 'theory-board-to-experiment', labelKey: 'revisit.toBench' });
+        expect(revisitTransitionForPhase('review')).toEqual({ transition: 'theory-board-to-experiment', labelKey: 'revisit.toBench' });
+        expect(revisitTransitionForPhase('context')).toBeUndefined();
+        expect(revisitTransitionForPhase('prediction')).toBeUndefined();
+        expect(revisitTransitionForPhase('debrief')).toBeUndefined();
+    });
+
     it('covers the case machine\'s phases exactly, with nothing missing and nothing stale', () => {
         // The set is total by design: `debrief` maps to the replay rather than to nothing, so a player
         // is never standing in a phase whose scene has no way on. A *missing* phase is already a `tsc`

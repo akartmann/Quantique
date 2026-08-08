@@ -23,6 +23,7 @@ import { interferenceIntensity, rgbToInt, wavelengthToRgb } from '../../../domai
 import { AdvanceControl } from '../ui/AdvanceControl';
 import {
     ADVANCE_CONTROL_Y,
+    REVISIT_CONTROL_Y,
     BENCH_CONTROL_FONT_SIZE,
     BENCH_CONTROL_HEIGHT,
     BENCH_CONTROL_ROW_Y,
@@ -61,7 +62,7 @@ import {
 } from './apparatusGeometry';
 import { ApparatusInstrument } from './ApparatusInstrument';
 import { WavelengthChooser } from './WavelengthChooser';
-import { advanceTransitionForPhase, resolveAdvanceRefusal, resolveAdvanceView } from './advanceView';
+import { advanceTransitionForPhase, revisitTransitionForPhase, resolveAdvanceRefusal, resolveAdvanceView } from './advanceView';
 import { SingleKeyDelivery } from './singleKeyDelivery';
 import { TransientMessageSlot } from './transientMessage';
 
@@ -184,6 +185,7 @@ export class ApparatusRenderer {
     private inputEnabled = true;
     /** Story 2.6: the way out of the laboratory, and the colleague who answers a refused attempt. */
     private advanceControl?: AdvanceControl;
+    private revisitControl?: AdvanceControl;
     private hintBackground?: Phaser.GameObjects.Rectangle;
     private hintSpeaker?: Phaser.GameObjects.Text;
     private hintLine?: Phaser.GameObjects.Text;
@@ -432,6 +434,7 @@ export class ApparatusRenderer {
         this.scene.tweens.killTweensOf([this.sourceGlow, this.sourceCore, this.resultReadout].filter(Boolean) as Phaser.GameObjects.GameObject[]);
         // Each widget owns its own objects and listeners, so it releases them itself.
         this.advanceControl?.destroy();
+        this.revisitControl?.destroy();
         this.instruments.forEach((instrument) => instrument.destroy());
         this.instruments.clear();
         this.wavelengthChooser?.destroy();
@@ -441,7 +444,7 @@ export class ApparatusRenderer {
         this.resultReadout = undefined; this.visualGuidance = undefined; this.slitTop = undefined; this.slitBottom = undefined; this.screen = undefined; this.screenLabel = undefined;
         this.sourceGlow = undefined; this.sourceCore = undefined; this.barrier = undefined;
         this.beamGraphics = undefined; this.wavefrontGraphics = undefined; this.fringeGraphics = undefined;
-        this.advanceControl = undefined; this.wavelengthChooser = undefined;
+        this.advanceControl = undefined; this.revisitControl = undefined; this.wavelengthChooser = undefined;
         this.startSurface = undefined; this.startLabel = undefined;
         this.notebookSurface = undefined; this.notebookLabel = undefined; this.benchMessage = undefined;
         this.resetSurface = undefined; this.resetLabel = undefined;
@@ -1007,6 +1010,13 @@ export class ApparatusRenderer {
             onAdvance: () => this.requestAdvance()
         });
         this.advanceControl.create();
+        this.revisitControl = new AdvanceControl(this.scene, {
+            x: SIDE_COLUMN_LEFT,
+            y: REVISIT_CONTROL_Y,
+            width: SIDE_COLUMN_WIDTH,
+            onAdvance: () => this.requestRevisit()
+        });
+        this.revisitControl.create();
 
         // Bottom-anchored, for the same reason `resultReadout` is: an authored hint is prose of
         // unbounded-by-layout length and French runs 15–25% longer, so it has to grow *upward* into
@@ -1059,6 +1069,16 @@ export class ApparatusRenderer {
         this.render(current);
     }
 
+    private requestRevisit(): void {
+        const revisit = revisitTransitionForPhase(selectCasePhase(this.storeAdapter.getState()));
+        if (!revisit) return;
+        const result = this.storeAdapter.revisitCase(revisit.transition);
+        if (result.ok) return;
+        const current = this.storeAdapter.getState();
+        this.transientError.set(selectLocalizedError(current, result.error), current);
+        this.render(current);
+    }
+
     /**
      * Draws the control and, once an attempt has actually been refused, the colleague answering it.
      *
@@ -1087,6 +1107,8 @@ export class ApparatusRenderer {
             label: t(advanceTransitionForPhase(selectCasePhase(state)).labelKey),
             isReady: view.isAdvanceReady
         });
+        const revisit = revisitTransitionForPhase(selectCasePhase(state));
+        this.revisitControl?.render({ label: revisit ? t(revisit.labelKey) : '', isReady: revisit !== undefined });
 
         this.hintLine?.setText(lineText);
         this.hintSpeaker?.setText(speakerText);
@@ -1268,6 +1290,7 @@ export class ApparatusRenderer {
         // reference book's page controls falls through to it and moves the player out of the
         // laboratory — the same defect the book overlay caused on the proposal cards (1.12 review).
         this.advanceControl?.setInputEnabled(enabled);
+        this.revisitControl?.setInputEnabled(enabled);
         // And the reference shelf, which is directly under the book's own control row: a page turn
         // falling through here would re-open the book the player was closing.
         this.referenceControls.forEach(({ hitArea }) => {

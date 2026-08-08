@@ -131,6 +131,10 @@ export const en = {
     'advance.toReviewers': 'To your reviewers',
     'advance.closeTheCase': 'Close the case',
     'advance.replay': 'Investigate it again',
+    'revisit.toColleagues': 'Revisit your colleagues',
+    'revisit.toBench': 'Return to the bench',
+    'revisit.back': 'Back',
+    'error.rival-lab-revision-required': 'Answer the rival laboratory before returning to the investigation.',
 
     // --- The reading room (Story 2.8) ------------------------------------------------------------
     // Room chrome and the labels on the artifact metadata only. The *content* — every display name,

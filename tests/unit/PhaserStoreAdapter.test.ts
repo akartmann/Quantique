@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
     ADVANCE_TRANSITION_IDS,
     createPhaserStoreAdapter,
-    type AdvanceTransitionId
+    type AdvanceTransitionId,
+    type RevisitTransitionId
 } from '../../src/adapters/phaser/PhaserStoreAdapter';
 import type { AppAction } from '../../src/core/store/AppAction';
 import type { AppState } from '../../src/core/store/AppState';
@@ -45,6 +46,13 @@ const recordingStore = (): Readonly<{ store: AppStore; actions: AppAction[] }> =
 const dispatched = (transition: AdvanceTransitionId): AppAction => {
     const { store, actions } = recordingStore();
     createPhaserStoreAdapter(store).advanceCase(transition);
+    expect(actions).toHaveLength(1);
+    return actions[0]!;
+};
+
+const revisitDispatched = (transition: RevisitTransitionId): AppAction => {
+    const { store, actions } = recordingStore();
+    createPhaserStoreAdapter(store).revisitCase(transition);
     expect(actions).toHaveLength(1);
     return actions[0]!;
 };
@@ -107,5 +115,17 @@ describe('the adapter dispatcher for each forward transition', () => {
         const result = createPhaserStoreAdapter(store).advanceCase('debrief-replay');
 
         expect(result.ok).toBe(false);
+    });
+});
+
+describe('the adapter dispatcher for authored revisits', () => {
+    it('returns from the laboratory to the first meeting', () => {
+        expect(revisitDispatched('experiment-to-prediction'))
+            .toEqual({ type: 'case.phaseRetreat', previousPhase: 'prediction' });
+    });
+
+    it('returns from either theory-board phase to the laboratory', () => {
+        expect(revisitDispatched('theory-board-to-experiment'))
+            .toEqual({ type: 'case.phaseRetreat', previousPhase: 'experiment' });
     });
 });

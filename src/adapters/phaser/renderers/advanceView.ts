@@ -69,6 +69,21 @@ export const ADVANCE_TRANSITION_BY_PHASE: Readonly<Record<CasePhase, AdvanceTran
  */
 export const advanceTransitionForPhase = (phase: CasePhase): AdvanceTransition => ADVANCE_TRANSITION_BY_PHASE[phase];
 
+export type RevisitTransition = Readonly<{
+    transition: 'experiment-to-prediction' | 'theory-board-to-experiment';
+    labelKey: TranslationKey;
+}>;
+
+const REVISIT_TRANSITION_BY_PHASE: Readonly<Partial<Record<CasePhase, RevisitTransition>>> = Object.freeze({
+    experiment: { transition: 'experiment-to-prediction', labelKey: 'revisit.toColleagues' },
+    synthesis: { transition: 'theory-board-to-experiment', labelKey: 'revisit.toBench' },
+    review: { transition: 'theory-board-to-experiment', labelKey: 'revisit.toBench' }
+});
+
+/** The optional return move from the live phase; other phases remain one-way by design. */
+export const revisitTransitionForPhase = (phase: CasePhase): RevisitTransition | undefined =>
+    REVISIT_TRANSITION_BY_PHASE[phase];
+
 /** Which of the two answers a refusal gets (AC4). They are not interchangeable. */
 export type RefusalRegister = 'gate' | 'error';
 

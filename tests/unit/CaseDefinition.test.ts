@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { loadCaseDefinition } from '../../src/adapters/content/loadCaseDefinition';
 import type { CaseDefinition, LocalizedText, LocalizedTextList, TextualRendition } from '../../src/domain/cases/CaseDefinition';
 import { CASE_PHASES, createInitialCaseProgress } from '../../src/domain/cases/CaseProgress';
-import { advanceCasePhase, resetCaseProgress } from '../../src/domain/cases/caseReducer';
+import { advanceCasePhase, resetCaseProgress, retreatCasePhase } from '../../src/domain/cases/caseReducer';
 import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
 
 /** Fixture helpers: every localizable authored string must carry both shipped locales. */
@@ -1399,5 +1399,23 @@ describe('caseReducer', () => {
         ['debrief', 'debrief']
     ] as const)('rejects invalid %s → %s transitions', (phase, nextPhase) => {
         expect(advanceCasePhase({ definition: validYoungCase, phase }, nextPhase)).toMatchObject({ ok: false, error: { code: 'invalid-case-transition' } });
+    });
+
+    it.each([
+        ['experiment', 'prediction'],
+        ['synthesis', 'experiment'],
+        ['review', 'experiment']
+    ] as const)('allows the authored revisit from %s to %s without changing the definition', (phase, previousPhase) => {
+        expect(retreatCasePhase({ definition: validYoungCase, phase }, previousPhase))
+            .toEqual({ ok: true, value: { definition: validYoungCase, phase: previousPhase } });
+    });
+
+    it.each([
+        ['prediction', 'context'],
+        ['synthesis', 'prediction'],
+        ['debrief', 'review']
+    ] as const)('rejects an unsupported revisit from %s to %s', (phase, previousPhase) => {
+        expect(retreatCasePhase({ definition: validYoungCase, phase }, previousPhase))
+            .toMatchObject({ ok: false, error: { code: 'invalid-case-retreat' } });
     });
 });

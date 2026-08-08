@@ -3,7 +3,7 @@ import { DEFAULT_LOCALE, type Locale } from '../i18n/Locale';
 import { normalizeControlValue } from '../../domain/apparatus/ApparatusControl';
 import { calculateYoungFringeSpacing } from '../../domain/apparatus/calculateYoungFringeSpacing';
 import { isSourceEligibleForInspection, type CaseDefinition, type PrimaryControl, type WavelengthMode } from '../../domain/cases/CaseDefinition';
-import { advanceCasePhase } from '../../domain/cases/caseReducer';
+import { advanceCasePhase, retreatCasePhase } from '../../domain/cases/caseReducer';
 import { evaluateContextReadiness, evaluatePredictionReadiness } from '../../domain/cases/contextPredictionReadiness';
 import type { CasePhase } from '../../domain/cases/CaseProgress';
 import { createRunRecord, type RunRecord } from '../../domain/evidence/RunRecord';
@@ -596,6 +596,15 @@ const reduceCasePhaseAdvance = (state: AppState, nextPhase: CasePhase): Result<A
     return { ok: true, value: freezeState({ ...state, phase: transition.value.phase, rivalLabCritique: undefined }) };
 };
 
+const reduceCasePhaseRetreat = (state: AppState, previousPhase: CasePhase): Result<AppState> => {
+    if (state.rivalLabCritique) {
+        return failure('rival-lab-revision-required', 'Answer the rival laboratory before returning to the investigation.');
+    }
+    const transition = retreatCasePhase({ definition: state.caseDefinition, phase: state.phase }, previousPhase);
+    if (!transition.ok) return transition;
+    return { ok: true, value: freezeState({ ...state, phase: transition.value.phase }) };
+};
+
 const reduceTheoryReviewRequest = (state: AppState): Result<AppState> => {
     const readiness = evaluateConclusionReadiness(state.caseDefinition, {
         runs: state.runs,
@@ -848,6 +857,8 @@ export const reduceAppState = (state: AppState, action: AppAction): Result<AppSt
             return reduceRevisionSave(state, action.timestamp);
         case 'case.phaseAdvance':
             return reduceCasePhaseAdvance(state, action.nextPhase);
+        case 'case.phaseRetreat':
+            return reduceCasePhaseRetreat(state, action.previousPhase);
         case 'case.debriefCompleted':
             return reduceDebriefComplete(state, action.timestamp);
         case 'case.replayStarted':

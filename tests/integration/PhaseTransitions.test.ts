@@ -9,6 +9,7 @@ import { createStore, type AppStore } from '../../src/core/store/createStore';
 import {
     selectCasePhase,
     selectCompletionSnapshot,
+    selectControlValue,
     selectLocalizedError,
     selectNotebookObservations,
     selectReplayState
@@ -70,6 +71,45 @@ const saveReviewedRevision = (store: AppStore): void => {
 };
 
 describe('the six forward transitions, taken through the adapter', () => {
+    it('returns from the theory board to the laboratory without discarding recorded work', () => {
+        const store = createStore(createInitialAppState(definition));
+        sourceIds().forEach((sourceId) => store.dispatch({ type: 'source.inspected', sourceId }));
+        advance(store);
+        store.dispatch({ type: 'prediction.proposalChosen', proposalId: definition.predictionProposals[0]!.id });
+        advance(store);
+        store.dispatch({ type: 'experiment.run', id: 'run-to-keep', timestamp: '2026-08-08T10:00:00.000Z' });
+        store.dispatch({ type: 'apparatus.controlSet', controlId: 'screenDistanceM', value: 3, origin: 'phaser' });
+        store.dispatch({ type: 'experiment.run', id: 'run-to-compare', timestamp: '2026-08-08T10:01:00.000Z' });
+        store.dispatch({ type: 'comparison.runSelected', runId: 'run-to-keep' });
+        store.dispatch({ type: 'comparison.runSelected', runId: 'run-to-compare' });
+        store.dispatch({ type: 'comparison.noteSaved', note: 'The two recorded spacings differ.' });
+        advance(store);
+
+        const returned = store.dispatch({ type: 'case.phaseRetreat', previousPhase: 'experiment' });
+
+        expect(returned.ok).toBe(true);
+        expect(selectCasePhase(store.getState())).toBe('experiment');
+        expect(selectNotebookObservations(store.getState()).map(({ id }) => id)).toEqual(['run-to-keep', 'run-to-compare']);
+        expect(selectControlValue(store.getState(), 'screenDistanceM')).toBe(3);
+        expect(store.getState().comparison).toEqual({
+            selectedRunIds: ['run-to-keep', 'run-to-compare'],
+            notes: [{ runIds: ['run-to-keep', 'run-to-compare'], text: 'The two recorded spacings differ.' }]
+        });
+    });
+
+    it('rejects an unsupported retreat without changing state or notifying subscribers', () => {
+        const store = createStore(createInitialAppState(definition));
+        let notifications = 0;
+        store.subscribe(() => { notifications += 1; });
+        const before = store.getState();
+
+        const result = store.dispatch({ type: 'case.phaseRetreat', previousPhase: 'experiment' });
+
+        expect(result.ok === false && result.error.code).toBe('invalid-case-retreat');
+        expect(store.getState()).toBe(before);
+        expect(notifications).toBe(0);
+    });
+
     it('walks context → prediction → experiment → synthesis → review → debrief, then replays', () => {
         const store = createStore(createInitialAppState(definition));
 

@@ -140,6 +140,12 @@ export type CasePhaseAdvanceAction = Readonly<{
     nextPhase: CasePhase;
 }>;
 
+/** Revisit one of the authored earlier workspaces without resetting the case record. */
+export type CasePhaseRetreatAction = Readonly<{
+    type: 'case.phaseRetreat';
+    previousPhase: CasePhase;
+}>;
+
 export type CaseDebriefCompleteAction = Readonly<{
     type: 'case.debriefCompleted';
     timestamp: string;
@@ -171,5 +177,6 @@ export type AppAction = ApparatusControlSetAction
     | PeerReviewRequestAction
     | RevisionSaveAction
     | CasePhaseAdvanceAction
+    | CasePhaseRetreatAction
     | CaseDebriefCompleteAction
     | CaseReplayStartAction;

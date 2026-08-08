@@ -12,7 +12,7 @@ import {
     PROPOSAL_MARKER_GUTTER,
     type ProposalChoiceGutters
 } from '../ui/ProposalChoice';
-import { advanceTransitionForPhase, resolveAdvanceRefusal } from './advanceView';
+import { advanceTransitionForPhase, revisitTransitionForPhase, resolveAdvanceRefusal } from './advanceView';
 import { CharacterStage } from './CharacterStage';
 import { presentColleagueIds, type StageCastMember } from './characterStageView';
 import { caseAssetTextureKey } from '../preloadCaseAssets';
@@ -99,6 +99,7 @@ const GUIDE_TO_CARDS_GAP = 8;
 export const SUBMIT_WIDTH = 232;
 export const SUBMIT_HEIGHT = 34;
 const SUBMIT_GAP = 16;
+const REVISIT_WIDTH = 176;
 const SUBMIT_LABEL_PADDING = 10;
 const SUBMIT_FILL = 0x1d4451;
 
@@ -170,10 +171,19 @@ const caseFileControlBounds = (): Readonly<{ x: number; y: number; width: number
     height: CASE_FILE_CONTROL_HEIGHT
 });
 
+const revisitControlBounds = (): Readonly<{ x: number; y: number; width: number }> => ({
+    x: BOARD_CONTROL_LEFT - SUBMIT_GAP - REVISIT_WIDTH,
+    y: HEADING_Y,
+    width: REVISIT_WIDTH
+});
+
 export const caseFileOpenControlCentre = (): Readonly<{ x: number; y: number }> => {
     const { x, y, width, height } = caseFileControlBounds();
     return { x: x + (width / 2), y: y + (height / 2) };
 };
+
+export const revisitControlCentreOnBoard = (): Readonly<{ x: number; y: number }> =>
+    advanceControlCentre(revisitControlBounds());
 
 /**
  * Which board this renderer is, and — on the conclusion board — how it opens its case file.
@@ -553,6 +563,7 @@ export class ColleagueRenderer {
     private inputEnabled = true;
     /** Story 2.7: the way on from this board, whichever phase it is currently hosting. */
     private advanceControl?: AdvanceControl;
+    private revisitControl?: AdvanceControl;
     /** Story 2.9: the colleagues, full-length, standing in the room above the cards. */
     private characterStage?: CharacterStage;
     /** The room itself. Painted once, reads nothing, never repaints. */
@@ -620,7 +631,7 @@ export class ColleagueRenderer {
         // language can change at any time, so every string comes from the store subscription.
         // Both boards give the right of their top rows to the control column, so the heading and the
         // guide wrap against the space that is actually left rather than running underneath it.
-        this.heading = this.scene.add.text(CARD_LEFT, HEADING_Y, '', uiTextStyle({ color: '#f7f4ef', fontSize: '25px', wordWrap: { width: BOARD_TEXT_WRAP } }));
+        this.heading = this.scene.add.text(CARD_LEFT, HEADING_Y, '', uiTextStyle({ color: '#f7f4ef', fontSize: '25px', wordWrap: { width: BOARD_TEXT_WRAP - REVISIT_WIDTH - SUBMIT_GAP } }));
         // Placed with the cards rather than with the chrome (Story 2.9, design revision). It is the
         // slot a refused click is answered in, so it belongs beside the thing that was clicked — and
         // moving it out of the top stack is part of what bought the room its height. It wraps against
@@ -676,6 +687,13 @@ export class ColleagueRenderer {
             onAdvance: () => this.requestAdvance()
         });
         this.advanceControl.create();
+        if (this.board.kind === 'conclusion') {
+            this.revisitControl = new AdvanceControl(this.scene, {
+                ...revisitControlBounds(),
+                onAdvance: () => this.requestRevisit()
+            });
+            this.revisitControl.create();
+        }
 
         this.dialogueBox = new DialogueBox(this.scene, {
             x: CARD_LEFT,
@@ -745,6 +763,8 @@ export class ColleagueRenderer {
         // Its readiness stays `true` — the store decides on the click, and a board control that
         // guessed would be holding an opinion about a conclusion (ADR-006).
         this.advanceControl?.render({ label: t(advanceTransitionForPhase(selectCasePhase(state)).labelKey), isReady: true });
+        const revisit = revisitTransitionForPhase(selectCasePhase(state));
+        this.revisitControl?.render({ label: revisit ? t(revisit.labelKey) : '', isReady: revisit !== undefined });
 
         // The guide is placed with the cards in `layoutAndRenderCards`, against their measured top —
         // not here, and not against the heading. It moved out of the top stack so the room could have
@@ -770,6 +790,8 @@ export class ColleagueRenderer {
         this.dialogueBox = undefined;
         this.advanceControl?.destroy();
         this.advanceControl = undefined;
+        this.revisitControl?.destroy();
+        this.revisitControl = undefined;
         this.characterStage?.destroy();
         this.characterStage = undefined;
         this.decor?.destroy();
@@ -1006,6 +1028,16 @@ export class ColleagueRenderer {
         this.render(current);
     }
 
+    private requestRevisit(): void {
+        const revisit = revisitTransitionForPhase(selectCasePhase(this.storeAdapter.getState()));
+        if (!revisit) return;
+        const result = this.storeAdapter.revisitCase(revisit.transition);
+        if (result.ok) return;
+        const current = this.storeAdapter.getState();
+        this.transientGuide.set({ text: selectLocalizedError(current, result.error), tone: 'error' }, current);
+        this.render(current);
+    }
+
     /**
      * The dialogue panel's top edge: below the guide line's *measured* bottom, and never above
      * {@link DIALOGUE_TOP}.
@@ -1102,6 +1134,7 @@ export class ColleagueRenderer {
         this.cards.forEach(({ choice }) => choice.setInputEnabled(enabled));
         this.dialogueBox?.setInputEnabled(enabled);
         this.advanceControl?.setInputEnabled(enabled);
+        this.revisitControl?.setInputEnabled(enabled);
         if (enabled) {
             this.submitControl?.setInteractive({ useHandCursor: true });
             this.caseFileControl?.setInteractive({ useHandCursor: true });

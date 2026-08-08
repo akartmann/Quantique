@@ -77,6 +77,8 @@ export {
  * measured and grows upward from the floor.
  */
 export const ADVANCE_CONTROL_Y = 360;
+/** The revisit sits under the forward move and above the reference shelf. */
+export const REVISIT_CONTROL_Y = ADVANCE_CONTROL_Y + ADVANCE_CONTROL_HEIGHT + 8;
 /** The laboratory's control fills the column, so its label bound is wider than the widget's default. */
 export const ADVANCE_CONTROL_LABEL_WRAP = advanceControlLabelWrap(SIDE_COLUMN_WIDTH);
 
@@ -107,7 +109,7 @@ export const REFERENCE_CONTROL_PADDING = 10;
 export const REFERENCE_CONTROL_GAP = 8;
 
 /** Where the reference shelf's heading sits: under the way out, never over the apparatus above it. */
-export const REFERENCE_HEADING_Y = ADVANCE_CONTROL_Y + ADVANCE_CONTROL_HEIGHT + REFERENCE_HEADING_GAP;
+export const REFERENCE_HEADING_Y = REVISIT_CONTROL_Y + ADVANCE_CONTROL_HEIGHT + REFERENCE_HEADING_GAP;
 
 /** The bound a reference label wraps to, derived from the column rather than restated. */
 export const REFERENCE_CONTROL_LABEL_WRAP = SIDE_COLUMN_WIDTH - (2 * REFERENCE_CONTROL_PADDING);
@@ -153,6 +155,9 @@ export const HINT_TEXT_WRAP = SIDE_COLUMN_WIDTH - (2 * HINT_PADDING);
  */
 export const advanceToSynthesisControlCentre = (): Readonly<{ x: number; y: number }> =>
     advanceControlCentre({ x: SIDE_COLUMN_LEFT, y: ADVANCE_CONTROL_Y, width: SIDE_COLUMN_WIDTH });
+
+export const revisitToPredictionControlCentre = (): Readonly<{ x: number; y: number }> =>
+    advanceControlCentre({ x: SIDE_COLUMN_LEFT, y: REVISIT_CONTROL_Y, width: SIDE_COLUMN_WIDTH });
 
 // ================================================================================================
 // The bench (Story 2.10)

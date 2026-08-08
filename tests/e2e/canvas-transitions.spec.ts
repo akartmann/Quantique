@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test';
 
 import { libraryAdvanceControlCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
 import { debriefAdvanceControlCentre } from '../../src/adapters/phaser/scenes/debriefGeometry';
+import { revisitToPredictionControlCentre } from '../../src/adapters/phaser/renderers/apparatusGeometry';
+import { revisitControlCentreOnBoard } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { en } from '../../src/core/i18n/locales/en';
 import {
     DESIGN_HEIGHT,
@@ -10,7 +12,8 @@ import {
     clickDesign,
     expectActiveScene,
     recordedObservations,
-    walkToDebrief
+    walkToDebrief,
+    walkToTheBoard
 } from './canvasHelpers';
 
 /**
@@ -131,6 +134,16 @@ test('refuses a transition the evidence has not earned, and stays where it was',
     await clickDesign(page, LEAVE_THE_ROOM);
 
     await expectActiveScene(page, 'Library');
+});
+
+test('lets the player revisit the bench and first meeting from the canvas', async ({ page }) => {
+    await walkToTheBoard(page);
+
+    await clickDesign(page, revisitControlCentreOnBoard());
+    await expectActiveScene(page, 'Laboratory');
+
+    await clickDesign(page, revisitToPredictionControlCentre());
+    await expectActiveScene(page, 'Colleagues');
 });
 
 /*

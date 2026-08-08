@@ -86,6 +86,10 @@ export const fr: Record<TranslationKey, string> = {
     'advance.toReviewers': 'Vers vos relecteurs',
     'advance.closeTheCase': 'Clore l’enquête',
     'advance.replay': 'Enquêter à nouveau',
+    'revisit.toColleagues': 'Revoir vos collègues',
+    'revisit.toBench': 'Retourner à la paillasse',
+    'revisit.back': 'Retour',
+    'error.rival-lab-revision-required': 'Répondez au laboratoire rival avant de revenir à l’enquête.',
 
     // --- The reading room (Story 2.8) ------------------------------------------------------------
     // See `en.ts` for what belongs here and what belongs in `case.json`.
