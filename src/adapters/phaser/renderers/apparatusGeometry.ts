@@ -310,7 +310,7 @@ export const wavelengthChoiceCentre = (index: number): Readonly<{ x: number; y: 
 export const BENCH_CONTROL_ROW_Y = 704;
 export const BENCH_CONTROL_HEIGHT = 50;
 export const BENCH_CONTROL_FONT_SIZE = 15;
-export const BENCH_CONTROL_PADDING = 12;
+export const BENCH_CONTROL_PADDING = 8;
 export const BENCH_CONTROL_GAP = 16;
 export const BENCH_CONTROL_COUNT = 3;
 /** The row divides the bench evenly, so the three controls end exactly on {@link BENCH_RIGHT}. */

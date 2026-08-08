@@ -87,6 +87,9 @@ test('reads both references and leaves the room, without touching a DOM control'
 });
 
 test('re-opens a reference already on the record, without refusing it', async ({ page }) => {
+    // GitHub's serialized Chromium walk completes legitimately just over the default 30-second budget.
+    // The assertions still require the book's suppression and a real scene transition.
+    test.setTimeout(45_000);
     await page.goto('/');
     await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
@@ -120,6 +123,8 @@ test('re-opens a reference already on the record, without refusing it', async ({
 });
 
 test('reveals and dismisses the reference summary from the book itself', async ({ page }) => {
+    // This full reading-room walk has the same valid serialized-run budget as the re-opened-book path.
+    test.setTimeout(45_000);
     // Re-pointed from `curated-record.spec.ts`, which drove this through the retired DOM panel and
     // ended on a DOM assertion that genuinely proved the book was still open.
     //

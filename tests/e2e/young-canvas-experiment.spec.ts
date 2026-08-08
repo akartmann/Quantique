@@ -233,6 +233,8 @@ test('steps the instrument with its discrete affordance to the same effect as a 
 });
 
 test('compares two observations and saves a note, all from the bench notebook', async ({ page }) => {
+    // Two measured runs plus a canvas notebook interaction exceed the default budget on GitHub runners.
+    test.setTimeout(45_000);
     await walkToTheBench(page);
     await startTheLightUntilRecorded(page, START, 1);
     await turnTheThrowToTheFarEnd(page);
