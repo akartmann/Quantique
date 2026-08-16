@@ -130,6 +130,9 @@ const seedSavedProgressOnNormalRoute = async (page: Page): Promise<string> => {
 };
 
 test('runs an isolated Young validation session that leaves the saved learner record byte-for-byte untouched', async ({ page }) => {
+    // This test deliberately completes a normal route, a validation route, then a normal-route restore.
+    // That complete isolation proof can exceed Playwright's 30-second default on a serialized CI runner.
+    test.setTimeout(60_000);
     const seeded = await seedSavedProgressOnNormalRoute(page);
 
     await page.goto(`/?mode=validation`);

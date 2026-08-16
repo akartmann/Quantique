@@ -190,6 +190,9 @@ const turnTheThrowToTheFarEnd = (page: import('@playwright/test').Page): Promise
     );
 
 test('records two significant Young measurements from the canvas alone, and opens the gate with them', async ({ page }) => {
+    // A full canvas walk, two timed observations, and a drag leave too little room for the default budget
+    // on a serialized CI runner; the bounded record and transition assertions remain the pass condition.
+    test.setTimeout(60_000);
     await walkToTheBench(page);
     await expect(recordedObservations(page)).toHaveCount(0);
 
