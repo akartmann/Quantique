@@ -95,7 +95,7 @@ const authoredControl = (id: string) => {
 };
 
 /** What the **settings** section shows, which is `selectFormattedControlValue`'s own formatting. */
-const settingReadoutFor = (id: string, pick: (control: { max: number; defaultValue: number }) => number): string => {
+const settingReadoutFor = (id: string, pick: (control: { max: number; defaultValue: number; step: number }) => number): string => {
     const control = authoredControl(id);
     return formatMeasurement('en', pick(control), decimalPlaces(control.step), control.unit);
 };
@@ -124,6 +124,7 @@ if (SCREEN_DISTANCE_SLOT < 0) throw new Error('The authored case must carry a sc
 const SCREEN_DISTANCE_LABEL = caseDefinition.apparatus.primaryControls[SCREEN_DISTANCE_SLOT]!.label.en;
 const FURTHEST_THROW_READOUT = settingReadoutFor('screenDistanceM', ({ max }) => max);
 const DEFAULT_THROW_READOUT = settingReadoutFor('screenDistanceM', ({ defaultValue }) => defaultValue);
+const STEPPED_THROW_READOUT = settingReadoutFor('screenDistanceM', ({ defaultValue, step }) => defaultValue + step);
 const RECORDED_DEFAULT_THROW = recordedReadoutFor('screenDistanceM', ({ defaultValue }) => defaultValue);
 const RECORDED_DEFAULT_SPACING = recordedReadoutFor('slitSpacingMm', ({ defaultValue }) => defaultValue);
 
@@ -189,6 +190,14 @@ const turnTheThrowToTheFarEnd = (page: import('@playwright/test').Page): Promise
         }
     );
 
+/** Steps the screen distance once and proves the bench applied that authored value before continuing. */
+const stepTheThrowUntilRecorded = async (page: import('@playwright/test').Page): Promise<void> => {
+    await expect(async () => {
+        await clickDesign(page, stepAffordanceCentre(SCREEN_DISTANCE_SLOT, 1));
+        await expect(recordedSetting(page, SCREEN_DISTANCE_LABEL)).toHaveText(STEPPED_THROW_READOUT, { timeout: 1_500 });
+    }).toPass({ timeout: 15_000, intervals: [150, 300, 600, 900] });
+};
+
 test('records two significant Young measurements from the canvas alone, and opens the gate with them', async ({ page }) => {
     // A full canvas walk, two timed observations, and a drag leave too little room for the default budget
     // on a serialized CI runner; the bounded record and transition assertions remain the pass condition.
@@ -218,16 +227,14 @@ test('records two significant Young measurements from the canvas alone, and open
 });
 
 test('steps the instrument with its discrete affordance to the same effect as a drag', async ({ page }) => {
+    test.setTimeout(45_000);
     await walkToTheBench(page);
 
     await startTheLightUntilRecorded(page, START, 1);
 
-    // Four presses of the increase affordance, which is a different input path to the drag above and
-    // must reach the same record. The count is arbitrary; what matters is that the setting moves.
-    for (let press = 0; press < 4; press += 1) {
-        await clickDesign(page, stepAffordanceCentre(SCREEN_DISTANCE_SLOT, 1));
-        await waitForInputToSettle(page);
-    }
+    // The discrete affordance is a different input path to the drag above. Retry the press until the
+    // printable record observes its authored next value, so a dropped CI pointer event fails here.
+    await stepTheThrowUntilRecorded(page);
 
     await startTheLightUntilRecorded(page, START, 2);
 
