@@ -78,6 +78,20 @@ type FakeImage = {
     destroy: () => void;
 };
 
+type FakeRectangle = {
+    x: number; y: number; width: number; height: number; scale: number; visible: boolean; interactive: boolean; destroyed: boolean;
+    setOrigin: () => FakeRectangle;
+    setPosition: (x: number, y: number) => FakeRectangle;
+    setSize: (width: number, height: number) => FakeRectangle;
+    setScale: (scale: number) => FakeRectangle;
+    setVisible: (value: boolean) => FakeRectangle;
+    setInteractive: () => FakeRectangle;
+    disableInteractive: () => FakeRectangle;
+    on: (_event: string, handler: () => void) => FakeRectangle;
+    trigger: () => void;
+    destroy: () => void;
+};
+
 type TweenConfig = { targets: unknown; x?: number; y?: number; scale?: number; alpha?: number; duration?: number };
 
 /** Coordinates to the nearest pixel: sub-pixel drift is not a difference anyone can see. */
@@ -131,6 +145,24 @@ const makeImage = (textureKey: string): FakeImage => {
     return self;
 };
 
+const makeRectangle = (): FakeRectangle => {
+    let handler: (() => void) | undefined;
+    const self: FakeRectangle = {
+        x: 0, y: 0, width: 1, height: 1, scale: 1, visible: true, interactive: false, destroyed: false,
+        setOrigin: () => self,
+        setPosition: (x, y) => { self.x = x; self.y = y; return self; },
+        setSize: (width, height) => { self.width = width; self.height = height; return self; },
+        setScale: (scale) => { self.scale = scale; return self; },
+        setVisible: (value) => { self.visible = value; return self; },
+        setInteractive: () => { self.interactive = true; return self; },
+        disableInteractive: () => { self.interactive = false; return self; },
+        on: (_event, next) => { handler = next; return self; },
+        trigger: () => { if (self.interactive) handler?.(); },
+        destroy: () => { self.destroyed = true; }
+    };
+    return self;
+};
+
 const CAST: readonly StageCastMember[] = [
     { colleagueId: 'thea-young', accentColor: 0xc9a227, name: 'Dr. Thea Young', roleLabel: 'Lead' },
     { colleagueId: 'elias-wren', accentColor: 0x4f8a8b, name: 'Elias Wren', roleLabel: 'Instrument maker' }
@@ -156,11 +188,14 @@ let prefersReduce = false;
 
 const mount = (
     build: 'colleague' | 'rival' = 'colleague',
-    loadedTextureKeys: readonly string[] = []
+    loadedTextureKeys: readonly string[] = [],
+    activateDirectly = false
 ) => {
     const graphics: FakeGraphics[] = [];
     const images: FakeImage[] = [];
     const texts: FakeText[] = [];
+    const rectangles: FakeRectangle[] = [];
+    const activated: string[] = [];
     const tweens: TweenConfig[] = [];
     const killed: unknown[] = [];
 
@@ -172,7 +207,8 @@ const mount = (
                 images.push(sprite);
                 return sprite;
             },
-            text: (_x: number, _y: number, content: string) => { const text = makeText(content); texts.push(text); return text; }
+            text: (_x: number, _y: number, content: string) => { const text = makeText(content); texts.push(text); return text; },
+            rectangle: () => { const rectangle = makeRectangle(); rectangles.push(rectangle); return rectangle; }
         },
         textures: {
             exists: (textureKey: string) => loadedTextureKeys.includes(textureKey)
@@ -186,10 +222,13 @@ const mount = (
     // **No `maxFigure`, deliberately** — `build` alone must settle the rival's proportions. Passing it
     // here would let the class lose its own default and the suite would never notice, which is half of
     // how the rival came to be drawn at 24% of his space in the first place.
-    const subject = new CharacterStage(scene, { build });
+    const subject = new CharacterStage(scene, {
+        build,
+        onColleagueActivate: activateDirectly ? (colleagueId) => activated.push(colleagueId) : undefined
+    });
     // Creation order per figure: visual, name, role, badge.
     return {
-        stage: subject, graphics, images, texts, tweens, killed,
+        stage: subject, graphics, images, texts, rectangles, activated, tweens, killed,
         name: (i: number) => texts[i * 3]!,
         role: (i: number) => texts[(i * 3) + 1]!,
         badge: (i: number) => texts[(i * 3) + 2]!
@@ -293,11 +332,30 @@ describe('CharacterStage staging', () => {
         portraitTextureKey
     }];
 
+    it('activates only opt-in visible colleagues, follows their footprint, and releases the targets', () => {
+        prefersReduce = true;
+        const ui = mount('colleague', [], true);
+        ui.stage.create(CAST);
+        ui.stage.render(stage());
+
+        expect(ui.rectangles).toHaveLength(CAST.length);
+        expect(ui.rectangles[0]).toMatchObject({ x: AREA.x + (AREA.width / 4), y: expect.any(Number), interactive: true });
+        ui.rectangles[0]!.trigger();
+        expect(ui.activated).toEqual(['thea-young']);
+
+        ui.stage.setInputEnabled(false);
+        ui.rectangles[1]!.trigger();
+        expect(ui.activated).toEqual(['thea-young']);
+
+        ui.stage.destroy();
+        expect(ui.rectangles.every(({ destroyed }) => destroyed)).toBe(true);
+    });
+
     it('creates a loaded portrait at its visible feet baseline with one uniform scale', () => {
         prefersReduce = true;
         const textureKey = 'case:young-interference:thea-young-portrait';
         const cast = portraitCast(textureKey);
-        const ui = mount('colleague', [textureKey]);
+        const ui = mount('colleague', [textureKey], true);
         ui.stage.create(cast);
 
         ui.stage.render(stage({ cast, speakerColleagueId: 'thea-young' }));
@@ -311,6 +369,8 @@ describe('CharacterStage staging', () => {
         // The visible subject is 680px high and the full-height colleague slot is 230px high. Canvas
         // padding must not make the person smaller, and independent x/y fitting must not stretch them.
         expect(ui.images[0]!.scaleX).toBeCloseTo(230 / 680, 10);
+        // The hit target follows the portrait's visible subject, not the narrower vector fallback.
+        expect(ui.rectangles[0]).toMatchObject({ width: 351, height: 680, scale: 230 / 680, interactive: true });
         expect(ui.images[0]!.y).toBe(resolveCharacterStage({
             cast, speakerColleagueId: 'thea-young', band: BAND, area: AREA, motionAllowed: false
         }).figures[0]!.y - SPEAKER_LIFT);
@@ -390,14 +450,14 @@ describe('CharacterStage staging', () => {
         expect(ui.images[1]!.visible).toBe(true);
     });
 
-    it('lifts the speaker clear of the floor line the others stand on', () => {
+    it('keeps the speaker on the shared floor line', () => {
         prefersReduce = true;
         const ui = mount();
         ui.stage.create(CAST);
 
         ui.stage.render(stage({ speakerColleagueId: 'elias-wren' }));
 
-        // Upward, so the speaker's `y` is the smaller of the two by exactly the lift.
+        // A foregrounded figure changes scale and emphasis, never its footing.
         expect(ui.graphics[0]!.y - ui.graphics[1]!.y).toBe(SPEAKER_LIFT);
     });
 

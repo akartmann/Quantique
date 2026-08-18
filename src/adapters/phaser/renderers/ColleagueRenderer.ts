@@ -14,7 +14,7 @@ import {
 } from '../ui/ProposalChoice';
 import { advanceTransitionForPhase, revisitTransitionForPhase, resolveAdvanceRefusal } from './advanceView';
 import { CharacterStage } from './CharacterStage';
-import { presentColleagueIds, type StageCastMember } from './characterStageView';
+import { figureLabelHeight, presentColleagueIds, type StageCastMember } from './characterStageView';
 import { caseAssetTextureKey } from '../preloadCaseAssets';
 import { resolveFigureAppearance, type FigureAppearance } from './figureAppearance';
 import { LaboratoryDecor } from './LaboratoryDecor';
@@ -36,8 +36,8 @@ import {
 import type { Colleague } from '../../../domain/cases/ColleagueCast';
 
 /**
- * The scene-facing consumer of the two reusable widgets: one {@link DialogueBox} above four
- * {@link ProposalChoice} cards, dispatching the player's choice.
+ * The scene-facing consumer of the two reusable widgets: one {@link DialogueBox} above a direct
+ * colleague stage and one optional {@link ProposalChoice} detail panel.
  *
  * What stays here is what is a *store* concern rather than a widget concern — the heading, the guide
  * line, the transient error on a refused click, and the localized projection lookups. What moved into
@@ -248,12 +248,12 @@ export const boardDialogueAdvanceControlCentre = (): Readonly<{ x: number; y: nu
  * transient error, so a three-line refusal message shared that budget (1.12 review).
  */
 export const DIALOGUE_TOP = 54;
-const CARD_GAP = 10;
 const CANVAS_BOTTOM_MARGIN = 16;
+const CARD_GAP = 10;
 
 /**
- * A design-space point that lies inside the **last** proposal card — for a browser test that needs to
- * click a card without restating the band as literals.
+ * A design-space point inside the one proposal detail panel. The panel is anchored to the canvas
+ * floor, so tests can derive the choice target without knowing which colleague opened it.
  *
  * Anchored to the canvas floor, which since the layout inverted is not merely convenient but exact: the
  * cards *are* anchored there now, so the last one always occupies the same rectangle whatever the beat
@@ -262,11 +262,20 @@ const CANVAS_BOTTOM_MARGIN = 16;
  * exactly that in `dialogue-advance.spec.ts`, under a comment asserting the cards divide the space
  * continuously — they do not, there are gaps between them).
  */
-export const lastProposalCardProbe = (
+export const proposalDetailPanelProbe = (
     canvasHeight: number
 ): Readonly<{ x: number; y: number }> => ({
     x: PROPOSAL_SURFACE_LEFT + (PROPOSAL_SURFACE_WIDTH / 2),
-    y: canvasHeight - CANVAS_BOTTOM_MARGIN - CARD_GAP - 4
+    y: canvasHeight - CANVAS_BOTTOM_MARGIN - 4
+});
+
+/** @deprecated Use {@link proposalDetailPanelProbe}; retained for downstream test imports. */
+export const lastProposalCardProbe = proposalDetailPanelProbe;
+
+/** A centre point in a colleague's full-length stage slot, after the dialogue has completed. */
+export const colleagueFigureProbe = (index: number, count: number = 4): Readonly<{ x: number; y: number }> => ({
+    x: PROPOSAL_SURFACE_LEFT + (PROPOSAL_SURFACE_WIDTH * ((index + 0.5) / Math.max(count, 1))),
+    y: 420
 });
 
 /**
@@ -330,7 +339,7 @@ export const lastProposalCardProbe = (
  * With the figures in the room rather than in the cards, `contentInset` and `markerGutter` are the
  * widget's defaults and the text wrap is **744px**.
  */
-export const PROPOSAL_CARD_HEIGHT = 84;
+export const PROPOSAL_CARD_HEIGHT = 116;
 export const proposalCardHeight = (_kind: ProposalKind): number => PROPOSAL_CARD_HEIGHT;
 
 /** Between the room's floor line and the guide line below it. */
@@ -543,6 +552,10 @@ type ProposalCard = Readonly<{ proposalId: string; choice: ProposalChoice }>;
 export class ColleagueRenderer {
     private readonly objects: Phaser.GameObjects.GameObject[] = [];
     private readonly cards: ProposalCard[] = [];
+    /** The one colleague currently being inspected; proposal adoption remains a separate action. */
+    private openedProposalId?: string;
+    /** A new board phase starts a new conversation and therefore closes any old proposal detail panel. */
+    private renderedPhase?: ReturnType<typeof selectCasePhase>;
     private heading?: Phaser.GameObjects.Text;
     private guide?: Phaser.GameObjects.Text;
     private dialogueBox?: DialogueBox;
@@ -701,54 +714,30 @@ export class ColleagueRenderer {
             width: DIALOGUE_PANEL_WIDTH,
             // Advancing changes the panel's measured height, so the cards below it have to move. It
             // dispatches nothing and touches no state: beat position is widget-local and ephemeral.
-            onAdvance: () => this.relayoutCards()
+            onAdvance: () => this.relayoutCards(),
+            // The last click does not count as an advance inside DialogueBox; it completes the
+            // conversation. Re-layout here is what hands the stage's direct controls to the player.
+            onComplete: () => this.relayoutCards()
         });
         this.dialogueBox.create();
 
-        const proposals = this.project(state);
-        const { top, height } = this.cardGeometry(proposals.length);
-        proposals.forEach((proposal, index) => {
-            const choice = new ProposalChoice(this.scene, {
-                x: CARD_LEFT,
-                y: top + (index * (height + CARD_GAP)),
-                width: CARD_WIDTH,
-                height,
-                accentColor: this.accentFor(state, proposal.proposalId),
-                ...PROPOSAL_CARD_GUTTERS,
-                // The conclusion board draws the chosen proposal's limitation in the guide slot
-                // instead — see {@link guideText}. Passed explicitly on both boards so the mode is a
-                // stated property of the surface rather than something a prediction card gets away
-                // with because it authors no limitation to suppress.
-                limitationMode: this.kind === 'conclusion' ? 'suppressed' : 'in-card',
-                onChoose: () => this.chooseProposal(proposal.proposalId)
-            });
-            choice.create();
-            this.cards.push({ proposalId: proposal.proposalId, choice });
+        // The direct figure affordance is owned by this board, not the reusable stage. Rival scenes
+        // omit the callback and keep their cast entirely inert.
+        this.characterStage = new CharacterStage(this.scene, {
+            build: 'colleague',
+            onColleagueActivate: (colleagueId) => this.openColleague(colleagueId)
         });
-
-        // **After the cards, deliberately.** Creation order is the only depth mechanism these
-        // renderers use, and the first pass of this layout created the stage first — which put every
-        // figure behind an opaque card background. The figures were resolved, positioned and tweened
-        // correctly the whole time and not one of them was visible. A screenshot at 1280×720 found
-        // that; no assertion in this suite could have.
-        //
-        // It is safe on top because the figures do not share space with the cards at all any more:
-        // they stand in the room *above* the card block ({@link proposalStageBand}), and the room's
-        // floor is derived from the same card geometry the cards are laid out from, so the two cannot
-        // disagree about where one ends and the other begins. Clicks are safe for a second, independent
-        // reason — Phaser hit-tests topmost-first among **interactive** objects only, and a figure is
-        // never made interactive (see `CharacterStage.create`), so an inert object over a card could
-        // not swallow its click even if the geometry did overlap.
-        //
-        // Like `advanceControl`, the stage owns its display objects and releases them itself, so it is
-        // deliberately **not** pushed onto `this.objects`.
-        this.characterStage = new CharacterStage(this.scene, { build: 'colleague' });
         this.characterStage.create(this.stageCast(state, createTranslator(selectLocale(state))));
 
         this.applyInputState();
     }
 
     public render(state: AppState): void {
+        const phase = selectCasePhase(state);
+        if (this.renderedPhase !== phase) {
+            this.renderedPhase = phase;
+            this.openedProposalId = undefined;
+        }
         const t = createTranslator(selectLocale(state));
         this.heading?.setText(t(this.kind === 'prediction' ? 'colleagues.heading' : 'theoryBoard.heading'));
         // Reading the slot is what spends it: the message survives every repaint of the state it was
@@ -803,6 +792,8 @@ export class ColleagueRenderer {
         this.submitLabel = undefined;
         this.caseFileControl = undefined;
         this.caseFileLabel = undefined;
+        this.openedProposalId = undefined;
+        this.renderedPhase = undefined;
         this.inputEnabled = true;
         this.transientGuide.clear();
     }
@@ -897,7 +888,12 @@ export class ColleagueRenderer {
     private paintRoomOnce(): void {
         if (this.roomPainted || !this.decor) return;
         const band = this.stageBand();
-        this.roomPainted = this.decor.create(this.scene.scale.width, band.top + band.height, band.top);
+        // `CharacterStage` reserves this exact plaque height below its shared foot line. Passing the
+        // band's lower edge instead made the painted floor continue through the labels, leaving every
+        // pair of feet suspended above the only line that read as ground. The decor needs the figure
+        // baseline, while the band still owns the label space beneath it.
+        const floorY = band.top + band.height - figureLabelHeight();
+        this.roomPainted = this.decor.create(this.scene.scale.width, floorY, band.top);
     }
 
     /**
@@ -911,7 +907,10 @@ export class ColleagueRenderer {
         return proposalStageBandBelowPanel(
             this.kind,
             this.scene.scale.height,
-            this.cards.length,
+            // Reserve the single detail panel's footprint even before it opens. That keeps the cast
+            // and painted floor stable when the player inspects a colleague rather than jumping them
+            // under the pointer; compared with four persistent cards it still returns most of the room.
+            1,
             this.dialogueBox?.getBottomY() ?? DIALOGUE_TOP
         );
     }
@@ -1068,26 +1067,45 @@ export class ColleagueRenderer {
      * not.
      */
     private cardGeometry(count: number): Readonly<{ top: number; height: number }> {
-        const cards = Math.max(count, 1);
+        const cards = Math.max(Math.min(count, 1), 1);
         const height = proposalCardHeight(this.kind);
         const block = (cards * height) + ((cards - 1) * CARD_GAP);
         return { top: this.scene.scale.height - CANVAS_BOTTOM_MARGIN - block, height };
     }
 
     private layoutAndRenderCards(state: AppState, t: Translator): void {
-        const { top, height } = this.cardGeometry(this.cards.length);
+        const { top, height } = this.cardGeometry(1);
         // Bottom-anchored to the cards' top, so a three-line French refusal grows upward into the room
         // instead of down over the first card.
         this.guide?.setY(top - GUIDE_TO_CARDS_GAP - (this.guide?.height ?? 0));
         const projections = new Map(this.project(state).map((proposal) => [proposal.proposalId, proposal]));
         const selectedId = this.selectedId(state);
 
-        this.cards.forEach((card, index) => {
-            const proposal = projections.get(card.proposalId);
-            if (!proposal) return;
-            card.choice.setBounds(top + (index * (height + CARD_GAP)), height);
-            card.choice.render(proposal, card.proposalId === selectedId, t);
-        });
+        const opened = this.openedProposalId === undefined ? undefined : projections.get(this.openedProposalId);
+        if (opened) {
+            const current = this.cards[0];
+            if (!current || current.proposalId !== opened.proposalId) {
+                current?.choice.destroy();
+                this.cards.length = 0;
+                const choice = new ProposalChoice(this.scene, {
+                    x: CARD_LEFT,
+                    y: top,
+                    width: CARD_WIDTH,
+                    height,
+                    accentColor: this.accentFor(state, opened.proposalId),
+                    ...PROPOSAL_CARD_GUTTERS,
+                    limitationMode: this.kind === 'conclusion' ? 'suppressed' : 'in-card',
+                    onChoose: () => this.chooseProposal(opened.proposalId)
+                });
+                choice.create();
+                this.cards.push({ proposalId: opened.proposalId, choice });
+            }
+            this.cards[0]?.choice.setBounds(top, height);
+            this.cards[0]?.choice.render(opened, opened.proposalId === selectedId, t);
+        } else {
+            this.cards.forEach(({ choice }) => choice.destroy());
+            this.cards.length = 0;
+        }
         // Re-staged in the same pass, from the same measured geometry, so the room and the cards can
         // never disagree about where the floor is.
         this.paintRoomOnce();
@@ -1095,6 +1113,19 @@ export class ColleagueRenderer {
         // A rebuilt card starts inert and would otherwise come back **live** under an open case file.
         // See {@link applyInputState}.
         this.applyInputState();
+    }
+
+    /** Opens the one compact proposal panel for a staged colleague, after the authored dialogue. */
+    private openColleague(colleagueId: string): void {
+        if (!this.inputEnabled || !this.dialogueBox?.isComplete()) return;
+        const authored = this.kind === 'prediction'
+            ? this.storeAdapter.getState().caseDefinition.predictionProposals
+            : this.storeAdapter.getState().caseDefinition.conclusionProposals;
+        const proposal = authored.find(({ colleagueId: authorId }) => authorId === colleagueId);
+        if (!proposal) return;
+        this.openedProposalId = proposal.id;
+        const state = this.storeAdapter.getState();
+        this.layoutAndRenderCards(state, createTranslator(selectLocale(state)));
     }
 
     /**
@@ -1131,7 +1162,9 @@ export class ColleagueRenderer {
      */
     private applyInputState(): void {
         const enabled = this.inputEnabled;
-        this.cards.forEach(({ choice }) => choice.setInputEnabled(enabled));
+        const canChoose = enabled && (this.dialogueBox?.isComplete() ?? false);
+        this.cards.forEach(({ choice }) => choice.setInputEnabled(canChoose));
+        this.characterStage?.setInputEnabled(canChoose);
         this.dialogueBox?.setInputEnabled(enabled);
         this.advanceControl?.setInputEnabled(enabled);
         this.revisitControl?.setInputEnabled(enabled);

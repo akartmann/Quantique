@@ -4,7 +4,6 @@ import { expect, test } from '@playwright/test';
 
 import {
     advanceControlCentreOnBoard,
-    lastProposalCardProbe,
     submitConclusionControlCentre
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
@@ -28,6 +27,7 @@ import {
     canvas,
     clickDesign,
     clickUntilScene,
+    chooseProposalThroughColleague,
     enterTheLaboratory,
     expectActiveScene,
     recordedObservations,
@@ -60,7 +60,6 @@ const SCREEN_DISTANCE_SLOT = (JSON.parse(
  * browser, with the French bundle demonstrably live.
  */
 
-const CARD = lastProposalCardProbe(DESIGN_HEIGHT);
 const SUBMIT = submitConclusionControlCentre();
 const REVISE = rivalLabReviseControlCentre(DESIGN_HEIGHT);
 const ADVANCE = advanceToSynthesisControlCentre();
@@ -110,7 +109,7 @@ const walkToTheoryBoardWithThinEvidence = async (
     }
     await clickUntilScene(page, libraryAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT), 'Colleagues');
 
-    await clickDesign(page, CARD);
+    await chooseProposalThroughColleague(page, 3);
     await clickDesign(page, advanceControlCentreOnBoard('prediction'));
     await expectActiveScene(page, 'Laboratory');
 
@@ -135,7 +134,7 @@ const walkToTheoryBoardWithThinEvidence = async (
 
 /** Choosing and submitting are separate acts by design: choosing is freely revisable and draws nothing. */
 const chooseAndSubmit = async (page: import('@playwright/test').Page): Promise<void> => {
-    await clickDesign(page, CARD);
+    await chooseProposalThroughColleague(page, 3);
     await clickDesign(page, SUBMIT);
 };
 
@@ -159,7 +158,7 @@ test('leaves the board alone until the conclusion is actually submitted', async 
     await walkToTheoryBoardWithThinEvidence(page, 'en');
 
     // Choosing on its own draws nothing — otherwise the choice would stop being freely revisable.
-    await clickDesign(page, CARD);
+    await chooseProposalThroughColleague(page, 3);
 
     await expectActiveScene(page, 'TheoryBoard');
 });

@@ -5,7 +5,8 @@ import {
     DIALOGUE_TOP,
     PROPOSAL_SURFACE_LEFT,
     boardDialogueAdvanceControlCentre,
-    lastProposalCardProbe
+    colleagueFigureProbe,
+    proposalDetailPanelProbe
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
 import { libraryAdvanceControlCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
@@ -72,7 +73,9 @@ const recordedPrediction = (page: import('@playwright/test').Page) =>
 const ADVANCE = boardDialogueAdvanceControlCentre();
 
 /** Inside the last card wherever the band starts. Derived, never a mid-surface guess — see the helper. */
-const CARD = lastProposalCardProbe(DESIGN_HEIGHT);
+const FIRST_COLLEAGUE = colleagueFigureProbe(0);
+const SECOND_COLLEAGUE = colleagueFigureProbe(1);
+const DETAIL = proposalDetailPanelProbe(DESIGN_HEIGHT);
 
 /**
  * A screenshot of just the dialogue panel's band, not the whole canvas.
@@ -138,19 +141,19 @@ test('advances the authored conversation on the canvas without touching the inve
     await expect(prediction).toHaveText(en['print.prediction.empty']);
 });
 
-test('keeps choosing a proposal working after the conversation has moved the cards', async ({ page }) => {
+test('opens one colleague proposal after the conversation completes, then chooses it', async ({ page }) => {
     await page.goto('/');
     await enterTheLaboratory(page);
 
     await reachTheColleagues(page);
 
-    // Advance first, so the cards have been re-laid-out at least once before anything is clicked.
-    await clickDesign(page, ADVANCE);
-
-    // Inside the last card, anchored to the canvas floor rather than guessed at mid-surface: the band's
-    // top moves with the beat being read, and the cards have gaps between them. The recorded prediction
-    // is the observable proof a card was hit.
-    await clickDesign(page, CARD);
+    // Conversation is authored in three beats. Only its completion hands the room to the direct
+    // colleague controls, so an early figure click cannot silently choose a proposal.
+    await clickDesign(page, FIRST_COLLEAGUE);
+    await expect(recordedPrediction(page)).toHaveText(en['print.prediction.empty']);
+    for (let beat = 0; beat < 4; beat += 1) await clickDesign(page, ADVANCE);
+    await clickDesign(page, FIRST_COLLEAGUE);
+    await clickDesign(page, DETAIL);
 
     const prediction = recordedPrediction(page);
     await expect(prediction).not.toHaveText(en['print.prediction.empty']);
@@ -160,5 +163,11 @@ test('keeps choosing a proposal working after the conversation has moved the car
         const definition = await response.json() as { predictionProposals: { text: { en: string } }[] };
         return definition.predictionProposals.map(({ text }) => text.en);
     });
-    expect(authored).toContain((await prediction.textContent())?.trim());
+    expect((await prediction.textContent())?.trim()).toBe(authored[0]);
+
+    // Opening another colleague replaces the one detail panel, and the original action remains
+    // revisable rather than being latched after the first choice.
+    await clickDesign(page, SECOND_COLLEAGUE);
+    await clickDesign(page, DETAIL);
+    await expect(prediction).toHaveText(authored[1]!);
 });

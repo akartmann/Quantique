@@ -7,7 +7,7 @@ import {
     caseFileSaveControlCentre,
     caseFileSourcePinCentre
 } from '../../src/adapters/phaser/renderers/caseFileGeometry';
-import { advanceControlCentreOnBoard, lastProposalCardProbe } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import { advanceControlCentreOnBoard } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { en } from '../../src/core/i18n/locales/en';
 import {
     ARTIFACT_COUNT,
@@ -16,6 +16,7 @@ import {
     WALK_TO_DEBRIEF_COST_MS,
     clickDesign,
     clickUntilScene,
+    chooseProposalThroughColleague,
     expectActiveScene,
     inTheCaseFile,
     walkToTheBoard,
@@ -62,7 +63,7 @@ test('pins support, asks a colleague, and takes the reviewed draft to the debrie
     });
 
     // --- the conclusion, and the support it rests on ------------------------------------------------
-    await clickDesign(page, lastProposalCardProbe(DESIGN_HEIGHT));
+    await chooseProposalThroughColleague(page, 3);
     await inTheCaseFile(page, async () => {
         for (let index = 0; index < 2; index += 1) {
             await clickDesign(page, caseFileObservationPinCentre(index, DESIGN_WIDTH));

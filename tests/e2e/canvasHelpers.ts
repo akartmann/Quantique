@@ -33,8 +33,10 @@ import {
 } from '../../src/adapters/phaser/renderers/caseFileGeometry';
 import {
     advanceControlCentreOnBoard,
+    boardDialogueAdvanceControlCentre,
     caseFileOpenControlCentre,
-    lastProposalCardProbe
+    colleagueFigureProbe,
+    proposalDetailPanelProbe
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { KNOB_ARC_END_RAD } from '../../src/adapters/phaser/renderers/instrumentView';
 import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
@@ -589,8 +591,25 @@ const readTheReferences = async (page: Page): Promise<void> => {
 };
 
 /** Chooses an attributed prediction and moves to the bench. `prediction → experiment`. */
+export const chooseProposalThroughColleague = async (
+    page: Page,
+    dialogueBeatCount: number,
+    colleagueIndex: number = 3
+): Promise<void> => {
+    // The last authored line needs one final acknowledgement click before `DialogueBox` marks the
+    // conversation complete and the colleague stage receives input.
+    for (let beat = 0; beat <= dialogueBeatCount; beat += 1) {
+        await clickDesign(page, boardDialogueAdvanceControlCentre());
+        await waitForInputToSettle(page);
+    }
+    await clickDesign(page, colleagueFigureProbe(colleagueIndex));
+    await waitForInputToSettle(page);
+    await clickDesign(page, proposalDetailPanelProbe(DESIGN_HEIGHT));
+};
+
+/** Chooses an attributed prediction and moves to the bench. `prediction → experiment`. */
 const chooseThePrediction = async (page: Page): Promise<void> => {
-    await clickDesign(page, lastProposalCardProbe(DESIGN_HEIGHT));
+    await chooseProposalThroughColleague(page, 3);
     // `clickUntilScene` for the reason {@link closeTheCase} gives about the *next* advance: choosing a
     // proposal relabels this control under the cursor, which starts `ADVANCE_RELABEL_LOCKOUT_MS`, and a
     // click at machine speed inside that window is correctly ignored. The window is wider wherever
@@ -655,7 +674,7 @@ export const inTheCaseFile = async (page: Page, act: () => Promise<void>): Promi
  * `board.getByRole('checkbox').check()` calls into a DOM panel Story 2.12 deletes.
  */
 const pinTheSupport = async (page: Page): Promise<void> => {
-    await clickDesign(page, lastProposalCardProbe(DESIGN_HEIGHT));
+    await chooseProposalThroughColleague(page, 3);
     await inTheCaseFile(page, async () => {
         for (let index = 0; index < 2; index += 1) {
             await clickDesign(page, caseFileObservationPinCentre(index, DESIGN_WIDTH));

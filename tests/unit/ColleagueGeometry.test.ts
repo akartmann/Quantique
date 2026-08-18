@@ -40,7 +40,9 @@ import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../../src/adapters/phaser/designSur
  * the renderer itself calls.
  */
 
-const CARD_COUNT = 4;
+const CAST_COUNT = 4;
+/** The direct-selection board reserves one detail panel, never four persistent proposal cards. */
+const PANEL_COUNT = 1;
 
 /**
  * The dialogue panel's measured bottom, from `DialogueBox`'s own layout:
@@ -59,8 +61,8 @@ const castOf = (size: number): readonly StageCastMember[] => Array.from({ length
 }));
 
 const stageAt = (kind: 'prediction' | 'conclusion', bodyLines: number) => resolveCharacterStage({
-    cast: castOf(CARD_COUNT),
-    band: proposalStageBandBelowPanel(kind, DESIGN_HEIGHT, CARD_COUNT, panelBottomFor(bodyLines)),
+    cast: castOf(CAST_COUNT),
+    band: proposalStageBandBelowPanel(kind, DESIGN_HEIGHT, PANEL_COUNT, panelBottomFor(bodyLines)),
     area: proposalStageArea(),
     motionAllowed: false
 });
@@ -75,7 +77,7 @@ describe('proposal board geometry', () => {
         const needed = MIN_LEGIBLE_FIGURE_HEIGHT + figureLabelHeight();
 
         (['prediction', 'conclusion'] as const).forEach((kind) => {
-            const band = proposalStageBand(kind, DESIGN_HEIGHT, CARD_COUNT);
+            const band = proposalStageBand(kind, DESIGN_HEIGHT, PANEL_COUNT);
             expect(band.height).toBeGreaterThan(needed);
         });
     });
@@ -91,7 +93,7 @@ describe('proposal board geometry', () => {
     ] as const)('stages the whole cast on the %s board with a %i-line beat', (kind, bodyLines) => {
         const view = stageAt(kind, bodyLines);
 
-        expect(view.figures).toHaveLength(CARD_COUNT);
+        expect(view.figures).toHaveLength(CAST_COUNT);
         view.figures.forEach((figure) => {
             expect(figure.height).toBeGreaterThanOrEqual(MIN_LEGIBLE_FIGURE_HEIGHT);
             expect(figure.width).toBeGreaterThan(0);
@@ -102,19 +104,18 @@ describe('proposal board geometry', () => {
         // Not a failure state — the documented trade. What matters is that it degrades to *nothing*
         // rather than to four dots with names under them, and that it takes an extreme beat to get
         // there rather than an ordinary one.
-        const view = stageAt('conclusion', 9);
+        const view = stageAt('conclusion', 24);
         expect(view.figures).toHaveLength(0);
     });
 
     it('never lets the room overlap the cards, at any beat length', () => {
         (['prediction', 'conclusion'] as const).forEach((kind) => {
-            const cardsTop = DESIGN_HEIGHT - 16
-                - ((CARD_COUNT * proposalCardHeight(kind)) + ((CARD_COUNT - 1) * 10));
+            const cardsTop = DESIGN_HEIGHT - 16 - proposalCardHeight(kind);
 
             [1, 2, 3, 5].forEach((bodyLines) => {
-                const band = proposalStageBandBelowPanel(kind, DESIGN_HEIGHT, CARD_COUNT, panelBottomFor(bodyLines));
+                const band = proposalStageBandBelowPanel(kind, DESIGN_HEIGHT, PANEL_COUNT, panelBottomFor(bodyLines));
                 const view = resolveCharacterStage({
-                    cast: castOf(CARD_COUNT),
+                    cast: castOf(CAST_COUNT),
                     band,
                     area: proposalStageArea(),
                     motionAllowed: false
@@ -149,13 +150,13 @@ describe('proposal board geometry', () => {
     it('keeps the room clear of the case-file control at the foot of the column', () => {
         const columnBottom = caseFileOpenControlCentre().y + (CASE_FILE_CONTROL_HEIGHT / 2);
         // A one-line beat: the shortest the panel ever is, so the column is the binding floor.
-        const band = proposalStageBandBelowPanel('conclusion', DESIGN_HEIGHT, CARD_COUNT, panelBottomFor(1));
+        const band = proposalStageBandBelowPanel('conclusion', DESIGN_HEIGHT, PANEL_COUNT, panelBottomFor(1));
 
         expect(band.top).toBeGreaterThanOrEqual(columnBottom);
         // And the room still exists at that floor — a column that ate the whole band would pass the
         // assertion above and stage nobody, which is the 2.9 defect wearing a different hat.
         expect(band.height).toBeGreaterThan(0);
-        expect(stageAt('conclusion', 1).figures).toHaveLength(CARD_COUNT);
+        expect(stageAt('conclusion', 1).figures).toHaveLength(CAST_COUNT);
     });
 
     /**
@@ -164,9 +165,8 @@ describe('proposal board geometry', () => {
      * boundary with zero slack, and a longer one across the plaques (2.9 review).
      */
     it('reserves enough below the room for a two-line guide and its gap', () => {
-        const band = proposalStageBand('conclusion', DESIGN_HEIGHT, CARD_COUNT);
-        const cardsTop = DESIGN_HEIGHT - 16
-            - ((CARD_COUNT * proposalCardHeight('conclusion')) + ((CARD_COUNT - 1) * 10));
+        const band = proposalStageBand('conclusion', DESIGN_HEIGHT, PANEL_COUNT);
+        const cardsTop = DESIGN_HEIGHT - 16 - proposalCardHeight('conclusion');
         const twoLineFrenchGuide = Math.round(2 * 15 * 1.3);
 
         expect(cardsTop - band.height).toBeGreaterThanOrEqual(twoLineFrenchGuide);

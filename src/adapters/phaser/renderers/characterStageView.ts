@@ -159,7 +159,7 @@ export const figureLabelHeight = (
  * Four states, because there are four things a figure can be doing, and the reader has to tell them
  * apart at a glance.
  *
- * The speaker is at full size and opacity and lifted slightly clear of the floor line. The colleague
+ * The speaker is at full size and opacity on the shared floor line. The colleague
  * whose proposal the player has **chosen** is held at an intermediate weight — that is what connects a
  * card to its author now that the figures stand in a row rather than beside their own card, and it is
  * a connection the reader creates by acting rather than one they have to trace. Everyone else recedes.
@@ -168,8 +168,14 @@ export const figureLabelHeight = (
  */
 export const SPEAKER_SCALE = 1;
 export const SPEAKER_ALPHA = 1;
-/** A small step clear of the floor line. Position is one of AC2's three signals. */
-export const SPEAKER_LIFT = 6;
+/**
+ * The foregrounded speaker stays on the shared baseline.
+ *
+ * Scale, opacity, and the explicit speaking label already make the active colleague clear. Raising
+ * the whole body also raised its contact shadow, which reads as a hovering person once the room has a
+ * visible floor plane.
+ */
+export const SPEAKER_LIFT = 0;
 export const SELECTED_SCALE = 0.95;
 export const SELECTED_ALPHA = 0.9;
 export const RECEDED_SCALE = 0.88;

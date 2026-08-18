@@ -1,6 +1,6 @@
 import type { Scene } from 'phaser';
 
-import { figureLabelHeight, MIN_LEGIBLE_FIGURE_HEIGHT } from './characterStageView';
+import { MIN_LEGIBLE_FIGURE_HEIGHT } from './characterStageView';
 
 /**
  * The optics laboratory the colleagues stand in (Story 2.9, design revision).
@@ -77,14 +77,11 @@ const BACK_WALL_FRACTION = 0.62;
  * Below it the props are drawn but nothing survives the scaling: at 60px the two sash windows are nine
  * pixels tall and the blackboard is a bright horizontal line.
  *
- * **Derived from the cast's own threshold, not copied from it.** The two answer the same question — a
- * band this short holds no cast either, and a room with no one in it has nothing to be a room *for* —
- * and the comment used to say so while the number was hand-written as `130` against a real sum of 131.
- * At exactly 130 the room composed and the cast was withheld: a fully painted laboratory with nobody in
- * it, the one state the argument says is impossible. `LaboratoryDecor` imported nothing from the
- * resolver, so the two could never track each other (2.9 review).
+ * **Derived from the cast's own threshold, not copied from it.** `floorY` is the cast's foot line;
+ * their plaques belong below it and are not room height. A band that can hold a legible person must
+ * therefore also hold the smallest readable room, so the two bounds are the same.
  */
-const MIN_COMPOSABLE_HEIGHT = MIN_LEGIBLE_FIGURE_HEIGHT + figureLabelHeight();
+const MIN_COMPOSABLE_HEIGHT = MIN_LEGIBLE_FIGURE_HEIGHT;
 
 /** Back wall, furniture, lamp wash, vignette — the four depths {@link LaboratoryDecor.create} fills. */
 const LAYER_COUNT = 4;
@@ -363,7 +360,8 @@ export class LaboratoryDecor {
         wallBottom: number,
         floorY: number
     ): void {
-        const dadoHeight = (floorY - wallBottom) * 0.34;
+        const roomDepth = floorY - wallBottom;
+        const dadoHeight = roomDepth * 0.28;
         graphics.fillStyle(DADO, 1);
         graphics.fillRect(0, wallBottom, canvasWidth, dadoHeight);
         graphics.fillStyle(DADO_RAIL, 1);
@@ -376,20 +374,37 @@ export class LaboratoryDecor {
         graphics.fillRect(0, floorTop, canvasWidth, floorY - floorTop);
 
         // Boards in perspective: the seams widen as they come nearer, which is the one trick that stops
-        // a horizontal band reading as more wall.
+        // a horizontal band reading as more wall. The rays converge into the back of the room, so the
+        // cast has a visible aisle to stand in rather than a dark stripe behind its ankles.
+        const vanishingX = canvasWidth * 0.5;
+        const boardCount = 9;
+        for (let board = 0; board <= boardCount; board += 1) {
+            const floorX = (canvasWidth * board) / boardCount;
+            const topX = vanishingX + ((floorX - vanishingX) * 0.16);
+            graphics.fillStyle(FLOOR_SEAM, 0.52);
+            graphics.fillTriangle(topX - 1, floorTop, topX + 1, floorTop, floorX + 1, floorY);
+        }
+
+        // Horizontal seams get farther apart towards the reader. Together with the converging seams
+        // above, they establish the floor as a plane rather than as another rectangular wall panel.
         let y = floorTop + 4;
-        let spacing = (floorY - floorTop) * 0.10;
+        let spacing = (floorY - floorTop) * 0.12;
         while (y < floorY) {
-            graphics.fillStyle(FLOOR_LIT, 0.16 * ((y - floorTop) / Math.max(1, floorY - floorTop)));
+            graphics.fillStyle(FLOOR_LIT, 0.22 * ((y - floorTop) / Math.max(1, floorY - floorTop)));
             graphics.fillRect(0, y - spacing, canvasWidth, spacing);
             graphics.fillStyle(FLOOR_SEAM, 0.7);
-            graphics.fillRect(0, y, canvasWidth, 2);
+            graphics.fillRect(0, y, canvasWidth, 1);
             spacing *= 1.5;
             y += spacing;
         }
-        // The contact shadow where the dado meets the boards.
+        // The contact shadow where the dado meets the boards, plus a subtle floor edge at the cast's
+        // baseline. It makes the foot line unambiguous without becoming a platform across the people.
         graphics.fillStyle(0x000000, 0.5);
         graphics.fillRect(0, floorTop, canvasWidth, 4);
+        graphics.fillStyle(FLOOR_LIT, 0.7);
+        graphics.fillRect(0, floorY - 2, canvasWidth, 2);
+        graphics.fillStyle(FLOOR_SEAM, 0.8);
+        graphics.fillRect(0, floorY, canvasWidth, 2);
     }
 
     /** A working bench along the back wall, so the cast is standing in a laboratory and not a corridor. */

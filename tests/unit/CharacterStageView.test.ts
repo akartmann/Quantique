@@ -188,7 +188,7 @@ describe('resolveCharacterStage — the legibility floor', () => {
 });
 
 describe('resolveCharacterStage — emphasis', () => {
-    it('foregrounds and lifts the speaker, and recedes the rest', () => {
+    it('foregrounds the speaker on the shared floor line and recedes the rest', () => {
         const view = resolveCharacterStage({
             cast: CAST, speakerColleagueId: 'marianne-cole', band: ROOMY, area: AREA, motionAllowed: true
         });
@@ -217,7 +217,7 @@ describe('resolveCharacterStage — emphasis', () => {
         expect(speaker!.accentColor).not.toBe(other!.accentColor);
         expect(speaker!.scale).toBeGreaterThan(other!.scale);
         expect(speaker!.alpha).toBeGreaterThan(other!.alpha);
-        expect(speaker!.lift).toBeGreaterThan(other!.lift);
+        expect(speaker!.lift).toBe(other!.lift);
         expect(speaker!.isSpeaker).toBe(true);
     });
 

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { expect, test } from '@playwright/test';
 
-import { advanceControlCentreOnBoard, lastProposalCardProbe } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import { advanceControlCentreOnBoard } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
 // From `apparatusGeometry`, which imports Phaser not at all: every click target below is **derived**
 // from the module that places the control, never restated as a literal. A spec that pins a coordinate
@@ -28,6 +28,7 @@ import {
     artifactAt,
     clickDesign,
     clickUntilScene,
+    chooseProposalThroughColleague,
     dragDesignUntil,
     enterTheLaboratory,
     expectActiveScene,
@@ -70,7 +71,6 @@ const BOOK_CLOSE = bookCloseControlCentre();
 const LEAVE_THE_ROOM = libraryAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT);
 const PREDICTION_ADVANCE = advanceControlCentreOnBoard('prediction');
 const LABORATORY_ADVANCE = advanceToSynthesisControlCentre();
-const CARD = lastProposalCardProbe(DESIGN_HEIGHT);
 
 const caseDefinition = JSON.parse(
     readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
@@ -168,7 +168,7 @@ const walkToTheBench = async (
     }
     await clickUntilScene(page, LEAVE_THE_ROOM, 'Colleagues', sceneTimeoutMs);
 
-    await clickDesign(page, CARD);
+    await chooseProposalThroughColleague(page, 3);
     // `clickUntilScene`, not a bare click: the board's advance control relabels the moment a proposal is
     // chosen, which starts `ADVANCE_RELABEL_LOCKOUT_MS` — a deliberate window in which the control
     // ignores clicks so a double-click cannot skip a phase. A spec clicking at machine speed lands

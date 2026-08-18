@@ -90,6 +90,13 @@ export type CharacterStageBuild = 'colleague' | 'rival';
 export type CharacterStageOptions = Readonly<{
     build: CharacterStageBuild;
     /**
+     * Makes the visible colleague figures direct-manipulation controls for the owning board.
+     *
+     * Stages are shared with the rival lab, where people are narrative dressing rather than choices,
+     * so this is deliberately opt-in instead of making every rendered person interactive.
+     */
+    onColleagueActivate?: (colleagueId: string) => void;
+    /**
      * Overrides the natural figure size, for a host with more or less room than a board's stage band.
      *
      * Passed **through to the resolver** rather than applied here, and that is load-bearing: the two
@@ -152,6 +159,8 @@ type Figure = {
     name: Phaser.GameObjects.Text;
     role: Phaser.GameObjects.Text;
     badge: Phaser.GameObjects.Text;
+    /** Transparent, figure-sized hit target. Omitted for inert stages such as the rival lab. */
+    activationTarget?: Phaser.GameObjects.Rectangle;
 };
 
 /** Shared normalization contract recorded in docs/validation/young-character-assets.md. */
@@ -208,6 +217,7 @@ export class CharacterStage {
     private lastRender?: CharacterStageRender;
     /** The bound the plaques are currently styled at; see {@link render}. */
     private labelWrapWidth?: number;
+    private inputEnabled = true;
 
     public constructor(
         private readonly scene: Scene,
@@ -294,6 +304,16 @@ export class CharacterStage {
                 color: BADGE_COLOR, fontSize: `${this.badgeFontSize}px`, align: 'center'
             })).setOrigin(0.5, 0);
 
+            // The portrait or vector body has no stable Phaser hit shape of its own: a Graphics
+            // fallback's bounds depend on its fill commands and an asset portrait includes archival
+            // canvas padding. A transparent rectangle follows the resolved visible figure instead.
+            const activationTarget = this.options.build !== 'colleague' || this.options.onColleagueActivate === undefined
+                ? undefined
+                : this.scene.add.rectangle(0, 0, 1, 1, 0xffffff, 0).setOrigin(0.5, 1);
+            activationTarget?.on('pointerup', () => {
+                if (this.inputEnabled) this.options.onColleagueActivate?.(member.colleagueId);
+            });
+
             this.figures.push({
                 member,
                 visual,
@@ -301,7 +321,8 @@ export class CharacterStage {
                 isStaged: false,
                 name,
                 role,
-                badge
+                badge,
+                activationTarget
             });
         });
         // A rebuild re-measures at the new slot width, so the cached bound must not suppress it.
@@ -357,11 +378,12 @@ export class CharacterStage {
 
         // Whatever the resolver withheld is hidden rather than left wherever it last stood — a stage
         // below the legibility floor shows an empty room, not four dots.
-        this.figures.slice(view.figures.length).forEach(({ visual, name, role, badge }) => {
+        this.figures.slice(view.figures.length).forEach(({ visual, name, role, badge, activationTarget }) => {
             visual.setVisible(false);
             name.setVisible(false);
             role.setVisible(false);
             badge.setVisible(false);
+            activationTarget?.setVisible(false).disableInteractive();
         });
 
         view.figures.forEach((figure, index) => {
@@ -385,13 +407,15 @@ export class CharacterStage {
             target.name.setPosition(figure.labelX, figure.nameY);
             target.role.setPosition(figure.labelX, figure.roleY);
 
-            // **AC2's label.** The speaker is foregrounded by position (the lift), by scale, *and* by
-            // this word — three signals, none of which is a colour, so a reader who cannot separate
+            // **AC2's label.** The speaker is foregrounded by scale and by this word — two signals,
+            // neither of which is a colour, so a reader who cannot separate
             // the four accents loses nothing. Its height is reserved on every plaque and its text is
             // written on one, so nothing moves when the speaker changes.
             setTextIfChanged(target.badge, figure.isSpeaker ? t('stage.speaking') : '');
             target.badge.setPosition(figure.labelX, figure.badgeY);
             target.badge.setVisible(figure.isSpeaker);
+
+            this.positionActivationTarget(target, figure);
 
             // The speaker's plaque comes up to full strength with them; the rest hold at a legible
             // floor rather than fading with the figure. Diegetic never means hidden: a receded
@@ -404,6 +428,41 @@ export class CharacterStage {
                 target.badge.setStyle({ wordWrap: { width: figure.labelWrapWidth } });
             }
         });
+    }
+
+    /** Enables or suppresses optional direct colleague activation with the rest of a board's input. */
+    public setInputEnabled(enabled: boolean): void {
+        this.inputEnabled = enabled;
+        this.figures.forEach(({ activationTarget }) => {
+            if (!activationTarget) return;
+            if (enabled && activationTarget.visible) activationTarget.setInteractive({ useHandCursor: true });
+            else activationTarget.disableInteractive();
+        });
+    }
+
+    /** Keeps the transparent target aligned to the displayed, emphasized figure rather than its slot. */
+    private positionActivationTarget(target: Figure, staged: StagedFigure): void {
+        const hit = target.activationTarget;
+        if (!hit) return;
+        const fit = this.figureFit(target, staged);
+        const width = target.visualKind === 'portrait' ? PORTRAIT_VISIBLE_MAX_WIDTH : this.maxWidth;
+        const height = target.visualKind === 'portrait' ? PORTRAIT_VISIBLE_HEIGHT : this.maxHeight;
+        hit.setPosition(staged.x, staged.y - staged.lift)
+            .setSize(Math.max(1, width), Math.max(1, height))
+            .setScale(fit * staged.scale)
+            .setVisible(true);
+        if (this.inputEnabled) hit.setInteractive({ useHandCursor: true });
+        else hit.disableInteractive();
+    }
+
+    /** The target uses the same visible bounds as its figure, including portraits' cropped source canvas. */
+    private figureFit(figure: Figure, staged: StagedFigure): number {
+        return figure.visualKind === 'portrait'
+            ? Math.min(
+                Math.max(0, staged.labelWrapWidth - (2 * FIGURE_SIDE_INSET)) / PORTRAIT_VISIBLE_MAX_WIDTH,
+                staged.height / PORTRAIT_VISIBLE_HEIGHT
+            )
+            : Math.min(staged.width / this.maxWidth, staged.height / this.maxHeight);
     }
 
     /**
@@ -423,12 +482,7 @@ export class CharacterStage {
      * been written (2.9 review).
      */
     private applyEmphasis(figure: Figure, staged: StagedFigure, transitionMs: number): void {
-        const fit = figure.visualKind === 'portrait'
-            ? Math.min(
-                Math.max(0, staged.labelWrapWidth - (2 * FIGURE_SIDE_INSET)) / PORTRAIT_VISIBLE_MAX_WIDTH,
-                staged.height / PORTRAIT_VISIBLE_HEIGHT
-            )
-            : Math.min(staged.width / this.maxWidth, staged.height / this.maxHeight);
+        const fit = this.figureFit(figure, staged);
         const scale = fit * staged.scale;
         const y = staged.y - staged.lift;
 
@@ -471,15 +525,17 @@ export class CharacterStage {
 
     /** Every display object and tween a figure owns. Shared by `destroy` and by a cast rebuild. */
     private releaseFigures(): void {
-        this.figures.forEach(({ visual, name, role, badge }) => {
+        this.figures.forEach(({ visual, name, role, badge, activationTarget }) => {
             this.scene.tweens.killTweensOf(visual);
             this.scene.tweens.killTweensOf(name);
             this.scene.tweens.killTweensOf(role);
             this.scene.tweens.killTweensOf(badge);
+            if (activationTarget) this.scene.tweens.killTweensOf(activationTarget);
             visual.destroy();
             name.destroy();
             role.destroy();
             badge.destroy();
+            activationTarget?.destroy();
         });
         this.figures.length = 0;
         this.labelWrapWidth = undefined;

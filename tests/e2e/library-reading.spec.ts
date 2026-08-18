@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { bookCloseControlCentre, bookNextControlCentre, bookSummaryToggleCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
 import { libraryAdvanceControlCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
-import { advanceControlCentreOnBoard, lastProposalCardProbe } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import { advanceControlCentreOnBoard } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { en } from '../../src/core/i18n/locales/en';
 import {
     ARTIFACT_COUNT,
@@ -11,6 +11,7 @@ import {
     artifactAt,
     clickDesign,
     clickUntilScene,
+    chooseProposalThroughColleague,
     enterTheLaboratory,
     expectActiveScene,
     recordedSources,
@@ -45,7 +46,6 @@ const LEAVE_THE_ROOM = libraryAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT);
 const BOOK_CLOSE = bookCloseControlCentre();
 const BOOK_NEXT = bookNextControlCentre();
 const BOOK_SUMMARY = bookSummaryToggleCentre();
-const PREDICTION_CARD = lastProposalCardProbe(DESIGN_HEIGHT);
 const PREDICTION_ADVANCE = advanceControlCentreOnBoard('prediction');
 
 /**
@@ -82,7 +82,7 @@ test('reads both references and leaves the room, without touching a DOM control'
     // Before this story all four refused on a canvas-only path, because nothing on the canvas could
     // satisfy the context gate and the phase never left `context`. Choosing one and then advancing on
     // it is the proof that the choice was accepted rather than refused.
-    await clickDesign(page, PREDICTION_CARD);
+    await chooseProposalThroughColleague(page, 3);
     await clickUntilScene(page, PREDICTION_ADVANCE, 'Laboratory');
 });
 
