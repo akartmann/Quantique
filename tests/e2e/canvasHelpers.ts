@@ -216,18 +216,33 @@ export const expectActiveScene = async (page: Page, sceneKey: string): Promise<v
 /**
  * Slack over the renderer's own animation constants, so a busy machine is not a flake.
  *
- * **Raised from 120 ms at Story 2.12.** These three are the only fixed waits left in the suite, and
- * they are the only ones that cannot be replaced by a bounded retry: the reference book is a canvas
- * overlay with no DOM signal for "it has gone". The tween's *duration* is deterministic — it is driven
- * by elapsed time — but the update frame its `onComplete` lands on is not, and `playwright.config.ts`
- * runs five browsers at once. A click issued a frame early is correctly swallowed by an overlay still
- * suppressing the room underneath, and the walk then fails several steps later at a transition with a
- * routing error pointing nowhere near the cause. 400 ms is roughly a doubling of the worst frame
- * observed under the release gate's concurrency; it costs ~1.1 s per walk and removes the last
- * fixed-wait flake in the suite.
+ * **Raised from 120 ms at Story 2.12, and joined by a counted frame wait since.** These three helpers
+ * wait their tween's own authored duration — honest, because a tween is driven by elapsed time and
+ * finishes when it says it will — and then need slack for the update frame its `onComplete` actually
+ * lands on. A click issued inside that window is correctly swallowed by an overlay still suppressing the
+ * room underneath, and the walk then fails several steps later at a transition with a routing error
+ * pointing nowhere near the cause.
+ *
+ * That slack is a **frame** quantity, and this constant is a millisecond estimate of one: 400 ms was
+ * chosen as roughly a doubling of the worst frame observed under the release gate's five workers, which
+ * is 24 frames on an idle desktop and less than two on a two-vCPU CI runner rendering this canvas in
+ * software. So the helpers now wait this *and* {@link waitForInputToSettle} — the margin keeps covering
+ * everything it has always covered, and the counted frames make the wait scale on a host slow enough for
+ * the estimate to have stopped being true.
+ *
+ * Kept rather than replaced by the frame count, deliberately. A margin measured under real contention is
+ * evidence about more than one frame's length, and the ~1.1 s per walk it costs is the cheapest line item
+ * in this file.
  */
 const ANIMATION_MARGIN_MS = 400;
-/** Two frames at 60 FPS, rounded up: the window in which Phaser applies a hit-area change. */
+/**
+ * Two frames at 60 FPS, rounded up: what a settle costs a walk on a host that renders at full rate.
+ *
+ * A **budget** figure only, spent by {@link WALK_TO_DEBRIEF_COST_MS}. The wait itself counts frames
+ * rather than milliseconds — see {@link waitForInputToSettle} — so this is the floor of what one costs,
+ * not the wait's definition. A slow host spends more and is allowed to: the walk budgets that already
+ * carry a retry's worth of slack per step.
+ */
 const INPUT_SETTLE_MS = 34;
 /**
  * Waits out one of the reference book's three animations, so the next canvas click is not lost.
@@ -253,21 +268,53 @@ const INPUT_SETTLE_MS = 34;
  * hit areas as they were *before* the change. Two frames of slack is enough, and it is needed even
  * under `prefers-reduced-motion`, where there is no tween to wait out at all — which is why this is
  * separate from the three animation helpers below rather than folded into them.
+ *
+ * ## Two frames, counted — not 34 ms of wall clock
+ *
+ * The thing being waited for is a **frame**, and a frame is only 17 ms on a host that renders at full
+ * rate. `waitForTimeout(34)` states the intent in the units of a machine fast enough for the number to
+ * be true, and stops covering even one frame below ~30 FPS: the next click is then issued before Phaser
+ * has applied the change that click depends on, and is silently swallowed. Nothing between here and the
+ * next transition can see that happen, so the walk goes on and fails at
+ * the first assertion that *can* — the routing gate several steps later, reading exactly like a dead
+ * control. That is the shape of the whole class this file keeps closing, and it is why
+ * {@link dragDesignUntil}, {@link startTheLightUntilRecorded} and {@link clickUntilScene} exist.
+ *
+ * Measured against the throttled game loop that reproduces it — `requestAnimationFrame` clamped to a
+ * fixed frame length, which is what a two-vCPU CI runner does to this canvas under a serialized suite:
+ *
+ * | Frame length | `waitForTimeout(34)` | Two counted frames |
+ * | --- | --- | --- |
+ * | 50 ms (20 FPS) | walk passes | walk passes |
+ * | 70 ms (14 FPS) | **the CI failure verbatim** — `case.debriefCompleted` never lands, `Debrief` never routed | walk passes |
+ * | 120 ms (8 FPS) | fails earlier still, in the colleague conversation | walk passes |
+ *
+ * Counting frames costs a fast host nothing — two frames at 60 FPS *is* the 34 ms this replaces — and
+ * scales on a slow one instead of expiring on it.
+ *
+ * No ceiling on the wait, deliberately. A host whose frames have stopped is a host where Phaser has
+ * stopped, and a fallback would hand that back a walk that fails somewhere else for the original
+ * reason; the test timeout is the honest place for it to surface.
  */
 export const waitForInputToSettle = async (page: Page): Promise<void> => {
-    await page.waitForTimeout(INPUT_SETTLE_MS);
+    await page.evaluate(() => new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
 };
 
 export const waitForBookToOpen = async (page: Page): Promise<void> => {
     await page.waitForTimeout(BOOK_OPEN_MS + ANIMATION_MARGIN_MS);
+    await waitForInputToSettle(page);
 };
 
 export const waitForPageTurn = async (page: Page): Promise<void> => {
     await page.waitForTimeout(BOOK_TURN_MS + ANIMATION_MARGIN_MS);
+    await waitForInputToSettle(page);
 };
 
 export const waitForBookToClose = async (page: Page): Promise<void> => {
     await page.waitForTimeout(BOOK_CLOSE_FADE_MS + ANIMATION_MARGIN_MS);
+    await waitForInputToSettle(page);
 };
 
 /**
@@ -386,6 +433,30 @@ export const recordedSetting = (page: Page, controlLabel: string | RegExp) =>
         .getByRole('definition');
 
 /**
+ * What the record says the player has chosen — the prediction on the first board, the conclusion on the
+ * theory board.
+ *
+ * The shape is {@link recordedSetting}'s: the section by its own heading, then the row by its `dt`, then
+ * that row's `dd`. Filtered by the term rather than taken as the section's only definition, because the
+ * conclusion section carries **two** rows — conclusion and stated limitation — and `getByRole` over the
+ * section would resolve to both and match the wrong one the day their order changes.
+ *
+ * Both bundles, because three specs run under a French browser and the record is localized.
+ */
+const recordedChoice = (page: Page, kind: 'prediction' | 'conclusion') => {
+    const bothBundles = (key: keyof typeof en & keyof typeof fr) =>
+        new RegExp(`^(${escapeForRegExp(en[key])}|${escapeForRegExp(fr[key])})$`);
+    return printSection(page, en[`print.${kind}.heading`])
+        .locator('div')
+        .filter({ has: page.getByRole('term').filter({ hasText: bothBundles(`print.${kind}.term`) }) })
+        .getByRole('definition');
+};
+
+/** The placeholder that row holds until something has actually been chosen, in either bundle. */
+const noChoiceRecorded = (kind: 'prediction' | 'conclusion') =>
+    new RegExp(`^(${escapeForRegExp(en[`print.${kind}.empty`])}|${escapeForRegExp(fr[`print.${kind}.empty`])})$`);
+
+/**
  * Starts the light and waits until the run it produced is actually recorded, retrying the press.
  *
  * **A bounded retry rather than a longer sleep** (review 2026-08-07). Waiting a fixed
@@ -442,6 +513,14 @@ export const clickUntilScene = async (
      * scrolls, and every frame is longer — so the same four retries that are generous on a desktop
      * viewport are marginal there under the release gate's five workers. Raising the **bound** does not
      * weaken the check: a control that never dispatches still fails, just later.
+     *
+     * **Left at five deliberately, and measured rather than argued.** Widening it to 15 s looked like
+     * the same fix as {@link waitForInputToSettle}'s and is not: every attempt in here now waits real
+     * frames, so on a host slow enough to need more attempts the bound also buys fewer of them, and a
+     * step that was going to fail spends the whole budget failing. Under a container throttled well
+     * below the CI runner it turned near-misses into walks that overran their own `test.setTimeout`,
+     * which is a worse failure than the one it was meant to fix. What made the slow host pass was
+     * waiting on frames and asserting each step's effect, not a longer clock.
      */
     timeoutMs = 5_000
 ): Promise<void> => {
@@ -590,21 +669,46 @@ const readTheReferences = async (page: Page): Promise<void> => {
     await clickUntilScene(page, libraryAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT), 'Colleagues');
 };
 
-/** Chooses an attributed prediction and moves to the bench. `prediction → experiment`. */
+/**
+ * Reads the colleague's conversation out, opens that colleague, and adopts what they propose.
+ *
+ * **Retried until the record carries the choice**, which is the rule the rest of this walk already
+ * follows and the reason it is not six bare clicks any more. The sequence has no observable step of its
+ * own: `ColleagueRenderer.openColleague` returns silently unless `DialogueBox.isComplete()`, so a single
+ * swallowed acknowledgement click leaves the figure inert, the detail panel unopened and nothing chosen —
+ * and the walk goes on to a board whose advance is then *correctly* refused. That is exactly how the six
+ * specs that fail on a two-vCPU runner failed: every one of them at a transition **out of** the theory
+ * board — five at `case.debriefCompleted`, one at the conclusion the rival lab answers — and none of them
+ * anywhere near the click that was actually lost.
+ *
+ * Every click in it is idempotent, which is what makes retrying honest rather than a way to get a green:
+ * acknowledgements past the last beat are no-ops, re-opening the same colleague re-draws the same panel,
+ * and adopting the same proposal twice records it once. The condition is the record's own projection of
+ * the store, the loop is bounded, and a stage that never accepts a choice still fails — here, where the
+ * cause is, rather than three transitions later.
+ *
+ * Which board it is standing on decides which row of the record answers: the first meeting records a
+ * prediction, the theory board a conclusion. Read from the router rather than passed in, so no caller
+ * can hand it the wrong one.
+ */
 export const chooseProposalThroughColleague = async (
     page: Page,
     dialogueBeatCount: number,
     colleagueIndex: number = 3
 ): Promise<void> => {
-    // The last authored line needs one final acknowledgement click before `DialogueBox` marks the
-    // conversation complete and the colleague stage receives input.
-    for (let beat = 0; beat <= dialogueBeatCount; beat += 1) {
-        await clickDesign(page, boardDialogueAdvanceControlCentre());
+    const kind = await activeScene(page) === 'Colleagues' ? 'prediction' : 'conclusion';
+    await expect(async () => {
+        // The last authored line needs one final acknowledgement click before `DialogueBox` marks the
+        // conversation complete and the colleague stage receives input.
+        for (let beat = 0; beat <= dialogueBeatCount; beat += 1) {
+            await clickDesign(page, boardDialogueAdvanceControlCentre());
+            await waitForInputToSettle(page);
+        }
+        await clickDesign(page, colleagueFigureProbe(colleagueIndex));
         await waitForInputToSettle(page);
-    }
-    await clickDesign(page, colleagueFigureProbe(colleagueIndex));
-    await waitForInputToSettle(page);
-    await clickDesign(page, proposalDetailPanelProbe(DESIGN_HEIGHT));
+        await clickDesign(page, proposalDetailPanelProbe(DESIGN_HEIGHT));
+        await expect(recordedChoice(page, kind)).not.toHaveText(noChoiceRecorded(kind), { timeout: 1_000 });
+    }).toPass({ timeout: 20_000, intervals: [200, 400, 800, 1_200] });
 };
 
 /** Chooses an attributed prediction and moves to the bench. `prediction → experiment`. */
