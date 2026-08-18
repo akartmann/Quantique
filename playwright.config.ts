@@ -37,11 +37,27 @@ export default defineConfig({
         baseURL: 'http://127.0.0.1:4173',
         trace: 'on-first-retry'
     },
-    webServer: {
-        command: 'npm run build && npm run preview',
-        url: 'http://127.0.0.1:4173',
-        reuseExistingServer: !process.env.CI
-    },
+    /**
+     * Two servers, because one of them is the deploy target and the other is not.
+     *
+     * The root-origin server is what every spec but `subpath-hosting.spec.ts` runs against. The second
+     * serves a `--base=/Quantique/` build, which is how GitHub Pages actually hosts this: authored asset
+     * paths are root paths by schema contract and Phaser fails a load silently, so a subpath regression
+     * is invisible to a suite that only ever sees `/`. It builds into its own `dist-subpath/` so the two
+     * never clobber each other's output.
+     */
+    webServer: [
+        {
+            command: 'npm run build && npm run preview',
+            url: 'http://127.0.0.1:4173',
+            reuseExistingServer: !process.env.CI
+        },
+        {
+            command: 'npm run build:subpath && npm run preview:subpath',
+            url: 'http://127.0.0.1:4273/Quantique/',
+            reuseExistingServer: !process.env.CI
+        }
+    ],
     projects: [
         { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
         { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
