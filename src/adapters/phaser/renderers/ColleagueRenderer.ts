@@ -66,9 +66,20 @@ export const PROPOSAL_SURFACE_WIDTH = 944;
 const CARD_LEFT = PROPOSAL_SURFACE_LEFT;
 const CARD_WIDTH = PROPOSAL_SURFACE_WIDTH;
 
-const HEADING_Y = 12;
+export const HEADING_Y = 12;
 /** Between the heading's measured bottom and the dialogue panel below it. */
-const HEADING_GAP = 8;
+export const HEADING_GAP = 8;
+/**
+ * The heading's own size, named rather than written into the `add.text` call.
+ *
+ * Exported for the same reason {@link boardDialogueAdvanceControlCentre} is: what sits below the heading
+ * is placed against its **measured** height, so anything outside this module that needs to know where
+ * the dialogue panel starts has to be able to read the number the heading is actually drawn at. A
+ * literal in the call site put that number somewhere no other file could reach, and
+ * `tests/e2e/canvasHelpers.ts` was left assuming the panel top could only ever be {@link DIALOGUE_TOP}.
+ */
+export const BOARD_HEADING_FONT_SIZE = 25;
+
 /** Between the guide line and the first card. The guide sits with the cards, not with the chrome. */
 const GUIDE_TO_CARDS_GAP = 8;
 
@@ -119,6 +130,15 @@ export const SUBMIT_CONTROL_LABEL_WRAP = SUBMIT_WIDTH - (2 * SUBMIT_LABEL_PADDIN
  */
 export const BOARD_CONTROL_LEFT = PROPOSAL_SURFACE_LEFT + PROPOSAL_SURFACE_WIDTH - SUBMIT_WIDTH;
 export const BOARD_TEXT_WRAP = PROPOSAL_SURFACE_WIDTH - SUBMIT_WIDTH - SUBMIT_GAP;
+/**
+ * The width the heading wraps against — the top row less the control column beside it.
+ *
+ * Exported because whether the heading is one line or two is a **font** question, not a layout one: at
+ * 25px the English conclusion heading measures within a few percent of this bound, so it is one line on
+ * one host's font stack and two on another's. Anything that depends on where the panel below it starts
+ * needs the same bound the board wraps against, not a copy of it.
+ */
+export const BOARD_HEADING_WRAP = BOARD_TEXT_WRAP - REVISIT_WIDTH - SUBMIT_GAP;
 /** Between the submit control and the advance control beneath it, on the conclusion board. */
 const CONTROL_ROW_GAP = 8;
 
@@ -644,7 +664,11 @@ export class ColleagueRenderer {
         // language can change at any time, so every string comes from the store subscription.
         // Both boards give the right of their top rows to the control column, so the heading and the
         // guide wrap against the space that is actually left rather than running underneath it.
-        this.heading = this.scene.add.text(CARD_LEFT, HEADING_Y, '', uiTextStyle({ color: '#f7f4ef', fontSize: '25px', wordWrap: { width: BOARD_TEXT_WRAP - REVISIT_WIDTH - SUBMIT_GAP } }));
+        this.heading = this.scene.add.text(CARD_LEFT, HEADING_Y, '', uiTextStyle({
+            color: '#f7f4ef',
+            fontSize: `${BOARD_HEADING_FONT_SIZE}px`,
+            wordWrap: { width: BOARD_HEADING_WRAP }
+        }));
         // Placed with the cards rather than with the chrome (Story 2.9, design revision). It is the
         // slot a refused click is answered in, so it belongs beside the thing that was clicked — and
         // moving it out of the top stack is part of what bought the room its height. It wraps against

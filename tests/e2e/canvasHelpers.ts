@@ -33,12 +33,20 @@ import {
 } from '../../src/adapters/phaser/renderers/caseFileGeometry';
 import {
     advanceControlCentreOnBoard,
-    boardDialogueAdvanceControlCentre,
+    BOARD_HEADING_FONT_SIZE,
+    BOARD_HEADING_WRAP,
+    DIALOGUE_PANEL_WIDTH,
+    DIALOGUE_TOP,
+    HEADING_GAP,
+    HEADING_Y,
+    PROPOSAL_SURFACE_LEFT,
     caseFileOpenControlCentre,
     colleagueFigureProbe,
     proposalDetailPanelProbe
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import { dialogueAdvanceControlCentre } from '../../src/adapters/phaser/ui/DialogueBox';
 import { KNOB_ARC_END_RAD } from '../../src/adapters/phaser/renderers/instrumentView';
+import { UI_FONT_STACK } from '../../src/adapters/phaser/textStyles';
 import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
 import { libraryAdvanceControlCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
 
@@ -691,17 +699,99 @@ const readTheReferences = async (page: Page): Promise<void> => {
  * prediction, the theory board a conclusion. Read from the router rather than passed in, so no caller
  * can hand it the wrong one.
  */
+/**
+ * Where the dialogue panel's acknowledgement control actually is, on **this host's** fonts.
+ *
+ * ## Why this cannot be a constant
+ *
+ * `ColleagueRenderer.dialogueTop()` is `max(DIALOGUE_TOP, HEADING_Y + heading.height + HEADING_GAP)` —
+ * the panel is placed under the heading's **measured** bottom, which is what stops a heading that wraps
+ * from being drawn over the conversation. So the panel's top, and with it the 26px control inside it, is
+ * a function of how many lines the heading takes; and that is a **font** question, not a layout one.
+ * `BOARD_HEADING_WRAP` is 504px and the English conclusion heading measures within a few percent of it,
+ * so it is one line on one host's font stack and two on another's — the two boards differ only in that
+ * one string, which is why the first meeting was never affected and the theory board always was.
+ *
+ * That is the defect behind the six specs that failed on CI while passing on every developer machine:
+ * `ColleagueRenderer.boardDialogueAdvanceControlCentre` answers for a one-line heading, the runner drew
+ * two, every
+ * acknowledgement click landed on empty board above the panel, the conversation stayed unfinished,
+ * `openColleague` correctly refused to hand over a stage whose conversation was still running, and no
+ * conclusion was ever chosen. Retrying could not help: nothing about it was intermittent.
+ *
+ * ## What this does instead
+ *
+ * Measures the heading the way `french-typography.spec.ts` measures every other bound —
+ * `CanvasRenderingContext2D.measureText` through the same font stack Phaser draws with, wrapped by the
+ * same greedy rule — and derives the top from the line count that measurement gives. Every number comes
+ * from the board: {@link HEADING_Y}, {@link HEADING_GAP}, {@link BOARD_HEADING_WRAP},
+ * {@link BOARD_HEADING_FONT_SIZE} and {@link DIALOGUE_TOP} are the renderer's own, and the control's
+ * offset inside the panel is {@link dialogueAdvanceControlCentre}, the widget's own.
+ *
+ * The one thing measurement cannot give is Phaser's per-line height, which comes from font metrics the
+ * canvas API does not expose the same way. A nominal 1.2 × font size is used, and the tolerance is what
+ * makes that safe rather than lucky: at 25px the candidate y is wrong by `2 × (real − nominal)`, and the
+ * control is 26px tall, so any real line height from 27px to 36px still lands inside it. A host outside
+ * that range fails loudly at the choice, in this helper, rather than three transitions later.
+ */
+const boardDialogueAdvanceControlAims = async (page: Page): Promise<readonly Readonly<{ x: number; y: number }>[]> => {
+    // The heading of the board being stood on, in the bundle the browser actually resolved.
+    const bundle = await page.locator('html').getAttribute('lang') === 'fr' ? fr : en;
+    const heading = await activeScene(page) === 'Colleagues'
+        ? bundle['colleagues.heading']
+        : bundle['theoryBoard.heading'];
+    const headingLines = await page.evaluate(({ text, font, fontSize, wrap }) => {
+        const context = document.createElement('canvas').getContext('2d');
+        if (!context) throw new Error('Canvas 2D is unavailable.');
+        context.font = `${fontSize}px ${font}`;
+        // Phaser's basic word wrap: greedy, break between words, never mid-word.
+        let lines = 1;
+        let current = '';
+        for (const word of text.split(/\s+/).filter(Boolean)) {
+            const candidate = current ? `${current} ${word}` : word;
+            if (current && context.measureText(candidate).width > wrap) {
+                lines += 1;
+                current = word;
+            } else {
+                current = candidate;
+            }
+        }
+        return lines;
+    }, {
+        text: heading,
+        font: UI_FONT_STACK,
+        fontSize: BOARD_HEADING_FONT_SIZE,
+        wrap: BOARD_HEADING_WRAP
+    });
+    const nominalLineHeight = BOARD_HEADING_FONT_SIZE * 1.2;
+    const aimFor = (lines: number) => dialogueAdvanceControlCentre({
+        x: PROPOSAL_SURFACE_LEFT,
+        y: Math.max(DIALOGUE_TOP, HEADING_Y + (lines * nominalLineHeight) + HEADING_GAP),
+        width: DIALOGUE_PANEL_WIDTH
+    });
+    // The measurement's answer first, then the other line count the heading could have taken. The
+    // fallback is what makes the nominal line height above a *tolerance* rather than a bet: the caller
+    // retries, and the second attempt aims at the layout the first one ruled out. Aiming at the wrong
+    // one is inert either way — a heading line above the control is empty board beside the heading, and
+    // one below it is the panel's own body text; neither is interactive.
+    return headingLines > 1 ? [aimFor(2), aimFor(1)] : [aimFor(1), aimFor(2)];
+};
+
 export const chooseProposalThroughColleague = async (
     page: Page,
     dialogueBeatCount: number,
     colleagueIndex: number = 3
 ): Promise<void> => {
     const kind = await activeScene(page) === 'Colleagues' ? 'prediction' : 'conclusion';
+    const aims = await boardDialogueAdvanceControlAims(page);
+    let attempt = 0;
     await expect(async () => {
         // The last authored line needs one final acknowledgement click before `DialogueBox` marks the
         // conversation complete and the colleague stage receives input.
+        const acknowledge = aims[attempt % aims.length]!;
+        attempt += 1;
         for (let beat = 0; beat <= dialogueBeatCount; beat += 1) {
-            await clickDesign(page, boardDialogueAdvanceControlCentre());
+            await clickDesign(page, acknowledge);
             await waitForInputToSettle(page);
         }
         await clickDesign(page, colleagueFigureProbe(colleagueIndex));
