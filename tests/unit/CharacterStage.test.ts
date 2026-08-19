@@ -432,6 +432,37 @@ describe('CharacterStage staging', () => {
         expect(moving.tweens[0]).toMatchObject({ targets: moving.images[0], duration: EMPHASIS_TWEEN_MS });
     });
 
+    /**
+     * `deferred-work.md`'s `CharacterStage.create` note, verified rather than argued (Story 3.4, §14).
+     *
+     * The rebuild half was closed during the 2.9 review, but nothing could make the staged *set* vary
+     * — Young's proposers, speakers and full cast are the same four people — so the fix had never been
+     * exercised against a genuinely different cast. The authored `scenarioScript.scenes[].cast` is what
+     * makes it vary, and this is the shape it varies in: a shorter cast, on a second render, inside one
+     * scene the router never restarts (`synthesis → review` on `TheoryBoard`).
+     */
+    it('rebuilds its figures when an authored cast shortens the staged set', () => {
+        prefersReduce = true;
+        const full: readonly StageCastMember[] = [
+            ...CAST,
+            { colleagueId: 'marianne-cole', accentColor: 0x9c6b98, name: 'Marianne Cole', roleLabel: 'Analyst' }
+        ];
+        const ui = mount();
+        ui.stage.create(full);
+        expect(ui.texts).toHaveLength(full.length * 3);
+        const droppedName = ui.texts[(full.length - 1) * 3]!;
+
+        const authored = [full[0]!];
+        ui.stage.render(stage({ cast: authored }));
+
+        // Rebuilt, not merely hidden: the plaques of the people who left are destroyed, and exactly
+        // one figure's worth of text objects is left alive.
+        expect(droppedName.destroyed).toBe(true);
+        const alive = ui.texts.filter(({ destroyed }) => !destroyed);
+        expect(alive).toHaveLength(authored.length * 3);
+        expect(alive.map(({ text }) => text)).toContain(authored[0]!.name);
+    });
+
     it('rebuilds the visual when a cast member portrait texture key changes', () => {
         prefersReduce = true;
         const firstKey = 'case:young-interference:thea-young-portrait';

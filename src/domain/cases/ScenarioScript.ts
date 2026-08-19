@@ -7,6 +7,30 @@ export const SCENE_KEYS = ['Library', 'Colleagues', 'Laboratory', 'TheoryBoard',
 export type SceneKey = typeof SCENE_KEYS[number];
 
 /**
+ * The scenes that stage a column of colleague figures, and therefore the only ones an authored
+ * {@link ScenarioScene.cast} says anything about (Story 3.4).
+ *
+ * These are exactly the scene keys whose scenes construct a `ColleagueRenderer`: `Colleagues` hosts the
+ * prediction board and `TheoryBoard` hosts both `synthesis` and `review`. `Library`, `Laboratory` and
+ * `Debrief` construct none, and the rival lab stages its own cast of one from `rivalLab` rather than
+ * from the script — which is also why {@link RIVAL_LAB_SCENE_KEY} is not authorable and so cannot
+ * appear here.
+ *
+ * A `cast` authored on any other scene is content nothing reads, so `CaseDefinitionSchema` refuses it
+ * at load against this list. The list is *not* only a schema constant: `ScenarioAuthoringContract.test.ts` reads
+ * the scene sources for `new ColleagueRenderer(` and asserts the two sets are equal, so a scene that
+ * starts or stops staging a cast without this constant moving fails there rather than silently
+ * teaching the schema a rule the renderers no longer follow.
+ */
+export const FIGURE_STAGING_SCENE_KEYS = ['Colleagues', 'TheoryBoard'] as const satisfies readonly SceneKey[];
+
+export type FigureStagingSceneKey = typeof FIGURE_STAGING_SCENE_KEYS[number];
+
+/** Whether a scene draws a figure column, and so whether an authored cast has anything to stage. */
+export const stagesFigureColumn = (sceneKey: SceneKey): sceneKey is FigureStagingSceneKey =>
+    (FIGURE_STAGING_SCENE_KEYS as readonly SceneKey[]).includes(sceneKey);
+
+/**
  * The rival lab, which is routable but deliberately **not authorable**.
  *
  * {@link SCENE_KEYS} is the *content* vocabulary: the scenes a case's `scenarioScript` may map a phase
@@ -49,6 +73,27 @@ export type ScenarioDialogueBeat = Readonly<{
 export type ScenarioScene = Readonly<{
     phase: CasePhase;
     sceneKey: SceneKey;
+    /**
+     * Who is in the room for this scene, as authored colleague IDs (Story 3.4).
+     *
+     * **Absent means the whole cast**, which is why the field is optional rather than defaulted: a
+     * default written into the parsed object would read back as authored content the author did not
+     * write. An authored empty array is *refused* at load — absence already says "everyone", and
+     * "nobody" is not a state a figure-staging scene can render. That is the deliberate opposite of
+     * {@link ScenarioDialogueBeat}'s array, where `[]` and absent are identical because "no conversation
+     * yet" is something an author means.
+     *
+     * It decides **presence only**. Sequence is still proposal order — see
+     * `presentColleagueIds`, which orders the authored cast proposal-order-first — because the two
+     * boards attribute in different orders and a fixed cast order would put three of the four
+     * colleagues beside somebody else's draft.
+     *
+     * Four load-time rules hold it: every ID resolves to an authored `colleagues[]` entry, no ID
+     * repeats, the array is not empty, and every one of this scene's `dialogueBeats` is spoken by a
+     * member of it. The last is what makes the field safe — without it a beat plays with its speaker
+     * nowhere on stage. Only a scene in {@link FIGURE_STAGING_SCENE_KEYS} may author one.
+     */
+    cast?: readonly string[];
     dialogueBeats?: readonly ScenarioDialogueBeat[];
 }>;
 

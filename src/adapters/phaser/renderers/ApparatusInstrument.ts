@@ -1,8 +1,15 @@
 import type { Scene } from 'phaser';
 
 import { uiTextStyle } from '../textStyles';
-import type { PrimaryControl } from '../../../domain/cases/CaseDefinition';
+import { controlAffordance, type ControlAffordance, type PrimaryControl } from '../../../domain/cases/CaseDefinition';
 import {
+    DIAL_FACE_RADIUS,
+    DIAL_FOCUS_RADIUS,
+    DIAL_INDEX_INNER_RADIUS,
+    DIAL_INDEX_OUTER_RADIUS,
+    DIAL_INDICATOR_LENGTH,
+    DIAL_RING_RADIUS,
+    DIAL_TICK_LENGTH,
     INSTRUMENT_READOUT_FONT_SIZE,
     INSTRUMENT_READOUT_WRAP,
     INSTRUMENT_READOUT_Y,
@@ -11,6 +18,14 @@ import {
     KNOB_INDICATOR_LENGTH,
     KNOB_TICK_LENGTH,
     KNOB_TRAVEL_RADIUS,
+    SLIDER_FOCUS_PADDING,
+    SLIDER_HALF_HEIGHT,
+    SLIDER_HALF_WIDTH,
+    SLIDER_THUMB_HEIGHT,
+    SLIDER_THUMB_WIDTH,
+    SLIDER_TICK_LENGTH,
+    SLIDER_TRACK_HEIGHT,
+    SLIDER_TRACK_WIDTH,
     STEP_AFFORDANCE_FONT_SIZE,
     STEP_AFFORDANCE_HEIGHT,
     STEP_AFFORDANCE_WIDTH,
@@ -21,9 +36,13 @@ import {
 import {
     KNOB_ARC_START_RAD,
     KNOB_ARC_SWEEP_RAD,
+    dialAngleForValue,
+    dialTickAngles,
     knobAngleForValue,
     knobTickAngles,
-    resolveKnobValueForPointer,
+    resolveAffordanceValueForPointer,
+    sliderOffsetForValue,
+    sliderTickOffsets,
     steppedNeighbour
 } from './instrumentView';
 
@@ -67,6 +86,19 @@ import {
  * **once** in {@link create}; only the indicator moves, by `setRotation` on its own object. §Performance
  * forbids regenerating `Graphics` in a render path, and `ReadingRoomDecor` and `LaboratoryDecor` are
  * the precedent.
+ *
+ * ## Three instruments, one class (Story 3.4)
+ *
+ * `control.affordance` selects both what is drawn and how a pointer is read: a `knob` (the default), a
+ * full-circle `dial`, or a linear `slider`. A `switch` in one class rather than a registry —
+ * `project-context.md` §Guided-Adventure forbids that layer, and three members is a branch.
+ *
+ * What does **not** change with the affordance, which is AC3 and is asserted rather than asserted-in-a-
+ * comment: the authored range, step and default; the two discrete step affordances and keyboard
+ * stepping, both of which still go through `steppedNeighbour`; the snap before dispatch; and
+ * {@link ApparatusInstrumentOptions} / {@link ApparatusInstrumentView}, so `ApparatusRenderer` — which
+ * owns focus, the arrow-key capture and the reduced-motion decision — is unchanged above the
+ * instrument. Nothing here registers an update loop, for any affordance (ADR-012).
  */
 
 const BODY_FILL = 0x1d4451;
@@ -123,7 +155,10 @@ export type ApparatusInstrumentView = Readonly<{
 export class ApparatusInstrument {
     private readonly objects: Phaser.GameObjects.GameObject[] = [];
     private focusRing?: Phaser.GameObjects.Graphics;
+    /** The rotating pointer of a knob or a dial. Undefined for a slider, which slides a thumb instead. */
     private indicator?: Phaser.GameObjects.Graphics;
+    /** The slider's thumb. Undefined for the two rotary affordances. */
+    private thumb?: Phaser.GameObjects.Graphics;
     private hitArea?: Phaser.GameObjects.Zone;
     private readout?: Phaser.GameObjects.Text;
     private readonly affordances: Readonly<{ surface: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text }>[] = [];
@@ -154,51 +189,71 @@ export class ApparatusInstrument {
 
     public constructor(private readonly scene: Scene, private readonly options: ApparatusInstrumentOptions) {}
 
+    /**
+     * Which instrument this control is. A getter rather than a field so it cannot be read before the
+     * constructor's parameter property is assigned, and so there is exactly one resolution of the
+     * absent case — `controlAffordance`, in the domain.
+     */
+    private get affordance(): ControlAffordance {
+        return controlAffordance(this.options.control);
+    }
+
     public create(): void {
         const centre = knobCentre(this.options.index);
 
         // Drawn once. Nothing below is reissued on a render — see the header.
         // Held only as a local: it is pushed onto `objects` and released there, and nothing after
         // `create()` ever writes to it again — which is the whole point of drawing it once.
-        const dial = this.scene.add.graphics();
-        dial.lineStyle(4, TRAVEL_ARC, 1);
-        dial.beginPath();
-        dial.arc(centre.x, centre.y, KNOB_TRAVEL_RADIUS, KNOB_ARC_START_RAD, KNOB_ARC_START_RAD + KNOB_ARC_SWEEP_RAD, false);
-        dial.strokePath();
-        // One detent per authored step, at the angle that step actually turns to: the instrument must
-        // not claim a resolution it does not have.
-        dial.lineStyle(2, TICK, 0.9);
-        knobTickAngles(this.options.control).forEach((angleRad) => {
-            const inner = KNOB_TRAVEL_RADIUS - KNOB_TICK_LENGTH;
-            dial.lineBetween(
-                centre.x + (Math.cos(angleRad) * inner),
-                centre.y + (Math.sin(angleRad) * inner),
-                centre.x + (Math.cos(angleRad) * KNOB_TRAVEL_RADIUS),
-                centre.y + (Math.sin(angleRad) * KNOB_TRAVEL_RADIUS)
-            );
-        });
-        dial.fillStyle(BODY_FILL, 1);
-        dial.fillCircle(centre.x, centre.y, KNOB_BODY_RADIUS);
-        dial.lineStyle(2, BODY_RIM, 1);
-        dial.strokeCircle(centre.x, centre.y, KNOB_BODY_RADIUS);
-
-        // Its own object so it can be shown and hidden without redrawing anything.
+        const face = this.scene.add.graphics();
         const focusRing = this.scene.add.graphics();
         focusRing.lineStyle(2, FOCUS_RING, 0.9);
-        focusRing.strokeCircle(centre.x, centre.y, KNOB_FOCUS_RADIUS);
         focusRing.setVisible(false);
         this.focusRing = focusRing;
+        const moving = this.scene.add.graphics();
+        moving.fillStyle(INDICATOR, 1);
 
-        // Drawn along +x from the origin and then rotated, so `setRotation` is the only per-render
-        // write and the angle convention is the same one `instrumentView` converts in.
-        const indicator = this.scene.add.graphics();
-        indicator.fillStyle(INDICATOR, 1);
-        indicator.fillRect(KNOB_BODY_RADIUS - KNOB_INDICATOR_LENGTH, -2.5, KNOB_INDICATOR_LENGTH, 5);
-        indicator.fillCircle(0, 0, 4);
-        indicator.setPosition(centre.x, centre.y);
-        this.indicator = indicator;
-
-        this.hitArea = this.scene.add.zone(centre.x, centre.y, KNOB_TRAVEL_RADIUS * 2, KNOB_TRAVEL_RADIUS * 2).setOrigin(0.5, 0.5);
+        // The one branch. Each arm paints its own face, its own focus treatment and its own moving
+        // part, and sizes its own hit area — three instruments, not one instrument with three labels.
+        if (this.affordance === 'slider') {
+            this.paintSliderFace(face, centre);
+            focusRing.strokeRoundedRect(
+                centre.x - SLIDER_HALF_WIDTH,
+                centre.y - SLIDER_HALF_HEIGHT,
+                SLIDER_HALF_WIDTH * 2,
+                SLIDER_HALF_HEIGHT * 2,
+                SLIDER_FOCUS_PADDING
+            );
+            // Drawn around its own origin and then moved, so `setX` is the only per-render write —
+            // the linear counterpart of the rotary indicator's `setRotation`.
+            moving.fillRoundedRect(-SLIDER_THUMB_WIDTH / 2, -SLIDER_THUMB_HEIGHT / 2, SLIDER_THUMB_WIDTH, SLIDER_THUMB_HEIGHT, 4);
+            moving.setPosition(centre.x, centre.y);
+            this.thumb = moving;
+            this.hitArea = this.scene.add
+                .zone(centre.x, centre.y, SLIDER_HALF_WIDTH * 2, SLIDER_HALF_HEIGHT * 2)
+                .setOrigin(0.5, 0.5);
+        } else if (this.affordance === 'dial') {
+            this.paintDialFace(face, centre);
+            focusRing.strokeCircle(centre.x, centre.y, DIAL_FOCUS_RADIUS);
+            moving.fillRect(DIAL_FACE_RADIUS - DIAL_INDICATOR_LENGTH, -2.5, DIAL_INDICATOR_LENGTH, 5);
+            moving.fillCircle(0, 0, 4);
+            moving.setPosition(centre.x, centre.y);
+            this.indicator = moving;
+            this.hitArea = this.scene.add
+                .zone(centre.x, centre.y, DIAL_RING_RADIUS * 2, DIAL_RING_RADIUS * 2)
+                .setOrigin(0.5, 0.5);
+        } else {
+            this.paintKnobFace(face, centre);
+            focusRing.strokeCircle(centre.x, centre.y, KNOB_FOCUS_RADIUS);
+            // Drawn along +x from the origin and then rotated, so `setRotation` is the only per-render
+            // write and the angle convention is the same one `instrumentView` converts in.
+            moving.fillRect(KNOB_BODY_RADIUS - KNOB_INDICATOR_LENGTH, -2.5, KNOB_INDICATOR_LENGTH, 5);
+            moving.fillCircle(0, 0, 4);
+            moving.setPosition(centre.x, centre.y);
+            this.indicator = moving;
+            this.hitArea = this.scene.add
+                .zone(centre.x, centre.y, KNOB_TRAVEL_RADIUS * 2, KNOB_TRAVEL_RADIUS * 2)
+                .setOrigin(0.5, 0.5);
+        }
         this.hitArea.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
             if (!this.inputEnabled) return;
             // Arming focuses, and focusing alone changes no value: a click that does not move must not
@@ -248,13 +303,13 @@ export class ApparatusInstrument {
             wordWrap: { width: INSTRUMENT_READOUT_WRAP }
         }));
 
-        this.objects.push(dial, focusRing, indicator, this.hitArea, this.readout);
+        this.objects.push(face, focusRing, moving, this.hitArea, this.readout);
         this.applyInputState();
     }
 
     public render(view: ApparatusInstrumentView): void {
         this.reportedValue = view.value;
-        this.indicator?.setRotation(knobAngleForValue(this.options.control, view.value));
+        this.paintValue(view.value);
         this.readout?.setText(view.readout);
         this.focusRing?.setVisible(view.focused);
         this.affordances[0]?.label.setText(view.decreaseLabel);
@@ -295,6 +350,7 @@ export class ApparatusInstrument {
         this.affordances.length = 0;
         this.focusRing = undefined;
         this.indicator = undefined;
+        this.thumb = undefined;
         this.hitArea = undefined;
         this.readout = undefined;
         this.dragging = false;
@@ -308,13 +364,16 @@ export class ApparatusInstrument {
         // Only the pointer that armed this drag turns this knob.
         if (pointer.id !== this.dragPointerId) return;
         const centre = knobCentre(this.options.index);
-        this.report(resolveKnobValueForPointer({
+        this.report(resolveAffordanceValueForPointer({
+            affordance: this.affordance,
             control: this.options.control,
             dx: pointer.x - centre.x,
             dy: pointer.y - centre.y,
-            // What the knob holds when the pointer carries no reading — in the dead zone or on the
-            // centre. Without it a dead-zone pointer chose an end and the value jumped there.
-            currentValue: this.currentValue()
+            // What the instrument holds when the pointer carries no reading — in a knob's dead zone or
+            // on either rotary centre. Without it a dead-zone pointer chose an end and the value
+            // jumped there. A slider always has a reading, so it never consults this.
+            currentValue: this.currentValue(),
+            trackWidth: SLIDER_TRACK_WIDTH
         }));
     };
 
@@ -323,6 +382,103 @@ export class ApparatusInstrument {
         this.dragging = false;
         this.dragPointerId = undefined;
     };
+
+    /** The knob: a bounded 270° travel arc with a visible gap where the shaft is, and a body to grasp. */
+    private paintKnobFace(face: Phaser.GameObjects.Graphics, centre: Readonly<{ x: number; y: number }>): void {
+        face.lineStyle(4, TRAVEL_ARC, 1);
+        face.beginPath();
+        face.arc(centre.x, centre.y, KNOB_TRAVEL_RADIUS, KNOB_ARC_START_RAD, KNOB_ARC_START_RAD + KNOB_ARC_SWEEP_RAD, false);
+        face.strokePath();
+        // One detent per authored step, at the angle that step actually turns to: the instrument must
+        // not claim a resolution it does not have.
+        face.lineStyle(2, TICK, 0.9);
+        knobTickAngles(this.options.control).forEach((angleRad) => {
+            const inner = KNOB_TRAVEL_RADIUS - KNOB_TICK_LENGTH;
+            face.lineBetween(
+                centre.x + (Math.cos(angleRad) * inner),
+                centre.y + (Math.sin(angleRad) * inner),
+                centre.x + (Math.cos(angleRad) * KNOB_TRAVEL_RADIUS),
+                centre.y + (Math.sin(angleRad) * KNOB_TRAVEL_RADIUS)
+            );
+        });
+        face.fillStyle(BODY_FILL, 1);
+        face.fillCircle(centre.x, centre.y, KNOB_BODY_RADIUS);
+        face.lineStyle(2, BODY_RIM, 1);
+        face.strokeCircle(centre.x, centre.y, KNOB_BODY_RADIUS);
+    }
+
+    /**
+     * The dial: an unbroken graduated ring read against a fixed index mark.
+     *
+     * Three things distinguish it from the knob on the glass, not only in the conversion: the ring is a
+     * **closed circle** rather than an arc with a gap, the graduations run all the way round, and there
+     * is an index mark outside the ring that never moves. That mark is what a divided circle is read
+     * against, and it is the affordance that tells a player the travel does not stop.
+     */
+    private paintDialFace(face: Phaser.GameObjects.Graphics, centre: Readonly<{ x: number; y: number }>): void {
+        face.lineStyle(4, TRAVEL_ARC, 1);
+        face.strokeCircle(centre.x, centre.y, DIAL_RING_RADIUS);
+        face.lineStyle(2, TICK, 0.9);
+        dialTickAngles(this.options.control).forEach((angleRad) => {
+            const inner = DIAL_RING_RADIUS - DIAL_TICK_LENGTH;
+            face.lineBetween(
+                centre.x + (Math.cos(angleRad) * inner),
+                centre.y + (Math.sin(angleRad) * inner),
+                centre.x + (Math.cos(angleRad) * DIAL_RING_RADIUS),
+                centre.y + (Math.sin(angleRad) * DIAL_RING_RADIUS)
+            );
+        });
+        face.fillStyle(BODY_FILL, 1);
+        face.fillCircle(centre.x, centre.y, DIAL_FACE_RADIUS);
+        face.lineStyle(2, BODY_RIM, 1);
+        face.strokeCircle(centre.x, centre.y, DIAL_FACE_RADIUS);
+        // The index mark. Fixed at the top, outside the ring, and never rotated — `DIAL_INDEX_ANGLE_RAD`
+        // is where the dial reads zero, so the mark and the conversion agree by construction.
+        face.lineStyle(3, INDICATOR, 1);
+        face.lineBetween(
+            centre.x,
+            centre.y - DIAL_INDEX_INNER_RADIUS,
+            centre.x,
+            centre.y - DIAL_INDEX_OUTER_RADIUS
+        );
+    }
+
+    /** The slider: a linear track with graduations beneath it, along which a thumb travels. */
+    private paintSliderFace(face: Phaser.GameObjects.Graphics, centre: Readonly<{ x: number; y: number }>): void {
+        face.fillStyle(TRAVEL_ARC, 1);
+        face.fillRoundedRect(
+            centre.x - (SLIDER_TRACK_WIDTH / 2),
+            centre.y - (SLIDER_TRACK_HEIGHT / 2),
+            SLIDER_TRACK_WIDTH,
+            SLIDER_TRACK_HEIGHT,
+            SLIDER_TRACK_HEIGHT / 2
+        );
+        // One detent per authored step, at the offset that step actually stops at — the same rule the
+        // knob's ticks follow, and derived from the same conversion the drag uses.
+        face.lineStyle(2, TICK, 0.9);
+        const tickTop = centre.y + (SLIDER_THUMB_HEIGHT / 2);
+        sliderTickOffsets(this.options.control, SLIDER_TRACK_WIDTH).forEach((offset) => {
+            face.lineBetween(centre.x + offset, tickTop, centre.x + offset, tickTop + SLIDER_TICK_LENGTH);
+        });
+    }
+
+    /**
+     * Puts the moving part where a value sits — a rotation for the two rotary affordances, a position
+     * along the track for the slider.
+     *
+     * One method rather than a branch at each of the two call sites (`render` and the refused-dispatch
+     * fallback), because those two must not be able to disagree about where the instrument rests: a
+     * refusal that repainted only the knob would leave a slider's thumb standing at a value the store
+     * does not hold, with no further `render()` coming to correct it.
+     */
+    private paintValue(value: number): void {
+        if (this.affordance === 'slider') {
+            this.thumb?.setX(knobCentre(this.options.index).x + sliderOffsetForValue(this.options.control, value, SLIDER_TRACK_WIDTH));
+            return;
+        }
+        const angleForValue = this.affordance === 'dial' ? dialAngleForValue : knobAngleForValue;
+        this.indicator?.setRotation(angleForValue(this.options.control, value));
+    }
 
     private currentValue(): number {
         return this.reportedValue ?? this.options.control.defaultValue;
@@ -340,10 +496,10 @@ export class ApparatusInstrument {
         const previous = this.reportedValue;
         this.reportedValue = value;
         if (this.options.onValueChange(value)) return;
-        // Refused. Fall back to what we last knew to be true, and put the indicator back under the
-        // cursor's old position rather than leaving it where the refused request would have put it.
+        // Refused. Fall back to what we last knew to be true, and put the moving part back where the
+        // store's value is rather than leaving it where the refused request would have put it.
         this.reportedValue = previous;
-        this.indicator?.setRotation(knobAngleForValue(this.options.control, this.currentValue()));
+        this.paintValue(this.currentValue());
     }
 
     private applyInputState(): void {

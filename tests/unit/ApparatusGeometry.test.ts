@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import type { CaseDefinition, PrimaryControl } from '../../src/domain/cases/CaseDefinition';
+import { CONTROL_AFFORDANCES, controlAffordance, type CaseDefinition, type ControlAffordance, type PrimaryControl } from '../../src/domain/cases/CaseDefinition';
 import {
     ADVANCE_CONTROL_HEIGHT,
     ADVANCE_CONTROL_Y,
@@ -48,6 +48,8 @@ import {
     advanceToSynthesisControlCentre,
     benchControlLeft,
     benchObjectBands,
+    KNOB_FOCUS_RADIUS,
+    instrumentBand,
     instrumentSlotLeft,
     knobCentre,
     notebookCloseControlCentre,
@@ -93,6 +95,11 @@ beforeAll(async () => {
     const parsed = CaseDefinitionSchema.safeParse(content);
     if (!parsed.success) throw new Error('The authored Young case must parse.');
     definition = parsed.data as CaseDefinition;
+
+    const prototype: unknown = JSON.parse(await readFile('public/cases/morley-miller/case.json', 'utf8'));
+    const parsedPrototype = CaseDefinitionSchema.safeParse(prototype);
+    if (!parsedPrototype.success) throw new Error('The authored Morley–Miller case must parse.');
+    prototypeControls = (parsedPrototype.data as CaseDefinition).apparatus.primaryControls;
 });
 
 /** Every screen distance the player can actually select, from the authored bounds. */
@@ -176,13 +183,23 @@ const DESIGN = { width: DESIGN_WIDTH, height: DESIGN_HEIGHT } as const;
 
 const authoredControls = (): readonly PrimaryControl[] => definition.apparatus.primaryControls;
 
+/**
+ * The prototype's controls, which are the shipped ones that actually author a `dial` and a `slider`.
+ *
+ * Loaded rather than fabricated so the affordance sweep below measures the arrangement that ships. A
+ * synthetic pair would prove the geometry agrees with itself.
+ */
+let prototypeControls: readonly PrimaryControl[];
+
 describe('the bench', () => {
     it('places every object clear of the interference screen at every authored throw', () => {
         // The bar spans `CENTRE_Y ± SCREEN_HALF_HEIGHT` and its label runs to `SCREEN_LABEL_Y +
         // SCREEN_LABEL_HEIGHT`; the bench must start below both, at every distance the screen can
         // reach. A bench band drawn over the pattern is the defect `ADVANCE_CONTROL_Y = 130` was.
         const apparatusFloor = Math.max(CENTRE_Y + SCREEN_HALF_HEIGHT, SCREEN_LABEL_Y + SCREEN_LABEL_HEIGHT);
-        const reaching = benchObjectBands(authoredControls())
+        // Both shipped control sets, because the prototype's are drawn as a dial and a slider and an
+        // affordance that reached above the apparatus floor would be invisible to a Young-only sweep.
+        const reaching = [...benchObjectBands(authoredControls()), ...benchObjectBands(prototypeControls)]
             .filter(({ top }) => top <= apparatusFloor)
             .map(({ name, top }) => `${name} starts at y=${top}, at or above the apparatus floor y=${apparatusFloor}`);
 
@@ -458,5 +475,121 @@ describe('the bench notebook overlay', () => {
         // the slot that constrains it, and `french-typography.spec.ts` measures against this bound.
         expect(INSTRUMENT_READOUT_WRAP).toBeLessThanOrEqual(INSTRUMENT_SLOT_WIDTH);
         expect(INSTRUMENT_READOUT_FONT_SIZE).toBeGreaterThanOrEqual(13);
+    });
+});
+
+/**
+ * The three affordances share the bench (Story 3.4, AC3/AC4).
+ *
+ * `benchObjectBands` used to derive **every** band from `knobCentre` and `KNOB_FOCUS_RADIUS`, whatever
+ * the control was drawn as. Shipping a second affordance without touching it would have measured a knob
+ * that is not drawn while the instrument that *is* drawn overlapped its neighbour unmeasured — the
+ * `FIGURE_SLOT_WIDTH` defect one layer down, and the 2.9 fabricated-band defect one layer down again.
+ * So these drive the sweep with affordances actually authored.
+ */
+describe('the bench with three affordances', () => {
+    const withAffordance = (affordance: ControlAffordance, index: number): PrimaryControl =>
+        ({ ...authoredControls()[0]!, id: `control-${index}`, affordance });
+
+    const collisions = (controls: readonly PrimaryControl[]): readonly string[] => {
+        const bands = benchObjectBands(controls);
+        return bands.flatMap((first, atIndex) => bands.slice(atIndex + 1)
+            .filter((second) => first.top < second.bottom && second.top < first.bottom
+                && first.left < second.right && second.left < first.right)
+            .map((second) => `${first.name} overlaps ${second.name}`));
+    };
+
+    it.each(CONTROL_AFFORDANCES)('keeps a %s inside its own slot and inside the knob row', (affordance) => {
+        // Inside the slot horizontally, so the bench layout does not move for an authored affordance;
+        // inside the knob's vertical extent, so `BENCH_TOP` and `STEP_AFFORDANCE_Y` do not either.
+        [0, 1].forEach((index) => {
+            const band = instrumentBand(affordance, index);
+            const centre = knobCentre(index);
+
+            expect(band.right - band.left).toBeLessThanOrEqual(INSTRUMENT_SLOT_WIDTH);
+            expect(band.left).toBeGreaterThanOrEqual(instrumentSlotLeft(index));
+            expect(band.right).toBeLessThanOrEqual(instrumentSlotLeft(index) + INSTRUMENT_SLOT_WIDTH);
+            expect(band.top).toBeGreaterThanOrEqual(centre.y - KNOB_FOCUS_RADIUS);
+            expect(band.bottom).toBeLessThanOrEqual(centre.y + KNOB_FOCUS_RADIUS);
+            // Against the knob's own extent rather than against `BENCH_TOP`: the knob's focus ring
+            // already reaches 396 while `BENCH_TOP` is 404, because `BENCH_TOP` anchors the travel arc
+            // and not the focus treatment. What must hold is that no new affordance reaches *higher*
+            // than the one the bench was laid out around — the clearance above the bench is asserted
+            // against the apparatus floor by the sweep at the top of this file, for both cases.
+            expect(band.top).toBeGreaterThanOrEqual(knobCentre(index).y - KNOB_FOCUS_RADIUS);
+        });
+    });
+
+    it('gives each affordance a genuinely different band, so measuring the wrong one is detectable', () => {
+        // If all three were the same rectangle, the affordance-awareness below would be untestable and
+        // the sweep could go on assuming a knob for ever without anything going red.
+        const bands = CONTROL_AFFORDANCES.map((affordance) => JSON.stringify(instrumentBand(affordance, 0)));
+
+        expect(new Set(bands).size).toBeGreaterThan(1);
+        expect(instrumentBand('slider', 0)).not.toEqual(instrumentBand('knob', 0));
+    });
+
+    it('measures each control by its own affordance, not by the knob', () => {
+        // The mutation target: revert `benchObjectBands` to `knobCentre`/`KNOB_FOCUS_RADIUS` and this
+        // fails, because a slider's band is not a knob's and the band is named after what is drawn.
+        const controls = [withAffordance('slider', 0), withAffordance('dial', 1)];
+        const bands = benchObjectBands(controls);
+
+        expect(bands.map(({ name }) => name)).toEqual(expect.arrayContaining(['slider control-0', 'dial control-1']));
+        expect(bands.find(({ name }) => name === 'slider control-0')).toMatchObject(instrumentBand('slider', 0));
+        expect(bands.find(({ name }) => name === 'dial control-1')).toMatchObject(instrumentBand('dial', 1));
+    });
+
+    /**
+     * AC4's other half, and the one that has to be written against an **explicit** `knob` rather than
+     * against another defaulted control.
+     *
+     * The first version of this compared two defaulted controls, so flipping `controlAffordance`'s
+     * `?? 'knob'` to `?? 'slider'` moved both sides equally and the whole suite stayed green — the
+     * mutation §13 predicts and the exact "test that cannot fail" shape. Comparing the absent case to a
+     * spelled-out `knob` is what makes the default a covered decision.
+     */
+    it('draws a control with no authored affordance exactly as a knob (AC4)', () => {
+        const absent = { ...authoredControls()[0]!, id: 'unstated', affordance: undefined };
+        const explicit = { ...authoredControls()[0]!, id: 'unstated', affordance: 'knob' as const };
+
+        expect(controlAffordance(absent)).toBe('knob');
+        expect(benchObjectBands([absent])).toEqual(benchObjectBands([explicit]));
+        // Named after the instrument that is drawn, so the default is visible in the sweep's own output.
+        expect(benchObjectBands([absent]).map(({ name }) => name)).toContain('knob unstated');
+    });
+
+    it('keeps the bench layout constants unmoved by an authored affordance (AC4)', () => {
+        // The step affordances and the readout sit at the same y whatever the instrument is, which is
+        // what "the bench layout does not move" means and what keeps `INSTRUMENT_READOUT_Y` honest.
+        const named = (controls: readonly PrimaryControl[], prefix: string) => benchObjectBands(controls)
+            .filter(({ name }) => name.startsWith(prefix))
+            .map(({ top, bottom, left, right }) => ({ top, bottom, left, right }));
+
+        CONTROL_AFFORDANCES.forEach((affordance) => {
+            const controls = [withAffordance(affordance, 0), withAffordance(affordance, 1)];
+
+            expect(named(controls, 'step affordances')).toEqual(named(authoredControls(), 'step affordances'));
+            expect(named(controls, 'readout')).toEqual(named(authoredControls(), 'readout'));
+        });
+    });
+
+    it('overlaps nothing for any mix of affordances at the authored ceiling', () => {
+        // Every permutation at `MAX_PRIMARY_CONTROLS`, so a slider beside a dial is measured rather
+        // than assumed. Two slots, three affordances: nine arrangements, all of which must be clear.
+        const failures = CONTROL_AFFORDANCES.flatMap((first) => CONTROL_AFFORDANCES.map((second) => {
+            const controls = [withAffordance(first, 0), withAffordance(second, 1)].slice(0, MAX_PRIMARY_CONTROLS);
+            return { arrangement: `${first} + ${second}`, collisions: collisions(controls) };
+        })).filter(({ collisions: found }) => found.length > 0);
+
+        expect(failures).toEqual([]);
+    });
+
+    it('overlaps nothing for the prototype, which authors a dial beside a slider', () => {
+        // The shipped arrangement rather than a synthetic one — and the bands are named after what the
+        // prototype actually draws, so this fails if the content and the sweep disagree.
+        expect(collisions(prototypeControls)).toEqual([]);
+        expect(benchObjectBands(prototypeControls).map(({ name }) => name))
+            .toEqual(expect.arrayContaining(['dial rotationDeg', 'slider bathTempC']));
     });
 });

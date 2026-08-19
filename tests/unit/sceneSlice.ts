@@ -48,7 +48,37 @@ export type DrawnObject = Readonly<{
          * unlit bench an assertion instead of a screenshot.
          */
         commands: number;
+        /**
+         * The drawing commands issued since the last `clear()`, **by name**, in order.
+         *
+         * `commands` counts; this says which. Story 3.4 needed the difference: a `dial` that is a knob
+         * with a different label and a `dial` that is a closed graduated ring read against a fixed index
+         * mark issue the *same number* of commands, so a count could not tell AC3's "genuinely distinct
+         * instruments" from three skins. `arc` versus `strokeCircle` can.
+         *
+         * Names only, not arguments. That is a deliberate floor rather than an oversight: a test
+         * asserting coordinates through this fake would be asserting arithmetic, which is the trap
+         * `height: 18` already sets in this file. Geometry belongs in `apparatusGeometry.ts` and is
+         * asserted there against exported constants.
+         */
+        commandNames: string[];
         clears: number;
+        /**
+         * Where the object stands and how far it is turned, from `setPosition`/`setX`/`setY`/
+         * `setRotation` (Story 3.4).
+         *
+         * The permissive proxy used to swallow all four, so an instrument's **moving part was
+         * invisible to every test**: a knob whose indicator never rotated and a slider whose thumb
+         * never moved read exactly like working ones, and `ApparatusInstrument.paintValue` could have
+         * been a no-op under a green suite — the `const dark = false` shape at the instrument layer.
+         *
+         * Assert that a value *moved* something, not the coordinate it moved to: an exact number here
+         * is arithmetic the geometry module already owns and `ApparatusGeometry.test.ts` asserts
+         * against its exported constants.
+         */
+        x: number;
+        y: number;
+        rotation: number;
     };
     /**
      * The pointer handlers the renderer attached to this object, so a test can press a control the
@@ -95,10 +125,10 @@ const DRAWING_COMMANDS = new Set([
 const makeObject = (kind: string, log: DrawnObject[]) => {
     // `interactive` starts false: nothing Phaser creates is interactive until `setInteractive` is called,
     // and starting it true would make a renderer that never armed a control look armed.
-    const state = { alpha: 1, visible: true, destroyed: false, text: '', interactive: false, commands: 0, clears: 0 };
+    const state = { alpha: 1, visible: true, destroyed: false, text: '', interactive: false, commands: 0, commandNames: [] as string[], clears: 0, x: 0, y: 0, rotation: 0 };
     const handlers = new Map<string, (...args: unknown[]) => void>();
     log.push({ kind, state, handlers });
-    const self: Chainable & { context: { measureText: (value: string) => { width: number } }; height: number; x: number; y: number } = {
+    const self: Chainable & { context: { measureText: (value: string) => { width: number } }; height: number; x: number; y: number; rotation?: number } = {
         // Enough of a text metrics API for a caret to be placed. Seven pixels a character is not real,
         // and nothing here asserts a pixel — what matters is that the call does not throw.
         context: { measureText: (value: string) => ({ width: value.length * 7 }) },
@@ -114,9 +144,25 @@ const makeObject = (kind: string, log: DrawnObject[]) => {
         setInteractive: () => { state.interactive = true; return chain; },
         disableInteractive: () => { state.interactive = false; return chain; },
         setBlendMode: (value) => { (state as { blendMode?: string }).blendMode = String(value); return chain; },
+        /**
+         * Where the object is and how it is turned, recorded rather than swallowed (Story 3.4).
+         *
+         * The permissive proxy used to absorb all four of these, so **the moving part of an instrument
+         * was invisible**: a knob whose indicator never rotated and a slider whose thumb never moved
+         * were indistinguishable from working ones, and `paintValue` could have been a no-op under a
+         * green suite. That is the 2.10 `const dark = false` shape at the instrument layer.
+         *
+         * Positions are design-space numbers the geometry module already owns, so a test asserting an
+         * exact coordinate here is asserting arithmetic — assert that it *moved*, and assert *where* in
+         * `ApparatusGeometry.test.ts` against the exported constants.
+         */
+        setPosition: (x, y) => { self.x = x as number; self.y = y as number; state.x = self.x; state.y = self.y; return chain; },
+        setX: (value) => { self.x = value as number; state.x = self.x; return chain; },
+        setY: (value) => { self.y = value as number; state.y = self.y; return chain; },
+        setRotation: (value) => { state.rotation = value as number; return chain; },
         // A cleared `Graphics` holds nothing until something is drawn into it again, which is exactly what
         // the bench's unlit state is.
-        clear: () => { state.commands = 0; state.clears += 1; return chain; },
+        clear: () => { state.commands = 0; state.commandNames.length = 0; state.clears += 1; return chain; },
         on: (event, handler) => { handlers.set(event as string, handler as (...args: unknown[]) => void); return chain; },
         destroy: () => { state.destroyed = true; }
     };
@@ -124,7 +170,7 @@ const makeObject = (kind: string, log: DrawnObject[]) => {
         get: (target, property) => {
             if (property in target) return (target as Record<string | symbol, unknown>)[property];
             if (typeof property === 'string' && DRAWING_COMMANDS.has(property)) {
-                return () => { state.commands += 1; return chain; };
+                return () => { state.commands += 1; state.commandNames.push(property); return chain; };
             }
             return () => chain;
         }

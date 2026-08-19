@@ -4,6 +4,7 @@ import { loadCaseDefinition } from '../../src/adapters/content/loadCaseDefinitio
 import { isSourceEligibleForInspection } from '../../src/domain/cases/CaseDefinition';
 import type { CaseDefinition, LocalizedText, LocalizedTextList, TextualRendition } from '../../src/domain/cases/CaseDefinition';
 import { CASE_PHASES, createInitialCaseProgress } from '../../src/domain/cases/CaseProgress';
+import { FIGURE_STAGING_SCENE_KEYS } from '../../src/domain/cases/ScenarioScript';
 import { advanceCasePhase, resetCaseProgress, retreatCasePhase } from '../../src/domain/cases/caseReducer';
 import { CaseDefinitionSchema, MAX_PRIMARY_CONTROLS } from '../../src/schemas/CaseDefinitionSchema';
 import { readShippedCaseFile } from '../shippedCases';
@@ -2407,5 +2408,112 @@ describe('the source and rights ledger contract', () => {
         const artifact = structuredClone(validYoungCase.contextualArtifacts[0]) as unknown as Record<string, unknown>;
         (artifact.ledgerEntry as Record<string, unknown>).reviewerState = 'pending';
         expect(isSourceEligibleForInspection(artifact as unknown as CaseDefinition['contextualArtifacts'][number])).toBe(true);
+    });
+});
+
+/**
+ * The authored per-scene cast (Story 3.4, AC2 and AC4).
+ *
+ * Five load-time rules, each with a mutation proof recorded in the story: every rule below fails when
+ * its own `addIssue` in `CaseDefinitionSchema`'s scenario block is removed, and the four sibling rules
+ * stay green. The paths are asserted, not just the failure — an author fixes what a message points at.
+ */
+describe('an authored scene cast', () => {
+    /** The valid case with a `cast` on one of its scenes, as a loose record so a test can author an invalid one. */
+    const withCast = (sceneIndex: number, cast: unknown): Record<string, unknown> => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        ((definition.scenarioScript as { scenes: Array<Record<string, unknown>> }).scenes[sceneIndex]).cast = cast;
+        return definition;
+    };
+
+    /** Scene 1 is `prediction` → `Colleagues`, one of the two that stage a figure column. */
+    const PREDICTION_SCENE = 1;
+    /** Scene 0 is `context` → `Library`, which stages none. */
+    const CONTEXT_SCENE = 0;
+
+    const issuePaths = (definition: Record<string, unknown>): readonly string[] => {
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+        return parsed.success ? [] : parsed.error.issues.map((issue) => issue.path.join('.'));
+    };
+
+    it('accepts a cast naming a subset of the authored colleagues', () => {
+        expect(CaseDefinitionSchema.safeParse(withCast(PREDICTION_SCENE, ['thea-young', 'elias-wren'])).success).toBe(true);
+    });
+
+    it('accepts a scene with no cast at all — absence is how a scene says "everyone"', () => {
+        expect(CaseDefinitionSchema.safeParse(cloneValidCase()).success).toBe(true);
+    });
+
+    it('rejects a cast member who is not an authored colleague, at the offending index', () => {
+        // Also what stops an author staging the rival lab, who is deliberately not in `colleagues[]`.
+        expect(issuePaths(withCast(PREDICTION_SCENE, ['thea-young', 'arthur-bell'])))
+            .toContain('scenarioScript.scenes.1.cast.1');
+    });
+
+    it('rejects a repeated cast member, which would stage one figure twice', () => {
+        expect(issuePaths(withCast(PREDICTION_SCENE, ['thea-young', 'thea-young'])))
+            .toContain('scenarioScript.scenes.1.cast');
+    });
+
+    it('rejects an authored empty cast rather than reading it as "nobody"', () => {
+        // Deliberately the opposite of `dialogueBeats: []`, which is identical to absence. Absence
+        // already means "everyone" here, so `[]` could only mean a state no figure column can render.
+        expect(issuePaths(withCast(PREDICTION_SCENE, [])))
+            .toContain('scenarioScript.scenes.1.cast');
+    });
+
+    it('rejects a cast on a scene that stages no figure column', () => {
+        expect(issuePaths(withCast(CONTEXT_SCENE, ['thea-young'])))
+            .toContain('scenarioScript.scenes.0.cast');
+    });
+
+    it.each(FIGURE_STAGING_SCENE_KEYS)('accepts a cast on %s, which does stage one', (sceneKey) => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        const scenes = (definition.scenarioScript as { scenes: Array<Record<string, unknown>> }).scenes;
+        const index = scenes.findIndex((scene) => scene.sceneKey === sceneKey);
+
+        expect(index).toBeGreaterThanOrEqual(0);
+        scenes[index]!.cast = ['thea-young'];
+        expect(CaseDefinitionSchema.safeParse(definition).success).toBe(true);
+    });
+
+    it('rejects a beat spoken by somebody the scene does not stage', () => {
+        // The rule that makes the field safe: without it the beat plays with nobody on stage
+        // (`deferred-work.md`, the `CharacterStage.create` note this story closes).
+        const definition = withCast(PREDICTION_SCENE, ['thea-young']);
+        ((definition.scenarioScript as { scenes: Array<Record<string, unknown>> }).scenes[PREDICTION_SCENE]).dialogueBeats = [
+            { id: 'intro', speakerId: 'elias-wren', text: bilingual('A bounded claim needs a second measurement.') }
+        ];
+
+        expect(issuePaths(definition)).toContain('scenarioScript.scenes.1.dialogueBeats.0.speakerId');
+    });
+
+    it('accepts a beat spoken by a member of its own scene cast', () => {
+        const definition = withCast(PREDICTION_SCENE, ['thea-young']);
+        ((definition.scenarioScript as { scenes: Array<Record<string, unknown>> }).scenes[PREDICTION_SCENE]).dialogueBeats = [
+            { id: 'intro', speakerId: 'thea-young', text: bilingual('A bounded claim needs a second measurement.') }
+        ];
+
+        expect(CaseDefinitionSchema.safeParse(definition).success).toBe(true);
+    });
+
+    it('reports the empty cast once rather than also reporting every beat against it', () => {
+        // An empty cast makes every speaker a non-member, and reporting both would bury the one
+        // message that names the actual defect.
+        const definition = withCast(PREDICTION_SCENE, []);
+        ((definition.scenarioScript as { scenes: Array<Record<string, unknown>> }).scenes[PREDICTION_SCENE]).dialogueBeats = [
+            { id: 'intro', speakerId: 'thea-young', text: bilingual('A bounded claim needs a second measurement.') }
+        ];
+
+        expect(issuePaths(definition)).not.toContain('scenarioScript.scenes.1.dialogueBeats.0.speakerId');
+    });
+
+    it('still rejects a cast whose member is not a colleague even with no beats authored', () => {
+        // The cast rules run outside the `if (!beats) return` guard. Moving them inside it is a silent
+        // regression: the shipped scenes author no beats on `synthesis`, so the guard would skip them.
+        const definition = withCast(PREDICTION_SCENE, ['nobody-authored-this']);
+        delete ((definition.scenarioScript as { scenes: Array<Record<string, unknown>> }).scenes[PREDICTION_SCENE]).dialogueBeats;
+
+        expect(CaseDefinitionSchema.safeParse(definition).success).toBe(false);
     });
 });

@@ -1,9 +1,10 @@
 import { z } from 'zod';
 
 import { DEFAULT_LOCALE, LOCALES } from '../core/i18n/Locale';
+import { CONTROL_AFFORDANCES } from '../domain/cases/CaseDefinition';
 import { CASE_PHASES } from '../domain/cases/CaseProgress';
 import { unfillableTemplateTokens } from '../domain/evidence/caseSummary';
-import { SCENE_KEYS } from '../domain/cases/ScenarioScript';
+import { FIGURE_STAGING_SCENE_KEYS, SCENE_KEYS, stagesFigureColumn } from '../domain/cases/ScenarioScript';
 import { EXPERIMENT_MODEL_IDS, resolveExperimentModel } from '../domain/apparatus/experimentModels';
 
 const stableId = z.string().trim().min(1);
@@ -145,7 +146,26 @@ const PrimaryControlSchema = z.object({
     min: z.number().finite(),
     max: z.number().finite(),
     step: z.number().positive().finite(),
-    defaultValue: z.number().finite()
+    defaultValue: z.number().finite(),
+    /**
+     * Which instrument the bench draws (Story 3.4). Optional, and `knob` when absent.
+     *
+     * `z.enum` over the domain's own exported {@link CONTROL_AFFORDANCES} rather than a list repeated
+     * here, so the type and the schema cannot drift — the shape this project has been bitten by often
+     * enough to make it a rule.
+     *
+     * **Optional with no `.default()`**, which is the opposite call to `inlineLabel` above and for the
+     * opposite reason. `inlineLabel` is required because falling back to `label` was a *silent*
+     * degradation that shipped a broken French sentence; there is no locale hiding in an affordance and
+     * `knob` is a real, correct default. A schema `.default('knob')` was still refused: it writes a
+     * value into the parsed object the author did not write, so a `.strict()` round-trip of shipped
+     * content would stop being faithful. The absence is resolved by `controlAffordance` at the one
+     * place that draws.
+     *
+     * Every other control validation is affordance-independent and must stay that way — the authored
+     * range, step and default mean exactly what they meant before (AC3).
+     */
+    affordance: z.enum(CONTROL_AFFORDANCES).optional()
 }).strict().superRefine((control, context) => {
     if (control.max <= control.min) {
         context.addIssue({ code: 'custom', message: 'Control max must be greater than min.', path: ['max'] });
@@ -650,6 +670,18 @@ const ScenarioDialogueBeatSchema = z.object({
 const ScenarioSceneSchema = z.object({
     phase: z.enum(CASE_PHASES),
     sceneKey: z.enum(SCENE_KEYS),
+    // Who is in the room, authored rather than derived (Story 3.4). **No `.min(1)`**, and no default.
+    //
+    // The floor belongs in the top-level refinement for the same reason it does below: a base-parse
+    // failure makes Zod skip the whole `superRefine`, so a `too_small` here would silence every
+    // authored-content message at once. An authored `[]` is genuinely refused — unlike `dialogueBeats`,
+    // where empty and absent mean the same thing — because absence already means "the whole cast" and
+    // "nobody" is not a state a figure-staging scene can render. The refinement says that in words.
+    //
+    // No `.default([...])` either: a schema default writes content into the parsed object that the
+    // author did not write, and `.strict()` round-trips stop being faithful. The one place that stages
+    // figures resolves the absence instead.
+    cast: z.array(stableId).optional(),
     // No `.min` here either, for the same reason it is absent on `scenes` below. `"dialogueBeats": []`
     // is the natural way to write "no conversation yet", and as a base-parse failure it reported a
     // generic too_small *and* skipped the whole top-level superRefine — silencing every authored-content
@@ -1498,15 +1530,66 @@ export const CaseDefinitionSchema = z.object({
         });
     }
 
-    // --- Scenario dialogue beats ----------------------------------------------------------------
+    // --- Scenario cast and dialogue beats ---------------------------------------------------------
     //
     // Here rather than in `ScenarioScriptSchema`'s own refinement: that one cannot see `colleagues`,
-    // and a speaker is only meaningful against the authored cast.
+    // and neither a speaker nor a cast is meaningful except against the authored cast.
 
     definition.scenarioScript.scenes.forEach((scene, sceneIndex) => {
+        const scenePath = ['scenarioScript', 'scenes', sceneIndex];
+        const cast = scene.cast;
+
+        if (cast) {
+            const castPath = [...scenePath, 'cast'];
+
+            // Absence means "the whole cast"; `[]` would have to mean "nobody", and no scene that draws
+            // a figure column can render that. See the shape's own note for why the floor is here and
+            // not a `.min(1)`, and for the deliberate asymmetry with `dialogueBeats`.
+            if (cast.length === 0) {
+                context.addIssue({
+                    code: 'custom',
+                    message: 'An authored scene cast must name at least one colleague. Omit the field to stage the whole cast.',
+                    path: castPath
+                });
+            }
+
+            // A repeat would stage one figure twice and halve the slot width for everybody on the board.
+            if (new Set(cast).size !== cast.length) {
+                context.addIssue({
+                    code: 'custom',
+                    message: 'A scene cast must not name the same colleague twice.',
+                    path: castPath
+                });
+            }
+
+            // A cast on a scene that draws no figure column is shipped-and-dead content. It is also the
+            // authoring mistake this field invites most: `cast` reads like "who appears in this part of
+            // the story" rather than "who stands in this board's figure column".
+            if (!stagesFigureColumn(scene.sceneKey)) {
+                context.addIssue({
+                    code: 'custom',
+                    message: `Only a scene that stages a figure column may author a cast (${FIGURE_STAGING_SCENE_KEYS.join(', ')}).`,
+                    path: castPath
+                });
+            }
+
+            cast.forEach((colleagueId, castIndex) => {
+                if (!colleagueIds.has(colleagueId)) {
+                    context.addIssue({
+                        code: 'custom',
+                        // The rival lab is deliberately not a member of `colleagues[]`, so this also
+                        // stops an author staging the challenger among the colleagues — the same
+                        // reasoning the colleague-hint rule gives above.
+                        message: 'Every scene cast member must be an authored colleague.',
+                        path: [...castPath, castIndex]
+                    });
+                }
+            });
+        }
+
         const beats = scene.dialogueBeats;
         if (!beats) return;
-        const beatPath = ['scenarioScript', 'scenes', sceneIndex, 'dialogueBeats'];
+        const beatPath = [...scenePath, 'dialogueBeats'];
         // Unique *within* a scene. Across scenes a beat id may repeat: a scene is the unit a
         // conversation belongs to, and `prediction` and `review` both reasonably open with `intro`.
         if (new Set(beats.map(({ id }) => id)).size !== beats.length) {
@@ -1517,6 +1600,16 @@ export const CaseDefinitionSchema = z.object({
                 context.addIssue({
                     code: 'custom',
                     message: 'Every dialogue beat must be spoken by an authored colleague.',
+                    path: [...beatPath, beatIndex, 'speakerId']
+                });
+            }
+            // Narrower than the rule above, and the one that makes an authored cast safe: a beat spoken
+            // by somebody the scene does not stage plays with nobody on stage. Skipped for an empty
+            // cast, which is already refused above — one defect, one message.
+            if (cast && cast.length > 0 && !cast.includes(beat.speakerId)) {
+                context.addIssue({
+                    code: 'custom',
+                    message: "Every dialogue beat must be spoken by a member of its own scene's cast.",
                     path: [...beatPath, beatIndex, 'speakerId']
                 });
             }

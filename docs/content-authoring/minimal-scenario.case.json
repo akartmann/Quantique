@@ -1,0 +1,813 @@
+{
+  "id": "example-minimal-scenario",
+  "version": "1.0.0",
+  "title": {
+    "en": "Example: the smallest complete case",
+    "fr": "Exemple : le plus petit dossier complet"
+  },
+  "openingDispute": {
+    "en": "Two colleagues disagree about whether turning the bench moves the fringes at all. Settle it with measurements.",
+    "fr": "Deux collègues ne s’accordent pas sur le fait que tourner le banc déplace les franges. Tranchez par la mesure."
+  },
+  "contextualArtifacts": [
+    {
+      "id": "example-primary-note",
+      "displayName": {
+        "en": "The first note",
+        "fr": "La première note"
+      },
+      "creatorOrOrigin": "Quantique documentation, invented for this example",
+      "sourceType": "fictionalized-account",
+      "provenance": {
+        "category": "deliberate-fiction",
+        "reference": "docs/content-authoring/README.md#example-primary-note"
+      },
+      "rightsStatus": "reviewed",
+      "ledgerEntry": {
+        "sourceRole": "primary",
+        "reviewerState": "pending"
+      },
+      "caseRelationship": {
+        "en": "States the disagreement this example is built around.",
+        "fr": "Énonce le désaccord autour duquel cet exemple est construit."
+      },
+      "textualRendition": {
+        "readerLabel": {
+          "en": "Read the first note",
+          "fr": "Lire la première note"
+        },
+        "citation": {
+          "reuseStatement": {
+            "en": "Invented example text written for this repository. Not a historical source, and not to be cited as one.",
+            "fr": "Texte d’exemple inventé pour ce dépôt. Ce n’est pas une source historique et il ne doit pas être cité comme telle."
+          },
+          "citationText": "Quantique documentation (2026). Minimal authoring example. docs/content-authoring/.",
+          "archiveUrl": "https://example.invalid/quantique-authoring-example"
+        },
+        "summary": {
+          "en": [
+            "An invented note recording that one observer saw a shift on turning the bench and another saw none."
+          ],
+          "fr": [
+            "Une note inventée rapportant qu’un observateur a vu un décalage en tournant le banc et un autre non."
+          ]
+        },
+        "renditions": [
+          {
+            "locale": "en",
+            "kind": "reconstruction",
+            "sections": [
+              {
+                "id": "example-primary-note-note",
+                "heading": "Note one",
+                "paragraphs": [
+                  "An invented note recording that one observer saw a shift on turning the bench and another saw none."
+                ],
+                "sourcePages": [
+                  1
+                ]
+              }
+            ]
+          },
+          {
+            "locale": "fr",
+            "kind": "translation",
+            "sections": [
+              {
+                "id": "example-primary-note-note",
+                "heading": "Note une",
+                "paragraphs": [
+                  "Une note inventée rapportant qu’un observateur a vu un décalage en tournant le banc et un autre non."
+                ],
+                "sourcePages": [
+                  1
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "example-secondary-note",
+      "displayName": {
+        "en": "The second note",
+        "fr": "La seconde note"
+      },
+      "creatorOrOrigin": "Quantique documentation, invented for this example",
+      "sourceType": "fictionalized-account",
+      "provenance": {
+        "category": "deliberate-fiction",
+        "reference": "docs/content-authoring/README.md#example-secondary-note"
+      },
+      "rightsStatus": "reviewed",
+      "ledgerEntry": {
+        "sourceRole": "secondary",
+        "reviewerState": "pending"
+      },
+      "caseRelationship": {
+        "en": "Adds the bath temperature nobody had thought to hold steady.",
+        "fr": "Ajoute la température de bain que personne n’avait songé à maintenir stable."
+      },
+      "textualRendition": {
+        "readerLabel": {
+          "en": "Read the second note",
+          "fr": "Lire la seconde note"
+        },
+        "citation": {
+          "reuseStatement": {
+            "en": "Invented example text written for this repository. Not a historical source, and not to be cited as one.",
+            "fr": "Texte d’exemple inventé pour ce dépôt. Ce n’est pas une source historique et il ne doit pas être cité comme telle."
+          },
+          "citationText": "Quantique documentation (2026). Minimal authoring example. docs/content-authoring/.",
+          "archiveUrl": "https://example.invalid/quantique-authoring-example"
+        },
+        "summary": {
+          "en": [
+            "An invented note observing that the bath was warm on one afternoon and cool on the other."
+          ],
+          "fr": [
+            "Une note inventée observant que le bain était chaud un après-midi et froid l’autre."
+          ]
+        },
+        "renditions": [
+          {
+            "locale": "en",
+            "kind": "reconstruction",
+            "sections": [
+              {
+                "id": "example-secondary-note-note",
+                "heading": "Note two",
+                "paragraphs": [
+                  "An invented note observing that the bath was warm on one afternoon and cool on the other."
+                ],
+                "sourcePages": [
+                  1
+                ]
+              }
+            ]
+          },
+          {
+            "locale": "fr",
+            "kind": "translation",
+            "sections": [
+              {
+                "id": "example-secondary-note-note",
+                "heading": "Note deux",
+                "paragraphs": [
+                  "Une note inventée observant que le bain était chaud un après-midi et froid l’autre."
+                ],
+                "sourcePages": [
+                  1
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "prediction": {
+    "required": true
+  },
+  "apparatus": {
+    "primaryControls": [
+      {
+        "id": "rotationDeg",
+        "label": {
+          "en": "Bench rotation",
+          "fr": "Rotation du banc"
+        },
+        "inlineLabel": {
+          "en": "bench rotation",
+          "fr": "de rotation du banc"
+        },
+        "unit": "°",
+        "min": 0,
+        "max": 180,
+        "step": 15,
+        "defaultValue": 0,
+        "affordance": "dial"
+      },
+      {
+        "id": "bathTempC",
+        "label": {
+          "en": "Bath temperature",
+          "fr": "Température du bain"
+        },
+        "inlineLabel": {
+          "en": "bath temperature",
+          "fr": "de température du bain"
+        },
+        "unit": "°C",
+        "min": 18,
+        "max": 24,
+        "step": 0.5,
+        "defaultValue": 22
+      }
+    ]
+  },
+  "experiment": {
+    "modelId": "morley-miller-interferometer",
+    "modelVersion": "1.0.0",
+    "assumptions": {
+      "en": [
+        "The bench is level and the bath temperature is read at the moment of the observation."
+      ],
+      "fr": [
+        "Le banc est de niveau et la température du bain est relevée au moment de l’observation."
+      ]
+    },
+    "confound": {
+      "id": "example-thermal-drift",
+      "description": {
+        "en": "A warming bath moves the fringes on its own, whatever the bench is doing.",
+        "fr": "Un bain qui se réchauffe déplace les franges de lui-même, quoi que fasse le banc."
+      },
+      "discoverableBy": "control-change"
+    },
+    "resetPath": {
+      "recoveryRoute": "control-change",
+      "description": {
+        "en": "Bring the bath back to a steady reading, then turn the bench again.",
+        "fr": "Ramenez le bain à une valeur stable, puis tournez de nouveau le banc."
+      }
+    }
+  },
+  "requirements": {
+    "minimumRuns": 2,
+    "minimumSources": 2,
+    "minimumSignificantRuns": 2
+  },
+  "significanceRule": {
+    "criticalControlIds": [
+      "rotationDeg",
+      "bathTempC"
+    ]
+  },
+  "colleagueHints": [
+    {
+      "id": "example-hint-no-runs",
+      "colleagueId": "ada-reeve",
+      "predicate": {
+        "kind": "no-recorded-runs"
+      },
+      "line": {
+        "en": "Nothing is written down yet. Start the light once and we will have something to weigh.",
+        "fr": "Rien n’est encore noté. Allumez la source une fois et nous aurons de quoi peser."
+      }
+    },
+    {
+      "id": "example-hint-below-gate",
+      "colleagueId": "ada-reeve",
+      "predicate": {
+        "kind": "below-significant-measures"
+      },
+      "line": {
+        "en": "Two settings that differ, not two readings of one. Move the bench rotation and record again.",
+        "fr": "Deux réglages différents, non deux relevés d’un seul. Modifiez la rotation du banc et enregistrez de nouveau."
+      }
+    }
+  ],
+  "readingGateHints": [
+    {
+      "id": "example-reading-any",
+      "colleagueId": "ada-reeve",
+      "predicate": {
+        "kind": "any-missing-reading"
+      },
+      "line": {
+        "en": "Both notes are still on the shelf. Read them before you touch the bench.",
+        "fr": "Les deux notes sont encore sur l’étagère. Lisez-les avant de toucher au banc."
+      }
+    }
+  ],
+  "colleagues": [
+    {
+      "id": "ada-reeve",
+      "name": "Ada Reeve",
+      "role": "lead",
+      "portrait": {
+        "kind": "silhouette",
+        "accentColor": "#c9a227",
+        "figure": {
+          "build": "gowned",
+          "pose": "raising-instrument",
+          "hair": "upswept",
+          "hairColor": "dark",
+          "skinTone": "light"
+        }
+      }
+    },
+    {
+      "id": "owen-blake",
+      "name": "Owen Blake",
+      "role": "analyst",
+      "portrait": {
+        "kind": "silhouette",
+        "accentColor": "#4f8a8b",
+        "figure": {
+          "build": "suited",
+          "pose": "arms-folded",
+          "hair": "cropped",
+          "hairColor": "grey",
+          "skinTone": "light"
+        }
+      }
+    }
+  ],
+  "predictionProposals": [
+    {
+      "id": "example-predict-shift",
+      "colleagueId": "ada-reeve",
+      "text": {
+        "en": "Turning the bench will move the fringes by a full band.",
+        "fr": "Tourner le banc déplacera les franges d’une bande entière."
+      }
+    },
+    {
+      "id": "example-predict-none",
+      "colleagueId": "owen-blake",
+      "text": {
+        "en": "Turning the bench will move nothing we can measure.",
+        "fr": "Tourner le banc ne déplacera rien de mesurable."
+      }
+    },
+    {
+      "id": "example-predict-small",
+      "colleagueId": "ada-reeve",
+      "text": {
+        "en": "Turning the bench will move the fringes a little, and the bath will move them more.",
+        "fr": "Tourner le banc déplacera un peu les franges, et le bain les déplacera davantage."
+      }
+    },
+    {
+      "id": "example-predict-thermal",
+      "colleagueId": "owen-blake",
+      "text": {
+        "en": "Only the bath temperature will move the fringes.",
+        "fr": "Seule la température du bain déplacera les franges."
+      }
+    }
+  ],
+  "conclusionProposals": [
+    {
+      "id": "example-conclude-bounded",
+      "colleagueId": "ada-reeve",
+      "claim": {
+        "en": "Held at a steady bath temperature, turning the bench moves the fringes by very little.",
+        "fr": "À température de bain stable, tourner le banc ne déplace les franges que très peu."
+      },
+      "limitation": {
+        "en": "Two orientations on one afternoon; a slow effect would not show here.",
+        "fr": "Deux orientations en un après-midi ; un effet lent n’apparaîtrait pas ici."
+      },
+      "supportPredicate": {
+        "kind": "all-of",
+        "predicates": [
+          {
+            "kind": "minimum-runs",
+            "count": 2
+          },
+          {
+            "kind": "varied-control",
+            "controlId": "rotationDeg"
+          },
+          {
+            "kind": "unvaried-control-pinned",
+            "controlId": "bathTempC"
+          },
+          {
+            "kind": "inspected-source",
+            "sourceId": "example-primary-note"
+          }
+        ]
+      }
+    },
+    {
+      "id": "example-conclude-thermal",
+      "colleagueId": "owen-blake",
+      "claim": {
+        "en": "The bath temperature accounts for the whole of what we measured.",
+        "fr": "La température du bain rend compte de la totalité de ce que nous avons mesuré."
+      },
+      "limitation": {
+        "en": "Said of these readings only, and only at the settings recorded.",
+        "fr": "Dit de ces relevés seulement, et seulement aux réglages enregistrés."
+      },
+      "supportPredicate": {
+        "kind": "all-of",
+        "predicates": [
+          {
+            "kind": "minimum-runs",
+            "count": 2
+          },
+          {
+            "kind": "varied-control",
+            "controlId": "bathTempC"
+          },
+          {
+            "kind": "inspected-source",
+            "sourceId": "example-secondary-note"
+          }
+        ]
+      }
+    },
+    {
+      "id": "example-conclude-overreach",
+      "colleagueId": "ada-reeve",
+      "claim": {
+        "en": "Nothing whatever moves the fringes, at any setting anyone could choose.",
+        "fr": "Rien ne déplace les franges, quel que soit le réglage qu’on puisse choisir."
+      },
+      "limitation": {
+        "en": "Stated without a bound, which is what makes it unsupportable.",
+        "fr": "Énoncé sans limite, ce qui le rend indéfendable."
+      },
+      "supportPredicate": {
+        "kind": "never"
+      }
+    },
+    {
+      "id": "example-conclude-untested",
+      "colleagueId": "owen-blake",
+      "claim": {
+        "en": "The bench is faulty and the readings mean nothing.",
+        "fr": "Le banc est défectueux et les relevés ne signifient rien."
+      },
+      "limitation": {
+        "en": "No observation recorded here could support this.",
+        "fr": "Aucune observation enregistrée ici ne pourrait étayer cela."
+      },
+      "supportPredicate": {
+        "kind": "never"
+      }
+    }
+  ],
+  "rivalLab": {
+    "name": "Mr. Silas Crow",
+    "accentColor": "#8c3b3b",
+    "figure": {
+      "build": "suited",
+      "pose": "arms-folded",
+      "hair": "cropped",
+      "hairColor": "grey",
+      "skinTone": "light",
+      "moustache": true
+    },
+    "critiques": [
+      {
+        "id": "example-critique-1",
+        "proposalId": "example-conclude-bounded",
+        "line": {
+          "en": "You held the bath steady twice and call that a law?",
+          "fr": "Vous avez stabilisé le bain deux fois et vous appelez cela une loi ?"
+        }
+      },
+      {
+        "id": "example-critique-2",
+        "proposalId": "example-conclude-thermal",
+        "line": {
+          "en": "The bath explains everything, does it? Then say what the rotation did.",
+          "fr": "Le bain explique tout, vraiment ? Dites alors ce qu’a fait la rotation."
+        }
+      },
+      {
+        "id": "example-critique-3",
+        "proposalId": "example-conclude-overreach",
+        "line": {
+          "en": "Nothing whatever, at any setting? Name the settings you did not try.",
+          "fr": "Rien du tout, à n’importe quel réglage ? Nommez les réglages que vous n’avez pas essayés."
+        }
+      },
+      {
+        "id": "example-critique-4",
+        "proposalId": "example-conclude-untested",
+        "line": {
+          "en": "A faulty bench is a convenient thing to blame. Where is your evidence for it?",
+          "fr": "Un banc défectueux est un coupable commode. Où en est la preuve ?"
+        }
+      }
+    ]
+  },
+  "consultationRules": [
+    {
+      "id": "example-missing-run",
+      "predicate": {
+        "kind": "missing-run"
+      },
+      "layers": {
+        "observation": {
+          "en": "Fewer than two observations are recorded.",
+          "fr": "Moins de deux observations sont enregistrées."
+        },
+        "plainLanguage": {
+          "en": "Record another observation.",
+          "fr": "Enregistrez une autre observation."
+        },
+        "technicalDetail": {
+          "en": "Use a second bounded setting.",
+          "fr": "Utilisez un second réglage borné."
+        }
+      },
+      "nextStep": {
+        "en": "Record an observation.",
+        "fr": "Enregistrez une observation."
+      }
+    },
+    {
+      "id": "example-missing-source",
+      "predicate": {
+        "kind": "missing-source",
+        "sourceId": "example-primary-note"
+      },
+      "layers": {
+        "observation": {
+          "en": "The first note is not read.",
+          "fr": "La première note n’est pas lue."
+        },
+        "plainLanguage": {
+          "en": "Read the first note.",
+          "fr": "Lisez la première note."
+        },
+        "technicalDetail": {
+          "en": "Check what it claims against your readings.",
+          "fr": "Confrontez ce qu’elle affirme à vos relevés."
+        }
+      },
+      "nextStep": {
+        "en": "Read the first note.",
+        "fr": "Lisez la première note."
+      }
+    },
+    {
+      "id": "example-alternative-test",
+      "predicate": {
+        "kind": "alternative-test",
+        "controlId": "bathTempC"
+      },
+      "layers": {
+        "observation": {
+          "en": "The bath temperature is unchanged.",
+          "fr": "La température du bain est inchangée."
+        },
+        "plainLanguage": {
+          "en": "Change the bath temperature.",
+          "fr": "Modifiez la température du bain."
+        },
+        "technicalDetail": {
+          "en": "Keep the earlier observation for comparison.",
+          "fr": "Conservez l’observation précédente pour comparaison."
+        }
+      },
+      "nextStep": {
+        "en": "Adjust the bath temperature.",
+        "fr": "Ajustez la température du bain."
+      }
+    },
+    {
+      "id": "example-missing-limit",
+      "predicate": {
+        "kind": "missing-limitation"
+      },
+      "layers": {
+        "observation": {
+          "en": "No limitation is stated.",
+          "fr": "Aucune limite n’est énoncée."
+        },
+        "plainLanguage": {
+          "en": "State a limitation.",
+          "fr": "Énoncez une limite."
+        },
+        "technicalDetail": {
+          "en": "Distinguish the evidence from the broader claim.",
+          "fr": "Distinguez les preuves de l’affirmation générale."
+        }
+      },
+      "nextStep": {
+        "en": "Add a limitation.",
+        "fr": "Ajoutez une limite."
+      }
+    }
+  ],
+  "peerReviewRules": [
+    {
+      "id": "example-missing-evidence",
+      "predicate": {
+        "kind": "missing-evidence"
+      },
+      "feedback": {
+        "en": "More evidence is needed.",
+        "fr": "Il faut davantage de preuves."
+      },
+      "revisionPath": {
+        "en": "Select the observations that support the claim.",
+        "fr": "Sélectionnez les observations qui étayent l’affirmation."
+      }
+    },
+    {
+      "id": "example-unsupported",
+      "predicate": {
+        "kind": "unsupported-support"
+      },
+      "feedback": {
+        "en": "The support is unavailable.",
+        "fr": "L’appui est indisponible."
+      },
+      "revisionPath": {
+        "en": "Use the evidence you actually recorded.",
+        "fr": "Utilisez les preuves réellement enregistrées."
+      }
+    },
+    {
+      "id": "example-overreach",
+      "predicate": {
+        "kind": "overreach",
+        "overreachPhrases": {
+          "en": [
+            "proves"
+          ],
+          "fr": [
+            "prouve",
+            "prouvent"
+          ]
+        }
+      },
+      "feedback": {
+        "en": "The claim may overreach.",
+        "fr": "L’affirmation dépasse peut-être les preuves."
+      },
+      "revisionPath": {
+        "en": "Use a bounded claim.",
+        "fr": "Utilisez une affirmation bornée."
+      }
+    }
+  ],
+  "flow": {
+    "openingDispute": true,
+    "curatedRecord": true,
+    "labSetup": true,
+    "minimumExperimentCycles": 2,
+    "maximumExperimentCycles": 4,
+    "theoryBoardReview": true,
+    "historicalDebrief": true,
+    "optionalReplay": true
+  },
+  "autoSummary": {
+    "en": "Observations recorded: {runCount}. Distinct settings: {configurationCount}. Sources read: {sourceCount}. Sources: {sourceNames}. Revisions: {revisionCount}.",
+    "fr": "Observations enregistrées : {runCount}. Réglages distincts : {configurationCount}. Sources consultées : {sourceCount}. Sources : {sourceNames}. Révisions : {revisionCount}."
+  },
+  "scenarioScript": {
+    "scenes": [
+      {
+        "phase": "context",
+        "sceneKey": "Library",
+        "dialogueBeats": [
+          {
+            "id": "framing",
+            "speakerId": "owen-blake",
+            "text": {
+              "en": "Two notes, one disagreement. Read both before you touch the bench.",
+              "fr": "Deux notes, un désaccord. Lisez les deux avant de toucher au banc."
+            }
+          }
+        ]
+      },
+      {
+        "phase": "prediction",
+        "sceneKey": "Colleagues",
+        "cast": [
+          "ada-reeve"
+        ],
+        "dialogueBeats": [
+          {
+            "id": "framing",
+            "speakerId": "ada-reeve",
+            "text": {
+              "en": "Say what you expect before we measure. Owen is not here to argue with you yet.",
+              "fr": "Dites ce que vous attendez avant de mesurer. Owen n’est pas encore là pour vous contredire."
+            }
+          }
+        ]
+      },
+      {
+        "phase": "experiment",
+        "sceneKey": "Laboratory"
+      },
+      {
+        "phase": "synthesis",
+        "sceneKey": "TheoryBoard",
+        "dialogueBeats": [
+          {
+            "id": "framing",
+            "speakerId": "ada-reeve",
+            "text": {
+              "en": "Two settings that differ, and a limitation you can defend.",
+              "fr": "Deux réglages différents, et une limite que vous pouvez défendre."
+            }
+          }
+        ]
+      },
+      {
+        "phase": "review",
+        "sceneKey": "TheoryBoard",
+        "cast": [
+          "ada-reeve",
+          "owen-blake"
+        ],
+        "dialogueBeats": [
+          {
+            "id": "framing",
+            "speakerId": "owen-blake",
+            "text": {
+              "en": "Now I will argue with you. Read your claim aloud and see whether it holds.",
+              "fr": "Maintenant je vais vous contredire. Lisez votre affirmation à voix haute et voyez si elle tient."
+            }
+          }
+        ]
+      },
+      {
+        "phase": "debrief",
+        "sceneKey": "Debrief"
+      }
+    ]
+  },
+  "debrief": {
+    "summary": {
+      "en": "A bounded claim about two settings is worth more than a sweeping one about none.",
+      "fr": "Une affirmation bornée sur deux réglages vaut mieux qu’une affirmation générale sur aucun."
+    },
+    "sourceRefs": [
+      "example-primary-note"
+    ],
+    "historicalComparison": {
+      "title": {
+        "en": "What a real case would put here",
+        "fr": "Ce qu’un vrai dossier mettrait ici"
+      },
+      "text": {
+        "en": "A real case compares the player's finding with the historical record and cites both notes.",
+        "fr": "Un vrai dossier compare la trouvaille du joueur au dossier historique et cite les deux notes."
+      },
+      "sourceIds": [
+        "example-primary-note",
+        "example-secondary-note"
+      ]
+    },
+    "deeperTheory": {
+      "title": {
+        "en": "Where the theory would go",
+        "fr": "Où irait la théorie"
+      },
+      "text": {
+        "en": "A real case explains what the measurement could not settle, and names the work that did.",
+        "fr": "Un vrai dossier explique ce que la mesure n’a pu trancher, et nomme les travaux qui l’ont fait."
+      }
+    },
+    "replayLabel": {
+      "en": "Start a counterfactual replay",
+      "fr": "Lancer une reprise contrefactuelle"
+    }
+  },
+  "assets": {
+    "manifestVersion": "1.0.0",
+    "entries": [
+      {
+        "id": "quantique-logo",
+        "type": "image",
+        "path": "/assets/logo.png",
+        "rights": {
+          "holderOrOrigin": "Quantique project",
+          "status": "reviewed",
+          "claimOrUse": {
+            "en": "The project’s own mark, shown by the laboratory shell.",
+            "fr": "La marque propre au projet, affichée par la coque du laboratoire."
+          },
+          "reviewerState": "pending",
+          "provenanceReference": "docs/source-rights/quantique-shared-assets.md"
+        }
+      }
+    ]
+  },
+  "ledger": {
+    "signOff": {
+      "contentAuthor": {
+        "state": "pending"
+      },
+      "scholarlyReviewer": {
+        "state": "pending"
+      },
+      "accessibilityReviewer": {
+        "state": "de-scoped",
+        "reference": "ADR-008"
+      }
+    },
+    "educatorContextSheet": {
+      "state": "pending"
+    },
+    "accessibleControlsReference": {
+      "state": "de-scoped",
+      "reference": "ADR-008"
+    }
+  }
+}

@@ -6,19 +6,29 @@ import {
     KNOB_ARC_END_RAD,
     KNOB_ARC_START_RAD,
     KNOB_ARC_SWEEP_RAD,
+    DIAL_INDEX_ANGLE_RAD,
     KNOB_MIN_TRACKING_RADIUS,
+    dialAngleForFraction,
+    dialAngleForValue,
+    dialFractionForAngle,
+    dialTickAngles,
     knobAngleForValue,
     knobFractionForAngle,
     knobStepCount,
     knobTickAngles,
     pointerAngleRad,
+    resolveAffordanceValueForPointer,
     resolveKnobValue,
     resolveKnobValueForPointer,
+    sliderFractionForOffset,
+    sliderOffsetForValue,
+    sliderTickOffsets,
     steppedControlValue,
     steppedNeighbour
 } from '../../src/adapters/phaser/renderers/instrumentView';
+import { SLIDER_TRACK_WIDTH } from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import { normalizeControlValue } from '../../src/domain/apparatus/ApparatusControl';
-import type { CaseDefinition, PrimaryControl } from '../../src/domain/cases/CaseDefinition';
+import { CONTROL_AFFORDANCES, controlAffordance, type CaseDefinition, type ControlAffordance, type PrimaryControl } from '../../src/domain/cases/CaseDefinition';
 import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
 
 /**
@@ -35,12 +45,23 @@ import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
  */
 
 let controls: readonly PrimaryControl[];
+/**
+ * The prototype's controls too, from Story 3.4: they are the ones that actually author a `dial` and a
+ * `slider`, and their bounds are nothing like Young's — 0…180 by 15 against 0.1…0.5 by 0.05. Sweeping
+ * a conversion over one case's numbers only is how a Young-shaped assumption survives (revision 2.6).
+ */
+let prototypeControls: readonly PrimaryControl[];
+
+const loadControls = async (caseId: string): Promise<readonly PrimaryControl[]> => {
+    const content: unknown = JSON.parse(await readFile(`public/cases/${caseId}/case.json`, 'utf8'));
+    const parsed = CaseDefinitionSchema.safeParse(content);
+    if (!parsed.success) throw new Error(`The authored ${caseId} case must parse.`);
+    return (parsed.data as CaseDefinition).apparatus.primaryControls;
+};
 
 beforeAll(async () => {
-    const content: unknown = JSON.parse(await readFile('public/cases/young-interference/case.json', 'utf8'));
-    const parsed = CaseDefinitionSchema.safeParse(content);
-    if (!parsed.success) throw new Error('The authored Young case must parse.');
-    controls = (parsed.data as CaseDefinition).apparatus.primaryControls;
+    controls = await loadControls('young-interference');
+    prototypeControls = await loadControls('morley-miller');
 });
 
 /** Every value the player can actually select on a control, from its authored bounds. */
@@ -331,6 +352,315 @@ describe('the drawn detents', () => {
                 .filter(({ expected, drawn }) => Math.abs(expected - drawn) > 1e-9);
 
             expect(misplaced).toEqual([]);
+        });
+    });
+});
+
+/**
+ * The dial and the slider (Story 3.4, AC3).
+ *
+ * Both are swept over **every authored control of both shipped cases**, at both range ends and across
+ * every step, which is what AC3 asks for in as many words. `allControls` is the two cases together so a
+ * conversion cannot pass by being right about 0.1…0.5 alone.
+ */
+const allControls = (): readonly PrimaryControl[] => [...controls, ...prototypeControls];
+
+const eachAuthoredControl = (assert: (control: PrimaryControl) => void): void => {
+    const all = allControls();
+    expect(all.length).toBeGreaterThanOrEqual(4);
+    all.forEach(assert);
+};
+
+describe('the dial travel', () => {
+    it('reads zero at the index mark and closes the circle', () => {
+        // Straight up, in the shared `atan2` convention: `-π/2` points at twelve o'clock.
+        expect(DIAL_INDEX_ANGLE_RAD).toBeCloseTo(-Math.PI / 2, 12);
+        expect(dialFractionForAngle(DIAL_INDEX_ANGLE_RAD)).toBeCloseTo(0, 12);
+        expect(dialFractionForAngle(DIAL_INDEX_ANGLE_RAD + Math.PI)).toBeCloseTo(0.5, 12);
+        // The travel closes: a full turn is back at the index mark, which is what "no hard stop" means.
+        expect(dialFractionForAngle(DIAL_INDEX_ANGLE_RAD + (Math.PI * 2))).toBeCloseTo(0, 12);
+    });
+
+    /**
+     * The property that makes it a second instrument rather than a knob with a different label: there
+     * is no angle a dial refuses to read. Break the wrap arithmetic and this sweep fails; leave the
+     * knob's dead zone in it and it fails at 89 of these angles.
+     */
+    it('reads every direction, with no dead zone anywhere on the circle', () => {
+        const unread: string[] = [];
+        for (let degrees = 0; degrees < 360; degrees += 1) {
+            if (dialFractionForAngle((degrees * Math.PI) / 180) === undefined) unread.push(`${degrees}°`);
+        }
+
+        expect(unread).toEqual([]);
+        // And the knob genuinely does refuse those angles, so the two are not the same function.
+        expect(knobFractionForAngle(Math.PI / 2)).toBeUndefined();
+        expect(dialFractionForAngle(Math.PI / 2)).toBeDefined();
+    });
+
+    it('never resolves an off-step value, anywhere on the circle', () => {
+        eachAuthoredControl((control) => {
+            const permitted = new Set(authoredValues(control));
+            const offStep: number[] = [];
+            for (let sample = 0; sample < 720; sample += 1) {
+                const angleRad = DIAL_INDEX_ANGLE_RAD + ((sample / 720) * Math.PI * 2);
+                const value = resolveAffordanceValueForPointer({
+                    affordance: 'dial',
+                    control,
+                    dx: Math.cos(angleRad) * 30,
+                    dy: Math.sin(angleRad) * 30,
+                    currentValue: control.defaultValue,
+                    trackWidth: SLIDER_TRACK_WIDTH
+                });
+                if (!permitted.has(value)) offStep.push(value);
+            }
+
+            expect(offStep).toEqual([]);
+        });
+    });
+
+    it('reaches both range ends', () => {
+        eachAuthoredControl((control) => {
+            const at = (fraction: number): number => {
+                const angleRad = dialAngleForFraction(fraction);
+                return resolveAffordanceValueForPointer({
+                    affordance: 'dial',
+                    control,
+                    dx: Math.cos(angleRad) * 30,
+                    dy: Math.sin(angleRad) * 30,
+                    currentValue: control.defaultValue,
+                    trackWidth: SLIDER_TRACK_WIDTH
+                });
+            };
+
+            expect(at(0)).toBe(control.min);
+            // Just short of a full turn, because a dial's travel closes — the last detent before the
+            // index mark is the maximum, and the index mark itself is the minimum again.
+            expect(at(0.9999)).toBe(control.max);
+        });
+    });
+
+    it('holds its value for a pointer on the centre, where there is no direction', () => {
+        // `Math.atan2(0, 0)` is `0`, not `NaN`, so a finite-check never fires — the same trap the knob
+        // carries `KNOB_MIN_TRACKING_RADIUS` for, and the dial inherits it because it reads a direction.
+        eachAuthoredControl((control) => {
+            const held = steppedNeighbour(control, control.min, 1);
+            expect(resolveAffordanceValueForPointer({
+                affordance: 'dial', control, dx: 0, dy: 0, currentValue: held, trackWidth: SLIDER_TRACK_WIDTH
+            })).toBe(held);
+        });
+    });
+
+    it('draws one tick per authored step, at the angle that step turns to', () => {
+        eachAuthoredControl((control) => {
+            const ticks = dialTickAngles(control);
+
+            expect(ticks).toHaveLength(knobStepCount(control) + 1);
+            expect(ticks[0]).toBeCloseTo(DIAL_INDEX_ANGLE_RAD, 12);
+            const misplaced = authoredValues(control)
+                .map((value, index) => ({ expected: dialAngleForValue(control, value), drawn: ticks[index]! }))
+                .filter(({ expected, drawn }) => Math.abs(expected - drawn) > 1e-9);
+
+            expect(misplaced).toEqual([]);
+        });
+    });
+});
+
+describe('the slider travel', () => {
+    it('reads the left end as 0, the middle as 0.5 and the right end as 1', () => {
+        expect(sliderFractionForOffset(-SLIDER_TRACK_WIDTH / 2, SLIDER_TRACK_WIDTH)).toBeCloseTo(0, 12);
+        expect(sliderFractionForOffset(0, SLIDER_TRACK_WIDTH)).toBeCloseTo(0.5, 12);
+        expect(sliderFractionForOffset(SLIDER_TRACK_WIDTH / 2, SLIDER_TRACK_WIDTH)).toBeCloseTo(1, 12);
+    });
+
+    it('clamps past either end rather than wrapping or refusing', () => {
+        // A track has real ends, unlike a dial — and unlike a knob there is no direction to lose, so an
+        // overshoot means the end of the track rather than "hold the current value".
+        expect(sliderFractionForOffset(-SLIDER_TRACK_WIDTH, SLIDER_TRACK_WIDTH)).toBe(0);
+        expect(sliderFractionForOffset(SLIDER_TRACK_WIDTH, SLIDER_TRACK_WIDTH)).toBe(1);
+    });
+
+    it('never resolves an off-step value, anywhere along the track', () => {
+        eachAuthoredControl((control) => {
+            const permitted = new Set(authoredValues(control));
+            const offStep: number[] = [];
+            for (let sample = -400; sample <= 400; sample += 1) {
+                const value = resolveAffordanceValueForPointer({
+                    affordance: 'slider',
+                    control,
+                    dx: sample / 4,
+                    dy: 0,
+                    currentValue: control.defaultValue,
+                    trackWidth: SLIDER_TRACK_WIDTH
+                });
+                if (!permitted.has(value)) offStep.push(value);
+            }
+
+            expect(offStep).toEqual([]);
+        });
+    });
+
+    it('reaches both range ends', () => {
+        eachAuthoredControl((control) => {
+            const at = (dx: number): number => resolveAffordanceValueForPointer({
+                affordance: 'slider', control, dx, dy: 0, currentValue: control.defaultValue, trackWidth: SLIDER_TRACK_WIDTH
+            });
+
+            expect(at(-SLIDER_TRACK_WIDTH)).toBe(control.min);
+            expect(at(SLIDER_TRACK_WIDTH)).toBe(control.max);
+        });
+    });
+
+    it('reads a distance, not a direction — vertical pointer travel changes nothing', () => {
+        // The property that makes it a third instrument. A rotary conversion would move the value here.
+        eachAuthoredControl((control) => {
+            const flat = resolveAffordanceValueForPointer({
+                affordance: 'slider', control, dx: 20, dy: 0, currentValue: control.defaultValue, trackWidth: SLIDER_TRACK_WIDTH
+            });
+            const raised = resolveAffordanceValueForPointer({
+                affordance: 'slider', control, dx: 20, dy: -80, currentValue: control.defaultValue, trackWidth: SLIDER_TRACK_WIDTH
+            });
+
+            expect(raised).toBe(flat);
+        });
+    });
+
+    it('puts the thumb where the value is, and a tick at every detent', () => {
+        eachAuthoredControl((control) => {
+            expect(sliderOffsetForValue(control, control.min, SLIDER_TRACK_WIDTH)).toBeCloseTo(-SLIDER_TRACK_WIDTH / 2, 12);
+            expect(sliderOffsetForValue(control, control.max, SLIDER_TRACK_WIDTH)).toBeCloseTo(SLIDER_TRACK_WIDTH / 2, 12);
+
+            const ticks = sliderTickOffsets(control, SLIDER_TRACK_WIDTH);
+            expect(ticks).toHaveLength(knobStepCount(control) + 1);
+            const misplaced = authoredValues(control)
+                .map((value, index) => ({ expected: sliderOffsetForValue(control, value, SLIDER_TRACK_WIDTH), drawn: ticks[index]! }))
+                .filter(({ expected, drawn }) => Math.abs(expected - drawn) > 1e-9);
+
+            expect(misplaced).toEqual([]);
+        });
+    });
+});
+
+/**
+ * AC3's "the drag path and the step path produce identical run records", for **every** affordance.
+ *
+ * Asserted as an identity between two functions rather than by comparing a dispatch to itself, which is
+ * the tautology shape reviews of 2.11 and 3.2 both found. `steppedNeighbour` is affordance-independent
+ * by construction — no affordance owns a stepper — and this is what pins that it stays so.
+ */
+describe('every affordance dispatches the value a step would', () => {
+    const pointerAt = (affordance: ControlAffordance, control: PrimaryControl, value: number, currentValue: number): number => {
+        if (affordance === 'slider') {
+            return resolveAffordanceValueForPointer({
+                affordance, control, dx: sliderOffsetForValue(control, value, SLIDER_TRACK_WIDTH), dy: 0, currentValue, trackWidth: SLIDER_TRACK_WIDTH
+            });
+        }
+        const angleRad = affordance === 'dial' ? dialAngleForValue(control, value) : knobAngleForValue(control, value);
+        return resolveAffordanceValueForPointer({
+            affordance,
+            control,
+            dx: Math.cos(angleRad) * 30,
+            dy: Math.sin(angleRad) * 30,
+            currentValue,
+            trackWidth: SLIDER_TRACK_WIDTH
+        });
+    };
+
+    it.each(CONTROL_AFFORDANCES)('agrees with steppedNeighbour on %s', (affordance) => {
+        eachAuthoredControl((control) => {
+            // The maximum is excluded for the dial alone, and not because the rule is weaker there: a
+            // closed travel *identifies its endpoints*, so the maximum is drawn at the index mark where
+            // the minimum is. That is asserted as its own property below rather than hidden here.
+            const stepsTaken = affordance === 'dial'
+                ? authoredValues(control).slice(0, -2)
+                : authoredValues(control).slice(0, -1);
+            const disagreements = stepsTaken.map((value) => {
+                const stepped = steppedNeighbour(control, value, 1);
+                return { value, stepped, dragged: pointerAt(affordance, control, stepped, value) };
+            }).filter(({ stepped, dragged }) => stepped !== dragged);
+
+            expect(stepsTaken.length).toBeGreaterThan(0);
+            expect(disagreements).toEqual([]);
+        });
+    });
+
+    /**
+     * The dial's defining property, stated rather than discovered at review: **its travel closes**.
+     *
+     * The maximum and the minimum occupy the same angle, so a dial cannot distinguish them — which is
+     * exactly right for a cyclic quantity and exactly wrong for anything else. `docs/content-authoring/`
+     * carries the resulting authoring rule ("author `dial` only where the two ends are the same
+     * reading"), and `MorleyMillerPrototype.test.ts` pins that the shipped case obeys it against its own
+     * model. A knob has a hard stop and must **not** behave this way, which the second half asserts.
+     */
+    it('closes the dial travel at the index mark, and keeps the knob bounded', () => {
+        eachAuthoredControl((control) => {
+            expect(dialAngleForValue(control, control.max)).toBeCloseTo(dialAngleForValue(control, control.min) + (Math.PI * 2), 12);
+            expect(pointerAt('dial', control, control.max, control.defaultValue)).toBe(control.min);
+
+            // The knob's ends are 270° apart and stay apart: the wrap a bounded instrument must not have.
+            expect(pointerAt('knob', control, control.max, control.defaultValue)).toBe(control.max);
+            expect(pointerAt('slider', control, control.max, control.defaultValue)).toBe(control.max);
+        });
+    });
+
+    it.each(CONTROL_AFFORDANCES)('normalizes through the domain rule rather than a private copy on %s', (affordance) => {
+        // If a branch ever grew its own rounding, this is the assertion that would catch it: every
+        // answer must be one `normalizeControlValue` would give for the same request.
+        eachAuthoredControl((control) => {
+            authoredValues(control).forEach((value) => {
+                const resolved = pointerAt(affordance, control, value, control.defaultValue);
+                const normalized = normalizeControlValue(control, resolved);
+
+                expect(normalized.ok && normalized.value).toBe(resolved);
+            });
+        });
+    });
+});
+
+/**
+ * AC4 at the conversion: a control that authors no affordance is converted exactly as a knob.
+ *
+ * Against an **explicit** `'knob'`, never against another defaulted control — comparing two defaulted
+ * ones passes just as happily with the default flipped, which is what the first attempt at this did.
+ */
+describe('a control with no authored affordance', () => {
+    it('converts a pointer exactly as an explicit knob does, across the whole travel', () => {
+        eachAuthoredControl((control) => {
+            const absent: PrimaryControl = { ...control, affordance: undefined };
+            expect(controlAffordance(absent)).toBe('knob');
+
+            const disagreements: string[] = [];
+            for (let sample = 0; sample <= 360; sample += 1) {
+                const angleRad = (sample * Math.PI) / 180;
+                const dx = Math.cos(angleRad) * 30;
+                const dy = Math.sin(angleRad) * 30;
+                const defaulted = resolveAffordanceValueForPointer({
+                    affordance: controlAffordance(absent), control: absent, dx, dy, currentValue: control.defaultValue, trackWidth: SLIDER_TRACK_WIDTH
+                });
+                const asKnob = resolveKnobValueForPointer({ control, dx, dy, currentValue: control.defaultValue });
+                if (defaulted !== asKnob) disagreements.push(`${sample}°: ${defaulted} vs ${asKnob}`);
+            }
+
+            expect(disagreements).toEqual([]);
+        });
+    });
+
+    it('still refuses the knob dead zone, which a dial or a slider would not', () => {
+        // The sharpest form of the same assertion: the default has to pick the affordance whose dead
+        // zone exists. A defaulted slider or dial would answer here rather than holding.
+        eachAuthoredControl((control) => {
+            const held = steppedNeighbour(control, control.min, 1);
+            const straightDown = resolveAffordanceValueForPointer({
+                affordance: controlAffordance({ ...control, affordance: undefined }),
+                control,
+                dx: 0,
+                dy: 30,
+                currentValue: held,
+                trackWidth: SLIDER_TRACK_WIDTH
+            });
+
+            expect(straightDown).toBe(held);
         });
     });
 });

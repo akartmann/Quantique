@@ -311,10 +311,9 @@ describe('presentColleagueIds', () => {
     const CAST_IDS = CAST.map(({ colleagueId }) => colleagueId);
 
     /**
-     * Presence is derived until Story 3.4 authors `scenarioScript.scenes[].cast?`. For the shipped
+     * The derived branch, which is what a scene with no authored `cast` still gets. For the shipped
      * Young case the proposers, the speakers, and the full cast are the same four people, so none of
-     * this is observable today — it is one pure function anyway so 3.4 replaces one call rather than a
-     * rule spread across two renderers (D2).
+     * this is observable in shipped content — the authored branch below is what makes the set vary.
      */
     it('keeps the proposers in proposal order', () => {
         expect(presentColleagueIds({
@@ -342,6 +341,89 @@ describe('presentColleagueIds', () => {
             speakerIds: ['thea-young'],
             castIds: CAST_IDS
         })).toEqual(['thea-young']);
+    });
+
+    /**
+     * The authored branch (Story 3.4, AC2). An authored cast decides **presence**; proposal order still
+     * decides **sequence**, which is the half a "just return the authored array" implementation loses.
+     */
+    describe('when the scene authors a cast', () => {
+        it('stages exactly the authored cast and nobody else', () => {
+            expect(presentColleagueIds({
+                proposerIds: CAST_IDS,
+                speakerIds: CAST_IDS,
+                castIds: CAST_IDS,
+                authoredCast: ['elias-wren', 'samuel-hart']
+            })).toEqual(['elias-wren', 'samuel-hart']);
+        });
+
+        it('orders the authored cast proposal-order-first, not cast-order-first', () => {
+            // The conclusion board attributes `marianne, elias, thea, samuel`. Returning the authored
+            // array as written would put three of the four beside somebody else's draft (2.9 AC3).
+            expect(presentColleagueIds({
+                proposerIds: ['marianne-cole', 'elias-wren', 'thea-young', 'samuel-hart'],
+                speakerIds: [],
+                castIds: CAST_IDS,
+                authoredCast: ['thea-young', 'samuel-hart', 'marianne-cole']
+            })).toEqual(['marianne-cole', 'thea-young', 'samuel-hart']);
+        });
+
+        it('appends an authored member who proposed nothing, in authored order', () => {
+            expect(presentColleagueIds({
+                proposerIds: ['samuel-hart', 'thea-young'],
+                speakerIds: [],
+                castIds: CAST_IDS,
+                authoredCast: ['marianne-cole', 'thea-young', 'elias-wren']
+            })).toEqual(['thea-young', 'marianne-cole', 'elias-wren']);
+        });
+
+        it('drops a proposer the scene does not stage', () => {
+            // The point of the field: a board may attribute a card to somebody who is not in the room.
+            expect(presentColleagueIds({
+                proposerIds: CAST_IDS,
+                speakerIds: [],
+                castIds: CAST_IDS,
+                authoredCast: ['thea-young']
+            })).toEqual(['thea-young']);
+        });
+
+        it('ignores speakers, because the schema already guarantees they are cast members', () => {
+            // Folding speakers back in could only re-add somebody the author left out on purpose.
+            expect(presentColleagueIds({
+                proposerIds: [],
+                speakerIds: ['marianne-cole'],
+                castIds: CAST_IDS,
+                authoredCast: ['thea-young']
+            })).toEqual(['thea-young']);
+        });
+
+        it('stages a repeated authored member once, though the schema refuses one', () => {
+            // A doubled figure halves the slot width for everybody rather than failing loudly.
+            expect(presentColleagueIds({
+                proposerIds: [],
+                speakerIds: [],
+                castIds: CAST_IDS,
+                authoredCast: ['thea-young', 'thea-young', 'elias-wren']
+            })).toEqual(['thea-young', 'elias-wren']);
+        });
+    });
+
+    /**
+     * AC4: the *absence* of the field produces exactly today's behaviour.
+     *
+     * The named test an author relies on and a refactor silently breaks — a `authoredCast ?? castIds`
+     * shortcut, say, which looks equivalent and is not: it would drop the proposer/speaker derivation
+     * and stage the whole cast on every board.
+     */
+    it('produces the identical result with the field absent and explicitly undefined', () => {
+        const derived = {
+            proposerIds: ['thea-young', 'elias-wren'],
+            speakerIds: ['marianne-cole'],
+            castIds: CAST_IDS
+        } as const;
+
+        expect(presentColleagueIds({ ...derived, authoredCast: undefined })).toEqual(presentColleagueIds(derived));
+        expect(presentColleagueIds(derived)).toEqual(['thea-young', 'elias-wren', 'marianne-cole']);
     });
 });
 

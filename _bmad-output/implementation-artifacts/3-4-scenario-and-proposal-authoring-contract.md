@@ -1,3 +1,7 @@
+---
+baseline_commit: 6ee85f01b0345a2066b4657d4d8e13399b44e269
+---
+
 <!--
   Story context engineered 2026-08-19 against:
     - _bmad-output/planning-artifacts/epics.md §Epic 3 / Story 3.4 (including the 2026-08-06 amendment)
@@ -9,7 +13,7 @@
 
 # Story 3.4: Scenario and proposal authoring contract
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -98,51 +102,51 @@ so that new cases become guided adventures without touching engine code.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 0 — Read before writing** (blocks everything)
-  - [ ] Read `_bmad-output/project-context.md`. It exists, it is 215 lines, and it is revision 2.6. Story 3.3's review opened with the finding that the story had twice asserted this file did not exist and had therefore crossed two of its rules. Do not repeat that.
-  - [ ] Read the files in Dev Notes §3. Every one is a file this story changes or must not break.
+- [x] **Task 0 — Read before writing** (blocks everything)
+  - [x] Read `_bmad-output/project-context.md`. It exists, it is 215 lines, and it is revision 2.6. Story 3.3's review opened with the finding that the story had twice asserted this file did not exist and had therefore crossed two of its rules. Do not repeat that.
+  - [x] Read the files in Dev Notes §3. Every one is a file this story changes or must not break.
 
-- [ ] **Task 1 — The authored per-scene cast** (AC2, AC4)
-  - [ ] Add `cast?: readonly string[]` to `ScenarioScene` in `src/domain/cases/ScenarioScript.ts`, documented in the file's existing voice.
-  - [ ] Add `cast: z.array(stableId).optional()` to `ScenarioSceneSchema` in `src/schemas/CaseDefinitionSchema.ts:650`. **No `.min(1)`** — see Dev Notes §5 for why the floor belongs in the top-level refinement and not in the shape.
-  - [ ] Add the four load-time refinements of Dev Notes §5.1 to the existing `--- Scenario dialogue beats ---` block at `CaseDefinitionSchema.ts:1501`, each naming its own path.
-  - [ ] Extend `PresentColleaguesInput` and `presentColleagueIds` in `src/adapters/phaser/renderers/characterStageView.ts:365-396` to take the authored cast, and replace the "Story 3.4 owns this" docstring with what the rule now is. Preserve the ordering guarantee of Dev Notes §6 — proposal order is load-bearing for 2.9's AC3.
-  - [ ] Thread the scene's authored cast through `resolveStageCast` (`ColleagueRenderer.ts:543`) and `stageCast` (`ColleagueRenderer.ts:843`). One call site each; that split exists precisely so this story changes a call and not a rule spread across two renderers.
-  - [ ] Update the `Story 3.4 owns…` forward references at `characterStageView.ts:377` and `ColleagueRenderer.ts:834` — they are now history, not a plan.
-  - [ ] Close `deferred-work.md:84` (the `CharacterStage.create` rebuild note) and `deferred-work.md:85` (`FIGURE_SLOT_WIDTH`) — Dev Notes §14.
+- [x] **Task 1 — The authored per-scene cast** (AC2, AC4)
+  - [x] Add `cast?: readonly string[]` to `ScenarioScene` in `src/domain/cases/ScenarioScript.ts`, documented in the file's existing voice.
+  - [x] Add `cast: z.array(stableId).optional()` to `ScenarioSceneSchema` in `src/schemas/CaseDefinitionSchema.ts:650`. **No `.min(1)`** — see Dev Notes §5 for why the floor belongs in the top-level refinement and not in the shape.
+  - [x] Add the four load-time refinements of Dev Notes §5.1 to the existing `--- Scenario dialogue beats ---` block at `CaseDefinitionSchema.ts:1501`, each naming its own path.
+  - [x] Extend `PresentColleaguesInput` and `presentColleagueIds` in `src/adapters/phaser/renderers/characterStageView.ts:365-396` to take the authored cast, and replace the "Story 3.4 owns this" docstring with what the rule now is. Preserve the ordering guarantee of Dev Notes §6 — proposal order is load-bearing for 2.9's AC3.
+  - [x] Thread the scene's authored cast through `resolveStageCast` (`ColleagueRenderer.ts:543`) and `stageCast` (`ColleagueRenderer.ts:843`). One call site each; that split exists precisely so this story changes a call and not a rule spread across two renderers.
+  - [x] Update the `Story 3.4 owns…` forward references at `characterStageView.ts:377` and `ColleagueRenderer.ts:834` — they are now history, not a plan.
+  - [x] Close `deferred-work.md:84` (the `CharacterStage.create` rebuild note) and `deferred-work.md:85` (`FIGURE_SLOT_WIDTH`) — Dev Notes §14.
 
-- [ ] **Task 2 — The authored control affordance** (AC3, AC4)
-  - [ ] Add `affordance?: 'knob' | 'dial' | 'slider'` to `PrimaryControl` (`src/domain/cases/CaseDefinition.ts:208`) and to `PrimaryControlSchema` (`CaseDefinitionSchema.ts:125`), as a `z.enum` derived from one exported constant so the type and the schema cannot drift.
-  - [ ] Implement the linear (`slider`) and full-circle (`dial`) pointer→value conversions in `src/adapters/phaser/renderers/instrumentView.ts`, beside the rotary one. **Conversions only** — "where it is drawn" belongs in `apparatusGeometry.ts`, and that split is already documented in `instrumentView.ts`'s header.
-  - [ ] Add the geometry for each affordance to `apparatusGeometry.ts`, inside the existing `INSTRUMENT_SLOT_WIDTH = 168` slot so the bench layout does not move.
-  - [ ] Make the non-overlap sweep at `apparatusGeometry.ts:405-431` **affordance-aware**. It currently derives every band from `knobCentre`/`stepAffordanceCentre`; leaving it is the FIGURE_SLOT_WIDTH defect one layer down — a sweep measuring a band nothing paints.
-  - [ ] Make `ApparatusInstrument` select its drawing and its conversion from `control.affordance ?? 'knob'`, keeping `ApparatusInstrumentOptions` / `ApparatusInstrumentView` intact so `ApparatusRenderer` is unchanged above the instrument.
-  - [ ] Verify the arrow-key capture release (2.10's fix) and `prefers-reduced-motion` still hold for every affordance, and that no affordance registers an update loop from `create()` (ADR-012).
+- [x] **Task 2 — The authored control affordance** (AC3, AC4)
+  - [x] Add `affordance?: 'knob' | 'dial' | 'slider'` to `PrimaryControl` (`src/domain/cases/CaseDefinition.ts:208`) and to `PrimaryControlSchema` (`CaseDefinitionSchema.ts:125`), as a `z.enum` derived from one exported constant so the type and the schema cannot drift.
+  - [x] Implement the linear (`slider`) and full-circle (`dial`) pointer→value conversions in `src/adapters/phaser/renderers/instrumentView.ts`, beside the rotary one. **Conversions only** — "where it is drawn" belongs in `apparatusGeometry.ts`, and that split is already documented in `instrumentView.ts`'s header.
+  - [x] Add the geometry for each affordance to `apparatusGeometry.ts`, inside the existing `INSTRUMENT_SLOT_WIDTH = 168` slot so the bench layout does not move.
+  - [x] Make the non-overlap sweep at `apparatusGeometry.ts:405-431` **affordance-aware**. It currently derives every band from `knobCentre`/`stepAffordanceCentre`; leaving it is the FIGURE_SLOT_WIDTH defect one layer down — a sweep measuring a band nothing paints.
+  - [x] Make `ApparatusInstrument` select its drawing and its conversion from `control.affordance ?? 'knob'`, keeping `ApparatusInstrumentOptions` / `ApparatusInstrumentView` intact so `ApparatusRenderer` is unchanged above the instrument.
+  - [x] Verify the arrow-key capture release (2.10's fix) and `prefers-reduced-motion` still hold for every affordance, and that no affordance registers an update loop from `create()` (ADR-012).
 
-- [ ] **Task 3 — Shipped content adopts the affordances** (AC3; see Open Question 1 for the fallback)
-  - [ ] `public/cases/morley-miller/case.json`: author `rotationDeg` as `dial` and `bathTempC` as `slider`. Bump the case `version`.
-  - [ ] Leave `public/cases/young-interference/case.json` on the default. Young's two controls stay knobs, its version is untouched, and its e2e walks and typography sweep do not move.
-  - [ ] Re-point the prototype's e2e drag walk at the new instruments. Keep the 0°/90° pair — the story-3.2 review chose those values because they *differ under the model* (0° and 180° are both 0.11), and re-deriving from the authored range would reintroduce that defect.
-  - [ ] Confirm `npm run audit:ledger` still exits as it did — the ledger reads rights, not controls, but confirm rather than assume.
+- [x] **Task 3 — Shipped content adopts the affordances** (AC3; see Open Question 1 for the fallback)
+  - [x] `public/cases/morley-miller/case.json`: author `rotationDeg` as `dial` and `bathTempC` as `slider`. Bump the case `version`.
+  - [x] Leave `public/cases/young-interference/case.json` on the default. Young's two controls stay knobs, its version is untouched, and its e2e walks and typography sweep do not move.
+  - [x] Re-point the prototype's e2e drag walk at the new instruments. Keep the 0°/90° pair — the story-3.2 review chose those values because they *differ under the model* (0° and 180° are both 0.11), and re-deriving from the authored range would reintroduce that defect.
+  - [x] Confirm `npm run audit:ledger` still exits as it did — the ledger reads rights, not controls, but confirm rather than assume.
 
-- [ ] **Task 4 — Pin AC5 rather than build it** (AC5)
-  - [ ] Add the test of Dev Notes §8: a `case.json`-free, fixture-driven walk proving the router resolves all six phases from an authored script alone, plus a source-level assertion that no case ID appears in `src/adapters/phaser/**` or `src/domain/**` outside the two sanctioned seams.
-  - [ ] Do **not** add a plugin or registry layer. project-context.md says this twice, for two different mechanisms.
+- [x] **Task 4 — Pin AC5 rather than build it** (AC5)
+  - [x] Add the test of Dev Notes §8: a `case.json`-free, fixture-driven walk proving the router resolves all six phases from an authored script alone, plus a source-level assertion that no case ID appears in `src/adapters/phaser/**` or `src/domain/**` outside the two sanctioned seams.
+  - [x] Do **not** add a plugin or registry layer. project-context.md says this twice, for two different mechanisms.
 
-- [ ] **Task 5 — The example fixture** (AC7, AC8)
-  - [ ] Author `docs/content-authoring/minimal-scenario.case.json` — a complete, minimal, bilingual case definition. Dev Notes §9 lists every required field and the four that will trip you.
-  - [ ] Add a unit test that parses it through `CaseDefinitionSchema`. Route the file read through `tests/shippedCases.ts` (or extend it) rather than importing `node:fs` in a new file — Dev Notes §12.
-  - [ ] The fixture authors one non-default `affordance` and one per-scene `cast`, so both new fields have a worked example.
+- [x] **Task 5 — The example fixture** (AC7, AC8)
+  - [x] Author `docs/content-authoring/minimal-scenario.case.json` — a complete, minimal, bilingual case definition. Dev Notes §9 lists every required field and the four that will trip you.
+  - [x] Add a unit test that parses it through `CaseDefinitionSchema`. Route the file read through `tests/shippedCases.ts` (or extend it) rather than importing `node:fs` in a new file — Dev Notes §12.
+  - [x] The fixture authors one non-default `affordance` and one per-scene `cast`, so both new fields have a worked example.
 
-- [ ] **Task 6 — The authoring documentation** (AC1, AC6)
-  - [ ] Write `docs/content-authoring/README.md` following the shape of `docs/source-rights/README.md`: what the contract is, how to author each part, what will refuse you and with which message.
-  - [ ] Include the AC1 inventory: each of the six named field groups → its schema symbol → its refinements.
-  - [ ] Cross-reference `docs/i18n-authoring.md` rather than restating it.
+- [x] **Task 6 — The authoring documentation** (AC1, AC6)
+  - [x] Write `docs/content-authoring/README.md` following the shape of `docs/source-rights/README.md`: what the contract is, how to author each part, what will refuse you and with which message.
+  - [x] Include the AC1 inventory: each of the six named field groups → its schema symbol → its refinements.
+  - [x] Cross-reference `docs/i18n-authoring.md` rather than restating it.
 
-- [ ] **Task 7 — Verification and record** (AC9)
-  - [ ] Run the four gates. Record the exact counts, and measure `typecheck:tests` against a **stashed clean baseline** — the story-3.2 review found the carried figure was already stale.
-  - [ ] Record each mutation proof: break the guard, name the test that goes red, restore, state both.
-  - [ ] Update `deferred-work.md` with what this story closed, what it opened, and what it checked and left alone.
+- [x] **Task 7 — Verification and record** (AC9)
+  - [x] Run the four gates. Record the exact counts, and measure `typecheck:tests` against a **stashed clean baseline** — the story-3.2 review found the carried figure was already stale.
+  - [x] Record each mutation proof: break the guard, name the test that goes red, restore, state both.
+  - [x] Update `deferred-work.md` with what this story closed, what it opened, and what it checked and left alone.
 
 ## Dev Notes
 
@@ -456,17 +460,214 @@ Extracted from `_bmad-output/project-context.md` revision 2.6 — the rules that
 
 ### Agent Model Used
 
+Claude Opus 4.6 (`claude-opus-4-6`), via the `gds-dev-story` workflow.
+
 ### Debug Log References
+
+**Four open questions answered by Alexis before implementation**, all taking the story's stated
+recommendation:
+
+1. **The prototype adopts the affordances** (Task 3 as written), rather than proving them through the
+   fixture alone. `rotationDeg` is authored `dial` and `bathTempC` `slider`; Young is untouched.
+2. **`dial` is full-circle with no dead zone**, read against a fixed index mark — §7's definition.
+3. **`cast: []` is refused at load**, the deliberate opposite of `dialogueBeats: []`.
+4. **The AC1 inventory is documentation *plus* a non-tautological test** — one that proves each field
+   group is *refined*, not merely present.
+
+**Two measurements that contradicted the story, both recorded rather than worked around:**
+
+- **`typecheck:tests` is 114 errors across *60* files, not 59.** Measured at HEAD `6ee85f0` on a clean
+  tree before any edit. AC9's "114 errors across 59 files" carried the wrong file count; Story 3.3's own
+  sprint-status note already said 114/60. The error count — which is the metric — is met exactly.
+  `tsconfig.test.json`'s header still claimed 106/56 and is corrected, with the command to reproduce it.
+- **`project-context.md` is 216 lines, not 215.** Read in full before any code was written (Task 0), per
+  §0 and Story 3.3's first review finding.
+
+**Two mutation proofs that failed to fail, and what that exposed.** Both are recorded because the
+green result was the finding:
+
+- **`controlAffordance`'s `?? 'knob'`.** Breaking it to `?? 'slider'` left the whole suite green. The
+  AC4 test compared two *defaulted* controls, so the mutation moved both sides equally — precisely the
+  "test that cannot fail" shape §13 predicts for this guard. Rewritten to compare the absent case
+  against an **explicit** `'knob'`; the mutation now fails three tests.
+- **The dial indicator's conversion.** Replacing `dialAngleForValue` with `knobAngleForValue` in
+  `paintValue` left everything green: the indicator still turned, and still turned differently for
+  different values — it simply pointed at the wrong graduation. Nothing could see it, because
+  `tests/unit/sceneSlice.ts` swallowed `setPosition`/`setX`/`setY`/`setRotation` entirely. **The harness
+  was the defect**, so the harness was fixed (below) and the assertion added.
+
+**Two harness gaps closed in `tests/unit/sceneSlice.ts`**, both of which were blocking real assertions:
+
+- **Draw commands are now recorded by name**, not only counted. A count cannot distinguish a closed
+  graduated ring from a 270° arc, so AC3's "genuinely distinct instruments" was unassertable — `arc`
+  versus `strokeCircle` settles it.
+- **Position and rotation are recorded.** An instrument whose moving part never moved was
+  indistinguishable from a working one; `paintValue` could have been a no-op under a green suite, which
+  is 2.10's `const dark = false` at the instrument layer.
+
+The text-height gap (`height: 18`, `measureText ≈ length * 7`) is **not** closed and stays the top
+deferred harness item.
+
+**One design consequence surfaced by a sweep, not by review.** A `dial`'s travel closes, so its
+minimum and maximum are drawn at the same angle and it cannot distinguish them. Correct for a cyclic
+quantity, wrong for anything else, and unverifiable by any schema because cyclicity belongs to the
+*model*. Held three ways: stated in the authoring guide, checked against every shipped dial's own model
+output at both ends, and guarded against going vacuous. Recorded in `deferred-work.md` as newly
+reachable, owner unassigned.
+
+**Seventeen mutation proofs, each broken, observed red, and restored.** Every guard whose failure
+would be silent:
+
+| # | Guard broken | Named test that went red |
+|---|---|---|
+| 1 | The cast→colleague refinement | `rejects a cast member who is not an authored colleague, at the offending index` |
+| 2 | The speaker-in-cast refinement | `rejects a beat spoken by somebody the scene does not stage` |
+| 3 | The non-empty-cast refinement | `rejects an authored empty cast rather than reading it as "nobody"` |
+| 4 | The staging-scene refinement | `rejects a cast on a scene that stages no figure column` |
+| 5 | The duplicate-cast refinement | `rejects a repeated cast member, which would stage one figure twice` |
+| 6 | `if (!this.stagesSameCast(cast)) this.buildFigures(cast)` | `rebuilds its figures when an authored cast shortens the staged set` |
+| 7 | The sweep's per-control affordance → a hard-coded `'knob'` | `measures each control by its own affordance, not by the knob` |
+| 8 | `control.affordance ?? 'knob'` → `?? 'slider'` | `draws a control with no authored affordance exactly as a knob` **+ 2 more** |
+| 9 | The dial's face painter → the knob's | `paints a knob as an arc with a gap, and a dial as a closed ring` |
+| 10 | The slider's face painter → the knob's | `paints a slider as a track, with no circle anywhere in it` |
+| 11 | `paintValue`'s slider branch disabled | `rotates a dial indicator, and slides a slider thumb, on the same bench` **+ 1 more** |
+| 12 | `dialAngleForValue` → `knobAngleForValue` in `paintValue` | `draws the dial's indicator at the dial's angle, not the knob's` |
+| 13 | `sliderOffsetForValue(...)` → `0` in `paintValue` | 3 tests in `ApparatusAffordances.test.ts` |
+| 14 | A case ID written into `LibraryScene.ts` | `finds none, in any scene, renderer or domain module` |
+| 15 | `resolveSceneKey` → a hard-coded conventional phase→scene map | `follows a permuted map, so no phase→scene pairing is written into the engine` |
+| 16 | A refusal message mis-quoted in the guide | `quotes only messages the schema actually emits` |
+| 17 | An inventory row naming a renamed schema symbol | `carries the AC1 inventory: every named field group, mapped to its schema symbol` |
+
+Proofs 1–5 were **run twice**: the first pass restored the file with `git checkout`, which reverted the
+whole schema change, so proofs 2–5 had run against a file with no cast rules at all and were failing for
+the wrong reason. Re-run with a copy-based restore, each mutation site confirmed present exactly once
+before mutating.
 
 ### Completion Notes List
 
+**Scope held.** No new scene, no new phase, no `CASE_PHASES` or `SCENE_KEYS` change, no registry or
+plugin layer, no `CaseRecordSchema` change and no record migration, no fourth module in `src/ui/`.
+`formatMeasurement`'s separator-before-every-unit gap was seen on the rotation dial (`0 °`) and left
+alone — owner Story 4.2, as instructed.
+
+**AC1 — the contract is stated and provably enforced.** `docs/content-authoring/README.md` carries the
+six-field-group inventory (field group → schema symbol → refinements). Backed by tests rather than
+trusted as prose: every refusal message the guide quotes is checked against the schema that emits it
+(28 of them), and every inventory row is checked to name a symbol the schema still defines.
+
+**AC2 — a scene may author who is in the room.** `scenarioScript.scenes[].cast?`, with five load-time
+refinements each naming its own path, all five mutation-proved. `presentColleagueIds` is the single seam
+and now takes the authored cast; the ordering guarantee survives — an authored cast decides **presence**,
+proposal order still decides **sequence**, asserted in both halves.
+
+**AC3 — a control may author which instrument it is.** Three genuinely distinct instruments: a `knob`
+(270° arc, hard stop, dead zone), a `dial` (closed graduated ring, fixed index mark, no dead zone) and
+a `slider` (linear track and thumb). Distinct geometry *and* distinct pointer→value conversion — the
+knob refuses its dead zone where the dial reads every angle, and the slider reads a distance rather
+than a direction, all asserted. Every conversion is Phaser-free and unit-tested at both range ends and
+across every step, for **both** shipped cases' controls. Every affordance keeps its two step
+affordances and keyboard stepping, and drag and step agree by construction — no affordance owns a
+stepper. Confirmed by eye at 1280×720 in EN and FR.
+
+**AC4 — both fields are additive.** Both shipped cases parse unchanged with neither field authored, and
+absence produces today's behaviour by test rather than by assumption — the AC4 tests were the ones the
+mutation exposed as hollow and were rewritten.
+
+**AC5 — pinned, not rebuilt.** Two halves: a fixture-driven router walk resolving all six phases from
+the authoring example alone with no shipped case loaded, and a source-level sweep proving no case ID
+appears under `src/adapters/phaser/**` or `src/domain/**`. The sweep distinguishes the **model** id
+`morley-miller-interferometer` from the **case** id `morley-miller` — a substring match would have
+reported it and been silenced with an exemption that then hid a real one. The router walk **permutes**
+the phase→scene map, because resolving the conventional map proves only that the map is conventional.
+
+**AC6/AC7 — the guide and the worked example.** `docs/content-authoring/minimal-scenario.case.json` is a
+complete case definition. Its minimality is *measured*: every required top-level field is deleted in
+turn and every bounded array shortened by one, and the only survivors permitted are the two optional
+fields the example exists to demonstrate.
+
+**AC8 — bilingual.** Every authored string in the example carries both locales, and a walk over the
+parsed tree asserts no French value is byte-identical to its English sibling.
+
+**AC9 — verification.** `typecheck` clean · **1497 unit tests / 79 files** (from 1403/77) · `build`
+succeeds · **e2e 61 passed on three identical idle runs** (from 61) · `typecheck:tests` **114 / 60,
+exactly at the measured cap** — held by routing every new file read through `tests/shippedCases.ts`
+rather than importing `node:` again. Offline reload still restores saved progress with no network
+(`offline-reload.spec.ts`, green in all three runs).
+
+**No `CACHE_NAME` bump, deliberately.** Both new fields are optional, so a cached older `case.json`
+still strict-parses under the new schema — the failure mode v3/v5/v6/v8 each record does not arise. And
+`manifestsMatch` compares `assets.manifestVersion` and the entries, not `case.version`, so bumping the
+prototype to **1.3.0** creates no manifest mismatch. `public/sw.js` stays at v10. A defensive bump
+would cost every returning player their cache for nothing.
+
+**`npm run audit:ledger` confirmed rather than assumed**: still exits 1, both cases still blocked with
+the same blocker counts (7 and 2). The two prototype reports are regenerated because they print the
+case version, which moved.
+
+**Deferred-work closed:** the `CharacterStage.create` rebuild note (verified against a genuinely varying
+cast, then struck) and the `FIGURE_SLOT_WIDTH` divergence (the spec now derives its bound from the
+production rule over both cases, taking the narrowest staged slot). **Opened:** the dial-cyclicity
+authoring rule, the prototype's unmeasured bench prose, and the two harness notes.
+
 ### File List
+
+**Source**
+
+- `src/domain/cases/ScenarioScript.ts` — `ScenarioScene.cast`, `FIGURE_STAGING_SCENE_KEYS`, `stagesFigureColumn`
+- `src/domain/cases/CaseDefinition.ts` — `CONTROL_AFFORDANCES`, `ControlAffordance`, `controlAffordance`, `PrimaryControl.affordance`
+- `src/schemas/CaseDefinitionSchema.ts` — the `cast` and `affordance` shapes and the five cast refinements
+- `src/adapters/phaser/renderers/characterStageView.ts` — `presentColleagueIds` takes the authored cast
+- `src/adapters/phaser/renderers/ColleagueRenderer.ts` — `resolveStageCast` and `stageCast` thread it
+- `src/adapters/phaser/renderers/instrumentView.ts` — the dial and slider conversions, and `resolveAffordanceValueForPointer`
+- `src/adapters/phaser/renderers/apparatusGeometry.ts` — dial and slider geometry, `instrumentBand`, the affordance-aware sweep
+- `src/adapters/phaser/renderers/ApparatusInstrument.ts` — three painters, `paintValue`, the affordance switch
+
+**Content**
+
+- `public/cases/morley-miller/case.json` — `rotationDeg` as `dial`, `bathTempC` as `slider`; version 1.2.0 → **1.3.0**
+- `docs/source-rights/morley-miller-ledger.en.md`, `…fr.md` — regenerated (they print the case version)
+
+**Documentation and fixture (new)**
+
+- `docs/content-authoring/README.md`
+- `docs/content-authoring/minimal-scenario.case.json`
+
+**Tests (new)**
+
+- `tests/unit/ScenarioAuthoringContract.test.ts`
+- `tests/unit/ApparatusAffordances.test.ts`
+
+**Tests (modified)**
+
+- `tests/shippedCases.ts` — `loadAuthoringExample`, `readRepoFile`, `listRepoFiles`, `listRepoSourceFiles`
+- `tests/unit/sceneSlice.ts` — records draw-command **names**, position and rotation
+- `tests/unit/CaseDefinition.test.ts` — the twelve cast-refinement tests
+- `tests/unit/CharacterStageView.test.ts` — the authored-cast branch and the AC4 absence test
+- `tests/unit/CharacterStage.test.ts` — the cast-set rebuild verification
+- `tests/unit/InstrumentView.test.ts` — dial and slider conversions, both cases' controls
+- `tests/unit/ApparatusGeometry.test.ts` — `instrumentBand`, the affordance-aware sweep, the AC4 default
+- `tests/integration/CharacterStaging.test.ts` — authored cast through the production resolver
+- `tests/integration/SceneRouter.test.ts` — the fixture-driven and permuted router walks
+- `tests/e2e/french-typography.spec.ts` — `FIGURE_SLOT_WIDTH` derived from the production rule
+- `tests/e2e/canvasHelpers.ts` — `varyingInstrument` derives its drag target per affordance
+- `tests/e2e/morley-miller-prototype.spec.ts` — docstring: the rotation control is now a dial
+
+**Configuration**
+
+- `tsconfig.test.json` — the stale 106/56 figure corrected to a measured 114/60, with the command
+
+**Process**
+
+- `_bmad-output/implementation-artifacts/deferred-work.md`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+- `_bmad-output/implementation-artifacts/3-4-scenario-and-proposal-authoring-contract.md`
 
 ## Change Log
 
 | Date | Version | Change | By |
 |---|---|---|---|
 | 2026-08-19 | 0.1 | Story context created from epics.md §3.4 (with the 2026-08-06 amendment), project-context.md rev 2.6, the sprint change proposal, and the source at HEAD `9ddb45a`. | Scrum Master |
+| 2026-08-19 | 1.0 | Implemented. Two optional authored fields — `scenarioScript.scenes[].cast` (five load-time refinements) and `apparatus.primaryControls[].affordance` (three genuinely distinct instruments) — plus `docs/content-authoring/` with a parsed, minimality-measured example, a two-part test pinning AC5, and the prototype adopting `dial` and `slider` at case version 1.3.0. Two `deferred-work.md` items closed, four opened. 1497 tests / 79 files, e2e 61 × 3 idle runs, `typecheck:tests` held at 114/60. 17 mutation proofs; two of them initially stayed green and the resulting harness and test gaps were fixed. | Dev Agent (Link Freeman) |
 
 ## Open Questions for Alexis
 

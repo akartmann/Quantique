@@ -1,13 +1,15 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { createSceneRouter, type SceneRouterTarget } from '../../src/adapters/phaser/SceneRouter';
 import { createAppStateFromCaseRecord, createInitialAppState } from '../../src/core/store/AppState';
 import { createStore, type AppStore } from '../../src/core/store/createStore';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 import { calculateYoungFringeSpacing } from '../../src/domain/apparatus/calculateYoungFringeSpacing';
-import type { CasePhase } from '../../src/domain/cases/CaseProgress';
+import { CASE_PHASES, type CasePhase } from '../../src/domain/cases/CaseProgress';
 import { deriveRecognition } from '../../src/domain/recognition/recognitionRules';
 import type { CaseRecord } from '../../src/schemas/CaseRecordSchema';
+import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
+import { loadAuthoringExample } from '../shippedCases';
 import type { ScenarioScript, SceneKey } from '../../src/domain/cases/ScenarioScript';
 
 const scenarioScript: ScenarioScript = {
@@ -308,5 +310,99 @@ describe('SceneRouter', () => {
 
         expect(scenes.calls).toEqual(['start:Library']);
         expect(router.getActiveSceneKey()).toBe('Library');
+    });
+});
+
+/**
+ * AC5, half one: **the router drives the full flow from an authored script, with no shipped case
+ * loaded** (Story 3.4).
+ *
+ * Driven from `docs/content-authoring/minimal-scenario.case.json` — the authoring example, which is not
+ * a member of `KNOWN_CASE_IDS` and is not under `public/cases/`. If any part of the flow needed a
+ * shipped case, this could not resolve at all.
+ *
+ * The store is a **structural slice** rather than a restored record, for the reason `SceneRouterTarget`
+ * itself is one: the router reads exactly two things from state — the phase and whether a rival-lab
+ * challenge stands — and building six persisted records to vary the first would make this a persistence
+ * fixture rather than a routing test. The phases it is driven through are `CASE_PHASES` itself, so a
+ * seventh phase would fail here rather than silently going unrouted.
+ *
+ * The second test is the one with teeth: it **permutes** the authored phase→scene map and asserts the
+ * router follows the permutation. Resolving the example's own map proves only that the map happens to
+ * match the order the engine would have used anyway.
+ */
+describe('an authored scenario drives the whole flow', () => {
+    let example: CaseDefinition;
+
+    beforeAll(async () => { example = await loadAuthoringExample(); });
+
+    /** A store that reports one phase and notifies nobody: the two facts the router actually reads. */
+    const storeReporting = (phase: CasePhase): AppStore => {
+        const state = { ...createInitialAppState(example), phase };
+        return {
+            getState: () => state,
+            subscribe: () => () => undefined,
+            dispatch: () => ({ ok: true, value: state })
+        } as unknown as AppStore;
+    };
+
+    const authoredSceneFor = (script: ScenarioScript, phase: CasePhase): SceneKey =>
+        script.scenes.find((scene) => scene.phase === phase)!.sceneKey;
+
+    it('resolves every phase to the scene the example authors', () => {
+        CASE_PHASES.forEach((phase) => {
+            const scenes = createFakeSceneManager();
+            const router = createSceneRouter(scenes, storeReporting(phase), example.scenarioScript);
+
+            expect(router.getActiveSceneKey()).toBe(authoredSceneFor(example.scenarioScript, phase));
+            expect(scenes.calls).toEqual([`start:${authoredSceneFor(example.scenarioScript, phase)}`]);
+            router.dispose();
+        });
+    });
+
+    it('follows a permuted map, so no phase→scene pairing is written into the engine', () => {
+        // Every phase sent to a scene the shipped cases never send it to. If any scene key were
+        // inferred from the phase rather than read from the script, at least one of these would come
+        // back with the conventional answer instead of the authored one.
+        const permuted: ScenarioScript = {
+            scenes: [
+                { phase: 'context', sceneKey: 'Debrief' },
+                { phase: 'prediction', sceneKey: 'Laboratory' },
+                { phase: 'experiment', sceneKey: 'TheoryBoard' },
+                { phase: 'synthesis', sceneKey: 'Colleagues' },
+                { phase: 'review', sceneKey: 'Library' },
+                { phase: 'debrief', sceneKey: 'Colleagues' }
+            ]
+        };
+        // It is authorable content, not a shape only this test can make: the same schema that guards
+        // the shipped cases accepts it, which is what makes the permutation a real authoring choice.
+        expect(CaseDefinitionSchema.safeParse({ ...example, scenarioScript: permuted }).success).toBe(true);
+
+        CASE_PHASES.forEach((phase) => {
+            const scenes = createFakeSceneManager();
+            const router = createSceneRouter(scenes, storeReporting(phase), permuted);
+
+            expect(router.getActiveSceneKey()).toBe(authoredSceneFor(permuted, phase));
+            router.dispose();
+        });
+
+        // And it really is a permutation — if it matched the example's own map, the walk above would
+        // pass without the router having read anything.
+        const moved = CASE_PHASES.filter((phase) =>
+            authoredSceneFor(permuted, phase) !== authoredSceneFor(example.scenarioScript, phase));
+        expect(moved).toEqual([...CASE_PHASES]);
+    });
+
+    it('reuses one scene for two phases when the script says so, without restarting it', () => {
+        // The property that makes `TheoryBoard` able to host `synthesis` and `review`, stated against
+        // authored content rather than against Young's habit of doing it.
+        const scenes = createFakeSceneManager();
+        const script = example.scenarioScript;
+        const shared = script.scenes.filter(({ sceneKey }) => sceneKey === 'TheoryBoard');
+        expect(shared.length).toBeGreaterThan(1);
+
+        const router = createSceneRouter(scenes, storeReporting(shared[0]!.phase), script);
+        expect(scenes.calls).toEqual(['start:TheoryBoard']);
+        router.dispose();
     });
 });

@@ -13,10 +13,15 @@
   // graph.
   //
   // Run by `npm run typecheck:tests`, and **not** by `npm run typecheck`, deliberately: switching the
-  // compiler on over `tests/` for the first time surfaces 106 pre-existing errors across 56 files, and
-  // all three CI workflows gate on `typecheck`. Folding them in would turn a green pipeline red and block
-  // publishing on a backlog this file exists to *measure*, not to have caused. The count is the point:
-  // it can now be watched going down. See `deferred-work.md` for the breakdown and the owner.
+  // compiler on over `tests/` surfaces a backlog of pre-existing errors, and all three CI workflows gate
+  // on `typecheck`. Folding them in would turn a green pipeline red and block publishing on a backlog
+  // this file exists to *measure*, not to have caused. The count is the point: it can now be watched
+  // going down. See `deferred-work.md` for the breakdown and the owner.
+  //
+  // **Measured at 114 errors across 60 files** (2026-08-19, Story 3.4, against a clean tree). This
+  // comment previously claimed 106 across 56, which was already stale when it was written — the figure
+  // is only useful if it is reproduced rather than carried, so reproduce it before quoting it:
+  //   npm run typecheck:tests 2>&1 | grep -cE '^tests/.*: error TS'
   // No `types` override: the specs import `describe`/`it`/`expect` from `vitest` and `test`/`expect`
   // from `@playwright/test` explicitly, so no ambient globals are needed and `@types/node` is not a
   // dependency of this project.

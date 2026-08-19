@@ -23,7 +23,7 @@
 // `ADVANCE_CONTROL_HEIGHT` is imported as well as re-exported below: a bare `export … from` re-export
 // does not bind the name locally, and the reference shelf's placement is derived from it.
 import { ADVANCE_CONTROL_HEIGHT, advanceControlCentre, advanceControlLabelWrap } from '../ui/AdvanceControl';
-import type { PrimaryControl } from '../../../domain/cases/CaseDefinition';
+import { controlAffordance, type ControlAffordance, type PrimaryControl } from '../../../domain/cases/CaseDefinition';
 
 /** The painted apparatus, in the same design space, so the column can be placed clear of it. */
 export const CENTRE_Y = 200;
@@ -225,6 +225,83 @@ export const knobCentre = (index: number): Readonly<{ x: number; y: number }> =>
     y: BENCH_TOP + KNOB_TRAVEL_RADIUS
 });
 
+// --- The dial and the slider (Story 3.4) --------------------------------------------------------
+//
+// Both live inside the same `INSTRUMENT_SLOT_WIDTH` slot and on the same row centre as the knob, so
+// `STEP_AFFORDANCE_Y`, `INSTRUMENT_READOUT_Y` and the whole bench layout are unmoved by an authored
+// affordance. Each is bounded by `KNOB_FOCUS_RADIUS` vertically and by the slot horizontally, which is
+// what `benchObjectBands` below relies on — and now measures per affordance rather than assuming.
+
+/**
+ * The dial's face, its graduated ring, and the fixed index mark the ring is read against.
+ *
+ * Deliberately a smaller face and ring than the knob's: the index mark sits **outside** the ring, and
+ * the whole instrument still has to finish inside `KNOB_FOCUS_RADIUS` so its band matches the knob's
+ * and the row above the bench does not move. 40 + 8 of index leaves the same 54 the knob focuses at.
+ */
+export const DIAL_FACE_RADIUS = 28;
+export const DIAL_RING_RADIUS = 40;
+export const DIAL_TICK_LENGTH = 6;
+export const DIAL_INDICATOR_LENGTH = 22;
+/** The index mark: a short radial stroke just outside the ring, fixed at the top and never rotated. */
+export const DIAL_INDEX_INNER_RADIUS = DIAL_RING_RADIUS + 2;
+export const DIAL_INDEX_OUTER_RADIUS = DIAL_RING_RADIUS + 8;
+export const DIAL_FOCUS_RADIUS = DIAL_INDEX_OUTER_RADIUS + 6;
+
+/** The same slot placement as a knob: an authored affordance moves no instrument on the bench. */
+export const dialCentre = knobCentre;
+
+/**
+ * The slider's track, thumb and graduations.
+ *
+ * 132 of track plus half a thumb and the focus padding is 83 either side of the slot centre, inside
+ * the 84 the slot allows. Vertically the thumb, its ticks and the focus ring finish 31 from the row
+ * centre, comfortably inside the knob's 54 — so a slider narrows its band rather than widening it.
+ */
+export const SLIDER_TRACK_WIDTH = 132;
+export const SLIDER_TRACK_HEIGHT = 8;
+export const SLIDER_THUMB_WIDTH = 18;
+export const SLIDER_THUMB_HEIGHT = 34;
+export const SLIDER_TICK_LENGTH = 6;
+/** Clear space around the whole instrument, for the focus treatment and the hit area alike. */
+export const SLIDER_FOCUS_PADDING = 8;
+export const SLIDER_HALF_WIDTH = (SLIDER_TRACK_WIDTH / 2) + (SLIDER_THUMB_WIDTH / 2) + SLIDER_FOCUS_PADDING;
+export const SLIDER_HALF_HEIGHT = (SLIDER_THUMB_HEIGHT / 2) + SLIDER_TICK_LENGTH + SLIDER_FOCUS_PADDING;
+
+/** The track's midpoint, on the same row centre as a knob's. */
+export const sliderCentre = knobCentre;
+
+/**
+ * The band one instrument occupies, by affordance — the rectangle that must not overlap its neighbour.
+ *
+ * The reason this function exists rather than three constants read at the sweep: the sweep below used
+ * to derive **every** band from `knobCentre` and `KNOB_FOCUS_RADIUS`, so shipping a second affordance
+ * without touching it would have measured a knob that is not drawn while the instrument that *is*
+ * drawn overlapped its neighbour unmeasured. That is the `FIGURE_SLOT_WIDTH` defect one layer down,
+ * and the 2.9 fabricated-band defect one layer down from that.
+ */
+export const instrumentBand = (
+    affordance: ControlAffordance,
+    index: number
+): Readonly<{ left: number; right: number; top: number; bottom: number }> => {
+    const centre = knobCentre(index);
+    if (affordance === 'slider') {
+        return {
+            left: centre.x - SLIDER_HALF_WIDTH,
+            right: centre.x + SLIDER_HALF_WIDTH,
+            top: centre.y - SLIDER_HALF_HEIGHT,
+            bottom: centre.y + SLIDER_HALF_HEIGHT
+        };
+    }
+    const radius = affordance === 'dial' ? DIAL_FOCUS_RADIUS : KNOB_FOCUS_RADIUS;
+    return {
+        left: centre.x - radius,
+        right: centre.x + radius,
+        top: centre.y - radius,
+        bottom: centre.y + radius
+    };
+};
+
 /**
  * The discrete step affordances, which every draggable instrument keeps (ADR-012).
  *
@@ -406,14 +483,14 @@ export const benchObjectBands = (controls: readonly PrimaryControl[]): readonly 
     const controlRowTop = BENCH_CONTROL_ROW_Y;
     const instruments = controls.flatMap((control, index) => {
         const slotLeft = instrumentSlotLeft(index);
-        const centre = knobCentre(index);
+        // The band the control's **own** affordance occupies, never the knob's (Story 3.4). Deriving
+        // every band from `knobCentre`/`KNOB_FOCUS_RADIUS` regardless of what is drawn is the defect
+        // this sweep exists to catch, committed inside the sweep.
+        const affordance = controlAffordance(control);
         return [
             {
-                name: `knob ${control.id}`,
-                left: centre.x - KNOB_FOCUS_RADIUS,
-                right: centre.x + KNOB_FOCUS_RADIUS,
-                top: centre.y - KNOB_FOCUS_RADIUS,
-                bottom: centre.y + KNOB_FOCUS_RADIUS
+                name: `${affordance} ${control.id}`,
+                ...instrumentBand(affordance, index)
             },
             {
                 name: `step affordances ${control.id}`,

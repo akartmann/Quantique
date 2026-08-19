@@ -540,17 +540,20 @@ export const boardProposerIds = (
     ? caseDefinition.predictionProposals
     : caseDefinition.conclusionProposals).map(({ colleagueId }) => colleagueId);
 
-export const resolveStageCast = ({ caseId, colleagues, proposerIds, speakerIds, t }: Readonly<{
+export const resolveStageCast = ({ caseId, colleagues, proposerIds, speakerIds, authoredCast, t }: Readonly<{
     caseId: string;
     colleagues: readonly Colleague[];
     /** In proposal order, which is the left-to-right reading order the two boards genuinely differ in. */
     proposerIds: readonly string[];
     speakerIds: readonly string[];
+    /** This scene's authored `cast`, if it has one. Absent means the whole cast — see {@link presentColleagueIds}. */
+    authoredCast?: readonly string[];
     t: Translator;
 }>): readonly StageCastMember[] => presentColleagueIds({
     proposerIds,
     speakerIds,
-    castIds: colleagues.map(({ id }) => id)
+    castIds: colleagues.map(({ id }) => id),
+    authoredCast
 }).map((colleagueId) => {
     const colleague = colleagues.find(({ id }) => id === colleagueId);
     return {
@@ -830,10 +833,13 @@ export class ColleagueRenderer {
      * is `marianne, elias, thea, samuel` — so a fixed cast order would put three of the four colleagues
      * beside somebody else's draft on the conclusion board.
      *
-     * Presence itself is derived through {@link presentColleagueIds} rather than authored, because
-     * `scenarioScript.scenes[].cast?` belongs to Story 3.4. For the shipped Young case the proposers,
-     * the beat speakers, and the whole cast are the same four people, so the derivation is not
-     * observable today — it goes through the shared pure function anyway so 3.4 replaces one call.
+     * Presence is the scene's authored `cast` when it has one (Story 3.4), and derived through
+     * {@link presentColleagueIds} when it does not. Either way order stays proposal order, which is
+     * what the paragraph above is about — the authored field says *who*, never *where*.
+     *
+     * The scene is looked up **by phase**, not by scene key, and it has to be: this renderer's host
+     * scene `TheoryBoard` carries both `synthesis` and `review` as separate script entries, so a
+     * key-based lookup would hand one cast to two boards. `selectDialogueBeats` keys the same way.
      *
      * The resolution itself lives in {@link resolveStageCast}, which is pure and exported: this method
      * is only the store lookup that feeds it. What that split buys is a test that drives the real rule
@@ -847,6 +853,7 @@ export class ColleagueRenderer {
             colleagues: state.caseDefinition.colleagues,
             proposerIds: boardProposerIds(state.caseDefinition, this.kind),
             speakerIds: (scene?.dialogueBeats ?? []).map(({ speakerId }) => speakerId),
+            authoredCast: scene?.cast,
             t
         });
     }

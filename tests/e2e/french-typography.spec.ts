@@ -146,7 +146,14 @@ import {
 } from '../../src/adapters/phaser/ui/ProposalChoice';
 // The name-and-role plaque under each staged figure (Story 2.9). The role is the longest French label
 // in the game after the prose, and it sits in a fixed slot — so it belongs in both sweeps.
-import { FIGURE_BADGE_FONT_SIZE, FIGURE_NAME_FONT_SIZE, FIGURE_ROLE_FONT_SIZE } from '../../src/adapters/phaser/renderers/characterStageView';
+import {
+    FIGURE_BADGE_FONT_SIZE,
+    FIGURE_NAME_FONT_SIZE,
+    FIGURE_ROLE_FONT_SIZE,
+    presentColleagueIds
+} from '../../src/adapters/phaser/renderers/characterStageView';
+import { FIGURE_STAGING_SCENE_KEYS } from '../../src/domain/cases/ScenarioScript';
+import { KNOWN_CASE_IDS } from '../../src/schemas/CaseDefinitionSchema';
 
 /**
  * AC4: French renders without missing glyphs or clipping at 1280×720.
@@ -184,14 +191,49 @@ const FRENCH_GLYPHS = [...'éèêëàâçîïôûùÿœŒÉÈÊÀÂÇÎÏÔÛÙ�
 const CARD_TEXT_WRAP_WIDTH = boardProposalTextWrapWidth();
 const CARD_MARKER_WRAP = boardProposalMarkerWrap();
 /**
- * The slot one figure's plaque occupies: the proposal surface divided by the shipped cast size.
- *
- * Read from the content rather than fixed at four — a case authoring three colleagues gives each a
- * wider slot and one authoring five a narrower one, and the narrower case is the one that clips.
+ * Every case this build ships, from the route gate's own closed list rather than a second copy of it.
+ * A third case joins the sweeps below by being added there, which is the point.
  */
-const FIGURE_SLOT_WIDTH = PROPOSAL_SURFACE_WIDTH / (JSON.parse(
-    readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
-) as { colleagues: unknown[] }).colleagues.length;
+const SHIPPED_CASE_IDS: readonly string[] = KNOWN_CASE_IDS;
+
+/**
+ * The slot one figure's plaque occupies: the proposal surface divided by the number of figures the
+ * board actually stages — **the narrowest such slot across every shipped figure-staging scene**.
+ *
+ * It used to divide by `colleagues.length`, which was the same number only by accident. The renderer
+ * divides by `presentColleagueIds(...).length`, and Story 3.4's authored `scenarioScript.scenes[].cast`
+ * is what makes the two diverge: a scene may now stage a subset. `deferred-work.md` recorded that this
+ * file would go on measuring a plaque slot nothing paints the moment that landed — "the failure mode
+ * this file has already been patched for twice" — so the count now comes from the production rule.
+ *
+ * The **narrowest** slot, i.e. the largest staged count, because the narrow case is the one that clips
+ * and the strings bounded by this are interface strings (`colleague.role.*`, `stage.speaking`) that
+ * every case renders. Both shipped cases are swept for the same reason: a plaque bound is not Young's.
+ */
+const stagedFigureCounts = (): readonly number[] => SHIPPED_CASE_IDS.flatMap((caseId) => {
+    const definition = JSON.parse(
+        readFileSync(new URL(`../../public/cases/${caseId}/case.json`, import.meta.url), 'utf-8')
+    ) as {
+        colleagues: { id: string }[];
+        predictionProposals: { colleagueId: string }[];
+        conclusionProposals: { colleagueId: string }[];
+        scenarioScript: { scenes: { sceneKey: string; cast?: string[]; dialogueBeats?: { speakerId: string }[] }[] };
+    };
+
+    return definition.scenarioScript.scenes
+        .filter(({ sceneKey }) => (FIGURE_STAGING_SCENE_KEYS as readonly string[]).includes(sceneKey))
+        .map(({ sceneKey, cast, dialogueBeats }) => presentColleagueIds({
+            // `Colleagues` hosts the prediction board; `TheoryBoard` hosts the conclusion one. That
+            // pairing is the scenes' own, asserted against the source in `ScenarioAuthoringContract`.
+            proposerIds: (sceneKey === 'Colleagues' ? definition.predictionProposals : definition.conclusionProposals)
+                .map(({ colleagueId }) => colleagueId),
+            speakerIds: (dialogueBeats ?? []).map(({ speakerId }) => speakerId),
+            castIds: definition.colleagues.map(({ id }) => id),
+            authoredCast: cast
+        }).length);
+});
+
+const FIGURE_SLOT_WIDTH = PROPOSAL_SURFACE_WIDTH / Math.max(...stagedFigureCounts());
 /**
  * The dialogue panel is narrower than the surface since Story 2.9 — it shares its row with the control
  * column instead of stacking below it, which is what bought the room its height. Both bounds are
@@ -438,7 +480,7 @@ const IDLE_SETTINGS_CLAUSE = caseDefinition.apparatus.primaryControls
     .map(({ inlineLabel }) => `0,25 mm ${inlineLabel.fr}`)
     .join(fr['list.separator']);
 /** Every shipped case's authored title, in both locales — the surface that replaced `lab.title`. */
-const CASE_TITLES = ['young-interference', 'morley-miller'].flatMap((caseId) => {
+const CASE_TITLES = SHIPPED_CASE_IDS.flatMap((caseId) => {
     const definition = JSON.parse(
         readFileSync(new URL(`../../public/cases/${caseId}/case.json`, import.meta.url), 'utf-8')
     ) as { title: { en: string; fr: string } };

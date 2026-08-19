@@ -49,10 +49,16 @@ import {
 /**
  * The prototype's own distinguishing control, per its `significanceRule`.
  *
- * **90°, not the knob's maximum.** The model is `cos(2θ)` and the authored travel is 0–180°, so the
- * default drag-to-maximum returned to the *same* displacement it started from: 0° and 180° both read
- * 0,11 at 22 °C, and this walk asserted it had recorded two distinguishing runs while recording one
- * reading twice (review 2026-08-19). 90° is the sign reversal — the pair the unit tests use.
+ * **90°, not the maximum.** The model is `cos(2θ)` and the authored travel is 0–180°, so the default
+ * drag-to-maximum returned to the *same* displacement it started from: 0° and 180° both read 0,11 at
+ * 22 °C, and this walk asserted it had recorded two distinguishing runs while recording one reading
+ * twice (review 2026-08-19). 90° is the sign reversal — the pair the unit tests use.
+ *
+ * It is a **`dial`** as of Story 3.4, and the pair is unchanged by that: `varyingInstrument` derives
+ * the drag target from the control's own affordance, so the mouse goes to the point the dial reads 90°
+ * at rather than to a knob arc nothing paints. Re-deriving the pair from the authored range instead
+ * would reintroduce the 0°/180° defect above — and on a dial it would be worse, because a closed
+ * travel draws its two ends in the same place.
  */
 const ROTATION = varyingInstrument('morley-miller', 'rotationDeg', 90);
 

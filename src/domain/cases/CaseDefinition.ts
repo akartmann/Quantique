@@ -205,6 +205,35 @@ export type ContextualArtifact = Readonly<{
 
 export const isSourceEligibleForInspection = (source: ContextualArtifact): boolean => source.rightsStatus === 'reviewed';
 
+/**
+ * The instruments a case may ask the bench to draw for a control (Story 3.4).
+ *
+ * One exported list so the type and `PrimaryControlSchema`'s `z.enum` cannot drift — a fourth member
+ * added here is a `tsc` error at every `switch` that draws one, which is the point of deriving both
+ * from it. Not a registry: three members is a switch in one instrument class, and
+ * `project-context.md` §Guided-Adventure forbids the layer twice over.
+ *
+ * They are **three instruments, not three labels** — distinct geometry and a distinct pointer→value
+ * conversion each:
+ *
+ * - `knob` — the default. A 270° arc from 135° with a hard stop, and a dead zone at the bottom where a
+ *   real knob's shaft is. For a bounded setting whose ends are real ends.
+ * - `dial` — a full circle read against a fixed index mark, no dead zone and so no wrap to guard
+ *   against. For a **cyclic** quantity, where the knob's stop is an artefact of the widget rather than
+ *   of the instrument. Its travel closes, so the minimum and the maximum meet at the index mark: author
+ *   it only where those two really are the same reading.
+ * - `slider` — linear travel along a track with a draggable thumb. For a quantity read off a scale.
+ *
+ * Absent means `knob`, resolved at the one place that draws rather than defaulted in the schema — a
+ * schema default writes a value into the parsed object the author did not write.
+ */
+export const CONTROL_AFFORDANCES = ['knob', 'dial', 'slider'] as const;
+
+export type ControlAffordance = typeof CONTROL_AFFORDANCES[number];
+
+/** What a control is drawn as. The one resolution of the absent case; never inline a `?? 'knob'`. */
+export const controlAffordance = (control: PrimaryControl): ControlAffordance => control.affordance ?? 'knob';
+
 export type PrimaryControl = Readonly<{
     /**
      * Authored per case (Story 3.1), not a union of Young's two. Every predicate that names a control
@@ -223,6 +252,16 @@ export type PrimaryControl = Readonly<{
     max: number;
     step: number;
     defaultValue: number;
+    /**
+     * Which instrument the bench draws for this control. Absent means `knob` — see
+     * {@link CONTROL_AFFORDANCES} for what the three are and {@link controlAffordance} for the one
+     * place that resolves the absence.
+     *
+     * It changes only how the control is **drawn and grasped**. The authored `min`, `max`, `step` and
+     * `defaultValue` and every validation over them are unchanged by the choice, both paths still snap
+     * before dispatch, and the run record stores the value — so nothing here is persisted.
+     */
+    affordance?: ControlAffordance;
 }>;
 
 export type WavelengthMode = 'minimum' | 'advanced';

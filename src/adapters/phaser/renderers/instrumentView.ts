@@ -41,7 +41,7 @@
  */
 
 import { normalizeControlValue } from '../../../domain/apparatus/ApparatusControl';
-import type { PrimaryControl } from '../../../domain/cases/CaseDefinition';
+import type { ControlAffordance, PrimaryControl } from '../../../domain/cases/CaseDefinition';
 
 const TWO_PI = Math.PI * 2;
 const degreesToRadians = (degrees: number): number => (degrees * Math.PI) / 180;
@@ -187,3 +187,112 @@ export const knobStepCount = (control: PrimaryControl): number =>
 export const knobTickAngles = (control: PrimaryControl): readonly number[] =>
     Array.from({ length: knobStepCount(control) + 1 }, (_unused, index) =>
         knobAngleForValue(control, control.min + (index * control.step)));
+
+// --- The dial (Story 3.4) -----------------------------------------------------------------------
+//
+// A full circle read against a fixed index mark, and the deliberate opposite of the knob above: no
+// dead zone, so no wrap to guard against and no hysteresis to tune. That is not a simplification of
+// the knob, it is the right instrument for a *cyclic* quantity — a rotation angle has no hard stop,
+// and the knob's 90° shaft quadrant is an artefact of the widget rather than of the thing measured.
+//
+// The consequence an author has to know, and which `docs/content-authoring/` states: the travel
+// closes, so the minimum and the maximum meet at the index mark. Author `dial` only where they really
+// are the same reading. For the prototype's `rotationDeg` they are — its model is `cos(2θ)`, and 0°
+// and 180° give the identical fringe displacement.
+
+/**
+ * Where a dial reads zero: straight up, in the same convention {@link pointerAngleRad} uses.
+ *
+ * The top rather than the knob's down-left start, because a divided circle is read against an index
+ * mark at twelve o'clock — and because there is no shaft quadrant to keep clear of.
+ */
+export const DIAL_INDEX_ANGLE_RAD = -Math.PI / 2;
+
+/**
+ * How far round the dial an angle is, as 0…1.
+ *
+ * Never `undefined` for a finite angle, which is the whole difference from
+ * {@link knobFractionForAngle}: every direction from the centre is a reading, so there is nowhere for
+ * the value to be held. The centre itself is still not a direction — {@link KNOB_MIN_TRACKING_RADIUS}
+ * guards that for both instruments, for the `Math.atan2(0, 0) === 0` reason recorded on it.
+ */
+export const dialFractionForAngle = (angleRad: number): number | undefined => {
+    if (!Number.isFinite(angleRad)) return undefined;
+    return ((((angleRad - DIAL_INDEX_ANGLE_RAD) % TWO_PI) + TWO_PI) % TWO_PI) / TWO_PI;
+};
+
+export const dialAngleForFraction = (fraction: number): number =>
+    DIAL_INDEX_ANGLE_RAD + (clamp01(fraction) * TWO_PI);
+
+export const dialAngleForValue = (control: PrimaryControl, value: number): number =>
+    dialAngleForFraction(knobFractionForValue(control, value));
+
+/** The angle of every detent round the dial, for the painter. Derived from the drag's own conversion. */
+export const dialTickAngles = (control: PrimaryControl): readonly number[] =>
+    Array.from({ length: knobStepCount(control) + 1 }, (_unused, index) =>
+        dialAngleForValue(control, control.min + (index * control.step)));
+
+// --- The slider (Story 3.4) ---------------------------------------------------------------------
+//
+// Linear travel along a track. The conversion reads a *distance*, not a direction, which is what makes
+// it a third instrument rather than a knob drawn flat.
+
+/**
+ * How far along a track a pointer is, as 0…1, from its offset relative to the track's centre.
+ *
+ * Clamped rather than refused at either end: unlike a rotary travel there is no direction to lose and
+ * no wrap to fall through, so a hand that overshoots the end of the track means the end of the track.
+ * A degenerate track reads as fully left rather than as `NaN`, the same guard
+ * {@link knobFractionForValue} carries for degenerate bounds.
+ */
+export const sliderFractionForOffset = (dx: number, trackWidth: number): number =>
+    trackWidth <= 0 || !Number.isFinite(dx) ? 0 : clamp01((dx + (trackWidth / 2)) / trackWidth);
+
+/** Where along the track a value sits, as 0…1. The same fraction the knob and the dial read. */
+export const sliderFractionForValue = knobFractionForValue;
+
+/** The thumb's offset from the track centre for a value, for the painter. */
+export const sliderOffsetForValue = (control: PrimaryControl, value: number, trackWidth: number): number =>
+    (knobFractionForValue(control, value) - 0.5) * trackWidth;
+
+/** The offset of every detent along the track, for the painter. Derived from the drag's conversion. */
+export const sliderTickOffsets = (control: PrimaryControl, trackWidth: number): readonly number[] =>
+    Array.from({ length: knobStepCount(control) + 1 }, (_unused, index) =>
+        sliderOffsetForValue(control, control.min + (index * control.step), trackWidth));
+
+// --- One entry point per gesture ------------------------------------------------------------------
+
+/**
+ * The stepped, clamped value a pointer means, for whichever instrument this control is drawn as.
+ *
+ * One seam rather than three call sites in `ApparatusInstrument`, so "snap before dispatch" is a
+ * property of the *bench* and not of each instrument remembering to. Every branch ends in
+ * {@link steppedControlValue}, which is the domain's own `normalizeControlValue`: there is one snap
+ * rule and none of these three owns a copy of it.
+ *
+ * `currentValue` is required for the same reason {@link resolveKnobValue}'s is — it is what the
+ * instrument holds when the pointer carries no reading (inside the centre radius, or in the knob's
+ * dead zone). A default would turn a wiring omission into a silent jump.
+ */
+export const resolveAffordanceValueForPointer = (
+    { affordance, control, dx, dy, currentValue, trackWidth }: Readonly<{
+        affordance: ControlAffordance;
+        control: PrimaryControl;
+        dx: number;
+        dy: number;
+        currentValue: number;
+        /** The slider's track width. Unread by the two rotary affordances. */
+        trackWidth: number;
+    }>
+): number => {
+    if (affordance === 'slider') {
+        return steppedControlValue(control, control.min + (sliderFractionForOffset(dx, trackWidth) * (control.max - control.min)));
+    }
+
+    if (Math.hypot(dx, dy) < KNOB_MIN_TRACKING_RADIUS) return steppedControlValue(control, currentValue);
+
+    const angleRad = pointerAngleRad(dx, dy);
+    const fraction = affordance === 'dial' ? dialFractionForAngle(angleRad) : knobFractionForAngle(angleRad);
+    if (fraction === undefined) return steppedControlValue(control, currentValue);
+    return steppedControlValue(control, control.min + (fraction * (control.max - control.min)));
+};

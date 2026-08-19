@@ -369,29 +369,59 @@ export type PresentColleaguesInput = Readonly<{
     speakerIds: readonly string[];
     /** The whole authored cast, as the fallback for a scene that has neither. */
     castIds: readonly string[];
+    /**
+     * This scene's authored `scenarioScript.scenes[].cast`, when it has one (Story 3.4).
+     *
+     * `undefined` — not `[]` — is how a scene says "the whole cast": an authored empty array is refused
+     * at load, so the two cannot be confused here.
+     */
+    authoredCast?: readonly string[];
 }>;
 
 /**
- * Who is in the room, derived rather than authored.
+ * Who is in the room.
  *
- * Story 3.4 owns `scenarioScript.scenes[].cast?` and will replace this with a read
- * (`sprint-change-proposal-2026-08-06.md` §2.1, §4.3.2). Until then presence is: the colleagues who
- * authored the proposals on this board, then any beat speaker who did not, and the whole cast if a
- * scene has neither.
+ * **An authored cast decides presence; proposal order still decides sequence.** When a scene authors a
+ * `cast`, the staged set is exactly that cast, ordered proposal-order-first — the members that authored
+ * a proposal on *this* board, in proposal order — and then the remaining authored members in their
+ * authored order. When no `cast` is authored, presence is derived exactly as before: the proposers on
+ * this board, then any beat speaker who authored nothing, and the whole cast if a scene has neither.
  *
- * **For the shipped Young case all three sets are the same four people, so none of this is observable
- * today.** It is one pure function anyway so 3.4 replaces one call rather than hunting a rule spread
- * across two renderers — which is exactly the shape the sprint change asked for (D2).
+ * The order half is load-bearing and is why an authored cast cannot simply be returned as written. The
+ * two boards attribute in different orders — prediction is `thea, elias, marianne, samuel`, conclusion
+ * is `marianne, elias, thea, samuel` — so staging in cast order would put three of the four colleagues
+ * beside somebody else's draft on the conclusion board (2.9's AC3).
  *
- * Proposal order first. It no longer places a figure *beside* its own card — the figures stand in a
- * row now — but it still fixes a stable, meaningful left-to-right reading that matches the order the
- * cards are read in, and the two boards genuinely differ.
+ * `speakerIds` is deliberately unread on the authored branch. It is not an omission: every beat speaker
+ * in a scene is already a member of that scene's cast, refused at load if not, so folding the speakers
+ * in again could only re-add somebody the author left out on purpose.
+ *
+ * Until Story 3.4 this was derived for every scene, and for the shipped Young case the proposers, the
+ * beat speakers and the whole cast are the same four people — so the derivation was never observable.
+ * The authored field is what makes the set genuinely vary, which is what closed the
+ * `CharacterStage.create` rebuild note in `deferred-work.md`.
  */
 export const presentColleagueIds = ({
     proposerIds,
     speakerIds,
-    castIds
+    castIds,
+    authoredCast
 }: PresentColleaguesInput): readonly string[] => {
+    if (authoredCast) {
+        const authored = new Set(authoredCast);
+        const staged = [...new Set(proposerIds)].filter((colleagueId) => authored.has(colleagueId));
+        const seen = new Set(staged);
+        // Deduplicated on the way out as well as filtered. The schema refuses a repeated ID, but this
+        // function is exported and driven directly by tests, and a doubled figure halves the slot width
+        // for everybody on the board rather than failing loudly.
+        authoredCast.forEach((colleagueId) => {
+            if (seen.has(colleagueId)) return;
+            seen.add(colleagueId);
+            staged.push(colleagueId);
+        });
+        return Object.freeze(staged);
+    }
+
     const present = [...new Set([...proposerIds, ...speakerIds])];
     return Object.freeze(present.length > 0 ? present : [...castIds]);
 };

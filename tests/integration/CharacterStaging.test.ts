@@ -117,6 +117,10 @@ const boardCast = (store: AppStore, kind: 'prediction' | 'conclusion'): readonly
         colleagues: selectColleagues(state),
         proposerIds: boardProposerIds(state.caseDefinition, kind),
         speakerIds: (scene?.dialogueBeats ?? []).map(({ speakerId }) => speakerId),
+        // Threaded like `ColleagueRenderer.stageCast` does, and looked up by **phase** for the same
+        // reason: `TheoryBoard` hosts `synthesis` and `review` as two script entries, so a key-based
+        // lookup would hand one cast to two boards.
+        authoredCast: scene?.cast,
         t: createTranslator(selectLocale(state))
     });
 };
@@ -364,6 +368,77 @@ describe('degraded content', () => {
         expect(Number.isFinite(orphan!.accentColor)).toBe(true);
         // And it still gets a figure to draw: a plain standing pose, never `undefined`.
         expect(orphan!.appearance).toBeDefined();
+    });
+
+    /**
+     * The authored cast, driven through the same production resolver (Story 3.4, AC2).
+     *
+     * Young authors no `cast`, so these pass the field explicitly rather than through the shipped
+     * script — the shipped-content half is AC4's "absence produces today's behaviour", asserted
+     * separately below against the real `case.json`.
+     */
+    it('stages exactly the authored cast, in proposal order, against real content', () => {
+        const store = advanceTo(storeAt(), 'prediction');
+        const state = store.getState();
+        const colleagues = selectColleagues(state);
+        const proposerIds = boardProposerIds(state.caseDefinition, 'prediction');
+        // The last two proposers, deliberately out of proposal order in the authored array.
+        const authoredCast = [proposerIds[3]!, proposerIds[2]!];
+
+        const cast = resolveStageCast({
+            caseId: state.caseDefinition.id,
+            colleagues,
+            proposerIds,
+            speakerIds: [],
+            authoredCast,
+            t: createTranslator(selectLocale(state))
+        });
+
+        // Presence is the authored set; sequence is still proposal order, not authored order.
+        expect(cast.map(({ colleagueId }) => colleagueId)).toEqual([proposerIds[2]!, proposerIds[3]!]);
+        // And they are resolved people, not stand-ins — the authored cast reaches the real colleagues.
+        cast.forEach(({ name }) => expect(name).not.toBe(translate('en', 'colleague.unattributedSpeaker')));
+    });
+
+    it('drops a proposer the scene does not stage', () => {
+        const store = advanceTo(storeAt(), 'prediction');
+        const state = store.getState();
+        const proposerIds = boardProposerIds(state.caseDefinition, 'prediction');
+
+        const cast = resolveStageCast({
+            caseId: state.caseDefinition.id,
+            colleagues: selectColleagues(state),
+            proposerIds,
+            speakerIds: [],
+            authoredCast: [proposerIds[0]!],
+            t: createTranslator(selectLocale(state))
+        });
+
+        expect(cast).toHaveLength(1);
+        expect(cast[0]!.colleagueId).toBe(proposerIds[0]!);
+    });
+
+    /**
+     * AC4, against the content that actually ships: Young authors no `cast` anywhere, and its staging
+     * is byte-for-byte what it was before the field existed.
+     */
+    it.each(['prediction', 'conclusion'] as const)('stages the %s board identically with no cast authored', (kind) => {
+        const phase = kind === 'prediction' ? 'prediction' : 'synthesis';
+        const store = advanceTo(storeAt(), phase);
+        const state = store.getState();
+
+        expect(state.caseDefinition.scenarioScript.scenes.every(({ cast }) => cast === undefined)).toBe(true);
+
+        const scene = state.caseDefinition.scenarioScript.scenes.find(({ phase: scenePhase }) => scenePhase === selectCasePhase(state));
+        const derived = resolveStageCast({
+            caseId: state.caseDefinition.id,
+            colleagues: selectColleagues(state),
+            proposerIds: boardProposerIds(state.caseDefinition, kind),
+            speakerIds: (scene?.dialogueBeats ?? []).map(({ speakerId }) => speakerId),
+            t: createTranslator(selectLocale(state))
+        });
+
+        expect(boardCast(store, kind)).toEqual(derived);
     });
 
     /** A speaker who authored no proposal is present, which is what `presentColleagueIds` is for. */

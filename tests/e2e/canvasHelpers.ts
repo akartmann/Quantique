@@ -14,9 +14,12 @@ import { BOOK_CLOSE_FADE_MS, BOOK_OPEN_MS, BOOK_TURN_MS } from '../../src/adapte
 // animation changes, and a click inside that window reaches a locked control and fails looking exactly
 // like a dead one.
 import { RUN_ANIMATION_MS } from '../../src/adapters/phaser/renderers/ApparatusRenderer';
+import { controlAffordance, type PrimaryControl } from '../../src/domain/cases/CaseDefinition';
 import {
     advanceToSynthesisControlCentre,
+    DIAL_RING_RADIUS,
     KNOB_TRAVEL_RADIUS,
+    SLIDER_TRACK_WIDTH,
     knobCentre,
     notebookCloseControlCentre,
     notebookControlCentre,
@@ -45,7 +48,11 @@ import {
     proposalDetailPanelProbe
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { dialogueAdvanceControlCentre } from '../../src/adapters/phaser/ui/DialogueBox';
-import { knobAngleForFraction } from '../../src/adapters/phaser/renderers/instrumentView';
+import {
+    dialAngleForFraction,
+    knobAngleForFraction,
+    sliderOffsetForValue
+} from '../../src/adapters/phaser/renderers/instrumentView';
 import { UI_FONT_STACK } from '../../src/adapters/phaser/textStyles';
 import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
 import { libraryAdvanceControlCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
@@ -72,7 +79,16 @@ export { DESIGN_HEIGHT, DESIGN_WIDTH };
  */
 type WalkableCase = Readonly<{
     contextualArtifacts: readonly unknown[];
-    apparatus: { primaryControls: { id: string; min: number; max: number; step: number; unit: string; label: { en: string; fr: string } }[] };
+    /**
+     * The authored controls, typed as the domain's own {@link PrimaryControl} rather than as the subset
+     * this file happens to read (Story 3.4).
+     *
+     * The narrowed shape was fine while nothing here passed a control *into* production code. It now
+     * does — `controlAffordance` and `sliderOffsetForValue` both take a whole `PrimaryControl`, for the
+     * reason `instrumentView.ts` records: narrowing at the boundary means a cast claiming a shape the
+     * caller does not have.
+     */
+    apparatus: { primaryControls: PrimaryControl[] };
 }>;
 
 /**
@@ -607,8 +623,9 @@ export const varyingInstrument = (caseId: string, controlId: string, targetValue
     /**
      * Where the drag lands, and what the readout must then say.
      *
-     * Defaults to the control's maximum, which is the end of the knob's travel and the cheapest place to
-     * drag to. **A caller must pass `targetValue` when the maximum is not a distinguishing setting.**
+     * Defaults to the control's maximum, which is the far end of the travel and the cheapest place to
+     * drag to. **A caller must pass `targetValue` when the maximum is not a distinguishing setting** —
+     * and always for a `dial`, whose travel closes, so its maximum is drawn where its minimum is.
      * The prototype's `rotationDeg` runs 0–180 and its model is `cos(2θ)`, period 180°, so the default
      * dragged from 0° to 180° and recorded *the same displacement twice* — two runs the significance
      * gate counted as two configurations (it keys on the control value) while the readings were
@@ -620,7 +637,30 @@ export const varyingInstrument = (caseId: string, controlId: string, targetValue
     if (destination < control.min || destination > control.max) {
         throw new Error(`${controlId} cannot travel to ${destination}: authored range is ${control.min}–${control.max}.`);
     }
-    const destinationAngle = knobAngleForFraction((destination - control.min) / (control.max - control.min));
+    /**
+     * Where on the bench the drag has to end, **for the instrument this control is actually drawn as**
+     * (Story 3.4).
+     *
+     * This used to be `knobAngleForFraction` at `KNOB_TRAVEL_RADIUS` unconditionally. The prototype now
+     * authors `rotationDeg` as a `dial` and `bathTempC` as a `slider`, so a knob-shaped target would
+     * drag to a point on a travel arc that is not painted — the walk would press, move somewhere
+     * meaningless, and fail three steps later at a transition with an error pointing nowhere near the
+     * cause. Same failure shape as `FIGURE_SLOT_WIDTH`, in a spec helper.
+     *
+     * Each arm reuses the production conversion rather than restating it, so the point the mouse goes
+     * to is the point the instrument reads that value at, by construction.
+     */
+    const affordance = controlAffordance(control);
+    const fraction = (destination - control.min) / (control.max - control.min);
+    const centre = knobCentre(slot);
+    const travelEnd = ((): Readonly<{ x: number; y: number }> => {
+        if (affordance === 'slider') {
+            return { x: centre.x + sliderOffsetForValue(control, destination, SLIDER_TRACK_WIDTH), y: centre.y };
+        }
+        const angle = affordance === 'dial' ? dialAngleForFraction(fraction) : knobAngleForFraction(fraction);
+        const radius = (affordance === 'dial' ? DIAL_RING_RADIUS : KNOB_TRAVEL_RADIUS) - 6;
+        return { x: centre.x + (Math.cos(angle) * radius), y: centre.y + (Math.sin(angle) * radius) };
+    })();
     /**
      * Both locales, because these walks run under a French browser too. The authored label and the
      * formatted value both differ — a comma decimal, a translated name — so a walk pinned to the English
@@ -633,11 +673,9 @@ export const varyingInstrument = (caseId: string, controlId: string, targetValue
     return {
         slot,
         control,
-        centre: knobCentre(slot),
-        travelEnd: {
-            x: knobCentre(slot).x + (Math.cos(destinationAngle) * (KNOB_TRAVEL_RADIUS - 6)),
-            y: knobCentre(slot).y + (Math.sin(destinationAngle) * (KNOB_TRAVEL_RADIUS - 6))
-        },
+        affordance,
+        centre,
+        travelEnd,
         /** The reading at {@link destination} — the control's maximum unless the caller named a value. */
         maxReadout: new RegExp(`^(${escapeForRegExp(readout('en', destination))}|${escapeForRegExp(readout('fr', destination))})$`),
         label: new RegExp(`^(${escapeForRegExp(control.label.en)}|${escapeForRegExp(control.label.fr)})$`)
