@@ -18,6 +18,7 @@ import {
     selectWavelengthChoices
 } from '../../../core/store/selectors';
 import { resolveLocalizedText } from '../../../core/i18n/resolveLocalizedText';
+import { resolveExperimentModel } from '../../../domain/apparatus/experimentModels';
 import { isSourceEligibleForInspection, type ContextualArtifact, type PrimaryControl } from '../../../domain/cases/CaseDefinition';
 import { interferenceIntensity, rgbToInt, wavelengthToRgb } from '../../../domain/apparatus/opticalVisualModel';
 import { AdvanceControl } from '../ui/AdvanceControl';
@@ -229,7 +230,14 @@ export class ApparatusRenderer {
     private runInFlight = false;
     private runElapsedMs = 0;
     /** The recorded spacing the resolved pattern is painted from, or `undefined` when the bench is dark. */
-    private recordedSpacingMm?: number;
+    /**
+     * The latest recorded result, while it still describes the bench in front of the player.
+     *
+     * Named for what it is since Story 3.2 rather than for Young's millimetres: it is whatever this
+     * case's model produced. The **mm→pixel mapping below is still Young's**, and the screen artwork
+     * with it — re-skinning the apparatus for a second case is Story 4.2 (prototype gap #1).
+     */
+    private recordedResultValue?: number;
     /**
      * The localized answer to a refused start or a refused wavelength.
      *
@@ -376,17 +384,24 @@ export class ApparatusRenderer {
     public render(state: AppState): void {
         const locale = selectLocale(state);
         const t = createTranslator(locale);
-        this.title?.setText(t('lab.title'));
+        // The *investigation's* own name (Story 3.2), not an interface string. `lab.title` read
+        // "Young interference — the optical bench" for whatever case was loaded.
+        this.title?.setText(resolveLocalizedText(state.caseDefinition.title, locale));
         this.guide?.setText(t('lab.guide'));
         this.sourceLabel?.setText(t('lab.source'));
         this.screenLabel?.setText(t('lab.screen'));
 
         const latest = state.runs[state.runs.length - 1];
-        const latestMatchesActiveSetup = latest?.modelInputs
-            && latest.modelInputs.slitSpacingMm === state.activeControlValues.slitSpacingMm
-            && latest.modelInputs.screenDistanceM === state.activeControlValues.screenDistanceM
-            && latest.modelInputs.wavelengthNm === state.selectedWavelengthNm
-            && latest.modelInputs.wavelengthMode === state.selectedWavelengthMode;
+        // Definition-driven (Story 3.2): every authored control, compared against the bench — the same
+        // question `reduceRecordRun`'s `matchesBench` asks, and asked the same way. It used to require
+        // `modelInputs`, which is `YoungModelInputs`, so for a case recording none the answer was
+        // permanently false: the readout said "nothing recorded yet" over a run in the notebook, and
+        // the screen never lit. The wavelength clause survives where the run has one to compare.
+        const latestMatchesActiveSetup = latest !== undefined
+            && state.caseDefinition.apparatus.primaryControls.every((control) =>
+                latest.controls[control.id] === state.activeControlValues[control.id])
+            && (!latest.modelInputs || (latest.modelInputs.wavelengthNm === state.selectedWavelengthNm
+                && latest.modelInputs.wavelengthMode === state.selectedWavelengthMode));
 
         // AC5: the ignition is triggered by the recorded fact, never by the press — so the animation is
         // driven by what was saved rather than racing it, and a refusal has no spectacle to unwind.
@@ -399,18 +414,20 @@ export class ApparatusRenderer {
         // control for 2.4 s for a run they had recorded in a previous session: ADR-012's loop gated on
         // scene lifecycle rather than on a player-initiated run, and AC4's dark idle broken on arrival.
         //
-        // `modelInputs` is the second half. It is optional on `RunRecord` and a legacy or imported record
-        // may carry none; `recordedSpacingMm` below already requires it, so a run without one animated a
-        // full ignition that resolved onto a `fringeGraphics` nothing had filled — an empty screen at the
-        // end of a locked 2.4 s. The two facts now derive from one condition instead of disagreeing.
+        // The `modelInputs !== undefined` clause is gone (Story 3.2). It existed because
+        // `recordedResultValue` below also required them, so a run without them animated a full ignition
+        // that resolved onto a `fringeGraphics` nothing had filled — an empty screen at the end of a
+        // locked 2.4 s. The two facts still derive from one condition; that condition is now "the run
+        // was taken at this bench" rather than "the run carries Young's optical inputs", so the
+        // prototype's bench ignites and paints instead of staying permanently dark.
         //
-        const isNewRun = latest !== undefined && latest.id !== this.lastRunId && latest.modelInputs !== undefined;
+        const isNewRun = latest !== undefined && latest.id !== this.lastRunId;
         this.lastRunId = latest?.id;
         if (isNewRun) this.beginRun();
 
         // AC6: the recorded value only paints while it still describes the bench in front of the
         // player. `latestMatchesActiveSetup` is the same condition the stale readout uses — one rule.
-        this.recordedSpacingMm = latestMatchesActiveSetup ? latest?.result.value : undefined;
+        this.recordedResultValue = latestMatchesActiveSetup ? latest?.result.value : undefined;
 
         this.renderBench(state, t);
         this.renderApparatusGeometry(state);
@@ -452,7 +469,7 @@ export class ApparatusRenderer {
         this.referenceHeading = undefined; this.referenceShelfFills = undefined; this.referenceControls.length = 0; this.hintPanelTop = undefined;
         this.advanceRefused = false; this.transientError.clear(); this.benchError.clear();
         this.focusedControlId = undefined; this.arrowKeysCaptured = false; this.benchInputEnabled = false;
-        this.runInFlight = false; this.runElapsedMs = 0; this.recordedSpacingMm = undefined;
+        this.runInFlight = false; this.runElapsedMs = 0; this.recordedResultValue = undefined;
         this.lastRunId = undefined; this.fringeSignature = '';
     }
 
@@ -788,6 +805,21 @@ export class ApparatusRenderer {
         );
     }
 
+    /**
+     * A run's result label in the reader's language.
+     *
+     * `ExperimentResult.label` is canonical English persisted in the record, so showing it directly puts
+     * English prose on a French bench. The case's model declares the interface key instead; a run some
+     * other model version produced keeps its own canonical label, which is the honest rendering of a
+     * reading whose provenance is something else.
+     */
+    private resultLabel(state: AppState, run: AppState['runs'][number], t: Translator): string {
+        const model = resolveExperimentModel(state.caseDefinition.experiment.modelId);
+        return model && run.experimentModelVersion === state.caseDefinition.experiment.modelVersion
+            ? t(model.resultLabelKey)
+            : run.result.label;
+    }
+
     private renderReadouts(
         state: AppState,
         t: Translator,
@@ -799,28 +831,50 @@ export class ApparatusRenderer {
         // the press (D2), so the value is available two seconds before the pattern resolves on the
         // screen — and printing it early answers the question the animation is in the middle of
         // asking. The readout arrives with the pattern, which is what AC5 describes.
+        //
+        // **Gated on a run existing, not on Young's model inputs (Story 3.2).** It used to read
+        // `latest?.modelInputs`, so a case recording none fell to `lab.result.emptyHint` — the bench
+        // reported "nothing recorded yet" over an observation that was already in the notebook. The
+        // wavelength sentence is the part that genuinely needs them, and is the only part still gated
+        // on them; every case reports its own labelled, unit-carrying result.
         this.resultReadout?.setVisible(!this.runInFlight);
-        this.resultReadout?.setText(latest?.modelInputs
-            ? latestMatchesActiveSetup
-                ? t('lab.result.recorded', {
-                    value: formatRecordedValue(locale, latest.result.value, latest.result.unit),
-                    wavelength: latest.modelInputs.wavelengthNm,
-                    mode: t(`lab.wavelengthMode.${latest.modelInputs.wavelengthMode}`)
-                })
-                : t('lab.result.stale', { value: formatRecordedValue(locale, latest.result.value, latest.result.unit) })
-            : t('lab.result.emptyHint'));
+        const recordedValue = latest ? formatRecordedValue(locale, latest.result.value, latest.result.unit) : '';
+        this.resultReadout?.setText(!latest
+            ? t('lab.result.emptyHint')
+            : !latestMatchesActiveSetup
+                ? t('lab.result.stale', { value: recordedValue })
+                : latest.modelInputs
+                    ? t('lab.result.recorded', {
+                        value: recordedValue,
+                        wavelength: latest.modelInputs.wavelengthNm,
+                        mode: t(`lab.wavelengthMode.${latest.modelInputs.wavelengthMode}`)
+                    })
+                    : t('lab.result.recordedPlain', { label: this.resultLabel(state, latest, t), value: recordedValue }));
 
         // AC4's in-scene invitation, and AC5's in-flight state. The painted fringe preview is gone —
         // a screen pattern with no run behind it is exactly what "dark until the player starts it"
         // forbids (D7) — so this line is the whole of what the bench says about an unrun setup.
+        //
+        // **Both sentences are composed from the case's own apparatus (Story 3.2).** `lab.idle` named
+        // `'slitSpacingMm'` and `'screenDistanceM'` as literals, and `selectFormattedControlValue` is
+        // total, so the prototype's bench read "dark at 0 slit spacing and 22 screen distance" — the
+        // rotation angle printed as a slit spacing. Nothing failed; the sentence was simply false, which
+        // is exactly the shape of defect a green suite keeps. `lab.pattern.recorded` described a Young
+        // fringe spacing for whatever the run measured; it now reports the run's own labelled result.
+        const settings = state.caseDefinition.apparatus.primaryControls
+            .map((control) => t('lab.idle.setting', {
+                value: selectFormattedControlValue(state, control.id),
+                label: resolveLocalizedText(control.label, locale)
+            }))
+            .join(t('list.separator'));
         this.visualGuidance?.setText(this.runInFlight
             ? t('lab.running')
-            : this.recordedSpacingMm === undefined
-                ? t('lab.idle', {
-                    slitSpacing: selectFormattedControlValue(state, 'slitSpacingMm'),
-                    screenDistance: selectFormattedControlValue(state, 'screenDistanceM')
-                })
-                : t('lab.pattern.recorded', { spacing: formatRecordedValue(locale, this.recordedSpacingMm, 'mm') }));
+            : this.recordedResultValue === undefined || !latest
+                ? t('lab.idle', { settings })
+                : t('lab.pattern.recorded', {
+                    label: this.resultLabel(state, latest, t),
+                    value: formatRecordedValue(locale, this.recordedResultValue, latest.result.unit)
+                }));
 
         // Measured, floor-anchored stacking: the refusal grows up out of the gap above the control row,
         // and the readout stacks on the refusal's *measured* top rather than on a constant that a
@@ -879,8 +933,8 @@ export class ApparatusRenderer {
         this.sourceGlow?.setFillStyle(this.wavelengthColor, 0.35);
         // **The pattern is painted from the recorded value and from nothing else.** There is no preview
         // branch here any more: an unrecorded setup has no spacing, and the screen stays unlit.
-        if (this.recordedSpacingMm !== undefined) {
-            this.bandSpacingPx = Math.max(8, Math.min(31, this.recordedSpacingMm * 4.6));
+        if (this.recordedResultValue !== undefined) {
+            this.bandSpacingPx = Math.max(8, Math.min(31, this.recordedResultValue * 4.6));
             this.paintFringes();
         }
     }
@@ -927,7 +981,7 @@ export class ApparatusRenderer {
         const fringes = this.fringeGraphics;
         if (!beam || !rings || !fringes) return;
 
-        const dark = this.recordedSpacingMm === undefined && !this.runInFlight;
+        const dark = this.recordedResultValue === undefined && !this.runInFlight;
         if (dark) {
             beam.clear();
             rings.clear();

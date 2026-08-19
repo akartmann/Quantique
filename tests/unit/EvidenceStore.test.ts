@@ -63,7 +63,7 @@ const caseDefinition = {
             caseRelationship: { en: 'A contextual item that cannot be treated as verified evidence.', fr: 'A contextual item that cannot be treated as verified evidence. [fr]' }
         }
     ],
-    experiment: { modelVersion: 'young-observation-v1' }
+    experiment: { modelId: 'young-double-slit', modelVersion: 'young-observation-v1' }
 } as CaseDefinition;
 
 const createRecord = (id: string, value: number) => {

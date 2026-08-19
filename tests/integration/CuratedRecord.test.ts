@@ -24,7 +24,7 @@ const caseDefinition = {
             provenance: { category: 'primary-material', reference: 'newton-opticks-1704' }, rightsStatus: 'reviewed', caseRelationship: 'Earlier context.'
         }
     ],
-    experiment: { modelVersion: 'young-observation-v1' }
+    experiment: { modelId: 'young-double-slit', modelVersion: 'young-observation-v1' }
 } as CaseDefinition;
 
 const prepareRun = (store: ReturnType<typeof createStore>, id: string) => createCalculatedRunRecord({

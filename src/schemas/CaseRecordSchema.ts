@@ -9,6 +9,7 @@ import { createRunRecord, runControlContract } from '../domain/evidence/RunRecor
 import { countFixedMinimumPathRuns } from '../domain/evidence/wavelengthComparison';
 import { evaluateConclusionReadiness } from '../domain/theory/conclusionReadiness';
 import { evaluatePeerReview } from '../domain/review/peerReviewRules';
+import { YOUNG_CASE_ID } from './CaseDefinitionSchema';
 import { deriveRecognition, RECOGNITION_IDS, recognitionDefinitions } from '../domain/recognition/recognitionRules';
 import { CaseIdSchema } from './CaseDefinitionSchema';
 import { migrateCaseRecord } from './migrations/migrateCaseRecord';
@@ -236,7 +237,17 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
     // recognition value moved in any of them, the proposal IDs a 1.7.0 record can carry are optional,
     // and nothing about reading a beat is persisted at all. Rejecting the older versions here would
     // discard every saved investigation on upgrade (NFR12).
+    //
+    // **Every clause below is scoped to Young (Story 3.2).** These are Young's changelog: each states
+    // what changed in *this* `case.json` and what was verified byte-identical in it. Since Story 3.1
+    // two cases share one version namespace, so an unscoped list would have let `morley-miller` at some
+    // future `1.2.0` silently inherit `['1.0.0', '1.1.0']` — reasoning about a file it has never been
+    // part of. A second case's own clauses go in its own branch when it first needs one; until then an
+    // exact version match is the whole of its compatibility, which is correct for a case with no
+    // shipped history.
+    const isYoung = definition.id === YOUNG_CASE_ID;
     const compatibleDefinitionVersion = record.caseDefinitionVersion === definition.version
+        || (isYoung && (false
         || (definition.version === '1.2.0' && ['1.0.0', '1.1.0'].includes(record.caseDefinitionVersion))
         || (definition.version === '1.6.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0'].includes(record.caseDefinitionVersion))
         || (definition.version === '1.7.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0'].includes(record.caseDefinitionVersion))
@@ -370,7 +381,26 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // `peerReviewRules`' `feedback` and `revisionPath` and the proposal claims and limitations, and
         // `autoSummary` is none of those; nothing records it and nothing gates on it. Verified the same
         // way as 1.17.0: by diffing the two files and comparing that set field by field.
-        || (definition.version === '1.18.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0', '1.16.0', '1.17.0'].includes(record.caseDefinitionVersion));
+        || (definition.version === '1.18.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0', '1.16.0', '1.17.0'].includes(record.caseDefinitionVersion))
+        // 1.19.0 — Story 3.2. Two additive fields on `case.json`, and one thing that did *not* change:
+        //
+        // - **`experiment.modelId: "young-double-slit"`** names the deterministic model this case's bench
+        //   runs, now that `reduceExperimentRun` resolves it instead of calling Young's calculator
+        //   directly. It is a *declaration of the model already running*, not a change of physics:
+        //   `modelVersion` is untouched at `young-double-slit-v1`, so every persisted run's
+        //   `experimentModelVersion` still matches and no saved reading is recalculated (which is the
+        //   whole reason `modelId` and `modelVersion` are two fields). Nothing records `modelId`.
+        // - **`title`** is the investigation's own name, shown by the laboratory in place of the
+        //   hard-coded `lab.title` interface string. Display copy; nothing records it and nothing
+        //   gates on it.
+        //
+        // The recomputed canonical set is byte-identical to 1.18.0 — `peerReviewRules`' `feedback` and
+        // `revisionPath`, and the proposal claims and limitations. Verified by **diffing the two files**
+        // and comparing that set field by field: the whole document apart from `version`, `title` and
+        // `experiment.modelId` compares equal. `schemaVersion` stays 3 and `migrateCaseRecord.ts` is
+        // untouched.
+        || (definition.version === '1.19.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0', '1.16.0', '1.17.0', '1.18.0'].includes(record.caseDefinitionVersion))
+        ));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }

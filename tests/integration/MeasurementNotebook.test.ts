@@ -37,7 +37,7 @@ const caseDefinition = {
             { id: 'screenDistanceM', label: 'Screen distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
         ]
     },
-    experiment: { modelVersion: 'young-observation-v1' }
+    experiment: { modelId: 'young-double-slit', modelVersion: 'young-observation-v1' }
 } as CaseDefinition;
 
 const fixtureRun = (id: string, controls: { slitSpacingMm: number; screenDistanceM: number }, value: number) => {
@@ -63,6 +63,12 @@ describe('measurement notebook public store projection', () => {
         const first = fixtureRun('run-001', { slitSpacingMm: 0.25, screenDistanceM: 2 }, 1);
         const second = fixtureRun('run-002', { slitSpacingMm: 0.3, screenDistanceM: 2.5 }, 2);
         store.dispatch({ type: 'run.record', record: first });
+        // The bench moves to the second run's own configuration before it is recorded. Since Story 3.2
+        // the bench-match check applies to every run rather than only to runs carrying Young's model
+        // inputs, so a hand-built record is now held to what the notebook has always claimed about it:
+        // an observation was taken at the settings it says it was taken at.
+        store.dispatch({ type: 'apparatus.controlSet', controlId: 'slitSpacingMm', value: 0.3, origin: 'dom' });
+        store.dispatch({ type: 'apparatus.controlSet', controlId: 'screenDistanceM', value: 2.5, origin: 'dom' });
         store.dispatch({ type: 'run.record', record: second });
 
         store.dispatch({ type: 'apparatus.controlSet', controlId: 'slitSpacingMm', value: 0.5, origin: 'dom' });

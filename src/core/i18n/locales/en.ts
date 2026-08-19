@@ -51,16 +51,23 @@ export const en = {
     'lab.result.emptyHint': 'No fringe spacing recorded yet. Start the light to record one.',
     'lab.result.recorded': 'Recorded pattern: {value} at {wavelength} nm ({mode} path).',
     'lab.result.stale': 'Last recorded result: {value}. The changed setup has not been run.',
+    // The wavelength-free readout, for a case whose model records no optical inputs (Story 3.2).
+    'lab.result.recordedPlain': 'Recorded {label}: {value}.',
     // AC4's in-scene invitation, and what replaced `lab.preview`. The painted fringe preview went with
     // it: a screen pattern with no run behind it is exactly what "dark until the player starts it"
     // forbids, and the sentence had to stop promising one.
-    'lab.idle': 'The bench is dark at {slitSpacing} slit spacing and {screenDistance} screen distance. Start the light to record an observation.',
+    // Composed from the case's own `apparatus.primaryControls` (Story 3.2), one `lab.idle.setting` per
+    // authored control, joined with `list.separator`. It used to name Young's two quantities as literals.
+    'lab.idle': 'The bench is dark at {settings}. Start the light to record an observation.',
+    'lab.idle.setting': '{value} {label}',
+    /** The locale's own list separator. French sets a thin space before its semicolons and commas alike. */
+    'list.separator': ', ',
     'lab.running': 'The light is crossing the bench…',
     // The **control's** in-flight label, which is a different string from the guidance line above it
     // for a measurable reason: the control is a fixed-height rectangle and the French sentence
     // overflows its 216px label bound at 15px, while the guidance line wraps at 620px and does not.
     'lab.start.running': 'Light running…',
-    'lab.pattern.recorded': 'Recorded interference pattern: bright bands are {spacing} apart in the saved Young model result.',
+    'lab.pattern.recorded': 'Recorded observation: {label} of {value} in the saved model result.',
     'lab.wavelengthMode.minimum': 'minimum',
     'lab.wavelengthMode.advanced': 'advanced',
     // The bench's own controls (Story 2.10; the reset joins them in 2.12). All three are fixed-height
@@ -92,7 +99,8 @@ export const en = {
     'notebook.guide': 'Every saved observation keeps the setup and the result it was recorded with. Choose two to compare them.',
     'notebook.empty': 'No observation saved yet. Start the light at the bench to record one.',
     'notebook.observation': 'Observation {order}',
-    'notebook.row.settings': '{slitSpacing} · {screenDistance}',
+    /** One readout per authored control, joined by `notebook.row.settingsSeparator` (Story 3.2). */
+    'notebook.row.settingsSeparator': ' · ',
     'notebook.row.result': '{label}: {value}',
     'notebook.row.meta': '{timestamp} · {wavelength} nm ({mode} path) · model {version}',
     'notebook.select': 'Compare',
@@ -158,6 +166,7 @@ export const en = {
     // The canonical `ExperimentResult.label` stays English in the record and is compared for string
     // equality on load; only its *display* is localized. See docs/i18n-authoring.md.
     'experiment.result.fringeSpacing': 'Fringe spacing',
+    'experiment.result.fringeDisplacement': 'Fringe displacement',
 
     // --- Archival book chrome (the pages themselves are authored per locale; see book.translatedRendition) ---
     'book.previous': '‹ Previous',
@@ -388,7 +397,7 @@ export const en = {
     'conclusion.missing.duplicate-run-selection': 'Pin each observation only once.',
     'conclusion.missing.unknown-run-selection': 'Remove an unavailable observation.',
     'conclusion.missing.minimum-runs': 'Select at least {count} recorded observations.',
-    'conclusion.missing.non-physical-young-run': 'Pin recorded physical Young observations.',
+    'conclusion.missing.foreign-model-run': 'Pin observations taken on this apparatus.',
     'conclusion.missing.distinct-run-configurations': 'Pin observations from two different setups.',
     'conclusion.missing.saved-comparison': 'Save a deliberate comparison of the two.',
     'conclusion.missing.duplicate-source-selection': 'Pin each reference only once.',
@@ -404,7 +413,7 @@ export const en = {
     'print.observations.heading': 'Recorded observations',
     'print.observations.item': 'Observation {index}: {label}: {value}. {timestamp}. Model {model}. {inputs}',
     'print.observations.inputs': 'Inputs: {wavelength} nm ({mode}), {screenDistance} screen distance, {slitSpacing} slit spacing.',
-    'print.observations.preModel': 'Pre-model observation; not treated as a physical Young measurement.',
+    'print.observations.settings': 'Apparatus settings: {settings}.',
     'print.observations.empty': 'No observations recorded.',
     'print.observation.label': 'Observation {index}',
     'print.observation.unavailable': 'Unavailable observation',
@@ -442,6 +451,8 @@ export const en = {
     'error.unknown-apparatus-control': 'That laboratory control is unavailable.',
     'error.invalid-control-value': 'Enter a finite control value.',
     'error.invalid-young-model-input': 'The selected apparatus inputs cannot produce a fringe spacing.',
+    'error.invalid-experiment-model-input': 'The selected apparatus inputs cannot produce a measurement.',
+    'error.unknown-experiment-model': 'This investigation names an apparatus model this build cannot run.',
     'error.experiment-phase-required': 'Enter the experiment stage before running the apparatus.',
     'error.run-case-mismatch': 'That observation belongs to a different investigation.',
     'error.mismatched-experiment-record': 'The observation does not match the current validated experiment setup.',

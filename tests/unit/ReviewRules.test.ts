@@ -57,7 +57,7 @@ const definition = {
         { id: 'unsupported', predicate: { kind: 'unsupported-support' }, feedback: { en: 'Support is unavailable.', fr: 'Support is unavailable. [fr]' }, revisionPath: { en: 'Use current support.', fr: 'Use current support. [fr]' } },
         { id: 'overreach', predicate: { kind: 'overreach', overreachPhrases: { en: ['proves'], fr: ['prouve'] } }, feedback: { en: 'Bound the claim.', fr: 'Bound the claim. [fr]' }, revisionPath: { en: 'Revise wording.', fr: 'Revise wording. [fr]' } }
     ],
-    experiment: { modelVersion: 'young-v1' }
+    experiment: { modelId: 'young-double-slit', modelVersion: 'young-v1' }
 } as CaseDefinition;
 
 const run = (id: string, screenDistanceM = 2) => {

@@ -63,7 +63,7 @@ const isApplicable = (
     const readiness = evaluateConclusionReadiness(definition, evidence, draft);
     switch (rule.predicate.kind) {
         case 'missing-evidence':
-            return readiness.missing.some(({ code }) => ['minimum-runs', 'non-physical-young-run', 'distinct-run-configurations', 'saved-comparison', 'minimum-sources', 'limitation'].includes(code));
+            return readiness.missing.some(({ code }) => ['minimum-runs', 'foreign-model-run', 'distinct-run-configurations', 'saved-comparison', 'minimum-sources', 'limitation'].includes(code));
         case 'unsupported-support':
             return readiness.missing.some(({ code }) => code === 'unknown-run-selection' || code === 'unknown-source-selection' || code === 'duplicate-run-selection' || code === 'duplicate-source-selection');
         case 'overreach':

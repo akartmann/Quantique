@@ -4,7 +4,7 @@ baseline_commit: efaf9802ed15509eb4c064a75a7d37867cd13d19
 
 # Story 3.2: Reviewable Morley–Miller prototype
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -106,61 +106,61 @@ _Second story of Epic 3. Story 3.1 made a second case **parse**; nothing yet mak
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Measure the baseline, then walk the wall (AC1, AC2, AC3)**
-  - [ ] Record `npm run typecheck`, `npm test` (file/test counts) and `npm run test:e2e` on an idle machine **before** touching anything, so a pre-existing failure is not attributed to you.
-  - [ ] Read §The three walls before writing code. Every one of them refuses the prototype *silently or with Young's voice*; none is a crash.
-  - [ ] Write the throwaway proof first: parse a minimal non-Young definition, build an `AppState`, dispatch `experiment.run`, and watch it fail. Keep the failure text — it is your regression baseline for AC2.
+- [x] **Task 1 — Measure the baseline, then walk the wall (AC1, AC2, AC3)**
+  - [x] Record `npm run typecheck`, `npm test` (file/test counts) and `npm run test:e2e` on an idle machine **before** touching anything, so a pre-existing failure is not attributed to you.
+  - [x] Read §The three walls before writing code. Every one of them refuses the prototype *silently or with Young's voice*; none is a crash.
+  - [x] Write the throwaway proof first: parse a minimal non-Young definition, build an `AppState`, dispatch `experiment.run`, and watch it fail. Keep the failure text — it is your regression baseline for AC2.
 
-- [ ] **Task 2 — The per-case experiment model seam (AC2)**
-  - [ ] Add `src/domain/apparatus/experimentModels.ts`: an exported `EXPERIMENT_MODEL_IDS` list and `resolveExperimentModel(modelId): CalculateExperimentResult | undefined`. Two entries — `young-double-slit` and `morley-miller-interferometer`. Pure; no Zod, no store.
-  - [ ] Add `src/domain/apparatus/calculateInterferometerDrift.ts` — the prototype's deterministic model. See §The prototype's physics for the authored form, the constants, and what Epic 4.2 owns instead of you.
-  - [ ] `CaseDefinitionSchema`: add required `experiment.modelId` (a `stableId`) refined against `EXPERIMENT_MODEL_IDS`, with the offending path named. Case-scoped refinement pins Young to `young-double-slit`.
-  - [ ] `src/domain/cases/CaseDefinition.ts`: add the matching type field.
-  - [ ] `AppState.ts` `reduceExperimentRun`: replace the direct `calculateYoungFringeSpacing({ slitSpacingMm: …, screenDistanceM: … })` call with the resolved model over `state.activeControlValues`. Keep `modelInputs` authored **only** where the model needs them — Young keeps its; the prototype records none.
-  - [ ] Young's run must be **bit-identical** to before. Assert it: same label, same value, same unit, same `modelInputs`, from a test that would fail if the seam changed the arithmetic.
+- [x] **Task 2 — The per-case experiment model seam (AC2)**
+  - [x] Add `src/domain/apparatus/experimentModels.ts`: an exported `EXPERIMENT_MODEL_IDS` list and `resolveExperimentModel(modelId): CalculateExperimentResult | undefined`. Two entries — `young-double-slit` and `morley-miller-interferometer`. Pure; no Zod, no store.
+  - [x] Add `src/domain/apparatus/calculateInterferometerDrift.ts` — the prototype's deterministic model. See §The prototype's physics for the authored form, the constants, and what Epic 4.2 owns instead of you.
+  - [x] `CaseDefinitionSchema`: add required `experiment.modelId` (a `stableId`) refined against `EXPERIMENT_MODEL_IDS`, with the offending path named. Case-scoped refinement pins Young to `young-double-slit`.
+  - [x] `src/domain/cases/CaseDefinition.ts`: add the matching type field.
+  - [x] `AppState.ts` `reduceExperimentRun`: replace the direct `calculateYoungFringeSpacing({ slitSpacingMm: …, screenDistanceM: … })` call with the resolved model over `state.activeControlValues`. Keep `modelInputs` authored **only** where the model needs them — Young keeps its; the prototype records none.
+  - [x] Young's run must be **bit-identical** to before. Assert it: same label, same value, same unit, same `modelInputs`, from a test that would fail if the seam changed the arithmetic.
 
-- [ ] **Task 3 — Close the two evaluator rules that lock a second case out of its own conclusion (AC3)**
-  - [ ] `conclusionReadiness.ts:83` — `non-physical-young-run` refuses any selected run without `modelInputs`. Re-express as "produced by this case's model": compare `run.experimentModelVersion` to `definition.experiment.modelVersion`. Rename the code and its two locale keys accordingly; keep the old key working for saved records only if a test proves one needs it (it should not — nothing persists a readiness code).
-  - [ ] `conclusionReadiness.ts:88-92` — `distinct-run-configurations` compares Young's three `modelInputs` names, so for a case with none the `.some(...)` is always false and the requirement can never clear. Decide it with `configurationKey(definition.significanceRule, run)` from `significantMeasures.ts` — the same question, already answered there. **Reuse it; do not write a second one.**
-  - [ ] `AppState.ts` `reduceRecordRun` — hoist `matchesBench` and the `experimentModelVersion` comparison **out** of the `if (validated.value.modelInputs)` block. The model-input cross-checks stay inside it.
-  - [ ] Mutation-prove all three: break each guard, watch a named test go red, restore it. A comment claiming a guarantee is not a guarantee.
+- [x] **Task 3 — Close the two evaluator rules that lock a second case out of its own conclusion (AC3)**
+  - [x] `conclusionReadiness.ts:83` — `non-physical-young-run` refuses any selected run without `modelInputs`. Re-express as "produced by this case's model": compare `run.experimentModelVersion` to `definition.experiment.modelVersion`. Rename the code and its two locale keys accordingly; keep the old key working for saved records only if a test proves one needs it (it should not — nothing persists a readiness code).
+  - [x] `conclusionReadiness.ts:88-92` — `distinct-run-configurations` compares Young's three `modelInputs` names, so for a case with none the `.some(...)` is always false and the requirement can never clear. Decide it with `configurationKey(definition.significanceRule, run)` from `significantMeasures.ts` — the same question, already answered there. **Reuse it; do not write a second one.**
+  - [x] `AppState.ts` `reduceRecordRun` — hoist `matchesBench` and the `experimentModelVersion` comparison **out** of the `if (validated.value.modelInputs)` block. The model-input cross-checks stay inside it.
+  - [x] Mutation-prove all three: break each guard, watch a named test go red, restore it. A comment claiming a guarantee is not a guarantee.
 
-- [ ] **Task 4 — Author the prototype content (AC1, AC6, AC7)**
-  - [ ] `public/cases/morley-miller/case.json` at `version: "1.0.0"`, `id: "morley-miller"`. Work outward from a copy of Young's **structure** — never its prose.
-  - [ ] Two `primaryControls`: `rotationDeg` (0–180, step 15, default 0, unit `°`) and `bathTempC` (18–24, step 0.5, default 22, unit `°C`). Both bilingual labels. `MAX_PRIMARY_CONTROLS` is 2 — do not add a third.
-  - [ ] Two `contextualArtifacts`, both `reviewed`, each with a `textualRendition`: the 1887 Michelson–Morley paper and the 1907 Morley–Miller report. Excerpt them — a handful of paragraphs across a few pages is a legitimate prototype rendition and Young's 166 KB of source text is not the bar. Both locales, identical section shape.
-  - [ ] `colleagues` with `portrait.kind: 'silhouette'` and an authored accent — **no PNG assets**, so no new art and no manifest churn. `asset-manifest.json` carries the shared logo alone (`entries` is `.min(1)`).
-  - [ ] Four `predictionProposals`, four `conclusionProposals` with satisfiable `supportPredicate`s, a `rivalLab` critique per conclusion proposal, ≥4 `consultationRules`, ≥3 `peerReviewRules`, ≥1 `colleagueHints` (with the floor/order rules the refinement enforces), `readingGateHints`, `significanceRule` over `rotationDeg`, `requirements`, `flow`, `scenarioScript` mapping all six phases, `debrief`, `autoSummary`, `title`.
-  - [ ] `autoSummary` may name only `AUTO_SUMMARY_PLACEHOLDERS`. `apparatusSettingCount` and `configurationCount` are equal for this case (no `criticalModelInputIds`) — say one thing, not two.
-  - [ ] Run it through `CaseDefinitionSchema` after every section. The refinement ladder is long and its messages name paths; use them.
+- [x] **Task 4 — Author the prototype content (AC1, AC6, AC7)**
+  - [x] `public/cases/morley-miller/case.json` at `version: "1.0.0"`, `id: "morley-miller"`. Work outward from a copy of Young's **structure** — never its prose.
+  - [x] Two `primaryControls`: `rotationDeg` (0–180, step 15, default 0, unit `°`) and `bathTempC` (18–24, step 0.5, default 22, unit `°C`). Both bilingual labels. `MAX_PRIMARY_CONTROLS` is 2 — do not add a third.
+  - [x] Two `contextualArtifacts`, both `reviewed`, each with a `textualRendition`: the 1887 Michelson–Morley paper and the 1907 Morley–Miller report. Excerpt them — a handful of paragraphs across a few pages is a legitimate prototype rendition and Young's 166 KB of source text is not the bar. Both locales, identical section shape.
+  - [x] `colleagues` with `portrait.kind: 'silhouette'` and an authored accent — **no PNG assets**, so no new art and no manifest churn. `asset-manifest.json` carries the shared logo alone (`entries` is `.min(1)`).
+  - [x] Four `predictionProposals`, four `conclusionProposals` with satisfiable `supportPredicate`s, a `rivalLab` critique per conclusion proposal, ≥4 `consultationRules`, ≥3 `peerReviewRules`, ≥1 `colleagueHints` (with the floor/order rules the refinement enforces), `readingGateHints`, `significanceRule` over `rotationDeg`, `requirements`, `flow`, `scenarioScript` mapping all six phases, `debrief`, `autoSummary`, `title`.
+  - [x] `autoSummary` may name only `AUTO_SUMMARY_PLACEHOLDERS`. `apparatusSettingCount` and `configurationCount` are equal for this case (no `criticalModelInputIds`) — say one thing, not two.
+  - [x] Run it through `CaseDefinitionSchema` after every section. The refinement ladder is long and its messages name paths; use them.
 
-- [ ] **Task 5 — The review route (AC4)**
-  - [ ] `main.ts`: read `?case=` beside the existing `?mode=validation` read, allowlist it against the known case IDs, default to `young-interference`. Never pass an unlisted value to `loadCaseDefinition`.
-  - [ ] Confirm the record repository already scopes by case (`repository.load(caseResult.value.id)`) so the two cases cannot cross-contaminate saved progress. Assert it.
-  - [ ] No picker, no menu, no unlock logic. If you find yourself writing campaign order, stop — that is Story 4.1.
+- [x] **Task 5 — The review route (AC4)**
+  - [x] `main.ts`: read `?case=` beside the existing `?mode=validation` read, allowlist it against the known case IDs, default to `young-interference`. Never pass an unlisted value to `loadCaseDefinition`.
+  - [x] Confirm the record repository already scopes by case (`repository.load(caseResult.value.id)`) so the two cases cannot cross-contaminate saved progress. Assert it.
+  - [x] No picker, no menu, no unlock logic. If you find yourself writing campaign order, stop — that is Story 4.1.
 
-- [ ] **Task 6 — De-Young the laboratory's voice (AC5)**
-  - [ ] `ApparatusRenderer` `lab.idle`: compose the settings clause from `apparatus.primaryControls` (label + `selectFormattedControlValue`) instead of the two literals at `:820-821`. One authored sentence, both locales, list-joined with the locale's own separator.
-  - [ ] The result readout: a recorded run with no `modelInputs` currently renders `lab.result.emptyHint`. Report `latest.result` — label, formatted value, unit — and keep the wavelength clause only where `modelInputs` exist.
-  - [ ] `lab.pattern.recorded` reads a Young fringe spacing; make the pattern line read the run's own labelled result or say nothing, rather than describing a quantity this case does not measure.
-  - [ ] `title`: new bilingual `LocalizedText` on the definition, shown in place of the hard-coded `'lab.title'`. `encodesPath` applies to it like every other authored string.
-  - [ ] Sweep the remaining Young-named interface keys and decide each explicitly: `print.observations.preModel`, `error.invalid-run-model-inputs`, `error.invalid-young-model-input`. Fix what is generic; record what is genuinely Young's. `boot.intro` and `validation.session.title` belong to the Young validation route and stay.
+- [x] **Task 6 — De-Young the laboratory's voice (AC5)**
+  - [x] `ApparatusRenderer` `lab.idle`: compose the settings clause from `apparatus.primaryControls` (label + `selectFormattedControlValue`) instead of the two literals at `:820-821`. One authored sentence, both locales, list-joined with the locale's own separator.
+  - [x] The result readout: a recorded run with no `modelInputs` currently renders `lab.result.emptyHint`. Report `latest.result` — label, formatted value, unit — and keep the wavelength clause only where `modelInputs` exist.
+  - [x] `lab.pattern.recorded` reads a Young fringe spacing; make the pattern line read the run's own labelled result or say nothing, rather than describing a quantity this case does not measure.
+  - [x] `title`: new bilingual `LocalizedText` on the definition, shown in place of the hard-coded `'lab.title'`. `encodesPath` applies to it like every other authored string.
+  - [x] Sweep the remaining Young-named interface keys and decide each explicitly: `print.observations.preModel`, `error.invalid-run-model-inputs`, `error.invalid-young-model-input`. Fix what is generic; record what is genuinely Young's. `boot.intro` and `validation.session.title` belong to the Young validation route and stay.
 
-- [ ] **Task 7 — Version, allowlist, and the case-ID scoping (AC9)**
-  - [ ] Young `case.json` → `1.19.0` (adds `experiment.modelId` and `title`). Extend the allowlist with one clause that states what changed and what was verified byte-identical **by diffing the file**.
-  - [ ] Scope every allowlist clause by `definition.id === YOUNG_CASE_ID`. The clauses are Young's changelog and the version namespace is now shared.
-  - [ ] Confirm `schemaVersion` stays `3` and `migrateCaseRecord.ts` is untouched. If you need a migration, you have made a breaking change by accident.
+- [x] **Task 7 — Version, allowlist, and the case-ID scoping (AC9)**
+  - [x] Young `case.json` → `1.19.0` (adds `experiment.modelId` and `title`). Extend the allowlist with one clause that states what changed and what was verified byte-identical **by diffing the file**.
+  - [x] Scope every allowlist clause by `definition.id === YOUNG_CASE_ID`. The clauses are Young's changelog and the version namespace is now shared.
+  - [x] Confirm `schemaVersion` stays `3` and `migrateCaseRecord.ts` is untouched. If you need a migration, you have made a breaking change by accident.
 
-- [ ] **Task 8 — Tests (AC10)**
-  - [ ] Unit: the model resolver (both models, and the unknown-id load rejection); the prototype's model at range ends and at the stable window; `reduceExperimentRun` for both cases; the three re-expressed guards with their mutation proofs; a full `CaseDefinitionSchema` parse of the shipped prototype (follow the dominant `readFile(public/cases/…)` fixture pattern); the review-route allowlist.
-  - [ ] The prototype's parse test must assert the theory board **can** unlock — the exact thing that was impossible before Task 3.
-  - [ ] e2e: one new spec walking the prototype through the review route to the conclusion choice. Wait on achieved state (`clickUntilScene`, `startTheLightUntilRecorded`), never on a fixed sleep. Canvas text is unreadable from a spec — assert scene keys and the printable record.
-  - [ ] Do not fork `canvasHelpers.ts` for a second case; parameterise what you need.
+- [x] **Task 8 — Tests (AC10)**
+  - [x] Unit: the model resolver (both models, and the unknown-id load rejection); the prototype's model at range ends and at the stable window; `reduceExperimentRun` for both cases; the three re-expressed guards with their mutation proofs; a full `CaseDefinitionSchema` parse of the shipped prototype (follow the dominant `readFile(public/cases/…)` fixture pattern); the review-route allowlist.
+  - [x] The prototype's parse test must assert the theory board **can** unlock — the exact thing that was impossible before Task 3.
+  - [x] e2e: one new spec walking the prototype through the review route to the conclusion choice. Wait on achieved state (`clickUntilScene`, `startTheLightUntilRecorded`), never on a fixed sleep. Canvas text is unreadable from a spec — assert scene keys and the printable record.
+  - [x] Do not fork `canvasHelpers.ts` for a second case; parameterise what you need.
 
-- [ ] **Task 9 — The prototype artifact and the backlog (AC8)**
-  - [ ] Write `docs/case-prototypes/morley-miller-prototype.md`: authored inventory, reused-unchanged inventory, framework changes with reasons, remaining Young-specific surfaces, provenance of both sources, and the reviewer sign-off lines (content author, scholarly reviewer; accessibility de-scoped per ADR-008).
-  - [ ] Mirror every remaining gap into `deferred-work.md` with a named owner — bench artwork (4.2), the persisted `450|550|650` unions and the two minimum-mode `550` literals, `experiment.wavelengthNm` if the seam has not consumed it, and anything the walk surfaced.
-  - [ ] Close in `deferred-work.md` what this story closes, by name.
+- [x] **Task 9 — The prototype artifact and the backlog (AC8)**
+  - [x] Write `docs/case-prototypes/morley-miller-prototype.md`: authored inventory, reused-unchanged inventory, framework changes with reasons, remaining Young-specific surfaces, provenance of both sources, and the reviewer sign-off lines (content author, scholarly reviewer; accessibility de-scoped per ADR-008).
+  - [x] Mirror every remaining gap into `deferred-work.md` with a named owner — bench artwork (4.2), the persisted `450|550|650` unions and the two minimum-mode `550` literals, `experiment.wavelengthNm` if the seam has not consumed it, and anything the walk surfaced.
+  - [x] Close in `deferred-work.md` what this story closes, by name.
 
 ## Dev Notes
 
@@ -397,14 +397,166 @@ These do **not** block the story — each has a decision recorded in §Decisions
 
 ### Agent Model Used
 
+claude-opus-5 (Claude Code, `gds-dev-story`), 2026-08-19.
+
 ### Debug Log References
+
+**Baseline, measured at `efaf980` on an idle machine before any edit:** `npm run typecheck` clean;
+`npm test` 71 files / 1293 tests; `npm run test:e2e` (chromium) 59 passed. Matches the story's §Baseline
+exactly, so nothing below is attributable to a pre-existing failure.
+
+**Task 1 — the throwaway proof.** A scratch spec built a minimal non-Young definition and met all three
+walls. The captured failure text, kept as the regression baseline:
+
+- Wall 1 — `{"code":"invalid-young-model-input","message":"The selected apparatus inputs cannot produce a fringe spacing."}`
+- Wall 2 — `{"status":"incomplete","missing":[{"code":"non-physical-young-run",…},{"code":"distinct-run-configurations",…}]}`
+
+Both are now covered by permanent tests; the scratch spec was deleted.
+
+**Mutation proofs — seven, each broken and restored.** The 2.10 and 2.11 reviews both found load-bearing
+defects invisible to ~1000 green tests, so every guard this story moved was broken deliberately:
+
+| # | Mutation | Went red |
+|---|---|---|
+| 1 | `foreign-model-run` guard disabled | `ExperimentModels.test.ts` — "refuses a run another model version produced" |
+| 2 | `distinct-run-configurations` decided by nothing | `ExperimentModels.test.ts` — 2 tests |
+| 3 | `reduceRecordRun` hoist reverted into the `modelInputs` branch | `MorleyMillerPrototype.test.ts` — 2 tests |
+| 4 | Model seam ignored, back to `calculateYoungFringeSpacing` | `MorleyMillerPrototype.test.ts` — 2 tests |
+| 5 | `modelId` load-time refusal removed | `ExperimentModels.test.ts` — 1 test |
+| 6 | Required-control pairing removed | `ExperimentModels.test.ts` + `CaseDefinition.test.ts` — 2 tests |
+| 7 | Readiness rule reverted to `!run.modelInputs` | **the e2e walk** — proving it is not passing vacuously |
+
+**Two defects the story's own work surfaced, both fixed:**
+
+- The French `conclusion.missing.foreign-model-run` line measured **425px against a 372px column** and
+  was caught by `french-typography.spec.ts`'s fixed-height sweep — the exact defect class the 2.11
+  review found sixteen times. Both locales shortened.
+- The full e2e run after the notebook change was the only thing that would have caught
+  `notebook.row.settings` printing `slitSpacingMm —` for the prototype; a unit test now does.
+
+**Test-fixture corrections, not weakened guards.** Hoisting the bench-match check refused two fixture
+runs recorded at settings the bench was never at (`MeasurementNotebook`, `RecognitionStore`). Both tests
+now move the bench first — which several sibling tests already did, so the convention was established
+and these two had drifted from it. Fifteen fixtures gained `experiment.modelId`.
 
 ### Completion Notes List
 
+**All ten acceptance criteria are met.** The prototype loads, plays, and reaches its conclusion through
+the shared framework — proved by a canvas walk, not only by store tests, because the story's own
+§Previous story intelligence names "green tests over an unusable product" as this project's costliest
+recurring failure.
+
+**What the story set out to expose, and did.** Three walls stopped a second case; all three were green
+at baseline. Wall 2 — two Young-shaped rules in `conclusionReadiness.ts` that made the theory board
+permanently unable to unlock — was **not in the backlog** and is the deepest, since the evaluator is the
+sole completion authority (ADR-006).
+
+**Two things done beyond the letter of the tasks, both stated rather than slipped in:**
+
+1. **Models declare `requiredControlIds`, checked against the case's apparatus at load.** The story asked
+   only that `modelId` be refined against the implemented list. A model fed controls the case does not
+   author is wall 1 one layer down — it would load clean and refuse every run — so it is closed at load
+   too. This *tightens* the contract: a one-control apparatus is still a valid shape but is now rejected
+   while it names a two-control model. `CaseDefinition.test.ts`'s single-control test was rewritten to
+   state both facts rather than deleted.
+2. **Models declare a `resultLabelKey`.** `ExperimentResult.label` is canonical English persisted in the
+   record, and three surfaces read it directly — so the prototype would have printed "Fringe
+   displacement" on a French bench, notebook and record. Young had already solved this for its one label
+   by key; stating the key on the model generalises it. This is AC6's rule applied to a surface the task
+   list did not name.
+
+**Two Young-named surfaces fixed that the task list flagged only for a decision** — `NotebookRenderer`'s
+settings row (assigned to this story by the 3.1 review) and `print.observations.preModel`, which for
+this case labelled **every** observation the player made "not a physical Young measurement" in the
+record they take away.
+
+**One item raised for Alexis rather than decided (AC7 / Open Question 2).** The schema requires the
+English rendition to be the single `transcription` of record. For the 1887 paper the excerpts are
+genuine public-domain text, but **their page attributions have not been checked against a facsimile** —
+so the artifact and `deferred-work.md` both record that, owned by Story 4.1, and the sign-off table
+carries an explicit *pending* row rather than a name nobody supplied. The 1907 artifact sidesteps the
+problem entirely by declaring itself `sourceType: 'reconstruction'` with a matching provenance category,
+which is what it actually is: AC7's operative clause is that provenance must describe what a thing is.
+**Nothing unreviewed is represented as reviewed.**
+
+**Story sizing (Open Question 1).** Built whole rather than split into 3.2a/3.2b. The walls and the
+authored case are genuinely one piece of work: each wall was only *visible* once real content met it,
+and the in-memory alternative is the "story that cannot fail" D1 warns against.
+
+**Scope boundaries held.** No second bench (artwork stays Young's, gap #1). No rights ledger (3.3). No
+`scenarioScript` contract extension (3.4). No campaign order or picker (4.1). No record migration —
+`schemaVersion` stays `3` and `migrateCaseRecord.ts` is untouched. No new dependency. `npm run
+typecheck:tests` was left exactly as found (red by design, 106 errors, not a gate, and not made worse).
+
+**Verification.** `npm run typecheck` clean · `npm test` **1334 tests / 74 files** (baseline 1293 / 71;
+AC10 floors are 1330 / 73) · `npm run test:e2e` (chromium) **60 passed** on an idle machine (baseline 59).
+No lint script exists in this project; its stated gates are the three above.
+
 ### File List
+
+**New — source**
+- `src/domain/apparatus/experimentModels.ts`
+- `src/domain/apparatus/calculateInterferometerDrift.ts`
+- `src/adapters/content/resolveCaseId.ts`
+
+**New — content**
+- `public/cases/morley-miller/case.json`
+- `public/cases/morley-miller/asset-manifest.json`
+
+**New — tests**
+- `tests/unit/ExperimentModels.test.ts`
+- `tests/unit/MorleyMillerPrototype.test.ts`
+- `tests/unit/ApparatusCaseVoice.test.ts`
+- `tests/e2e/morley-miller-prototype.spec.ts`
+
+**New — docs**
+- `docs/case-prototypes/morley-miller-prototype.md`
+
+**Modified — source**
+- `src/core/store/AppState.ts`
+- `src/domain/theory/conclusionReadiness.ts`
+- `src/domain/review/peerReviewRules.ts`
+- `src/domain/cases/CaseDefinition.ts`
+- `src/domain/apparatus/calculateYoungFringeSpacing.ts`
+- `src/schemas/CaseDefinitionSchema.ts`
+- `src/schemas/CaseRecordSchema.ts`
+- `src/adapters/phaser/renderers/ApparatusRenderer.ts`
+- `src/adapters/phaser/renderers/NotebookRenderer.ts`
+- `src/ui/print/CaseRecordPrintView.ts`
+- `src/core/i18n/locales/en.ts`
+- `src/core/i18n/locales/fr.ts`
+- `src/main.ts`
+
+**Modified — content**
+- `public/cases/young-interference/case.json` (1.18.0 → 1.19.0)
+
+**Modified — tests**
+- `tests/e2e/canvasHelpers.ts`
+- `tests/e2e/french-typography.spec.ts`
+- `tests/unit/CaseDefinition.test.ts`
+- `tests/unit/CaseRecordSchema.test.ts`
+- `tests/unit/CompletionReplay.test.ts`
+- `tests/unit/ContextPrediction.test.ts`
+- `tests/unit/DebriefRenderer.test.ts`
+- `tests/unit/EvidenceStore.test.ts`
+- `tests/unit/ReviewRules.test.ts`
+- `tests/unit/TheoryStore.test.ts`
+- `tests/unit/YoungExperimentStore.test.ts`
+- `tests/integration/CuratedRecord.test.ts`
+- `tests/integration/LocaleProjection.test.ts`
+- `tests/integration/MeasurementNotebook.test.ts`
+- `tests/integration/RecognitionStore.test.ts`
+- `tests/integration/ReviewFlow.test.ts`
+- `tests/integration/SceneRouter.test.ts`
+- `tests/integration/TheoryBoard.test.ts`
+
+**Modified — planning artifacts**
+- `_bmad-output/implementation-artifacts/deferred-work.md`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
 
 ## Change Log
 
 | Date | Version | Description | Author |
 |---|---|---|---|
 | 2026-08-19 | 0.1 | Story drafted from epics.md, game-architecture.md, project-context.md, deferred-work.md, Story 3.1, and code read at baseline `efaf980`. | Alexis |
+| 2026-08-19 | 1.0 | Implemented. Per-case experiment model seam (`modelId` refined at load against a closed list, plus a model↔apparatus control pairing check); two Young-shaped evaluator rules re-expressed over the case's own contract (`foreign-model-run`, `configurationKey`); `reduceRecordRun`'s bench-match and model-version checks hoisted to apply to every run; the bench, notebook and printable record de-Younged and their result labels localized by a model-declared key; the Morley–Miller prototype authored as real bilingual content under `public/cases/`; an allowlisted `?case=` review route; Young bumped to 1.19.0 with a case-ID-scoped compatibility allowlist. Seven mutation proofs. 1334 tests / 74 files, e2e 60 passed, typecheck clean. | Claude (Opus 5) |

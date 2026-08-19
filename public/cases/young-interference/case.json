@@ -1,6 +1,10 @@
 {
   "id": "young-interference",
-  "version": "1.18.0",
+  "version": "1.19.0",
+  "title": {
+    "en": "Young interference — the optical bench",
+    "fr": "Interférences de Young — la paillasse optique"
+  },
   "openingDispute": {
     "en": "Does light travel as particles, waves, or something more subtle?",
     "fr": "La lumière se propage-t-elle comme des particules, comme des ondes, ou d’une manière plus subtile ?"
@@ -1029,6 +1033,7 @@
     ]
   },
   "experiment": {
+    "modelId": "young-double-slit",
     "modelVersion": "young-double-slit-v1",
     "wavelengthNm": 550,
     "wavelengthComparison": {

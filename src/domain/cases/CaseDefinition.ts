@@ -218,6 +218,8 @@ export type CaseDefinition = Readonly<{
     /** Kebab-case, and this case's directory name under `public/cases/`. Validated by `CaseIdSchema`. */
     id: string;
     version: string;
+    /** The investigation's own name, shown by the laboratory in place of a hard-coded interface string. */
+    title: LocalizedText;
     openingDispute: LocalizedText;
     /** At least two: FR4 makes two sources a precondition for predicting, which is a floor. */
     contextualArtifacts: readonly ContextualArtifact[];
@@ -225,6 +227,12 @@ export type CaseDefinition = Readonly<{
     /** One or two, capped by `MAX_PRIMARY_CONTROLS` for the bench-geometry reason recorded there. */
     apparatus: Readonly<{ primaryControls: readonly PrimaryControl[] }>;
     experiment: Readonly<{
+        /**
+         * Which implemented deterministic model this case's bench runs (Story 3.2). Canonical, and
+         * validated at load against `EXPERIMENT_MODEL_IDS` — never the case ID, and never `modelVersion`,
+         * which is the per-run provenance stamp rather than a choice of physics.
+         */
+        modelId: string;
         /** Canonical: the model version is a compatibility key stored in every run record. */
         modelVersion: string;
         /** Young's fixed 550 nm. Absent for a case whose apparatus has no wavelength at all. */

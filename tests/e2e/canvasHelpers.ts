@@ -70,9 +70,27 @@ export { DESIGN_HEIGHT, DESIGN_WIDTH };
  * Read from the content rather than written down: object placement is total over the count, so a
  * coordinate derived for two would land in the gap between four.
  */
-export const ARTIFACT_COUNT = (JSON.parse(
-    readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
-) as { contextualArtifacts: unknown[] }).contextualArtifacts.length;
+type WalkableCase = Readonly<{
+    contextualArtifacts: readonly unknown[];
+    apparatus: { primaryControls: { id: string; max: number; step: number; unit: string; label: { en: string; fr: string } }[] };
+}>;
+
+/**
+ * A shipped case's authored content, read from `public/cases/` (Story 3.2).
+ *
+ * Parameterised by case ID rather than forked: every coordinate below is derived from authored content,
+ * so the derivation carries to a second case for free and a second copy of it would be the thing that
+ * drifts. The Young constants that follow are now *the Young instance* of these derivations.
+ */
+export const caseContent = (caseId: string): WalkableCase => JSON.parse(
+    readFileSync(new URL(`../../public/cases/${caseId}/case.json`, import.meta.url), 'utf-8')
+) as WalkableCase;
+
+export const YOUNG_CASE = 'young-interference';
+
+export const artifactCountFor = (caseId: string): number => caseContent(caseId).contextualArtifacts.length;
+
+export const ARTIFACT_COUNT = artifactCountFor(YOUNG_CASE);
 
 /**
  * The centre of one object on the reading room's shelf, at the count the room actually draws.
@@ -81,8 +99,8 @@ export const ARTIFACT_COUNT = (JSON.parse(
  * each keep a copy — which is what the 2.8 review found them doing, in the same commit that created
  * this file for that purpose.
  */
-export const artifactAt = (index: number): Readonly<{ x: number; y: number }> => {
-    const centre = libraryArtifactCentre(index, ARTIFACT_COUNT, DESIGN_WIDTH);
+export const artifactAt = (index: number, count: number = ARTIFACT_COUNT): Readonly<{ x: number; y: number }> => {
+    const centre = libraryArtifactCentre(index, count, DESIGN_WIDTH);
     if (!centre) throw new Error(`The reading room draws no object at index ${index}.`);
     return centre;
 };
@@ -572,47 +590,47 @@ export const clickUntilScene = async (
  * Every click target is derived from exported geometry. Nothing here restates a coordinate.
  */
 
-const WALK_CASE = JSON.parse(
-    readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
-) as { apparatus: { primaryControls: { id: string; max: number; step: number; unit: string; label: { en: string } }[] } };
+/**
+ * The instrument a walk turns, and everything needed to drive and observe it — derived per case.
+ *
+ * Every value here used to be a Young constant. They are the *same derivations*, parameterised by case
+ * ID and control ID (Story 3.2): the bench gives one slot per authored control in authored order, so a
+ * case listing its controls the other way round would put the drag on the wrong instrument — and the run
+ * would still record, and the walk would still reach the theory board, and the spec would pass having
+ * varied the wrong thing. Deriving is what makes that impossible for *both* cases rather than for one.
+ */
+export const varyingInstrument = (caseId: string, controlId: string) => {
+    const controls = caseContent(caseId).apparatus.primaryControls;
+    const slot = controls.findIndex(({ id }) => id === controlId);
+    if (slot < 0) throw new Error(`The authored case ${caseId} must carry a ${controlId} control.`);
+    const control = controls[slot]!;
+    /**
+     * Both locales, because these walks run under a French browser too. The authored label and the
+     * formatted value both differ — a comma decimal, a translated name — so a walk pinned to the English
+     * pair would report a knob that never turned rather than a language it was not written for. That is
+     * the shape of failure the 2.11 review recorded twice.
+     */
+    const readout = (locale: 'en' | 'fr', value: number): string =>
+        formatMeasurement(locale, value, decimalPlaces(control.step), control.unit);
 
-/**
- * Which slot the screen-distance instrument stands in, read from the content rather than fixed at 1.
- *
- * The bench gives one slot per authored control in authored order, so a case that listed the two the
- * other way round would put the drag on the slit spacing — and the run would still record, and the
- * walk would still reach the theory board, and the spec would pass having varied the wrong thing.
- */
-const SCREEN_DISTANCE_SLOT = WALK_CASE.apparatus.primaryControls.findIndex(({ id }) => id === 'screenDistanceM');
-if (SCREEN_DISTANCE_SLOT < 0) throw new Error('The authored case must carry a screen-distance control.');
-/**
- * Where a drag to the far end of the travel lands, and what the record says when it gets there.
- *
- * Both read from the authored content and formatted by the app's own formatter rather than written
- * down: the readout is `{value} {unit}` in English and `{value} {unit}` with a comma decimal in French,
- * and a literal here would be a number this file and the product agreed on by coincidence.
- */
-const SCREEN_DISTANCE_CONTROL = WALK_CASE.apparatus.primaryControls[SCREEN_DISTANCE_SLOT]!;
-/**
- * Both locales, because this walk runs under a French browser too.
- *
- * The authored control label and the formatted value both differ — `Distance à l'écran` and a comma
- * decimal — so a walk pinned to the English pair would report a knob that never turned rather than a
- * language it was not written for. That is the shape of failure the 2.11 review recorded twice.
- */
-const throwReadout = (locale: 'en' | 'fr', value: number): string =>
-    formatMeasurement(locale, value, decimalPlaces(SCREEN_DISTANCE_CONTROL.step), SCREEN_DISTANCE_CONTROL.unit);
-const FURTHEST_THROW_READOUT = new RegExp(
-    `^(${escapeForRegExp(throwReadout('en', SCREEN_DISTANCE_CONTROL.max))}`
-    + `|${escapeForRegExp(throwReadout('fr', SCREEN_DISTANCE_CONTROL.max))})$`
-);
-const SCREEN_DISTANCE_LABEL = new RegExp(
-    `^(${escapeForRegExp(SCREEN_DISTANCE_CONTROL.label.en)}|${escapeForRegExp(SCREEN_DISTANCE_CONTROL.label.fr)})$`
-);
-const SCREEN_DISTANCE_TRAVEL_END = {
-    x: knobCentre(SCREEN_DISTANCE_SLOT).x + (Math.cos(KNOB_ARC_END_RAD) * (KNOB_TRAVEL_RADIUS - 6)),
-    y: knobCentre(SCREEN_DISTANCE_SLOT).y + (Math.sin(KNOB_ARC_END_RAD) * (KNOB_TRAVEL_RADIUS - 6))
+    return {
+        slot,
+        control,
+        centre: knobCentre(slot),
+        travelEnd: {
+            x: knobCentre(slot).x + (Math.cos(KNOB_ARC_END_RAD) * (KNOB_TRAVEL_RADIUS - 6)),
+            y: knobCentre(slot).y + (Math.sin(KNOB_ARC_END_RAD) * (KNOB_TRAVEL_RADIUS - 6))
+        },
+        maxReadout: new RegExp(`^(${escapeForRegExp(readout('en', control.max))}|${escapeForRegExp(readout('fr', control.max))})$`),
+        label: new RegExp(`^(${escapeForRegExp(control.label.en)}|${escapeForRegExp(control.label.fr)})$`)
+    };
 };
+
+const YOUNG_THROW = varyingInstrument(YOUNG_CASE, 'screenDistanceM');
+const SCREEN_DISTANCE_SLOT = YOUNG_THROW.slot;
+const FURTHEST_THROW_READOUT = YOUNG_THROW.maxReadout;
+const SCREEN_DISTANCE_LABEL = YOUNG_THROW.label;
+const SCREEN_DISTANCE_TRAVEL_END = YOUNG_THROW.travelEnd;
 
 /**
  * What the walk costs in wall-clock milliseconds beyond Playwright's default, so a spec can set its own
@@ -675,11 +693,12 @@ export const WALK_TO_DEBRIEF_COST_MS =
  * the record's own count of readings, and an object that never records still fails here — where the
  * cause is.
  */
-const readTheReferences = async (page: Page): Promise<void> => {
+const readTheReferences = async (page: Page, caseId: string = YOUNG_CASE): Promise<void> => {
     await expectActiveScene(page, 'Library');
-    for (let index = 0; index < ARTIFACT_COUNT; index += 1) {
+    const count = artifactCountFor(caseId);
+    for (let index = 0; index < count; index += 1) {
         await expect(async () => {
-            await clickDesign(page, artifactAt(index));
+            await clickDesign(page, artifactAt(index, count));
             await waitForBookToOpen(page);
             await clickDesign(page, bookCloseControlCentre());
             await waitForBookToClose(page);
@@ -831,11 +850,14 @@ const chooseThePrediction = async (page: Page): Promise<void> => {
  * setting is **observed**, never driven: a lost drag would otherwise surface at the transition as a
  * routing error rather than here.
  */
-const recordTwoObservations = async (page: Page): Promise<void> => {
+const recordTwoObservations = async (
+    page: Page,
+    instrument: ReturnType<typeof varyingInstrument> = YOUNG_THROW
+): Promise<void> => {
     await startTheLightUntilRecorded(page, startTheLightControlCentre(), 1);
-    await dragDesignUntil(page, knobCentre(SCREEN_DISTANCE_SLOT), SCREEN_DISTANCE_TRAVEL_END, async () => {
-        await expect(recordedSetting(page, SCREEN_DISTANCE_LABEL))
-            .toHaveText(FURTHEST_THROW_READOUT, { timeout: 1_500 });
+    await dragDesignUntil(page, instrument.centre, instrument.travelEnd, async () => {
+        await expect(recordedSetting(page, instrument.label))
+            .toHaveText(instrument.maxReadout, { timeout: 1_500 });
     });
     await startTheLightUntilRecorded(page, startTheLightControlCentre(), 2);
 
@@ -988,16 +1010,25 @@ export const enterTheLaboratory = async (page: Page): Promise<void> => {
     await waitForInputToSettle(page);
 };
 
-export const walkToTheBoard = async (page: Page): Promise<void> => {
-    await page.goto('/');
+export const walkToTheBoard = async (
+    page: Page,
+    /**
+     * Which investigation to walk. Defaults to Young, so every existing caller is unchanged; the review
+     * route (`?case=`) is what lets a second case be walked at all (Story 3.2, AC4).
+     */
+    caseId: string = YOUNG_CASE,
+    /** Which instrument the second observation turns — the case's own distinguishing control. */
+    instrument: ReturnType<typeof varyingInstrument> = YOUNG_THROW
+): Promise<void> => {
+    await page.goto(caseId === YOUNG_CASE ? '/' : `/?case=${caseId}`);
     // The app booted, and the gate is passed, before we start clicking. A precondition belongs where the
     // precondition is: this assertion used to sit *after* the whole walk in `canvas-transitions.spec.ts`,
     // where it checked an incidental fact about a still-mounted DOM shell and let a boot failure surface
     // several frames of noise later, at the first `expectActiveScene` (2.11 review).
     await enterTheLaboratory(page);
-    await readTheReferences(page);
+    await readTheReferences(page, caseId);
     await chooseThePrediction(page);
-    await recordTwoObservations(page);
+    await recordTwoObservations(page, instrument);
 };
 
 /**

@@ -30,7 +30,7 @@ const definition = {
         { id: 'young-lecture-1801', displayName: { en: 'Young lecture record', fr: 'Compte rendu de la conférence de Young' }, creatorOrOrigin: 'Archive', sourceType: 'lecture-record', provenance: { category: 'primary-material', reference: 'young' }, rightsStatus: 'reviewed', caseRelationship: { en: 'Evidence.', fr: 'Preuve.' } },
         { id: 'newton-opticks', displayName: { en: 'Opticks reference', fr: 'Référence à l’Opticks' }, creatorOrOrigin: 'Archive', sourceType: 'published-book', provenance: { category: 'primary-material', reference: 'opticks' }, rightsStatus: 'reviewed', caseRelationship: { en: 'Evidence.', fr: 'Preuve.' } }
     ],
-    experiment: { modelVersion: 'young-double-slit-v1' }
+    experiment: { modelId: 'young-double-slit', modelVersion: 'young-double-slit-v1' }
 } as unknown as CaseDefinition;
 
 /**

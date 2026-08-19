@@ -37,7 +37,7 @@ const definition = {
         { id: 'slitSpacingMm', label: 'Slit spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
         { id: 'screenDistanceM', label: 'Screen distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
     ] },
-    experiment: { modelVersion: 'young-double-slit-v1', wavelengthNm: 550, wavelengthComparison: { fixedMinimumPathNm: 550, advancedChoicesNm: [450, 650] }, assumptions: ['Monochromatic light.'], confound: { id: 'confound', description: 'A confound.', discoverableBy: 'replication' }, resetPath: { recoveryRoute: 'replication', description: 'Reset.' } },
+    experiment: { modelId: 'young-double-slit', modelVersion: 'young-double-slit-v1', wavelengthNm: 550, wavelengthComparison: { fixedMinimumPathNm: 550, advancedChoicesNm: [450, 650] }, assumptions: ['Monochromatic light.'], confound: { id: 'confound', description: 'A confound.', discoverableBy: 'replication' }, resetPath: { recoveryRoute: 'replication', description: 'Reset.' } },
     requirements: { minimumRuns: 2, minimumSources: 2, minimumSignificantRuns: 2 },
     significanceRule: { criticalControlIds: ['slitSpacingMm', 'screenDistanceM'] },
     colleagueHints: [], consultationRules: [], peerReviewRules: [],

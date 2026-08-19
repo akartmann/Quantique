@@ -1,5 +1,6 @@
 import type { CaseDefinition } from '../cases/CaseDefinition';
 import type { RunRecord } from '../evidence/RunRecord';
+import { configurationKey } from '../evidence/significantMeasures';
 
 export type TheoryBoardDraft = Readonly<{
     selectedRunIds: readonly string[];
@@ -18,7 +19,7 @@ export type MissingConclusionRequirementCode =
     | 'duplicate-run-selection'
     | 'unknown-run-selection'
     | 'minimum-runs'
-    | 'non-physical-young-run'
+    | 'foreign-model-run'
     | 'distinct-run-configurations'
     | 'saved-comparison'
     | 'duplicate-source-selection'
@@ -80,17 +81,33 @@ export const evaluateConclusionReadiness = (
         requirements.push(missing('minimum-runs', `Select at least ${definition.requirements.minimumRuns} recorded observations.`));
     }
     const selectedRuns = evidence.runs.filter((run) => selectedKnownRunIds.includes(run.id));
-    if (evidence.comparisonNotes && selectedRuns.some((run) => !run.modelInputs)) {
-        requirements.push(missing('non-physical-young-run', 'Use recorded physical Young observations as conclusion support.'));
+    // **"Produced by this case's own model", not "carries Young's optical inputs" (Story 3.2).**
+    //
+    // This asked `!run.modelInputs`, and `modelInputs` is `YoungModelInputs` — the Young optical model's
+    // own persisted shape. A case whose apparatus has no wavelength records none (D4), so *every*
+    // selected run failed this and the theory board could never unlock for a second case: the player
+    // reached synthesis, pinned two runs, saved a comparison, and read an English sentence about Young.
+    // The evaluator is the sole completion authority (ADR-006), so this was the deepest of the three
+    // walls, and the only one not already in the backlog.
+    //
+    // `experimentModelVersion` is the right question because it is exactly the provenance stamp every
+    // run carries: it says which deterministic model produced this reading, for any case. A hand-built
+    // fixture run — the thing this rule was written to keep out of a conclusion — still fails it.
+    if (evidence.comparisonNotes && selectedRuns.some((run) => run.experimentModelVersion !== definition.experiment.modelVersion)) {
+        requirements.push(missing('foreign-model-run', 'Use observations recorded on this investigation’s own apparatus as conclusion support.'));
     }
     if (evidence.comparisonNotes && selectedRuns.length >= definition.requirements.minimumRuns) {
         const [first, ...rest] = selectedRuns;
-        if (first && !rest.some((run) => run.modelInputs && first.modelInputs && (
-            run.modelInputs.slitSpacingMm !== first.modelInputs.slitSpacingMm
-            || run.modelInputs.screenDistanceM !== first.modelInputs.screenDistanceM
-            || run.modelInputs.wavelengthNm !== first.modelInputs.wavelengthNm
-        ))) {
-            requirements.push(missing('distinct-run-configurations', 'Select observations from two different recorded Young configurations.'));
+        // Decided by the case's own `significanceRule`, through the same `configurationKey` that
+        // `countSignificantMeasures` and the `repeated-configuration` hint already use. It used to
+        // compare Young's three `modelInputs` names, so for a case recording none the `.some(...)` was
+        // false whatever the player did and the requirement was pushed unconditionally.
+        //
+        // Reused rather than re-derived on purpose: "are these two runs the same configuration?" is one
+        // question, and two answers to it would drift — the gate would count two configurations while
+        // the board refused them as one.
+        if (first && !rest.some((run) => configurationKey(definition.significanceRule, run) !== configurationKey(definition.significanceRule, first))) {
+            requirements.push(missing('distinct-run-configurations', 'Select observations recorded at two different apparatus configurations.'));
         }
         const hasComparison = evidence.comparisonNotes.some((note) =>
             note.runIds.includes(selectedKnownRunIds[0]!) && note.runIds.includes(selectedKnownRunIds[1]!));

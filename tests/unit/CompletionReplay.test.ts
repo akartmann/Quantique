@@ -37,7 +37,7 @@ const definition = {
     apparatus: { primaryControls: [{ id: 'slitSpacingMm', label: { en: 'Spacing', fr: 'Spacing [fr]' }, unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 }, { id: 'screenDistanceM', label: { en: 'Distance', fr: 'Distance [fr]' }, unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }] },
     contextualArtifacts: [{ id: 'source-1', displayName: { en: 'Source one', fr: 'Source one [fr]' }, creatorOrOrigin: 'Archive', sourceType: 'lecture-record', provenance: { category: 'primary-material', reference: 'one' }, rightsStatus: 'reviewed', caseRelationship: { en: 'Evidence.', fr: 'Evidence. [fr]' } }, { id: 'source-2', displayName: { en: 'Source two', fr: 'Source two [fr]' }, creatorOrOrigin: 'Archive', sourceType: 'published-book', provenance: { category: 'primary-material', reference: 'two' }, rightsStatus: 'reviewed', caseRelationship: { en: 'Evidence.', fr: 'Evidence. [fr]' } }],
     consultationRules: [], peerReviewRules: [{ id: 'overreach', predicate: { kind: 'overreach', overreachPhrases: { en: ['proves'], fr: ['prouve'] } }, feedback: { en: 'Bound the claim.', fr: 'Bound the claim. [fr]' }, revisionPath: { en: 'Revise.', fr: 'Revise. [fr]' } }],
-    experiment: { modelVersion: 'young-double-slit-v1', wavelengthComparison: { fixedMinimumPathNm: 550, advancedChoicesNm: [450, 650] } }
+    experiment: { modelId: 'young-double-slit', modelVersion: 'young-double-slit-v1', wavelengthComparison: { fixedMinimumPathNm: 550, advancedChoicesNm: [450, 650] } }
 } as CaseDefinition;
 
 const completeToReview = (withComparison = true, store = createStore(createInitialAppState(definition))) => {

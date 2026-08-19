@@ -1,0 +1,933 @@
+{
+  "id": "morley-miller",
+  "version": "1.0.0",
+  "title": {
+    "en": "Morley–Miller — the rotating interferometer",
+    "fr": "Morley–Miller — l’interféromètre tournant"
+  },
+  "openingDispute": {
+    "en": "If the Earth sweeps through a motionless ether, turning the apparatus should shift the fringes. Twice it barely did. Was there nothing to find, or was something else in the way?",
+    "fr": "Si la Terre traverse un éther immobile, faire tourner l’appareil devrait décaler les franges. Deux fois, il ne l’a presque pas fait. N’y avait-il rien à trouver, ou autre chose gênait-il ?"
+  },
+  "contextualArtifacts": [
+    {
+      "id": "michelson-morley-1887",
+      "displayName": {
+        "en": "Michelson and Morley’s 1887 paper",
+        "fr": "L’article de Michelson et Morley (1887)"
+      },
+      "creatorOrOrigin": "Albert A. Michelson and Edward W. Morley, American Journal of Science",
+      "sourceType": "published-book",
+      "provenance": {
+        "category": "primary-material",
+        "reference": "michelson-morley-1887-ajs"
+      },
+      "rightsStatus": "reviewed",
+      "caseRelationship": {
+        "en": "The published account of the null result this bench is built to re-examine.",
+        "fr": "Le compte rendu publié du résultat nul que ce banc doit réexaminer."
+      },
+      "textualRendition": {
+        "readerLabel": {
+          "en": "Read the 1887 paper",
+          "fr": "Lire l’article de 1887"
+        },
+        "citation": {
+          "reuseStatement": {
+            "en": "Public-domain text; published 1887 and long out of copyright. Excerpted, not complete.",
+            "fr": "Texte du domaine public ; publié en 1887 et libre de droits depuis longtemps. Extraits, non intégral."
+          },
+          "citationText": "Michelson, A. A., & Morley, E. W. (1887). On the Relative Motion of the Earth and the Luminiferous Ether. American Journal of Science, 34(203), 333–345.",
+          "archiveUrl": "https://en.wikisource.org/wiki/On_the_Relative_Motion_of_the_Earth_and_the_Luminiferous_Ether"
+        },
+        "summary": {
+          "en": [
+            "Two light paths at right angles, carried on a stone float turning in mercury.",
+            "If the Earth moved through a stationary ether, turning the stone should shift the fringes.",
+            "The observed shift was far smaller than the motion of the Earth in its orbit demanded."
+          ],
+          "fr": [
+            "Deux trajets lumineux à angle droit, portés par un bloc de pierre flottant sur du mercure.",
+            "Si la Terre se déplaçait dans un éther immobile, la rotation du bloc devait décaler les franges.",
+            "Le décalage observé fut bien plus faible que ne l’exigeait le mouvement orbital de la Terre."
+          ]
+        },
+        "renditions": [
+          {
+            "locale": "en",
+            "kind": "transcription",
+            "sections": [
+              {
+                "id": "mm-1887-p333",
+                "heading": "Printed page 333 — the question",
+                "paragraphs": [
+                  "The discovery of the aberration of light was soon followed by an explanation according to the emission theory.",
+                  "If the earth were a transparent body, it might perhaps be conceded that the intermolecular ether should be at rest in space, notwithstanding the motion of the particles of the body."
+                ],
+                "sourcePages": [
+                  333
+                ]
+              },
+              {
+                "id": "mm-1887-p341",
+                "heading": "Printed page 341 — the result",
+                "paragraphs": [
+                  "It appears from all that precedes reasonably certain that if there be any relative motion between the earth and the luminiferous ether, it must be small; quite small enough entirely to refute Fresnel's explanation of aberration."
+                ],
+                "sourcePages": [
+                  341
+                ]
+              }
+            ]
+          },
+          {
+            "locale": "fr",
+            "kind": "translation",
+            "sections": [
+              {
+                "id": "mm-1887-p333",
+                "heading": "Page imprimée 333 — la question",
+                "paragraphs": [
+                  "La découverte de l’aberration de la lumière fut bientôt suivie d’une explication conforme à la théorie de l’émission.",
+                  "Si la Terre était un corps transparent, on pourrait peut-être admettre que l’éther intermoléculaire demeure au repos dans l’espace, malgré le mouvement des particules du corps."
+                ],
+                "sourcePages": [
+                  333
+                ]
+              },
+              {
+                "id": "mm-1887-p341",
+                "heading": "Page imprimée 341 — le résultat",
+                "paragraphs": [
+                  "Il ressort de tout ce qui précède qu’il est raisonnablement certain que s’il existe un mouvement relatif entre la Terre et l’éther luminifère, il doit être faible ; assez faible pour réfuter entièrement l’explication de l’aberration donnée par Fresnel."
+                ],
+                "sourcePages": [
+                  341
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "morley-miller-1907-reconstruction",
+      "displayName": {
+        "en": "A reconstruction of the 1907 Morley–Miller report",
+        "fr": "Une reconstitution du rapport Morley–Miller de 1907"
+      },
+      "creatorOrOrigin": "Quantique editorial reconstruction, after Morley and Miller",
+      "sourceType": "reconstruction",
+      "provenance": {
+        "category": "reconstruction",
+        "reference": "morley-miller-1907-report"
+      },
+      "rightsStatus": "reviewed",
+      "caseRelationship": {
+        "en": "Restates what the later, longer repetition of the experiment set out to settle, and what it found.",
+        "fr": "Restitue ce que la reprise ultérieure et plus longue de l’expérience cherchait à trancher, et ce qu’elle a trouvé."
+      },
+      "textualRendition": {
+        "readerLabel": {
+          "en": "Read the reconstruction",
+          "fr": "Lire la reconstitution"
+        },
+        "citation": {
+          "reuseStatement": {
+            "en": "Written for this investigation, not transcribed from the original. It restates the report it cites; read the cited original for the authors’ own words.",
+            "fr": "Rédigée pour cette enquête, et non transcrite de l’original. Elle restitue le rapport qu’elle cite ; consultez l’original cité pour les mots des auteurs."
+          },
+          "citationText": "Morley, E. W., & Miller, D. C. (1905). Report of an experiment to detect the Fitzgerald–Lorentz Effect. Proceedings of the American Academy of Arts and Sciences, 41(12), 321–328.",
+          "archiveUrl": "https://en.wikisource.org/wiki/Report_of_an_experiment_to_detect_the_Fitzgerald-Lorentz_Effect"
+        },
+        "summary": {
+          "en": [
+            "A longer apparatus, more observers, and many more turns of the stone.",
+            "The question was whether the earlier null result hid a small real shift under the noise.",
+            "The reported displacement remained a small fraction of what a stationary ether required."
+          ],
+          "fr": [
+            "Un appareil plus long, davantage d’observateurs et bien plus de tours du bloc.",
+            "La question était de savoir si le résultat nul antérieur masquait un léger décalage réel sous le bruit.",
+            "Le déplacement rapporté est resté une petite fraction de ce qu’exigeait un éther immobile."
+          ]
+        },
+        "renditions": [
+          {
+            "locale": "en",
+            "kind": "transcription",
+            "sections": [
+              {
+                "id": "mmr-1907-s1",
+                "heading": "The instrument",
+                "paragraphs": [
+                  "The optical path was lengthened by repeated reflection, so that a given motion through the ether would produce a larger displacement of the fringes than the 1887 arrangement could show.",
+                  "The whole apparatus floated on mercury and was turned slowly and continuously, and readings were taken at fixed positions of the turn rather than at the ends of a swing."
+                ],
+                "sourcePages": [
+                  321
+                ]
+              },
+              {
+                "id": "mmr-1907-s2",
+                "heading": "What was watched, and what interfered",
+                "paragraphs": [
+                  "Temperature was the dominant nuisance. A difference of a fraction of a degree across the arms bent the light path enough to imitate the effect being looked for, and the observers took considerable trouble to hold the room and the apparatus steady.",
+                  "The displacement finally reported was a small fraction of the value a stationary ether would require, and the authors declined to call so small a residue a detection."
+                ],
+                "sourcePages": [
+                  325,
+                  328
+                ]
+              }
+            ]
+          },
+          {
+            "locale": "fr",
+            "kind": "translation",
+            "sections": [
+              {
+                "id": "mmr-1907-s1",
+                "heading": "L’instrument",
+                "paragraphs": [
+                  "Le trajet optique fut allongé par réflexions répétées, afin qu’un mouvement donné dans l’éther produise un déplacement des franges plus grand que ne pouvait le montrer le montage de 1887.",
+                  "L’ensemble de l’appareil flottait sur du mercure et tournait lentement et continûment ; les relevés étaient pris à des positions fixes du tour plutôt qu’aux extrémités d’une oscillation."
+                ],
+                "sourcePages": [
+                  321
+                ]
+              },
+              {
+                "id": "mmr-1907-s2",
+                "heading": "Ce qui fut surveillé, et ce qui interférait",
+                "paragraphs": [
+                  "La température fut la gêne dominante. Une différence d’une fraction de degré entre les bras courbait le trajet lumineux assez pour imiter l’effet recherché, et les observateurs se donnèrent beaucoup de mal pour maintenir la salle et l’appareil stables.",
+                  "Le déplacement finalement rapporté ne représentait qu’une petite fraction de la valeur qu’exigerait un éther immobile, et les auteurs se refusèrent à qualifier de détection un résidu aussi faible."
+                ],
+                "sourcePages": [
+                  325,
+                  328
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "prediction": {
+    "required": true
+  },
+  "apparatus": {
+    "primaryControls": [
+      {
+        "id": "rotationDeg",
+        "label": {
+          "en": "Bench rotation",
+          "fr": "Rotation du banc"
+        },
+        "unit": "°",
+        "min": 0,
+        "max": 180,
+        "step": 15,
+        "defaultValue": 0
+      },
+      {
+        "id": "bathTempC",
+        "label": {
+          "en": "Bath temperature",
+          "fr": "Température du bain"
+        },
+        "unit": "°C",
+        "min": 18,
+        "max": 24,
+        "step": 0.5,
+        "defaultValue": 22
+      }
+    ]
+  },
+  "experiment": {
+    "modelId": "morley-miller-interferometer",
+    "modelVersion": "morley-miller-interferometer-v1",
+    "assumptions": {
+      "en": [
+        "The two arms are of equal length and stay so while the stone turns.",
+        "The fringe displacement is read at a fixed position of the turn, not while turning.",
+        "The bath temperature stands for every thermal difference across the arms."
+      ],
+      "fr": [
+        "Les deux bras sont de longueur égale et le restent pendant la rotation du bloc.",
+        "Le déplacement des franges est lu à une position fixe du tour, non pendant la rotation.",
+        "La température du bain représente toute différence thermique entre les bras."
+      ]
+    },
+    "confound": {
+      "id": "thermal-drift",
+      "description": {
+        "en": "Warmth across the arms bends the light path and walks the fringes on its own, imitating the effect being looked for.",
+        "fr": "La chaleur entre les bras courbe le trajet lumineux et déplace les franges d’elle-même, imitant l’effet recherché."
+      },
+      "discoverableBy": "replication"
+    },
+    "resetPath": {
+      "recoveryRoute": "replication",
+      "description": {
+        "en": "Bring the bath back to its steady window and take the reading again; what survives is not the warmth.",
+        "fr": "Ramenez le bain à sa fenêtre stable et reprenez le relevé ; ce qui subsiste n’est pas la chaleur."
+      }
+    }
+  },
+  "requirements": {
+    "minimumRuns": 2,
+    "minimumSources": 2,
+    "minimumSignificantRuns": 2
+  },
+  "significanceRule": {
+    "criticalControlIds": [
+      "rotationDeg"
+    ]
+  },
+  "colleagueHints": [
+    {
+      "id": "hint-no-runs",
+      "colleagueId": "edith-vance",
+      "predicate": {
+        "kind": "no-recorded-runs"
+      },
+      "line": {
+        "en": "Nothing is written down yet. Start the light once, and we will have something to argue about.",
+        "fr": "Rien n’est encore noté. Allumez la source une fois, et nous aurons matière à discuter."
+      }
+    },
+    {
+      "id": "hint-repeated",
+      "colleagueId": "harriet-lowe",
+      "predicate": {
+        "kind": "repeated-configuration"
+      },
+      "line": {
+        "en": "That is the same arrangement twice. Steady, certainly — but it distinguishes nothing.",
+        "fr": "C’est deux fois le même montage. Stable, certes, mais cela ne distingue rien."
+      }
+    },
+    {
+      "id": "hint-unvaried-rotation",
+      "colleagueId": "tomas-reyes",
+      "predicate": {
+        "kind": "unvaried-control",
+        "controlId": "rotationDeg"
+      },
+      "line": {
+        "en": "The stone has not turned. Whatever the ether does, it will not show it to a bench that stands still.",
+        "fr": "Le bloc n’a pas tourné. Quoi que fasse l’éther, il ne le montrera pas à un banc immobile."
+      }
+    },
+    {
+      "id": "hint-floor",
+      "colleagueId": "edith-vance",
+      "predicate": {
+        "kind": "below-significant-measures"
+      },
+      "line": {
+        "en": "We need two readings that could have disagreed with each other before any of this is worth writing up.",
+        "fr": "Il nous faut deux relevés qui auraient pu se contredire avant que tout cela vaille d’être rédigé."
+      }
+    }
+  ],
+  "readingGateHints": [
+    {
+      "id": "reading-1887",
+      "colleagueId": "harriet-lowe",
+      "predicate": {
+        "kind": "missing-artifact",
+        "artifactId": "michelson-morley-1887"
+      },
+      "line": {
+        "en": "The 1887 paper is still on the shelf. It is short, and it is the whole reason we are here.",
+        "fr": "L’article de 1887 est encore sur l’étagère. Il est court, et c’est toute la raison de notre présence."
+      }
+    },
+    {
+      "id": "reading-1907",
+      "colleagueId": "tomas-reyes",
+      "predicate": {
+        "kind": "missing-artifact",
+        "artifactId": "morley-miller-1907-reconstruction"
+      },
+      "line": {
+        "en": "Read the later report too. It tells you what went wrong before you repeat it.",
+        "fr": "Lisez aussi le rapport ultérieur. Il vous dit ce qui a mal tourné avant que vous ne recommenciez."
+      }
+    },
+    {
+      "id": "reading-any",
+      "colleagueId": "edith-vance",
+      "predicate": {
+        "kind": "any-missing-reading"
+      },
+      "line": {
+        "en": "There is still something here you have not read, and it bears on what we are about to do.",
+        "fr": "Il reste ici quelque chose que vous n’avez pas lu, et cela concerne ce que nous allons faire."
+      }
+    }
+  ],
+  "colleagues": [
+    {
+      "id": "edith-vance",
+      "name": "Dr. Edith Vance",
+      "role": "lead",
+      "portrait": {
+        "kind": "silhouette",
+        "accentColor": "#c9a227",
+        "figure": {
+          "build": "gowned",
+          "pose": "raising-instrument",
+          "hair": "upswept",
+          "hairColor": "dark",
+          "skinTone": "light"
+        }
+      }
+    },
+    {
+      "id": "tomas-reyes",
+      "name": "Tomás Reyes",
+      "role": "builder",
+      "portrait": {
+        "kind": "silhouette",
+        "accentColor": "#4f8a8b",
+        "figure": {
+          "build": "suited",
+          "pose": "at-rest",
+          "hair": "cropped",
+          "hairColor": "dark",
+          "skinTone": "brown"
+        }
+      }
+    },
+    {
+      "id": "harriet-lowe",
+      "name": "Harriet Lowe",
+      "role": "analyst",
+      "portrait": {
+        "kind": "silhouette",
+        "accentColor": "#9c6b98",
+        "figure": {
+          "build": "gowned",
+          "pose": "holding-paper",
+          "hair": "swept",
+          "hairColor": "auburn",
+          "skinTone": "light"
+        }
+      }
+    },
+    {
+      "id": "nils-abrahamsen",
+      "name": "Nils Abrahamsen",
+      "role": "communicator",
+      "portrait": {
+        "kind": "silhouette",
+        "accentColor": "#7f9a52",
+        "figure": {
+          "build": "suited",
+          "pose": "presenting",
+          "hair": "swept",
+          "hairColor": "fair",
+          "skinTone": "light",
+          "spectacles": true
+        }
+      }
+    }
+  ],
+  "predictionProposals": [
+    {
+      "id": "predict-large-shift",
+      "colleagueId": "edith-vance",
+      "text": {
+        "en": "Turning the stone will swing the fringes by a full band. If the ether stands still, the effect is there to be seen.",
+        "fr": "Faire tourner le bloc décalera les franges d’une bande entière. Si l’éther est immobile, l’effet se verra."
+      }
+    },
+    {
+      "id": "predict-small-shift",
+      "colleagueId": "harriet-lowe",
+      "text": {
+        "en": "The orientation will move the fringes a little, but so little that we will argue about whether we saw it.",
+        "fr": "L’orientation déplacera un peu les franges, mais si peu que nous discuterons de l’avoir vu ou non."
+      }
+    },
+    {
+      "id": "predict-temperature-dominates",
+      "colleagueId": "tomas-reyes",
+      "text": {
+        "en": "Whatever the orientation does, the bath will do more. Warm the room and the fringes will walk on their own.",
+        "fr": "Quoi que fasse l’orientation, le bain fera davantage. Réchauffez la salle et les franges se déplaceront d’elles-mêmes."
+      }
+    },
+    {
+      "id": "predict-nothing-at-all",
+      "colleagueId": "nils-abrahamsen",
+      "text": {
+        "en": "Nothing will move at all, and we will have a very quiet afternoon and a very short report.",
+        "fr": "Rien ne bougera du tout, et nous aurons un après-midi très calme et un rapport très court."
+      }
+    }
+  ],
+  "conclusionProposals": [
+    {
+      "id": "conclude-bounded-null",
+      "colleagueId": "edith-vance",
+      "claim": {
+        "en": "Held at a steady bath temperature, turning the apparatus moves the fringes by far less than a stationary ether would require.",
+        "fr": "À température de bain stable, faire tourner l’appareil déplace les franges bien moins que ne l’exigerait un éther immobile."
+      },
+      "limitation": {
+        "en": "Only two orientations were held steady, and only over one afternoon; a slow seasonal effect would not show here.",
+        "fr": "Seules deux orientations ont été tenues stables, et sur un seul après-midi ; un effet saisonnier lent n’apparaîtrait pas ici."
+      },
+      "supportPredicate": {
+        "kind": "all-of",
+        "predicates": [
+          {
+            "kind": "minimum-runs",
+            "count": 2
+          },
+          {
+            "kind": "varied-control",
+            "controlId": "rotationDeg"
+          },
+          {
+            "kind": "inspected-source",
+            "sourceId": "michelson-morley-1887"
+          },
+          {
+            "kind": "inspected-source",
+            "sourceId": "morley-miller-1907-reconstruction"
+          }
+        ]
+      }
+    },
+    {
+      "id": "conclude-thermal-confound",
+      "colleagueId": "tomas-reyes",
+      "claim": {
+        "en": "The bath temperature moves the fringes more than the orientation does, so any orientation claim must be made at a fixed temperature.",
+        "fr": "La température du bain déplace les franges plus que l’orientation ; toute affirmation sur l’orientation doit donc se faire à température fixe."
+      },
+      "limitation": {
+        "en": "This says what interferes with the measurement, not what the orientation itself does.",
+        "fr": "Cela dit ce qui perturbe la mesure, non ce que fait l’orientation elle-même."
+      },
+      "supportPredicate": {
+        "kind": "all-of",
+        "predicates": [
+          {
+            "kind": "minimum-runs",
+            "count": 2
+          },
+          {
+            "kind": "varied-control",
+            "controlId": "bathTempC"
+          },
+          {
+            "kind": "inspected-source",
+            "sourceId": "morley-miller-1907-reconstruction"
+          }
+        ]
+      }
+    },
+    {
+      "id": "conclude-ether-disproved",
+      "colleagueId": "nils-abrahamsen",
+      "claim": {
+        "en": "The ether does not exist, and this bench has settled the matter for good.",
+        "fr": "L’éther n’existe pas, et ce banc a réglé la question une fois pour toutes."
+      },
+      "limitation": {
+        "en": "None offered.",
+        "fr": "Aucune proposée."
+      },
+      "supportPredicate": {
+        "kind": "never"
+      }
+    },
+    {
+      "id": "conclude-instrument-broken",
+      "colleagueId": "harriet-lowe",
+      "claim": {
+        "en": "The readings are too small to mean anything, so the instrument must be at fault.",
+        "fr": "Les relevés sont trop faibles pour signifier quoi que ce soit ; l’instrument doit donc être en cause."
+      },
+      "limitation": {
+        "en": "Assumes a small result is an error rather than a finding.",
+        "fr": "Suppose qu’un résultat faible est une erreur plutôt qu’un constat."
+      },
+      "supportPredicate": {
+        "kind": "never"
+      }
+    }
+  ],
+  "rivalLab": {
+    "name": "The Cleveland bench",
+    "accentColor": "#a5573f",
+    "figure": {
+      "build": "suited",
+      "pose": "arms-folded",
+      "hair": "cropped",
+      "hairColor": "grey",
+      "skinTone": "light",
+      "moustache": true
+    },
+    "critiques": [
+      {
+        "id": "critique-bounded-null",
+        "proposalId": "conclude-bounded-null",
+        "line": {
+          "en": "Two orientations on one afternoon, and you call it a bound. Our own bench says otherwise on a colder day — bring us a year of turns and we will read them.",
+          "fr": "Deux orientations en un après-midi, et vous appelez cela une borne. Notre propre banc dit le contraire par temps froid : apportez-nous une année de tours et nous les lirons."
+        }
+      },
+      {
+        "id": "critique-thermal-confound",
+        "proposalId": "conclude-thermal-confound",
+        "line": {
+          "en": "Blaming the bath is convenient. It excuses every null result anyone ever failed to explain, including ours.",
+          "fr": "Accuser le bain est commode. Cela excuse tout résultat nul que quiconque n’a jamais su expliquer, y compris le nôtre."
+        }
+      },
+      {
+        "id": "critique-ether-disproved",
+        "proposalId": "conclude-ether-disproved",
+        "line": {
+          "en": "A single stone in a single room has settled nothing for good. That is a pamphlet, not a measurement.",
+          "fr": "Un seul bloc dans une seule salle n’a rien réglé définitivement. C’est un pamphlet, pas une mesure."
+        }
+      },
+      {
+        "id": "critique-instrument-broken",
+        "proposalId": "conclude-instrument-broken",
+        "line": {
+          "en": "Every experimenter who dislikes a number calls the instrument broken. Show us the fault, or keep the number.",
+          "fr": "Tout expérimentateur qui n’aime pas un nombre déclare l’instrument défectueux. Montrez-nous la panne, ou gardez le nombre."
+        }
+      }
+    ]
+  },
+  "consultationRules": [
+    {
+      "id": "consult-no-runs",
+      "predicate": {
+        "kind": "missing-run"
+      },
+      "layers": {
+        "observation": {
+          "en": "The notebook is empty.",
+          "fr": "Le carnet est vide."
+        },
+        "plainLanguage": {
+          "en": "Nothing has been measured yet, so there is nothing to compare.",
+          "fr": "Rien n’a encore été mesuré, il n’y a donc rien à comparer."
+        },
+        "technicalDetail": {
+          "en": "A claim about orientation needs at least one recorded displacement to rest on.",
+          "fr": "Une affirmation sur l’orientation doit reposer sur au moins un déplacement enregistré."
+        }
+      },
+      "nextStep": {
+        "en": "Start the light once and record what the fringes do.",
+        "fr": "Allumez la source une fois et notez ce que font les franges."
+      }
+    },
+    {
+      "id": "consult-unread-report",
+      "predicate": {
+        "kind": "missing-source",
+        "sourceId": "morley-miller-1907-reconstruction"
+      },
+      "layers": {
+        "observation": {
+          "en": "The later report has not been read.",
+          "fr": "Le rapport ultérieur n’a pas été lu."
+        },
+        "plainLanguage": {
+          "en": "It describes what went wrong the first time, which is worth knowing before repeating it.",
+          "fr": "Il décrit ce qui a mal tourné la première fois, ce qu’il vaut mieux savoir avant de recommencer."
+        },
+        "technicalDetail": {
+          "en": "It names the temperature difference across the arms as the dominant nuisance.",
+          "fr": "Il désigne la différence de température entre les bras comme la gêne dominante."
+        }
+      },
+      "nextStep": {
+        "en": "Read the later report before committing to a claim.",
+        "fr": "Lisez le rapport ultérieur avant de vous engager sur une affirmation."
+      }
+    },
+    {
+      "id": "consult-vary-bath",
+      "predicate": {
+        "kind": "alternative-test",
+        "controlId": "bathTempC"
+      },
+      "layers": {
+        "observation": {
+          "en": "The bath has been left where it was found.",
+          "fr": "Le bain a été laissé tel qu’on l’a trouvé."
+        },
+        "plainLanguage": {
+          "en": "If warmth moves the fringes, you need to know how much before trusting any turn.",
+          "fr": "Si la chaleur déplace les franges, il faut savoir de combien avant de se fier à un tour."
+        },
+        "technicalDetail": {
+          "en": "Hold the orientation and move the bath alone; whatever moves is not the orientation.",
+          "fr": "Maintenez l’orientation et ne changez que le bain ; ce qui bouge n’est pas l’orientation."
+        }
+      },
+      "nextStep": {
+        "en": "Take one observation at a different bath temperature.",
+        "fr": "Prenez une observation à une autre température de bain."
+      }
+    },
+    {
+      "id": "consult-no-limitation",
+      "predicate": {
+        "kind": "missing-limitation"
+      },
+      "layers": {
+        "observation": {
+          "en": "The draft states no limitation.",
+          "fr": "Le brouillon n’énonce aucune limite."
+        },
+        "plainLanguage": {
+          "en": "A result with no stated bound reads as a bigger claim than the evidence carries.",
+          "fr": "Un résultat sans limite énoncée se lit comme une affirmation plus large que ce que porte la preuve."
+        },
+        "technicalDetail": {
+          "en": "Name what this afternoon could not have detected, and the claim becomes defensible.",
+          "fr": "Nommez ce que cet après-midi n’aurait pas pu détecter, et l’affirmation devient défendable."
+        }
+      },
+      "nextStep": {
+        "en": "Write down one thing these observations could not have shown.",
+        "fr": "Notez une chose que ces observations n’auraient pas pu montrer."
+      }
+    }
+  ],
+  "peerReviewRules": [
+    {
+      "id": "peer-missing-evidence",
+      "predicate": {
+        "kind": "missing-evidence"
+      },
+      "feedback": {
+        "en": "The conclusion is not yet carried by the evidence pinned beside it.",
+        "fr": "La conclusion n’est pas encore portée par les preuves épinglées à côté."
+      },
+      "revisionPath": {
+        "en": "Pin the observations and the sources the claim actually rests on.",
+        "fr": "Épinglez les observations et les sources sur lesquelles l’affirmation repose réellement."
+      }
+    },
+    {
+      "id": "peer-unsupported-support",
+      "predicate": {
+        "kind": "unsupported-support"
+      },
+      "feedback": {
+        "en": "Some of the pinned material does not bear on the claim being made.",
+        "fr": "Une partie du matériel épinglé ne concerne pas l’affirmation avancée."
+      },
+      "revisionPath": {
+        "en": "Remove what the claim does not use, or say what it contributes.",
+        "fr": "Retirez ce que l’affirmation n’utilise pas, ou dites ce que cela apporte."
+      }
+    },
+    {
+      "id": "peer-overreach",
+      "predicate": {
+        "kind": "overreach",
+        "overreachPhrases": {
+          "en": [
+            "proves",
+            "settles it",
+            "once and for all",
+            "no doubt",
+            "disproved"
+          ],
+          "fr": [
+            "prouve",
+            "règle la question",
+            "une fois pour toutes",
+            "sans aucun doute",
+            "réfuté"
+          ]
+        }
+      },
+      "feedback": {
+        "en": "The wording claims more certainty than one afternoon of turns can support.",
+        "fr": "La formulation revendique plus de certitude qu’un après-midi de tours ne peut en soutenir."
+      },
+      "revisionPath": {
+        "en": "Say what was measured and within what bound, and let the reader draw the rest.",
+        "fr": "Dites ce qui a été mesuré et dans quelles limites, et laissez le lecteur en tirer le reste."
+      }
+    }
+  ],
+  "flow": {
+    "openingDispute": true,
+    "curatedRecord": true,
+    "labSetup": true,
+    "minimumExperimentCycles": 2,
+    "maximumExperimentCycles": 6,
+    "theoryBoardReview": true,
+    "historicalDebrief": true,
+    "optionalReplay": true
+  },
+  "autoSummary": {
+    "en": "Observations recorded: {runCount}. Distinct apparatus settings among them: {apparatusSettingCount}. Sources read: {sourceCount}. Sources named in this record: {sourceNames}. Conclusion versions recorded: {revisionCount}.",
+    "fr": "Observations enregistrées : {runCount}. Réglages distincts de l’appareillage parmi elles : {apparatusSettingCount}. Sources lues : {sourceCount}. Sources citées dans ce dossier : {sourceNames}. Versions de la conclusion enregistrées : {revisionCount}."
+  },
+  "scenarioScript": {
+    "scenes": [
+      {
+        "phase": "context",
+        "sceneKey": "Library",
+        "dialogueBeats": [
+          {
+            "id": "framing",
+            "speakerId": "harriet-lowe",
+            "text": {
+              "en": "Two papers, twenty years apart, and the same stubborn nearly-nothing in both. Read them before you touch the stone.",
+              "fr": "Deux articles, vingt ans d’écart, et le même presque-rien obstiné dans les deux. Lisez-les avant de toucher au bloc."
+            }
+          }
+        ]
+      },
+      {
+        "phase": "prediction",
+        "sceneKey": "Colleagues",
+        "dialogueBeats": [
+          {
+            "id": "framing",
+            "speakerId": "edith-vance",
+            "text": {
+              "en": "The stone turns, the light splits, the fringes do whatever they do. Say what you expect before we start.",
+              "fr": "Le bloc tourne, la lumière se sépare, les franges font ce qu’elles font. Dites ce que vous attendez avant de commencer."
+            }
+          },
+          {
+            "id": "commit",
+            "speakerId": "nils-abrahamsen",
+            "text": {
+              "en": "Commit to one of us now. It costs nothing to be wrong on the record and a great deal to be vague.",
+              "fr": "Engagez-vous maintenant pour l’un de nous. Se tromper par écrit ne coûte rien ; rester vague coûte cher."
+            }
+          }
+        ]
+      },
+      {
+        "phase": "experiment",
+        "sceneKey": "Laboratory",
+        "dialogueBeats": [
+          {
+            "id": "framing",
+            "speakerId": "tomas-reyes",
+            "text": {
+              "en": "Turn the stone, watch the bath, and write down both every time. One without the other tells you nothing.",
+              "fr": "Tournez le bloc, surveillez le bain, et notez les deux à chaque fois. L’un sans l’autre ne vous dit rien."
+            }
+          }
+        ]
+      },
+      {
+        "phase": "synthesis",
+        "sceneKey": "TheoryBoard",
+        "dialogueBeats": [
+          {
+            "id": "framing",
+            "speakerId": "harriet-lowe",
+            "text": {
+              "en": "Pin the two readings that could have disagreed, and tell me what the difference between them is worth.",
+              "fr": "Épinglez les deux relevés qui auraient pu diverger, et dites-moi ce que vaut leur écart."
+            }
+          }
+        ]
+      },
+      {
+        "phase": "review",
+        "sceneKey": "TheoryBoard",
+        "dialogueBeats": [
+          {
+            "id": "framing",
+            "speakerId": "nils-abrahamsen",
+            "text": {
+              "en": "Others will read this, and one of them will be looking for a reason to dismiss it. Give them none.",
+              "fr": "D’autres liront ceci, et l’un d’eux cherchera un motif de l’écarter. Ne lui en donnez aucun."
+            }
+          }
+        ]
+      },
+      {
+        "phase": "debrief",
+        "sceneKey": "Debrief",
+        "dialogueBeats": [
+          {
+            "id": "framing",
+            "speakerId": "edith-vance",
+            "text": {
+              "en": "A small number, honestly bounded, outlasted every confident one published beside it.",
+              "fr": "Un petit nombre, honnêtement borné, a survécu à tous les nombres assurés publiés à côté."
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "debrief": {
+    "summary": {
+      "en": "Both benches looked for a shift the ether demanded, and both found something far too small to be it. The interesting work was in showing that the warmth of the room had not swallowed it.",
+      "fr": "Les deux bancs ont cherché un décalage qu’exigeait l’éther, et tous deux ont trouvé quelque chose de bien trop faible pour l’être. Le travail intéressant a consisté à montrer que la chaleur de la salle ne l’avait pas absorbé."
+    },
+    "sourceRefs": [
+      "michelson-morley-1887-ajs",
+      "morley-miller-1907-report"
+    ],
+    "historicalComparison": {
+      "title": {
+        "en": "1887 and 1907, side by side",
+        "fr": "1887 et 1907, côte à côte"
+      },
+      "text": {
+        "en": "The later repetition was longer, more careful and far more numerous, and it moved the bound down rather than overturning it. That is what a null result looks like when it is being taken seriously.",
+        "fr": "La reprise ultérieure fut plus longue, plus soignée et bien plus nombreuse ; elle a abaissé la borne au lieu de la renverser. Voilà à quoi ressemble un résultat nul pris au sérieux."
+      },
+      "sourceIds": [
+        "michelson-morley-1887",
+        "morley-miller-1907-reconstruction"
+      ]
+    },
+    "deeperTheory": {
+      "title": {
+        "en": "What a bounded null is worth",
+        "fr": "Ce que vaut un nul borné"
+      },
+      "text": {
+        "en": "A measurement that finds nothing, with a stated bound on how much nothing, constrains every theory that predicted something. That is why these two papers outlived the ether they were built to detect.",
+        "fr": "Une mesure qui ne trouve rien, assortie d’une borne énoncée sur l’ampleur de ce rien, contraint toute théorie qui prédisait quelque chose. C’est pourquoi ces deux articles ont survécu à l’éther qu’ils devaient détecter."
+      }
+    },
+    "replayLabel": {
+      "en": "Run the afternoon again",
+      "fr": "Refaire l’après-midi"
+    }
+  },
+  "assets": {
+    "manifestVersion": "1.0.0",
+    "entries": [
+      {
+        "id": "quantique-logo",
+        "type": "image",
+        "path": "/assets/logo.png"
+      }
+    ]
+  }
+}

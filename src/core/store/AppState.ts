@@ -17,6 +17,7 @@ import { selectDefensibleConclusionIds } from '../../domain/theory/conclusionPro
 import { deriveRecognition, type RecognitionState } from '../../domain/recognition/recognitionRules';
 import { validateCaseRecordForDefinition, type CaseRecord } from '../../schemas/CaseRecordSchema';
 import type { AppAction } from './AppAction';
+import { resolveExperimentModel } from '../../domain/apparatus/experimentModels';
 
 export type ComparisonNote = Readonly<{
     runIds: readonly [string, string];
@@ -305,20 +306,27 @@ const reduceRecordRun = (state: AppState, record: RunRecord): Result<AppState> =
     if (validated.value.caseId !== state.caseDefinition.id) {
         return failure('run-case-mismatch', 'That observation belongs to a different investigation.');
     }
+    // Definition-driven (Story 3.1): every authored control the case has, compared against the bench.
+    // This used to name Young's two controls twice over, which meant a third authored control was
+    // simply not checked — a run could have been recorded at a bench setting it was never taken at.
+    //
+    // **Hoisted out of the `modelInputs` branch (Story 3.2).** Both of these are claims about the *run*,
+    // not about Young's optical inputs: that it was taken at the bench as it now stands, and that this
+    // build's model produced it. Inside the branch they applied only to runs carrying `YoungModelInputs`,
+    // so a case recording none — which is every case but Young — was validated strictly *less* than
+    // Young was. A no-op for Young (whose runs always carry them) and a strengthening for everyone else.
+    const matchesBench = state.caseDefinition.apparatus.primaryControls.every((control) =>
+        validated.value.controls[control.id] === state.activeControlValues[control.id]);
+    if (validated.value.experimentModelVersion !== state.caseDefinition.experiment.modelVersion || !matchesBench) {
+        return failure('mismatched-experiment-record', 'The observation does not match the current validated experiment setup.');
+    }
     if (validated.value.modelInputs) {
-        // Definition-driven (Story 3.1): every authored control the case has, compared against the bench.
-        // This used to name Young's two controls twice over, which meant a third authored control was
-        // simply not checked — a run could have been recorded at a bench setting it was never taken at.
-        const matchesBench = state.caseDefinition.apparatus.primaryControls.every((control) =>
-            validated.value.controls[control.id] === state.activeControlValues[control.id]);
         // The model inputs are compared against the *run's own controls* rather than against the bench.
         // `YoungModelInputs` names `slitSpacingMm`/`screenDistanceM` in its own type, so those two reads
         // are the Young model's shape and not the control set's; and with `matchesBench` above holding,
         // "the model was fed this run's controls" is the same guarantee stated where it belongs.
         // `CaseRecordSchema` already validates completion runs exactly this way.
-        if (validated.value.experimentModelVersion !== state.caseDefinition.experiment.modelVersion
-            || !matchesBench
-            || validated.value.modelInputs.slitSpacingMm !== validated.value.controls.slitSpacingMm
+        if (validated.value.modelInputs.slitSpacingMm !== validated.value.controls.slitSpacingMm
             || validated.value.modelInputs.screenDistanceM !== validated.value.controls.screenDistanceM
             || validated.value.modelInputs.wavelengthNm !== state.selectedWavelengthNm
             || validated.value.modelInputs.wavelengthMode !== state.selectedWavelengthMode) {
@@ -383,22 +391,24 @@ const reduceExperimentRun = (state: AppState, action: Extract<AppAction, { type:
                 || !isAdvancedWavelengthUnlocked(state.caseDefinition, state.runs)))) {
         return failure('advanced-wavelength-locked', 'Record the required fixed-baseline observations before using the optional wavelength comparison.');
     }
-    const result = calculateYoungFringeSpacing({
-        slitSpacingMm: state.activeControlValues.slitSpacingMm,
-        screenDistanceM: state.activeControlValues.screenDistanceM,
-        wavelengthNm: state.selectedWavelengthNm
-    });
+    // The *case's* model, not Young's (Story 3.2). This read used to be two written-down control names,
+    // which for any other apparatus resolved to `undefined` and refused the run with Young's voice.
+    // `undefined` here is unreachable from a loaded definition — `CaseDefinitionSchema` refuses an
+    // unimplemented `modelId` at load — and is stated rather than assumed.
+    const model = resolveExperimentModel(state.caseDefinition.experiment.modelId);
+    if (!model) {
+        return failure('unknown-experiment-model', 'This investigation names an apparatus model this build cannot run.');
+    }
+    const session = { selectedWavelengthNm: state.selectedWavelengthNm, selectedWavelengthMode: state.selectedWavelengthMode };
+    const result = model.bind(session)(state.activeControlValues);
     if (!result.ok) return result;
     const record = createRunRecord({
         id: action.id,
         caseId: state.caseDefinition.id,
         controls: state.activeControlValues,
-        modelInputs: {
-            slitSpacingMm: state.activeControlValues.slitSpacingMm,
-            screenDistanceM: state.activeControlValues.screenDistanceM,
-            wavelengthNm: state.selectedWavelengthNm,
-            wavelengthMode: state.selectedWavelengthMode
-        },
+        // Authored by the model that has them, omitted by the model that does not — so a run without
+        // Young's optical inputs is a first-class observation rather than an incomplete one (D4).
+        ...(model.recordInputs ? { modelInputs: model.recordInputs(session, state.activeControlValues) } : {}),
         result: result.value,
         timestamp: action.timestamp,
         experimentModelVersion: state.caseDefinition.experiment.modelVersion,

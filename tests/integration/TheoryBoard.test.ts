@@ -44,7 +44,7 @@ const definition = {
     contextualArtifacts: [
         { id: 'source-1', displayName: 'First source', creatorOrOrigin: 'Archive', sourceType: 'lecture-record', provenance: { category: 'primary-material', reference: 'first' }, rightsStatus: 'reviewed', caseRelationship: 'Evidence.' },
         { id: 'source-2', displayName: 'Second source', creatorOrOrigin: 'Archive', sourceType: 'published-book', provenance: { category: 'primary-material', reference: 'second' }, rightsStatus: 'reviewed', caseRelationship: 'Evidence.' }
-    ], experiment: { modelVersion: 'young-observation-v1' }
+    ], experiment: { modelId: 'young-double-slit', modelVersion: 'young-observation-v1' }
 } as CaseDefinition;
 
 describe('theory board public projection', () => {

@@ -56,6 +56,7 @@ import {
 } from './apparatusGeometry';
 import { SingleKeyDelivery } from './singleKeyDelivery';
 import { TransientMessageSlot } from './transientMessage';
+import { resolveExperimentModel } from '../../../domain/apparatus/experimentModels';
 
 /**
  * The bench notebook (Story 2.10, AC8): every saved observation, readable in-scene, with any two
@@ -429,14 +430,18 @@ export class NotebookRenderer {
      */
     private settingsLine(state: AppState, t: Translator, record: RunRecord): string {
         const locale = selectLocale(state);
+        // **Composed from the case's own authored controls (Story 3.2).** The two ids were Young's,
+        // written down here because `notebook.row.settings` had two authored slots — so the prototype's
+        // notebook printed `slitSpacingMm —` beside `screenDistanceM —` for every observation it held.
+        // Assigned to this story by the 3.1 review (`deferred-work.md`), and closed by making the row a
+        // list over the apparatus rather than a sentence about two named quantities.
+        //
         // `findPrimaryControl`, not `selectPrimaryControl`: the latter **throws** on an id the case does
         // not author, and this runs inside `render()` — inside `dispatch() → notify()`, where a throw
         // advances the phase, skips every later subscriber and strands the router with no visible error
-        // (the 1.10 failure mode). The two ids below are Young's, written down here because
-        // `notebook.row.settings` has two authored slots; a second case needs its own authored row, which
-        // is Story 3.2's work. Until then the row degrades to the canonical number instead of taking the
-        // scene down — the same fallback `CaseFilePresenter.observationDetail` already applies.
-        const readout = (controlId: 'slitSpacingMm' | 'screenDistanceM'): string => {
+        // (the 1.10 failure mode). A run restored against a changed `case.json` still degrades to the
+        // canonical number rather than taking the scene down.
+        const readout = (controlId: string): string => {
             const control = findPrimaryControl(state, controlId);
             const recorded = record.controls[controlId];
             if (!control || !Number.isFinite(recorded)) {
@@ -450,10 +455,9 @@ export class NotebookRenderer {
                 value: formatMeasurement(locale, recorded, decimalPlaces(control.step), control.unit)
             });
         };
-        return t('notebook.row.settings', {
-            slitSpacing: readout('slitSpacingMm'),
-            screenDistance: readout('screenDistanceM')
-        });
+        return state.caseDefinition.apparatus.primaryControls
+            .map(({ id }) => readout(id))
+            .join(t('notebook.row.settingsSeparator'));
     }
 
     /**
@@ -471,8 +475,15 @@ export class NotebookRenderer {
      */
     private metaLine(state: AppState, t: Translator, record: RunRecord): string {
         const locale = selectLocale(state);
+        // Localized by the *model's* declared key (Story 3.2), not by whether the run carries Young's
+        // optical inputs: a case whose model records none still has a name for what it measured, and
+        // reading `record.result.label` there put canonical English on a French row — the split this
+        // docstring already describes, applied to the second case it was written before.
+        const model = resolveExperimentModel(state.caseDefinition.experiment.modelId);
         const result = t('notebook.row.result', {
-            label: record.modelInputs ? t('experiment.result.fringeSpacing') : record.result.label,
+            label: model && record.experimentModelVersion === state.caseDefinition.experiment.modelVersion
+                ? t(model.resultLabelKey)
+                : record.result.label,
             value: formatRecordedValue(locale, record.result.value, record.result.unit)
         });
         if (!record.modelInputs) return result;

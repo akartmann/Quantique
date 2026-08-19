@@ -42,7 +42,7 @@ const definition = {
         { id: 'source-1', displayName: 'Source one', creatorOrOrigin: 'Archive', sourceType: 'lecture-record', provenance: { category: 'primary-material', reference: 'one' }, rightsStatus: 'reviewed', caseRelationship: 'Evidence.' },
         { id: 'source-2', displayName: 'Source two', creatorOrOrigin: 'Archive', sourceType: 'published-book', provenance: { category: 'primary-material', reference: 'two' }, rightsStatus: 'reviewed', caseRelationship: 'Evidence.' }
     ],
-    experiment: { modelVersion: 'young-observation-v1' }
+    experiment: { modelId: 'young-double-slit', modelVersion: 'young-observation-v1' }
 } as CaseDefinition;
 
 /** @param screenDistanceM Varied so a pair of runs can be *significant*, not merely two. */

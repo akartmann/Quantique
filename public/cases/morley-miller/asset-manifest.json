@@ -1,0 +1,10 @@
+{
+  "manifestVersion": "1.0.0",
+  "entries": [
+    {
+      "id": "quantique-logo",
+      "type": "image",
+      "path": "/assets/logo.png"
+    }
+  ]
+}

@@ -7,6 +7,12 @@ export type YoungFringeSpacingInputs = Readonly<{
     slitSpacingMm: number;
 }>;
 
+/**
+ * The authored control IDs this model reads, stated once so `experimentModels.ts` can check a case's
+ * apparatus against them at load rather than discovering an `undefined` at the moment of a run.
+ */
+export const YOUNG_CONTROL_IDS = ['slitSpacingMm', 'screenDistanceM'] as const;
+
 const DISPLAY_DECIMAL_PLACES = 4;
 
 const roundForStoredDisplay = (value: number): number => Number(value.toFixed(DISPLAY_DECIMAL_PLACES));

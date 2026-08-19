@@ -39,6 +39,7 @@ const localLectureRendition = (sectionId = 'young-bakerian-page-12'): TextualRen
 const validYoungCase: CaseDefinition = {
     id: 'young-interference',
     version: '1.0.0',
+    title: bilingual('Young interference — the optical bench'),
     openingDispute: bilingual('Does light travel as particles, waves, or something more subtle?'),
     contextualArtifacts: [
         {
@@ -70,6 +71,7 @@ const validYoungCase: CaseDefinition = {
         ]
     },
     experiment: {
+        modelId: 'young-double-slit',
         modelVersion: 'young-double-slit-v1',
         wavelengthNm: 550,
         assumptions: bilingualList(['The light is monochromatic.', 'The slit openings are narrow and identical.']),
@@ -238,6 +240,10 @@ const cloneSecondCase = (): CaseDefinition => {
     delete experiment.wavelengthNm;
     delete experiment.wavelengthComparison;
     experiment.modelVersion = 'morley-drift-v1';
+    // Its own model, and one whose `requiredControlIds` are the two authored above: the schema pairs
+    // model to apparatus, so leaving Young's `modelId` here would now fail on the controls rather than
+    // on the ID — which is the check working.
+    experiment.modelId = 'morley-miller-interferometer';
 
     definition.requirements = { minimumRuns: 3, minimumSources: 2, minimumSignificantRuns: 2 };
     definition.flow = { ...(definition.flow as Record<string, unknown>), minimumExperimentCycles: 2, maximumExperimentCycles: 6 };
@@ -1320,7 +1326,16 @@ describe('a second case', () => {
         expect(parsed.data.flow.maximumExperimentCycles).toBe(6);
     });
 
-    it('accepts a single authored control', () => {
+    /**
+     * The `.min(1)` end of `primaryControls` is still open — and the only thing standing between a
+     * one-control apparatus and a valid case is that no model this build implements reads one control.
+     *
+     * Asserted as two separate facts rather than one `success: true`, because Story 3.2 made the model
+     * and the apparatus a *pair*: a one-control case is valid content the moment it declares a
+     * one-control model, and until then this combination is rejected — at the apparatus's own path, at
+     * load, rather than as a refused run in front of a player.
+     */
+    it('leaves the single-control shape open, and rejects it only for the model it cannot feed', () => {
         const definition = cloneSecondCase() as unknown as Record<string, unknown>;
         const controls = (definition.apparatus as { primaryControls: Array<{ id: string }> }).primaryControls;
         (definition.apparatus as { primaryControls: unknown }).primaryControls = [controls[0]];
@@ -1332,7 +1347,15 @@ describe('a second case', () => {
             proposal.supportPredicate = replaceControlId(proposal.supportPredicate, 'rotationDeg');
         });
 
-        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+        expect(parsed.success).toBe(false);
+        const issues = parsed.success ? [] : parsed.error.issues;
+        // The array length itself is not the objection: nothing complains that one control is too few.
+        expect(issues.some(({ code }) => code === 'too_small')).toBe(false);
+        expect(issues).toEqual([expect.objectContaining({
+            message: 'The morley-miller-interferometer model reads bathTempC, which this apparatus does not author.',
+            path: ['apparatus', 'primaryControls']
+        })]);
     });
 
     it.each([

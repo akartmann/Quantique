@@ -38,7 +38,7 @@ const definition = {
         { id: 'slitSpacingMm', label: 'Spacing', unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
         { id: 'screenDistanceM', label: 'Distance', unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
     ] },
-    experiment: { modelVersion: 'young-v1' }
+    experiment: { modelId: 'young-double-slit', modelVersion: 'young-v1' }
 } as CaseDefinition;
 
 const record = (id: string, screenDistanceM: number) => {
@@ -64,6 +64,10 @@ describe('inquiry recognition store projection', () => {
         store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
         store.dispatch({ type: 'run.record', record: record('run-1', 2) });
         store.dispatch({ type: 'run.record', record: record('run-2', 2) });
+        // `run-3` varies the screen distance, so the bench varies with it. Since Story 3.2 the
+        // bench-match check applies to every run rather than only to runs carrying Young's model
+        // inputs — which is what `variable-curiosity` is recognising in the first place.
+        store.dispatch({ type: 'apparatus.controlSet', controlId: 'screenDistanceM', value: 3, origin: 'dom' });
         store.dispatch({ type: 'run.record', record: record('run-3', 3) });
 
         expect(selectRecognition(store.getState()).items.map(({ id, achieved }) => [id, achieved])).toEqual([

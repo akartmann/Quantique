@@ -286,10 +286,16 @@ const WRAPPED_SURFACES = [
     { key: 'lab.result.emptyHint', font: UI_FONT_STACK, fontSize: 19, wrapWidth: BENCH_MESSAGE_WRAP },
     { key: 'lab.result.recorded', font: UI_FONT_STACK, fontSize: 19, wrapWidth: BENCH_MESSAGE_WRAP },
     { key: 'lab.result.stale', font: UI_FONT_STACK, fontSize: 19, wrapWidth: BENCH_MESSAGE_WRAP },
+    // The wavelength-free readout, for a case whose model records no optical inputs (Story 3.2).
+    { key: 'lab.result.recordedPlain', font: UI_FONT_STACK, fontSize: 19, wrapWidth: BENCH_MESSAGE_WRAP },
     // `lab.preview` became `lab.idle` in Story 2.10: the painted fringe preview it promised is gone —
     // AC4 forbids a screen pattern before a run — and the sentence is now the in-scene invitation to
     // start the light.
     { key: 'lab.idle', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 620 },
+    // One per authored control, composed into `lab.idle` and into the notebook row (Story 3.2). The
+    // sentence used to name Young's two quantities in its own template; the settings are now a list
+    // over `apparatus.primaryControls`, so the fragment is what carries a bound rather than the sentence.
+    { key: 'lab.idle.setting', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 620 },
     { key: 'lab.running', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 620 },
     { key: 'lab.pattern.recorded', font: UI_FONT_STACK, fontSize: 13, wrapWidth: 620 },
     // The readout is bounded by its **instrument's slot**, not by the bench: one wrapped at the bench's
@@ -305,7 +311,7 @@ const WRAPPED_SURFACES = [
     { key: 'notebook.guide', font: UI_FONT_STACK, fontSize: NOTEBOOK_GUIDE_FONT_SIZE, wrapWidth: NOTEBOOK_PANEL_WIDTH - (2 * NOTEBOOK_PADDING) },
     { key: 'notebook.empty', font: UI_FONT_STACK, fontSize: NOTEBOOK_GUIDE_FONT_SIZE, wrapWidth: NOTEBOOK_PANEL_WIDTH - (2 * NOTEBOOK_PADDING) },
     { key: 'notebook.observation', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_FONT_SIZE, wrapWidth: NOTEBOOK_ROW_TEXT_WRAP },
-    { key: 'notebook.row.settings', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_FONT_SIZE, wrapWidth: NOTEBOOK_ROW_TEXT_WRAP },
+    { key: 'notebook.row.settingsSeparator', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_FONT_SIZE, wrapWidth: NOTEBOOK_ROW_TEXT_WRAP },
     { key: 'notebook.row.result', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_META_FONT_SIZE, wrapWidth: NOTEBOOK_ROW_TEXT_WRAP },
     { key: 'notebook.row.meta', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_META_FONT_SIZE, wrapWidth: NOTEBOOK_ROW_TEXT_WRAP },
     { key: 'notebook.note.label', font: UI_FONT_STACK, fontSize: NOTEBOOK_GUIDE_FONT_SIZE, wrapWidth: NOTEBOOK_NOTE_TEXT_WRAP },
@@ -529,15 +535,19 @@ const WAVELENGTH_SAMPLE = Math.max(
     ...(caseDefinition.experiment.wavelengthComparison?.advancedChoicesNm ?? [])
 );
 
-/** One control readout as the notebook's settings row actually composes it, at its longest. */
-const notebookReadout = (value: string): string =>
-    fr['lab.control.readout'].replace('{label}', CONTROL_LABEL).replace('{value}', value);
+// `notebookReadout` lived here until Story 3.2. The settings row no longer has a template of its own:
+// it is one `lab.control.readout` per authored control joined by `notebook.row.settingsSeparator`, and
+// both of those are swept above at this surface's own size — so the composed row's widest token is
+// already measured, by the entry that owns it.
 
 const SAMPLE_PARAMS: Readonly<Record<string, Readonly<Record<string, string | number>>>> = {
     'lab.result.recorded': { value: SPACING, wavelength: 550, mode: fr['lab.wavelengthMode.minimum'] },
     'lab.result.stale': { value: SPACING },
-    'lab.idle': { slitSpacing: '0,25 mm', screenDistance: '2,50 m' },
-    'lab.pattern.recorded': { spacing: SPACING },
+    // The composed settings clause, at the widest authored control this case carries — the same shape
+    // `ApparatusRenderer` builds from `apparatus.primaryControls`.
+    'lab.idle': { settings: `${CONTROL_LABEL} : 0,25 mm` },
+    'lab.idle.setting': { value: '0,25 mm', label: CONTROL_LABEL },
+    'lab.pattern.recorded': { label: fr['experiment.result.fringeSpacing'], value: SPACING },
     'lab.control.readout': { label: CONTROL_LABEL, value: '0,25 mm' },
     'lab.wavelength.fixed': { value: WAVELENGTH_SAMPLE },
     'lab.wavelength.comparison': { value: WAVELENGTH_SAMPLE },
@@ -547,10 +557,7 @@ const SAMPLE_PARAMS: Readonly<Record<string, Readonly<Record<string, string | nu
     // that says nothing — the same trap the wavelength choices are filled for above.
     'conclusion.missing.minimum-runs': { count: 2 },
     'conclusion.missing.minimum-sources': { count: 2 },
-    'notebook.row.settings': {
-        slitSpacing: notebookReadout('0,25 mm'),
-        screenDistance: notebookReadout('4,00 m')
-    },
+    'lab.result.recordedPlain': { label: fr['experiment.result.fringeDisplacement'], value: SPACING },
     // The localized label, because a model-derived run gets one — `CaseRecordPrintView` makes the
     // same substitution, and it is the string a French player actually reads on this row.
     'notebook.row.result': { label: fr['experiment.result.fringeSpacing'], value: SPACING },

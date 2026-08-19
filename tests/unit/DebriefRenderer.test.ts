@@ -63,7 +63,7 @@ const definition = {
     ],
     consultationRules: [],
     peerReviewRules: [],
-    experiment: { modelVersion: 'young-double-slit-v1', wavelengthComparison: { fixedMinimumPathNm: 550, advancedChoicesNm: [450, 650] } },
+    experiment: { modelId: 'young-double-slit', modelVersion: 'young-double-slit-v1', wavelengthComparison: { fixedMinimumPathNm: 550, advancedChoicesNm: [450, 650] } },
     rivalLab: {
         name: 'Mr. Arthur Bell',
         accentColor: '#8c3b3b',

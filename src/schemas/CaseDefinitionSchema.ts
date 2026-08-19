@@ -4,6 +4,7 @@ import { DEFAULT_LOCALE, LOCALES } from '../core/i18n/Locale';
 import { CASE_PHASES } from '../domain/cases/CaseProgress';
 import { unfillableTemplateTokens } from '../domain/evidence/caseSummary';
 import { SCENE_KEYS } from '../domain/cases/ScenarioScript';
+import { EXPERIMENT_MODEL_IDS, resolveExperimentModel } from '../domain/apparatus/experimentModels';
 
 const stableId = z.string().trim().min(1);
 const sourceRef = z.string().trim().min(1);
@@ -28,6 +29,19 @@ export const CaseIdSchema = z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/
  * assert the branch fires for it and does not fire for anything else, rather than repeating the string.
  */
 export const YOUNG_CASE_ID = 'young-interference';
+
+/** The Morley–Miller prototype's ID (Story 3.2). Real content under `public/cases/`, not a fixture. */
+export const MORLEY_MILLER_CASE_ID = 'morley-miller';
+
+/**
+ * Every case this build ships, and the allowlist the review route resolves `?case=` against.
+ *
+ * An allowlist rather than a passthrough: `loadCaseDefinition` builds a `contentPath` from the ID it is
+ * given, so a reviewer-supplied string reaching it would be a fetch composed from user input. Nothing
+ * here is campaign order — Story 4.1 owns that, and FR2 puts Morley–Miller *before* Young — and nothing
+ * here is a picker. It is the set of IDs that name a directory under `public/cases/`.
+ */
+export const KNOWN_CASE_IDS = [YOUNG_CASE_ID, MORLEY_MILLER_CASE_ID] as const;
 
 /**
  * The most primary controls a case may author, and the reason it is a schema rule rather than a
@@ -583,6 +597,14 @@ export const AssetManifestSchema = z.object({
 export const CaseDefinitionSchema = z.object({
     id: CaseIdSchema,
     version: z.string().trim().min(1),
+    /**
+     * The investigation's own name, shown by the laboratory in place of a hard-coded interface string.
+     *
+     * Authored rather than translated, because a case's title is content: the bench used to read
+     * `lab.title` — "Young interference — the optical bench" — for whatever case was loaded.
+     * `encodesPath` applies to it like every other authored string.
+     */
+    title: LocalizedTextSchema,
     openingDispute: LocalizedTextSchema,
     // FR4 requires *two* contextual artifacts before a prediction. An array rather than a 2-tuple so
     // the count is authored rather than structural — but bounded above as well as below, because the
@@ -595,6 +617,16 @@ export const CaseDefinitionSchema = z.object({
     // ceiling stays 2 for the bench-geometry reason recorded on {@link MAX_PRIMARY_CONTROLS}.
     apparatus: z.object({ primaryControls: z.array(PrimaryControlSchema).min(1).max(MAX_PRIMARY_CONTROLS) }).strict(),
     experiment: z.object({
+        /**
+         * Which implemented deterministic model this case's bench runs (Story 3.2).
+         *
+         * A `stableId` refined against {@link EXPERIMENT_MODEL_IDS} rather than a `z.enum`, so the
+         * rejection carries an authored message naming the offending path and the models that do exist.
+         * Required of every case, and validated here rather than at run time on purpose: a case naming a
+         * model this build cannot run is content that leaves a gate unsatisfiable, and the player would
+         * otherwise meet it as a refusal at the moment they press start.
+         */
+        modelId: stableId,
         modelVersion: z.string().trim().min(1),
         // Optional at the shared shape and required for Young in the case-scoped refinement below: a
         // case whose apparatus is a rotating interferometer or a flying clock has no wavelength, and
@@ -692,6 +724,40 @@ export const CaseDefinitionSchema = z.object({
         context.addIssue({ code: 'custom', message: 'Primary control IDs must be stable and unique.', path: ['apparatus', 'primaryControls'] });
     }
 
+    // --- The declared experiment model (Story 3.2) --------------------------------------------------
+    //
+    // Two rules, both at load, both about content that would otherwise fail in front of a player.
+    //
+    // The first: a `modelId` this build does not implement. `reduceExperimentRun` resolves the model on
+    // every run, so an unknown ID would refuse the bench for the whole case with a message about the
+    // *build* — the shape of "no authored content may leave a gate unsatisfiable" applied to the model.
+    //
+    // The second: a model fed controls the case does not author. Every model reads its inputs by
+    // authored control ID, and a missing one resolves to `undefined` — which is precisely wall 1, one
+    // layer down. Naming the model's own required IDs is what makes the pairing a load-time claim rather
+    // than a convention two files apart happen to keep.
+    const model = resolveExperimentModel(definition.experiment.modelId);
+    if (!model) {
+        context.addIssue({
+            code: 'custom',
+            message: `An experiment model must be one this build implements: ${EXPERIMENT_MODEL_IDS.join(', ')}.`,
+            path: ['experiment', 'modelId']
+        });
+    } else {
+        const missingControlIds = model.requiredControlIds.filter((controlId) => !controls[controlId]);
+        if (missingControlIds.length > 0) {
+            context.addIssue({
+                code: 'custom',
+                message: `The ${model.id} model reads ${missingControlIds.join(', ')}, which this apparatus does not author.`,
+                path: ['apparatus', 'primaryControls']
+            });
+        }
+    }
+
+    if (encodesPath(definition.title)) {
+        context.addIssue({ code: 'custom', message: 'The case title must not encode a scene, route, or phase path.', path: ['title'] });
+    }
+
     if (definition.flow.minimumExperimentCycles > definition.flow.maximumExperimentCycles) {
         context.addIssue({
             code: 'custom',
@@ -732,6 +798,13 @@ export const CaseDefinitionSchema = z.object({
         // (`wavelengthComparison?.advancedChoicesNm ?? []`), so requiring it here would tighten the
         // contract rather than preserve it — and would reject Young content that has always been valid.
         // Story 3.1 re-states the guarantees it removes; it does not add new ones.
+        // The optical model is Young's by name, pinned here beside its fixed wavelength: the two are one
+        // claim about this apparatus, and a Young case running the interferometer would be nonsense that
+        // the shared shape has no way to see.
+        if (definition.experiment.modelId !== 'young-double-slit') {
+            context.addIssue({ code: 'custom', message: 'The Young case runs the young-double-slit model.', path: ['experiment', 'modelId'] });
+        }
+
         if (definition.experiment.wavelengthNm !== 550) {
             context.addIssue({ code: 'custom', message: 'The Young case runs at a fixed 550 nm.', path: ['experiment', 'wavelengthNm'] });
         }

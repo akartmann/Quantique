@@ -11,6 +11,7 @@ import StartGame from './game/main';
 import { createBootShell, getBootFailureMessage, setBootShellStatus } from './ui/BootShell';
 import { mountCaseRecordPrintView } from './ui/print/CaseRecordPrintView';
 import { mountValidationSessionDisclosure } from './ui/ValidationSessionDisclosure';
+import { resolveCaseId } from './adapters/content/resolveCaseId';
 
 /**
  * The four roots this application still needs, and what each is for.
@@ -51,7 +52,9 @@ const reportMissingRoots = (missing: readonly string[], locale: ReturnType<typeo
 };
 
 const initializeLaboratory = async (): Promise<void> => {
-    const validationMode = new URLSearchParams(window.location.search).get('mode') === 'validation';
+    const search = new URLSearchParams(window.location.search);
+    const validationMode = search.get('mode') === 'validation';
+    const caseId = resolveCaseId(search);
     // This does not depend on any document root, so even a loud boot failure speaks the browser language.
     const locale = resolveBrowserLocale();
     const roots = Object.fromEntries(
@@ -82,7 +85,7 @@ const initializeLaboratory = async (): Promise<void> => {
     if (validationMode) mountValidationSessionDisclosure(validationDisclosureRoot, locale);
     void registerOfflineCache();
 
-    const caseResult = await loadCaseDefinition('young-interference');
+    const caseResult = await loadCaseDefinition(caseId);
     if (!caseResult.ok) {
         // Localized by the stable error code, not by re-raising the dev-facing message (NFR18).
         setBootShellStatus(translateError(locale, caseResult.error));

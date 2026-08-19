@@ -9,6 +9,7 @@ import {
 } from '../../core/store/selectors';
 import type { AppState } from '../../core/store/AppState';
 import { composeCaseSummary } from '../../domain/evidence/caseSummary';
+import { resolveExperimentModel } from '../../domain/apparatus/experimentModels';
 import { CANONICAL_UNAVAILABLE_MESSAGE, type PeerReviewProjection } from '../../domain/review/peerReviewRules';
 
 const term = (label: string, value: string): HTMLDivElement => {
@@ -69,6 +70,7 @@ export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): ((
         const observations = document.createElement('section');
         const observationsHeading = document.createElement('h3'); observationsHeading.textContent = t('print.observations.heading');
         const observationList = document.createElement('ol');
+        const runModel = resolveExperimentModel(state.caseDefinition.experiment.modelId);
         selectNotebookObservations(state).forEach((run, index) => {
             const inputs = run.modelInputs
                 ? t('print.observations.inputs', {
@@ -77,16 +79,30 @@ export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): ((
                     screenDistance: formatRecordedValue(locale, run.modelInputs.screenDistanceM, 'm'),
                     slitSpacing: formatRecordedValue(locale, run.modelInputs.slitSpacingMm, 'mm')
                 })
-                : t('print.observations.preModel');
+                // **The run's own apparatus settings, for a model that records no optical inputs.**
+                // This read `print.observations.preModel` — "not treated as a physical Young
+                // measurement" — which for a case whose model records none was printed over *every*
+                // observation the player made, in the record they take away (Story 3.2). Composed from
+                // the case's authored controls, so it describes the bench that was actually used.
+                : t('print.observations.settings', {
+                    settings: state.caseDefinition.apparatus.primaryControls
+                        .map((control) => t('lab.idle.setting', {
+                            value: formatRecordedValue(locale, run.controls[control.id] ?? Number.NaN, control.unit),
+                            label: resolveLocalizedText(control.label, locale)
+                        }))
+                        .join(t('list.separator'))
+                });
             observationList.append(listItem(t('print.observations.item', {
                 index: index + 1,
-                // The stored `result.label` stays canonical English so saved runs revalidate, and a
-                // Young run always carries the same one — so that measurement localizes by key.
-                // A pre-model observation (`modelInputs` is optional in `RunRecordSchema`) is *not*
-                // that measurement, and printing it as "fringe spacing" would contradict the
-                // "not treated as a physical Young measurement" line beside it. Its canonical label
-                // is shown as-is rather than mislabelled.
-                label: run.modelInputs ? t('experiment.result.fringeSpacing') : run.result.label,
+                // The stored `result.label` stays canonical English so saved runs revalidate, so it is
+                // localized by the *model's* declared key rather than shown as-is (Story 3.2). Young
+                // already did this for its one label; stating the key on the model generalises it to a
+                // case whose observations would otherwise print English prose in a French record.
+                // A run this case's model did not produce keeps its own canonical label, which is the
+                // honest rendering of a reading whose provenance is something else.
+                label: runModel && run.experimentModelVersion === state.caseDefinition.experiment.modelVersion
+                    ? t(runModel.resultLabelKey)
+                    : run.result.label,
                 value: formatRecordedValue(locale, run.result.value, run.result.unit),
                 timestamp: run.timestamp,
                 model: run.experimentModelVersion,
