@@ -1,0 +1,486 @@
+<!--
+  Story context engineered 2026-08-19 against:
+    - _bmad-output/planning-artifacts/epics.md §Epic 3 / Story 3.4 (including the 2026-08-06 amendment)
+    - _bmad-output/project-context.md revision 2.6 (READ IT — see Dev Notes §0)
+    - _bmad-output/planning-artifacts/sprint-change-proposal-2026-08-06.md §4.1.9, §4.3.2, §4.3.4
+    - the shipped source at HEAD 9ddb45a ("Review 3.3")
+  Every file:line in this document was read, not inferred.
+-->
+
+# Story 3.4: Scenario and proposal authoring contract
+
+Status: ready-for-dev
+
+## Story
+
+As a content author,
+I want to author a case's scenario script, colleague cast, and proposal sets as validated data,
+so that new cases become guided adventures without touching engine code.
+
+## Acceptance Criteria
+
+### AC1 — The authoring contract is stated, complete, and provably enforced
+
+**Given** the hardened case contract,
+**When** an author defines a case,
+**Then** they can specify a `scenarioScript` (ordered scenes and dialogue beats), a `colleagues[]` cast, four `predictionProposals[]`, four `conclusionProposals[]` with support predicates, a `significanceRule`, and `rivalLabCritiques[]` — all as versioned JSON,
+**And** Zod validates each field and rejects an incomplete scenario before domain logic.
+
+> **Almost all of this already ships.** See Dev Notes §3. The deliverable for AC1 is **not new schema** — it is a written, tested inventory that maps each of the six named field groups to the schema that shapes it and the refinements that enforce it, so that a future author (and a future reviewer) can find the rule rather than rediscover it. Any gap the inventory exposes is in scope; any field already enforced is documented, not rebuilt.
+
+### AC2 — A scene may author who is in the room
+
+**Given** a case authoring its cast,
+**When** the scenario contract is defined,
+**Then** `scenarioScript.scenes[]` may declare an optional `cast` — the colleague IDs present in that scene — defaulting to the full cast when absent,
+**And** the authored cast is what the figure column stages, replacing the derived fallback at the single seam that exists for it (`presentColleagueIds`),
+**And** every authored cast ID resolves to an authored `colleagues[]` entry, at load, with the offending path named,
+**And** every dialogue beat's `speakerId` in that scene is a member of that scene's cast, at load, with the offending path named,
+**And** a `cast` authored on a scene that stages no figures is refused at load rather than shipped as content nothing reads.
+
+### AC3 — A control may author which instrument it is
+
+**Given** a case authoring its instruments,
+**When** the scenario contract is defined,
+**Then** an authored apparatus control may declare an optional affordance descriptor (`knob`, `dial`, `slider`) defaulting to `knob`,
+**And** the bench draws three **genuinely distinct** instruments — distinct geometry and distinct pointer→value conversion, not one instrument with three labels (Dev Notes §7 fixes what each one is),
+**And** the authored range, step, `defaultValue` and every existing validation are unchanged by the choice,
+**And** every affordance keeps its discrete step affordances and keyboard stepping, and the drag path and the step path produce **identical run records** (ADR-012),
+**And** the pointer→value conversion for each affordance snaps to the authored step **before** dispatch, in a Phaser-free module, unit-tested at both range ends and across every step.
+
+### AC4 — Both new fields are additive
+
+**Given** the two new fields,
+**When** existing content is loaded,
+**Then** both shipped cases parse unchanged with neither field authored,
+**And** the absence of `cast` and the absence of `affordance` each produce exactly today's behaviour, asserted by test rather than assumed.
+
+### AC5 — The router drives the full flow from the script
+
+**Given** an authored scenario,
+**When** it is loaded,
+**Then** the SceneRouter can drive the full flow from the script without case-specific code,
+**And** a second case can be authored reusing the same scenes, evaluator, and widgets.
+
+> This is **already true** as of Story 3.2 (Dev Notes §8). The deliverable is a test that *pins* it — one that fails if a case ID is written into a scene, a renderer, or the router — not a rewrite of the router. Do not build a registry.
+
+### AC6 — The authoring documentation exists
+
+**Given** the authoring contract,
+**When** documentation is produced,
+**Then** `docs/content-authoring/` describes how to author scenarios, proposals, significance rules, and rival-lab lines,
+**And** it states the load-time rules that will refuse content, each with the message an author will actually see,
+**And** it states the EN+FR obligation as a property of authoring, not as follow-up work.
+
+### AC7 — An example fixture demonstrates a minimal valid scenario
+
+**Given** the authoring documentation,
+**When** an author needs a starting point,
+**Then** an example fixture demonstrates a minimal valid scenario — a complete case definition that passes `CaseDefinitionSchema` with nothing removable,
+**And** a unit test parses that fixture through the production schema, so the example cannot rot into an invalid one,
+**And** the fixture exercises both new fields, including at least one non-default `affordance` and one authored per-scene `cast`.
+
+### AC8 — Bilingual from the start
+
+**Given** any authored prose this story adds — fixture content included —
+**When** it is authored,
+**Then** it carries both `en` and `fr`,
+**And** the French is French, not English with accents (project-context.md §i18n; this is the project's most-repeated defect).
+
+### AC9 — Verification
+
+**Given** the change,
+**When** verification runs,
+**Then** `npm run typecheck` is clean, `npm test` passes, `npm run build` succeeds, and `npm run test:e2e` passes on an **idle** machine across three identical runs,
+**And** `npm run typecheck:tests` is **at or below 114 errors across 59 files** — the count is the metric and it may only go down,
+**And** offline reload still restores locally saved progress with no network,
+**And** every guard this story adds whose failure would be *silent* carries a recorded mutation proof (Dev Notes §13).
+
+## Tasks / Subtasks
+
+- [ ] **Task 0 — Read before writing** (blocks everything)
+  - [ ] Read `_bmad-output/project-context.md`. It exists, it is 215 lines, and it is revision 2.6. Story 3.3's review opened with the finding that the story had twice asserted this file did not exist and had therefore crossed two of its rules. Do not repeat that.
+  - [ ] Read the files in Dev Notes §3. Every one is a file this story changes or must not break.
+
+- [ ] **Task 1 — The authored per-scene cast** (AC2, AC4)
+  - [ ] Add `cast?: readonly string[]` to `ScenarioScene` in `src/domain/cases/ScenarioScript.ts`, documented in the file's existing voice.
+  - [ ] Add `cast: z.array(stableId).optional()` to `ScenarioSceneSchema` in `src/schemas/CaseDefinitionSchema.ts:650`. **No `.min(1)`** — see Dev Notes §5 for why the floor belongs in the top-level refinement and not in the shape.
+  - [ ] Add the four load-time refinements of Dev Notes §5.1 to the existing `--- Scenario dialogue beats ---` block at `CaseDefinitionSchema.ts:1501`, each naming its own path.
+  - [ ] Extend `PresentColleaguesInput` and `presentColleagueIds` in `src/adapters/phaser/renderers/characterStageView.ts:365-396` to take the authored cast, and replace the "Story 3.4 owns this" docstring with what the rule now is. Preserve the ordering guarantee of Dev Notes §6 — proposal order is load-bearing for 2.9's AC3.
+  - [ ] Thread the scene's authored cast through `resolveStageCast` (`ColleagueRenderer.ts:543`) and `stageCast` (`ColleagueRenderer.ts:843`). One call site each; that split exists precisely so this story changes a call and not a rule spread across two renderers.
+  - [ ] Update the `Story 3.4 owns…` forward references at `characterStageView.ts:377` and `ColleagueRenderer.ts:834` — they are now history, not a plan.
+  - [ ] Close `deferred-work.md:84` (the `CharacterStage.create` rebuild note) and `deferred-work.md:85` (`FIGURE_SLOT_WIDTH`) — Dev Notes §14.
+
+- [ ] **Task 2 — The authored control affordance** (AC3, AC4)
+  - [ ] Add `affordance?: 'knob' | 'dial' | 'slider'` to `PrimaryControl` (`src/domain/cases/CaseDefinition.ts:208`) and to `PrimaryControlSchema` (`CaseDefinitionSchema.ts:125`), as a `z.enum` derived from one exported constant so the type and the schema cannot drift.
+  - [ ] Implement the linear (`slider`) and full-circle (`dial`) pointer→value conversions in `src/adapters/phaser/renderers/instrumentView.ts`, beside the rotary one. **Conversions only** — "where it is drawn" belongs in `apparatusGeometry.ts`, and that split is already documented in `instrumentView.ts`'s header.
+  - [ ] Add the geometry for each affordance to `apparatusGeometry.ts`, inside the existing `INSTRUMENT_SLOT_WIDTH = 168` slot so the bench layout does not move.
+  - [ ] Make the non-overlap sweep at `apparatusGeometry.ts:405-431` **affordance-aware**. It currently derives every band from `knobCentre`/`stepAffordanceCentre`; leaving it is the FIGURE_SLOT_WIDTH defect one layer down — a sweep measuring a band nothing paints.
+  - [ ] Make `ApparatusInstrument` select its drawing and its conversion from `control.affordance ?? 'knob'`, keeping `ApparatusInstrumentOptions` / `ApparatusInstrumentView` intact so `ApparatusRenderer` is unchanged above the instrument.
+  - [ ] Verify the arrow-key capture release (2.10's fix) and `prefers-reduced-motion` still hold for every affordance, and that no affordance registers an update loop from `create()` (ADR-012).
+
+- [ ] **Task 3 — Shipped content adopts the affordances** (AC3; see Open Question 1 for the fallback)
+  - [ ] `public/cases/morley-miller/case.json`: author `rotationDeg` as `dial` and `bathTempC` as `slider`. Bump the case `version`.
+  - [ ] Leave `public/cases/young-interference/case.json` on the default. Young's two controls stay knobs, its version is untouched, and its e2e walks and typography sweep do not move.
+  - [ ] Re-point the prototype's e2e drag walk at the new instruments. Keep the 0°/90° pair — the story-3.2 review chose those values because they *differ under the model* (0° and 180° are both 0.11), and re-deriving from the authored range would reintroduce that defect.
+  - [ ] Confirm `npm run audit:ledger` still exits as it did — the ledger reads rights, not controls, but confirm rather than assume.
+
+- [ ] **Task 4 — Pin AC5 rather than build it** (AC5)
+  - [ ] Add the test of Dev Notes §8: a `case.json`-free, fixture-driven walk proving the router resolves all six phases from an authored script alone, plus a source-level assertion that no case ID appears in `src/adapters/phaser/**` or `src/domain/**` outside the two sanctioned seams.
+  - [ ] Do **not** add a plugin or registry layer. project-context.md says this twice, for two different mechanisms.
+
+- [ ] **Task 5 — The example fixture** (AC7, AC8)
+  - [ ] Author `docs/content-authoring/minimal-scenario.case.json` — a complete, minimal, bilingual case definition. Dev Notes §9 lists every required field and the four that will trip you.
+  - [ ] Add a unit test that parses it through `CaseDefinitionSchema`. Route the file read through `tests/shippedCases.ts` (or extend it) rather than importing `node:fs` in a new file — Dev Notes §12.
+  - [ ] The fixture authors one non-default `affordance` and one per-scene `cast`, so both new fields have a worked example.
+
+- [ ] **Task 6 — The authoring documentation** (AC1, AC6)
+  - [ ] Write `docs/content-authoring/README.md` following the shape of `docs/source-rights/README.md`: what the contract is, how to author each part, what will refuse you and with which message.
+  - [ ] Include the AC1 inventory: each of the six named field groups → its schema symbol → its refinements.
+  - [ ] Cross-reference `docs/i18n-authoring.md` rather than restating it.
+
+- [ ] **Task 7 — Verification and record** (AC9)
+  - [ ] Run the four gates. Record the exact counts, and measure `typecheck:tests` against a **stashed clean baseline** — the story-3.2 review found the carried figure was already stale.
+  - [ ] Record each mutation proof: break the guard, name the test that goes red, restore, state both.
+  - [ ] Update `deferred-work.md` with what this story closed, what it opened, and what it checked and left alone.
+
+## Dev Notes
+
+### §0. `_bmad-output/project-context.md` exists — read it first
+
+Revision 2.6, 216 lines, 136 rules, dated 2026-08-19. **The first finding of Story 3.3's code review was that the story asserted twice that this file did not exist**, when it had existed at the story-creation commit and had been expanded before dev — so that work was done against unread governing rules and crossed two of them, costing a retired surface and a re-worded AC. The rules most likely to bite this story are extracted into §Project Context Rules below, but that extract is a pointer, not a substitute.
+
+### §1. Scope boundary — read this before writing anything
+
+**In scope:** two new optional authored fields and the code that reads them; a test pinning what AC5 asserts; an authoring guide; an example fixture; the prototype adopting the new affordances.
+
+**Out of scope, and each is out of scope for a stated reason:**
+
+- **No new scene, no new phase, no change to `CASE_PHASES` or `SCENE_KEYS`.** The router's contract (ADR-009) is that content owns the phase→scene map and the router obeys it. That already holds.
+- **No registry or plugin layer.** project-context.md §Guided-Adventure states this for case-specific rules ("at two cases a branch is the whole mechanism") and again for experiment models ("Two entries, and still no registry layer"). Three affordances is a switch in an instrument factory.
+- **No change to `CaseRecordSchema` and no record migration.** Neither new field is persisted. `affordance` changes how a control is *drawn*; the run record stores the control's value, which is unchanged. If you find yourself writing a migration, stop — you have made one of these fields persist and that is a different story.
+- **No fourth module in `src/ui/`.** It holds exactly three and that is the whole non-Phaser surface set. A new on-canvas widget belongs in `src/adapters/phaser/ui/`; a new instrument belongs beside `ApparatusInstrument.ts` in `src/adapters/phaser/renderers/`.
+- **Do not fix `formatMeasurement`'s separator-before-every-unit gap** (the prototype's bench reads `0 °` rather than `0°`). It is shared with Young's rendering and fixing it inside this story would move Young's typography as a side effect. **Owner: Story 4.2.** You will notice it while looking at a rotation dial. Leave it.
+- **Do not touch the 1887 excerpts' provenance, the unassigned scholarly reviewer, or the five dead Phaser template scenes.** Each is carried in `deferred-work.md` with an owner or an explicit "unassigned".
+
+### §2. What "authoring contract" means here, and what it does not
+
+AC1 reads like a large schema story. It is not: **six of the six named field groups already ship and are already validated.** The pivot's Stories 1.10, 1.11, 1.12, 2.5, 2.6 and 3.1 built them incrementally, and Story 3.2 proved them against a second case. What 3.4 adds is (a) the two fields the 2026-08-06 sprint change appended, (b) the *statement* of the contract as documentation and a runnable example, and (c) a test that pins the case-agnosticism AC5 claims.
+
+The risk in this story is therefore **not** under-building. It is:
+
+1. **Rebuilding what exists.** Read §3 before writing a schema line.
+2. **Authoring a field nothing reads.** Both new fields must be genuinely consumed — a `cast` that changes staging, and an `affordance` that changes what is drawn. project-context.md lists "Author a case field that nothing reads" in the Don't-Miss table: *shipped-and-dead content, the same defect class as an unreachable intent*.
+3. **A documentation deliverable that goes stale on the next commit.** That is what AC7's parsed fixture is for.
+
+### §3. What exists today — read these before writing anything
+
+| File | Why you must read it |
+|---|---|
+| `src/schemas/CaseDefinitionSchema.ts:643-688` | `ScenarioDialogueBeatSchema`, `ScenarioSceneSchema`, `ScenarioScriptSchema`. The two comments about *why there is no `.min`* are the design; §5 explains how they apply to `cast`. |
+| `src/schemas/CaseDefinitionSchema.ts:1501-1532` | The `--- Scenario dialogue beats ---` refinement block. Your cast rules go here, for the reason its own header gives: `ScenarioScriptSchema` cannot see `colleagues`. |
+| `src/schemas/CaseDefinitionSchema.ts:125-157` | `PrimaryControlSchema`. Note `inlineLabel`'s docstring: *required rather than optional-with-fallback, because falling back is precisely the silent degradation that shipped the broken sentence*. `affordance` is the opposite case — optional with a default is correct, because there is a real default and no locale hiding in it. |
+| `src/schemas/CaseDefinitionSchema.ts:777-899` | The whole `CaseDefinitionSchema` object. This is the field list your minimal fixture must satisfy. |
+| `src/domain/cases/ScenarioScript.ts` | `SCENE_KEYS`, `RIVAL_LAB_SCENE_KEY`, `ScenarioScene`, `ScenarioScript`. Read the `RIVAL_LAB_SCENE_KEY` docstring before you consider adding a scene key. |
+| `src/adapters/phaser/SceneRouter.ts` | Already pure, already read-only, already driven by the script. AC5 is a test against this file, not a change to it. |
+| `src/adapters/phaser/renderers/characterStageView.ts:365-396` | `PresentColleaguesInput` / `presentColleagueIds`. **This is the one seam.** Its docstring names this story. |
+| `src/adapters/phaser/renderers/ColleagueRenderer.ts:543-568, 825-852` | `resolveStageCast` (pure, exported, tested) and `stageCast` (the store lookup that feeds it). Change the input, not the shape. |
+| `src/adapters/phaser/renderers/ApparatusInstrument.ts` | The current instrument. `ApparatusInstrumentOptions` (`:81-104`) and `ApparatusInstrumentView` (`:106+`) are the contract with `ApparatusRenderer`; keep both. Read `onValueChange`'s docstring — it returns whether the store *committed*, and the instrument believes the answer. Every new affordance inherits that. |
+| `src/adapters/phaser/renderers/instrumentView.ts` | The rotary conversion, Phaser-free by design. Its header states the split with `apparatusGeometry.ts` explicitly: *a number that answers "where is it" goes there; a number that answers "what does turning it mean" goes here.* Honour it. |
+| `src/adapters/phaser/renderers/apparatusGeometry.ts:204-260, 405-431` | Slot geometry and the non-overlap sweep. The sweep is the trap — see Task 2. |
+| `src/core/store/selectors.ts:380-400` | `selectDialogueBeats`, keyed on **phase** not scene key, because `TheoryBoard` hosts both `synthesis` and `review` as separate script entries. Your cast lookup must key the same way, or the two boards will read one cast. |
+| `tests/integration/CharacterStaging.test.ts:109-120, 345-390` | Drives `resolveStageCast` directly rather than restating the rule — the 2.9 review's requirement. Extend it; do not write a parallel copy. |
+| `tests/e2e/french-typography.spec.ts:185-194` | `FIGURE_SLOT_WIDTH`, divided by `colleagues.length`. `deferred-work.md:85` says this diverges *the moment this story lands*. See §14. |
+| `docs/source-rights/README.md` | The shape your `docs/content-authoring/README.md` should follow. |
+| `tests/shippedCases.ts` | How a test reads content without adding to the `typecheck:tests` backlog. §12. |
+
+### §4. The two new fields — author exactly these
+
+From `sprint-change-proposal-2026-08-06.md` §4.3.2, verbatim:
+
+> - `scenarioScript.scenes[].cast?` — the colleague IDs present in that scene, defaulting to the full cast. Lets a case stage who is in the room without scene code.
+> - `apparatus.primaryControls[].affordance?` — `knob` | `dial` | `slider`, defaulting to `knob`. Selects the instrument the scene draws; the authored range, step, and validation are unchanged.
+>
+> Both are optional and additive, so existing case content parses unchanged.
+
+Two shapes, and no third. If a field feels missing, it belongs to a later story — record it in `deferred-work.md` with an owner rather than authoring it here.
+
+### §5. Schema refinements — all load-time, all fail-closed, each naming its path
+
+#### §5.1 The four `cast` rules
+
+Add these to the block at `CaseDefinitionSchema.ts:1501`, inside the existing `definition.scenarioScript.scenes.forEach`:
+
+1. **Every cast ID resolves to an authored colleague.** Path: `['scenarioScript','scenes',i,'cast',j]`. The set `colleagueIds` is already built at `:1234`. This also stops an author staging the rival lab, who is deliberately not a member of `colleagues[]` — the same reasoning the colleague-hint rule at `:1341` gives in its own comment.
+2. **No duplicate IDs within a scene's cast.** Path: `['scenarioScript','scenes',i,'cast']`. A duplicate would stage one figure twice and halve the slot width for everyone.
+3. **An authored cast is not empty.** Path: `['scenarioScript','scenes',i,'cast']`. **In the refinement, not as `.min(1)` on the shape** — and the reason is written two lines above in the same file: a base-parse failure makes Zod skip the whole `superRefine`, silencing every authored-content message at once, so an author fixes one problem at a time from a message that names none of them (the 1.12 review). Note the deliberate asymmetry with `dialogueBeats`, where `[]` and absent are treated *identically* because "no conversation yet" is a thing an author means. `cast: []` is not: absence already says "everyone", and "nobody" is not a state any figure-staging scene can render.
+4. **Every beat speaker in a scene is a member of that scene's cast.** Path: `['scenarioScript','scenes',i,'dialogueBeats',j,'speakerId']`. This is the rule that makes the feature safe: `deferred-work.md:84` describes exactly the defect — a beat spoken by somebody not staged plays with nobody on stage — and notes it is unobservable today only because Young's proposers, speakers and cast are the same four people. The existing speaker rule at `:1516` checks membership of `colleagues`; this one narrows it to the scene when a cast is authored.
+
+#### §5.2 The staging-scene rule (AC2, final clause)
+
+A `cast` authored on a scene that stages no figures is content nothing reads. Today exactly two scene keys stage a figure column — the two that construct a `ColleagueRenderer` (`ColleaguesScene` for `prediction`, `TheoryBoardScene` for `synthesis` and `review`). `LibraryScene`, `LaboratoryScene` and `DebriefScene` construct none; `RivalLabScene` stages its own cast of one from `rivalLab`, not from the script.
+
+Export that set as a single constant in `src/domain/cases/ScenarioScript.ts`, beside `SCENE_KEYS`, and refine against it with the offending path named.
+
+> **The constant needs a consumer beyond the schema, or it is a second copy of a rule.** project-context.md: *"Write a case constant (550, a control id, a count) into code twice → two copies of one rule drift, and the surface then paints a state the reducer refuses."* Give the renderers' owning scenes a reason to read it, or add a test that fails when a scene starts or stops staging a cast without the constant moving. Which seam you pick is your call — that it exists is not.
+
+#### §5.3 The `affordance` rule
+
+One `z.enum` over one exported constant, shared by `PrimaryControl`'s type and `PrimaryControlSchema`. That is the whole schema-side rule: every other control validation (`max > min`, default in range and on step) is affordance-independent and must stay that way, which is AC3's "the authored range, step, and validation are unchanged".
+
+**No default in the schema.** Resolve `control.affordance ?? 'knob'` at the one place that draws — a schema default writes `knob` into the parsed object, which then reads as authored content the author did not write, and `.strict()` round-trips stop being faithful.
+
+### §6. The cast seam — one call, and the ordering rule that must survive it
+
+`presentColleagueIds` today (`characterStageView.ts:392-396`):
+
+```ts
+const present = [...new Set([...proposerIds, ...speakerIds])];
+return Object.freeze(present.length > 0 ? present : [...castIds]);
+```
+
+Order is load-bearing and documented twice. `ColleagueRenderer.stageCast`'s docstring (`:827-831`): *"Proposal order, not cast order, which is what makes AC3's adjacency mean anything: the two boards attribute in different orders — prediction is `thea, elias, marianne, samuel`, conclusion is `marianne, elias, thea, samuel` — so a fixed cast order would put three of the four colleagues beside somebody else's draft on the conclusion board."*
+
+So the authored cast decides **presence**, and proposal order still decides **sequence**:
+
+> When a scene authors a `cast`, the staged set is exactly that cast. Order it proposal-order-first (the members that authored a proposal on this board, in proposal order), then the remaining authored cast members in their authored order. When no `cast` is authored, behaviour is exactly today's.
+
+Write that rule in the function's docstring, and assert both halves — presence *and* order — in `CharacterStaging.test.ts`. The AC4 half ("absence produces today's behaviour") needs its own named test; it is the one an author will rely on and the one a refactor will silently break.
+
+### §7. The affordance seam — three instruments, and what makes them three
+
+A review will ask whether `dial` is a knob with a different label. Fix the answer now:
+
+| Affordance | Travel | Pointer→value conversion | Physically right for |
+|---|---|---|---|
+| `knob` (default) | 270° arc from 135°, with a dead zone | Angle within the arc → fraction → stepped value. **Exists**, in `instrumentView.ts`, with hysteresis at the dead zone (2.10's fix for a drag flipping max→min ~46° past the end). | A bounded setting with a hard stop — Young's two. |
+| `dial` | Full circle, no dead zone, graduations read against a fixed index mark | Angle → fraction over 2π → stepped value. **No dead zone means no hysteresis** — which is the point for an angular quantity, where the knob's stop is an artefact of the widget rather than of the instrument. | `rotationDeg`, read off a divided circle. |
+| `slider` | Linear travel along a track with a draggable thumb | Distance along the track → fraction → stepped value. | `bathTempC`, read off a linear scale. |
+
+Three constraints on all three:
+
+- **Snap before dispatch, never after** (ADR-012, and `instrumentView.ts`'s own header explains why: the reducer *would* snap for us, and then the normalization rule becomes visible as the value jumping under the cursor).
+- **Discrete step affordances and keyboard stepping stay**, and both paths produce identical run records. `steppedNeighbour` already exists and is affordance-independent — reuse it rather than writing a per-affordance stepper.
+- **Everything fits `INSTRUMENT_SLOT_WIDTH = 168`** in the existing slot band, so `INSTRUMENT_READOUT_Y` and the bench layout do not move.
+
+**The trap in this task** is `apparatusGeometry.ts:405-431`. That sweep derives every band it checks from `knobCentre` and `stepAffordanceCentre`. Ship a slider without touching it and the sweep measures a knob that is not drawn while the slider overlaps its neighbour unmeasured — the same defect shape as `FIGURE_SLOT_WIDTH` (§14) and the same shape as story 2.11's sixteen text-into-a-too-small-reserve findings. Make the sweep affordance-aware, and remember that the harness cannot see text height (§13), so **confirm the bench by eye at 1280×720 in both locales** before calling it done.
+
+### §8. AC5 is already true — pin it, do not build it
+
+Everything AC5 asks for shipped with Story 3.2. The evidence, all read at HEAD:
+
+- `SceneRouter.resolveSceneKey` is a pure phase lookup over the authored script; the router never dispatches and never infers a phase.
+- Grepping `src/` for a case ID outside `src/schemas/` returns exactly two hits, and both are sanctioned: `src/adapters/content/resolveCaseId.ts` (the `?case=` route gate against `KNOWN_CASE_IDS`) and `src/domain/apparatus/experimentModels.ts` (the closed model list, keyed on `modelId` and deliberately **not** on case ID).
+- Case-specific *rules* live in `if (definition.id === YOUNG_CASE_ID)` inside one `superRefine`; case-specific *physics* is a keyed lookup on `experiment.modelId`. Both mechanisms are documented in project-context.md §Guided-Adventure and neither is a scene concern.
+
+So the deliverable is a test with two halves:
+
+1. **A fixture-driven router walk.** Drive `createSceneRouter` against `SceneRouterTarget` (the reference injection pattern — Vitest has no canvas) using the §9 fixture's script, and assert all six phases resolve to the authored scene keys with no shipped case loaded.
+2. **A source-level assertion** that no case ID string appears under `src/adapters/phaser/**` or `src/domain/**` outside the two sanctioned seams. Name the seams in the test so a future addition is a deliberate edit rather than a silent one.
+
+Half 2 is the one that earns its keep: half 1 passes today and would keep passing while somebody wrote `young-interference` into a renderer.
+
+### §9. The example fixture — every required field, and the four that will trip you
+
+AC7's "minimal valid scenario" means a **complete `CaseDefinition`** that parses and from which nothing can be removed. That is the honest demonstration of "a new case can be authored without touching engine code" — a fragment would demonstrate nothing.
+
+The full required set, from `CaseDefinitionSchema.ts:777-899`: `id`, `version`, `title`, `openingDispute`, `contextualArtifacts` (**exactly 2** — min 2, max `MAX_CONTEXTUAL_ARTIFACTS` = 2), `prediction`, `apparatus.primaryControls` (1–2), `experiment` (`modelId`, `modelVersion`, `assumptions`, `confound`, `resetPath`), `requirements` (three counts, each ≥ 2), `significanceRule`, `colleagueHints` (≥1), `readingGateHints` (≥1), `colleagues` (≥1), `predictionProposals` (**exactly 4**), `conclusionProposals` (**exactly 4**), `rivalLab`, `consultationRules` (≥4), `peerReviewRules` (≥3), `flow`, `autoSummary`, `scenarioScript`, `debrief`, `assets`, `ledger`.
+
+**The four that will trip you:**
+
+1. **`experiment.modelId` must be one this build implements.** `EXPERIMENT_MODEL_IDS` is a closed exported list of two (`young-double-slit`, `morley-miller-interferometer`), refined at load with the offending path named. **The fixture cannot invent a third model.** Pick one and author the controls its `requiredControlIds` demands — a model fed controls the case does not author is refused at load too.
+2. **`encodesPath` applies to every authored string, in both locales.** Arrows (`→ ⇒ ⟶ -> =>`) are rejected in both; the English word list is `scene|phase|route`; French is guarded at phrase level. Writing "move to the next scene" in an example is the exact mistake the guide is meant to prevent an author making.
+3. **`ledger` is required** and every row must be honest. A fixture ledger must not claim `reviewerState: 'reviewed'` for something nobody reviewed — project-context.md is explicit that `rightsStatus: 'reviewed'` asserts the material *is* public-domain, not that somebody looked at it. Author the fixture's rows as `pending` with no reviewer name and no date. A blocked example ledger is the correct example.
+4. **`rivalLab.critiques` must cover all four conclusion proposals**, and **at least one conclusion proposal must be satisfiable** (`isSatisfiablePredicate`) or the case is uncompletable by construction and refused at load. An `all-of` with an empty `predicates` array is vacuously true and separately refused.
+
+**Where it lives:** `docs/content-authoring/minimal-scenario.case.json`. **Not** under `public/cases/` — that directory is shipped, immutable content, and `resolveCaseId` gates on `KNOWN_CASE_IDS` anyway, so a fixture there would be dead weight in the bundle. Give it a `kebab-case` `id` that is obviously an example and is *not* a member of `KNOWN_CASE_IDS`.
+
+**Its test** parses it through the production schema — same reasoning as `tests/shippedCases.ts`'s docstring: *"a test that reads content and asserts on it is only a statement about the release if the content also validates."* Here it is stronger: parsing *is* the assertion, because the fixture's whole job is to be valid.
+
+### §10. `docs/content-authoring/` — what it must contain
+
+Follow `docs/source-rights/README.md`'s shape: what this is, how to do it, what will refuse you.
+
+- **The AC1 inventory.** Six field groups → schema symbol → refinements. This is what turns AC1 from "already done" into a deliverable.
+- **How to author a scenario script**: the six phases, the scene vocabulary, why array order carries no meaning (`resolveSceneKey` looks up by phase), why `RivalLab` is routable but not authorable.
+- **How to author proposals**: 1-of-4 both times and why `.length(4)` is the design; attribution to a colleague; the support-predicate vocabulary including the three nesting levels and the pinned-vs-unscoped distinction (`unvaried-control-pinned` reads the pinned runs; every other support predicate reads the whole notebook — the story-3.2 near-miss is worth two sentences here, because an author who gets it wrong makes a conclusion unreachable).
+- **How to author a significance rule**: `criticalControlIds` against the case's own controls, `criticalModelInputIds` against the model's input names, and the reachability question — *can an author fill this in a way that makes the case unfinishable?*
+- **How to author rival-lab lines**: full coverage of the four conclusions, the 700-character editorial bound and why it is enforced at load, and that he is narrative dressing and never a fail state.
+- **The two new fields**, with the fixture as the worked example.
+- **The refusal messages an author will actually see**, quoted from the schema, so a search for the message lands here.
+- **A pointer to `docs/i18n-authoring.md`**, not a restatement of it.
+
+Written in English (it is authoring guidance, not player-facing content). The EN+FR obligation applies to what an author *writes*, and the guide must say so in its own voice: every localizable string carries both, `fr` is not optional, and the French is French.
+
+### §11. Service worker, versions, and what does **not** need bumping
+
+The rule is: *whenever you make a case-JSON or manifest field **required**, bump `CACHE_NAME` in the same commit.* Both new fields are **optional**, so a cached older `case.json` still strict-parses under the new schema — the failure mode v3/v5/v6/v8 each record does not arise.
+
+`manifestsMatch` (`src/adapters/content/loadCaseDefinition.ts:26-34`) compares `assets.manifestVersion` and the entries, **not** `case.version`. So bumping the prototype's `version` for Task 3 does not create a manifest mismatch either, provided you do not touch `asset-manifest.json`.
+
+**Conclusion: no `CACHE_NAME` bump is required by this story as scoped.** State that reasoning in the PR rather than bumping defensively — a bump costs every returning player their cache. If the scope changes such that a field becomes required or the manifest moves, bump `public/sw.js` and add the reason to its header list, which is a genuine changelog and not decoration.
+
+`CaseDefinition.version` **is** bumped on the prototype, per the standing rule that any contract change bumps it.
+
+### §12. `typecheck:tests` — the count is the metric
+
+`npm run typecheck:tests` is red at **114 errors across 59 files**, deliberately not gated in CI so the pipeline stays publishable, and **it may only go down**. The single most common entry is `TS2307` from `node:` imports, because `@types/node` is deliberately not a dependency — 26 files carry exactly that one error.
+
+So: **do not import `node:fs` in a new test file.** Read the fixture through `tests/shippedCases.ts`, extending it if its current shape does not fit. That module exists for precisely this and says so.
+
+Also: `tsconfig.test.json`'s own header comment still claims 106/56. That figure was stale when written. Correct it while you are in the file, and measure the real number against a stashed clean baseline rather than trusting any carried figure.
+
+### §13. Testing requirements
+
+**Where each test goes.** Pure rules → `tests/unit`. Anything driving `resolveStageCast` or the router with an injected slice → `tests/integration` (that is where `CharacterStaging.test.ts` lives). Canvas walks → `tests/e2e`.
+
+**What the harness can and cannot see.** `tests/unit/sceneSlice.ts` now records Graphics draw commands since the last `clear()`, every tween config, and every `killTweensOf` target — so "paints nothing" and "starts no tween" can genuinely fail. What it **still cannot see is text height**: every text object reports a constant `height: 18` and `measureText` approximates width as `length * 7`. Any "the readout fits" or "the bands do not overlap" claim proven only in the harness is an assertion about arithmetic, not about what is painted. Derive reserves from the exported `*LineHeight` helpers and confirm by eye at 1280×720 in both locales.
+
+**Mutation proofs — required, and this project's record makes the case.** 982, 1125, 1293 and 1334 green suites each hid a load-bearing defect, and mutation is what found them, every time. For each guard below: disable it, confirm the test named for it goes red, restore it, record both.
+
+1. The cast→colleague resolution refinement.
+2. The speaker-in-cast refinement (the `deferred-work.md:84` defect).
+3. The non-empty-cast refinement.
+4. The staging-scene refinement.
+5. `affordance ?? 'knob'` — break the default and watch the AC4 "absence produces today's behaviour" test fail. If it stays green, that test is not covering the default.
+6. Each new snap-before-dispatch conversion. Return the raw pointer value and the run-record-identity test must fail; if it passes, it is comparing a dispatch to itself.
+
+**Tests that cannot fail read as coverage and are worse than none.** The reviews of 2.11, 3.2 and 3.3 found, all real: two `expect(x).toBe(x)`, a pane test that passed with the pane fully armed, two "starts no tween" tests that asserted nothing, a rounding test that compared its output to itself, a length assertion that was a tautology under a comment claiming it caught exactly that, and a sweep executing zero assertions for the prototype. When you write an assertion, name the change to `src/` that would break it.
+
+**Baselines at HEAD `9ddb45a`, to measure your arithmetic against:** **1403 unit tests across 77 files**, **61 e2e passed** (three identical idle runs), `typecheck` clean, `typecheck:tests` **114 errors / 59 files**. State your own counts as deltas against these, and measure the `typecheck:tests` figure against a stashed clean baseline rather than trusting the carried number — the 3.2 review found the carried figure was already stale.
+
+**E2E.** The canvas walks are frame-timed and load-sensitive. Judge a failure on an **idle** machine before attributing it to your change — three earlier runs during the 2.11 review showed 8–10 failures purely from CPU contention. Wait on the thing the gesture was supposed to achieve, never on a fixed sleep.
+
+### §14. Deferred-work items this story owns
+
+Both are in `deferred-work.md` and both name this story:
+
+- **`deferred-work.md:84`** — `CharacterStage.create` and the never-rebuilt cast. The *rebuild* half was closed during the 2.9 review (`CharacterStage.render` now takes the cast every render and rebuilds when the **set** changes), so `synthesis → review` inside one scene is already safe. What remains is the note's own last sentence: *"Story 3.4 lands the authored `scenarioScript.scenes[].cast` that makes the derived set genuinely vary — resolve it there."* Verify the rebuild actually fires for an authored cast change, then strike the item.
+- **`deferred-work.md:85`** — `FIGURE_SLOT_WIDTH` in `tests/e2e/french-typography.spec.ts:192`. The spec divides the proposal surface by `colleagues.length`; the renderer divides it by `presentColleagueIds(...).length`. Equal for Young today and **divergent the moment this story lands**, at which point the spec measures a plaque slot nothing paints — *"the failure mode this file has already been patched for twice."* Derive the spec's bound from the same rule the renderer uses, taking the **narrowest** staged slot across the shipped scenes, since the narrow case is the one that clips.
+
+Record anything this story opens in the same file, with an owner. project-context.md: *what cannot be re-stated goes in `deferred-work.md` as newly reachable, with an owner.*
+
+### §15. Lessons from 3.1, 3.2 and 3.3 that apply directly here
+
+- **A comment claiming a guarantee is not a guarantee.** Three of story 3.1's four un-re-stated shapes shipped with a comment asserting the check existed — one claimed a validation loop rejected an unauthored key, and the loop iterates the definition, so such a key is structurally invisible to it. The test named for that case passed for a different reason. **Third story running that this has been the finding.** When you write "still rejected" in a comment, break the guard and watch the named test go red.
+- **A graceful degradation is the defect shape a green suite keeps.** Story 3.2's bench read "dark at 0 slit spacing and 22 screen distance" for the prototype: nothing threw, 1293 tests stayed green, and the bench lied. A `cast` silently ignored, or an `affordance` silently drawn as a knob, is the same shape.
+- **When two code paths answer the same question, change them together.** Before you guard one, grep for the others. Your `cast` question is asked in at least three places — the schema refinement, `presentColleagueIds`, and the typography spec's slot width.
+- **Make the list of things you touched explicit and tick each one off.** Story 3.1 re-stated one guarantee exemplarily and left four unstated; its review found all four. For this story the list is short: two fields, five refinements, one seam each, one spec bound.
+- **Read the governing rules before dev, not after.** Story 3.3's first review finding. §0.
+
+### Project Structure Notes
+
+**Where each deliverable lands, and why:**
+
+| Deliverable | Path | Rule that decides it |
+|---|---|---|
+| `cast` type | `src/domain/cases/ScenarioScript.ts` | `src/domain/` is pure TypeScript — no Phaser, DOM, fetch, IndexedDB, **and no Zod**. |
+| Staging-scene constant | `src/domain/cases/ScenarioScript.ts` | Beside `SCENE_KEYS`, which is the content vocabulary it qualifies. |
+| `affordance` type | `src/domain/cases/CaseDefinition.ts` | Same rule; `PrimaryControl` already lives there. |
+| Both schemas + refinements | `src/schemas/CaseDefinitionSchema.ts` | `src/schemas/` owns every Zod schema. Every object is `.strict()`. |
+| Pointer→value conversions | `src/adapters/phaser/renderers/instrumentView.ts` | Phaser-free by design so Vitest can drive it; the module's header states the "what does turning it mean" split. |
+| Instrument geometry | `src/adapters/phaser/renderers/apparatusGeometry.ts` | The "where is it" half of the same split. |
+| Instrument drawing | `src/adapters/phaser/renderers/ApparatusInstrument.ts` | Renderer contract: `create()` / `render(state)` / `destroy()`, owning every display object, tween, timer and listener it creates. |
+| Authoring guide + fixture | `docs/content-authoring/` | AC6 names the directory. |
+| Prototype content | `public/cases/morley-miller/case.json` | Edit only `public/cases/…` — `dist/` is build output and `.claude/worktrees/**` is a stale copy. |
+
+**Naming:** `PascalCase` for classes and their files, `camelCase` for non-class modules and JSON fields, `UPPER_SNAKE_CASE` for constants, `kebab-case` for case IDs and asset paths. Fallible operations return `Result<T, ResultError>` rather than throwing.
+
+**Do not create:** a `services/`, `managers/`, or `helpers/` catch-all; a fourth module in `src/ui/`; an affordance registry; a new scene. And do not wire, extend, or imitate `src/game/scenes/{Boot,Game,GameOver,MainMenu,Preloader}.ts` — they are orphaned Phaser-template leftovers referenced nowhere.
+
+### Project Context Rules
+
+Extracted from `_bmad-output/project-context.md` revision 2.6 — the rules that bear on *this* story. The file is governing; this is a pointer to the parts you will cross.
+
+**Engine (ADR-001 v1.1, ADR-011, ADR-012)**
+- Phaser 4.2.1 is the sole interactive presentation surface. Never add semantic HTML to mirror a Phaser gesture.
+- Canvas completeness: a feature is not done until the canvas can dispatch its intent. Grep for every dispatcher of every action this story touches.
+- `src/ui/` holds exactly three modules. **Do not add a fourth.** Phaser widgets live in `src/adapters/phaser/ui/`, which is not `src/ui/`.
+- Never author player-facing copy in `create()` — it runs once and the locale can change. Create text empty, populate in `render(state)` through `createTranslator(locale)`.
+- Honour `prefers-reduced-motion` in every animated renderer. The apparatus is unlit until the player starts it: **no animation loop may register from `create()`** for the experiment's light.
+- Drag snaps to the authored step before dispatch, in a Phaser-free module, unit-tested at both range ends and across every step. Every draggable instrument keeps a discrete step affordance and keyboard stepping, and both paths produce identical run records.
+- Leave no tween, listener, or display object alive after `destroy()`.
+- The store is authoritative: scenes read through selectors and write only typed actions. No scene→scene reach-in. The router never dispatches, and a routing failure must never escape the store subscriber.
+- Every affordance stays available at every width. Do not reintroduce a viewport gate.
+
+**Guided adventure**
+- Everything is authored; nothing is freeform.
+- **Do not build a plugin or registry layer** for case-specific rules — a branch on `id` is the whole mechanism at two cases. Case *physics* is a keyed lookup on `modelId`; do not mix the two mechanisms.
+- **No authored content may leave a gate unsatisfiable**, and a gate can be made unsatisfiable by code as well as by content. Ask it of every predicate you write.
+- **Author no case field that nothing reads.** Shipped-and-dead content is the same defect class as an unreachable intent.
+- When you relax or add a schema shape, find out what it holds and state it. Make the list explicit and tick each item off.
+- Prediction and conclusion are each 1-of-4; `.length(4)` is the design. Choices are revisable. Defensibility is evaluator/critique-only, and character staging must not be able to read the defensible set — a staging renderer gets the cast, the speaker, and the accent colour, nothing more (ADR-006).
+- Authored copy must not name a scene, phase, or route (`encodesPath`).
+- Never write a control id into a renderer — compose from `apparatus.primaryControls` and each control's authored `inlineLabel`.
+- A refused action always says why, and the message survives until a real state change replaces it.
+
+**i18n (ADR-010, NFR19)**
+- EN + FR from launch; locale from the browser; **no player-facing language selector**.
+- Every new content surface inherits the EN+FR requirement as part of its own acceptance criteria. **Build the surface list by grepping for the read, not from the story's file list** — that is exactly how story 3.2 missed `CaseFilePresenter`.
+- **Never compose a French phrase by joining a preposition or article to an authored label.** Author the joined form.
+- No webfont. Never give `locale` an optional parameter with a `DEFAULT_LOCALE` fallback.
+
+**Performance**
+- 60 FPS at 1280×720 on a representative low-end school laptop. Keep `update()` minimal; no logging, JSON parsing, IndexedDB, DOM work or transient allocation in render/update hot paths. Animate on elapsed time. Pool only after profiling.
+- NFR1's profile has **never been run** — do not treat 60 FPS as verified, and do not substitute an automated figure for it.
+
+**Organization**
+- `src/domain/` is pure TypeScript, no Zod. `src/schemas/` owns every Zod schema, all `.strict()`. `src/adapters/` owns all side effects. The dependency direction never reverses.
+- Case definitions are immutable under `public/cases/`; player progress lives only in IndexedDB. Bump `CaseDefinition.version` on any contract change.
+- Never recalculate a saved historical run against a newer experiment model.
+
+**Testing**
+- Unit-test all pure domain logic with Vitest; never require Phaser or a browser to test scientific logic. Inject the structural slice (`SceneRouterTarget` is the reference pattern).
+- Never assert a magic number that a test shares with source unless both read one exported constant.
+- **Break the guard and watch a named test go red** — the project's highest-yield practice.
+- a11y acceptance is no longer a gate (ADR-008). Keep the reduced-motion / no-flashing check. Do not add new a11y-parity assertions, and do not delete the existing a11y specs.
+
+**Platform**
+- Offline reload is a release gate. A schema change that makes an older cached response unparseable is a `CACHE_NAME` bump — see §11 for why this story is not one.
+- Verify with `npm run typecheck`, `npm test`, `npm run test:e2e`.
+
+### References
+
+- [epics.md §Story 3.4](../planning-artifacts/epics.md) — lines 1130–1158, including the 2026-08-06 amendment that adds the per-scene cast and the affordance descriptor.
+- [sprint-change-proposal-2026-08-06.md §4.1.9](../planning-artifacts/sprint-change-proposal-2026-08-06.md) — the amendment as approved, lines 733–742.
+- [sprint-change-proposal-2026-08-06.md §4.3.2](../planning-artifacts/sprint-change-proposal-2026-08-06.md) — the two field definitions verbatim, lines 818–828.
+- [sprint-change-proposal-2026-08-06.md §4.3.4](../planning-artifacts/sprint-change-proposal-2026-08-06.md) — ADR-011 and ADR-012 in full, lines 846–860.
+- [project-context.md](../project-context.md) — revision 2.6, governing. §Engine, §Guided-Adventure, §i18n, §Organization, §Testing.
+- [deferred-work.md:84–85](deferred-work.md) — the two items this story owns.
+- [3-3-source-and-rights-ledger.md](3-3-source-and-rights-ledger.md) — the immediately preceding story; its Review Findings open with the unread-project-context finding.
+- [3-2-reviewable-morley-miller-prototype.md](3-2-reviewable-morley-miller-prototype.md) — the second case, and the three Young-shaped walls that were green in 1293 tests.
+- [docs/source-rights/README.md](../../docs/source-rights/README.md) — the documentation shape to follow.
+- [docs/i18n-authoring.md](../../docs/i18n-authoring.md) — cross-reference, do not restate.
+
+## Dev Agent Record
+
+### Agent Model Used
+
+### Debug Log References
+
+### Completion Notes List
+
+### File List
+
+## Change Log
+
+| Date | Version | Change | By |
+|---|---|---|---|
+| 2026-08-19 | 0.1 | Story context created from epics.md §3.4 (with the 2026-08-06 amendment), project-context.md rev 2.6, the sprint change proposal, and the source at HEAD `9ddb45a`. | Scrum Master |
+
+## Open Questions for Alexis
+
+Saved for the end, as the workflow requires. None blocks the start of implementation; #1 has a stated default so the dev agent can proceed either way.
+
+1. **Should shipped content adopt the new affordances, or is the fixture demonstration enough?**
+   The story as written says yes: the prototype authors `rotationDeg` as `dial` and `bathTempC` as `slider` (Task 3), so all three vocabulary members are live in real, playable, reviewable content and none of them is a field only a fixture reads. Young stays untouched, so its e2e walks and its French typography sweep do not move. The cost is re-pointing the prototype's drag walk at two new instruments.
+   **Fallback if that proves to exceed the story:** keep both shipped cases on the default, prove all three affordances through the fixture and unit tests, and record the prototype's adoption in `deferred-work.md` with **owner Story 4.2**, which already owns the prototype bench work. Say which you want and the dev agent will take it; absent an answer it will build the recommendation and fall back only if Task 3 turns out to be its own story.
+
+2. **`dial` versus `knob` — is the distinction I have fixed in §7 the one you want?**
+   I have defined `dial` as full-circle travel with no dead zone, read against a fixed index mark, and `knob` as the existing 270° arc with a hard stop and 2.10's hysteresis. That makes the two genuinely different instruments rather than two skins, and it removes the dead-zone artefact for an angular quantity — which is the physically right call for `rotationDeg`. If your intent for `dial` was something else (a graduated *readout* rather than a graspable control, say), it is cheaper to say so now than at review.
+
+3. **`cast: []` — refused, or "nobody on stage"?**
+   §5.1 rule 3 refuses it, on the reasoning that absence already means "everyone" and no figure-staging scene renders "nobody" meaningfully. This is deliberately the *opposite* of the `dialogueBeats: []` decision, where empty and absent are identical because "no conversation yet" is something an author means. If you want an authored empty cast to mean a deliberately empty room, that is a coherent design and the refinement flips easily — but it needs a renderer answer for what an empty proposal board looks like.
+
+4. **AC1's inventory — documentation, or also a test?**
+   §10 puts the six-field-group inventory in `docs/content-authoring/README.md`. A prose inventory can go stale. The stronger version is a unit test asserting each named field group is present and refined in `CaseDefinitionSchema`, with the doc pointing at it. I did not put that in the tasks because it risks being a test that restates the schema rather than covering it — the "test that cannot fail" shape. Worth a decision.
