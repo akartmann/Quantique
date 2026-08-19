@@ -1,10 +1,20 @@
 {
-  "manifestVersion": "1.0.0",
+  "manifestVersion": "1.1.0",
   "entries": [
     {
       "id": "quantique-logo",
       "type": "image",
-      "path": "/assets/logo.png"
+      "path": "/assets/logo.png",
+      "rights": {
+        "holderOrOrigin": "Quantique project",
+        "status": "reviewed",
+        "claimOrUse": {
+          "en": "The project’s own mark, shown by the laboratory shell.",
+          "fr": "La marque propre au projet, affichée par la coque du laboratoire."
+        },
+        "reviewerState": "reviewed",
+        "provenanceReference": "docs/source-rights/quantique-shared-assets.md"
+      }
     }
   ]
 }

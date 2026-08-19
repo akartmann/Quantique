@@ -68,6 +68,102 @@ export type TextualRendition = Readonly<{
     renditions: readonly [LocalizedTextualRendition, LocalizedTextualRendition];
 }>;
 
+/**
+ * Which of FR26's two source classes this artifact is. Read only by the ledger.
+ *
+ * Not derived from `provenance.category`: a `primary-material` category describes what the *document*
+ * is, while this describes the role it plays in **this case's** argument. The two agree on Young's two
+ * artifacts and are free to disagree elsewhere.
+ */
+export type SourceRole = 'primary' | 'secondary';
+
+/**
+ * Whether a person has signed a row off — and a distinct third state for a role that was decided
+ * against rather than left undone.
+ *
+ * **This is a second enum beside `SourceRightsStatus`, not a widening of it, because they answer
+ * different questions.** `rightsStatus` answers *may we ship this*: a public-domain 1801 lecture is
+ * `reviewed` with no human involved. `reviewerState` answers *has a person signed this off*. The
+ * prototype's open item (`deferred-work.md`, the 1905 reconstruction) is exactly the gap between them —
+ * `rightsStatus: 'reviewed'` on material whose reuse is trivially clear, where whether that is correct
+ * is the assigned scholarly reviewer's call. One enum could not express that.
+ *
+ * `de-scoped` is the state ADR-008's accessibility roles occupy. It is recorded with the decision that
+ * de-scoped it and rendered as such — never dropped, and never spelled `reviewed`.
+ */
+export type ReviewerState = 'reviewed' | 'pending' | 'de-scoped';
+
+/**
+ * One reviewer role's standing. The three conditional fields are conditional on `state` and each
+ * condition is enforced at load, with the offending path named:
+ *
+ * - `reviewed` requires `name` and a `YYYY-MM-DD` `date` — an unattributed sign-off is not one.
+ * - `pending` forbids both — a name beside a pending state reads as a signature nobody gave.
+ * - `de-scoped` requires `reference` — the decision that de-scoped the role.
+ */
+export type ReviewerSignOff = Readonly<{
+    state: ReviewerState;
+    /** Canonical: a reviewer's name is a proper noun, never translated copy. */
+    name?: string;
+    /** Canonical: `YYYY-MM-DD`, a date and not display text. */
+    date?: string;
+    /** Canonical: the ADR or document of record, e.g. `ADR-008`. */
+    reference?: string;
+}>;
+
+/**
+ * What the ledger adds to a source, and **only** what it adds.
+ *
+ * There is no `claimOrUse` here and no copy of the provenance, rights status or citation:
+ * `caseRelationship` already *is* the claim-or-use statement, and the ledger reads
+ * `provenance`, `rightsStatus` and the rendition's `citationText` from the fields that already hold
+ * them. A second authored copy of any of those is a defect, not a convenience.
+ */
+export type LedgerEntry = Readonly<{
+    sourceRole: SourceRole;
+    reviewerState: ReviewerState;
+    /** Required unless `rightsStatus === 'reviewed'` (FR27). Enforced at load. */
+    replacementPlan?: LocalizedText;
+}>;
+
+/**
+ * The rights record for one manifest asset — the half of AC5 that did not exist before this story.
+ *
+ * Sources have carried provenance and rights since Story 1.5; `assets.entries[]` carried `id`, `type`
+ * and `path` and nothing else, so no surface could say who holds an asset or whether its reuse was
+ * cleared. Unlike a source, an asset has no `caseRelationship`, so `claimOrUse` is authored here.
+ */
+export type AssetRights = Readonly<{
+    /** Canonical: a rights holder or originating process is a proper noun. */
+    holderOrOrigin: string;
+    /** The same three-state vocabulary as a source's. Reused deliberately, not forked. */
+    status: SourceRightsStatus;
+    claimOrUse: LocalizedText;
+    reviewerState: ReviewerState;
+    /** Canonical: the repository path of the document recording this asset's origin. */
+    provenanceReference: string;
+    /** Required unless `status === 'reviewed'` (FR27). Enforced at load. */
+    replacementPlan?: LocalizedText;
+}>;
+
+/**
+ * The case-level half of the ledger: the roles FR26 names, each in one of the three reviewer states.
+ *
+ * Every role is required. A case cannot ship with a role nobody thought about, because `pending` is
+ * the honest state for an unassigned role and the release gate blocks on it — which is the point.
+ */
+export type CaseLedger = Readonly<{
+    signOff: Readonly<{
+        contentAuthor: ReviewerSignOff;
+        scholarlyReviewer: ReviewerSignOff;
+        /** `de-scoped` by ADR-008, recorded rather than dropped (Story 3.2 AC8's rule). */
+        accessibilityReviewer: ReviewerSignOff;
+    }>;
+    educatorContextSheet: ReviewerSignOff;
+    /** `de-scoped` by ADR-008, likewise. */
+    accessibleControlsReference: ReviewerSignOff;
+}>;
+
 export type ContextualArtifact = Readonly<{
     /** Canonical: `id` and every `provenance.reference` are stable keys, never display text. */
     id: string;
@@ -79,6 +175,8 @@ export type ContextualArtifact = Readonly<{
     rightsStatus: SourceRightsStatus;
     caseRelationship: LocalizedText;
     textualRendition?: TextualRendition;
+    /** The ledger's audit columns for this source (Story 3.3). Required: an unaudited row cannot ship. */
+    ledgerEntry: LedgerEntry;
 }>;
 
 export const isSourceEligibleForInspection = (source: ContextualArtifact): boolean => source.rightsStatus === 'reviewed';
@@ -307,6 +405,11 @@ export type CaseDefinition = Readonly<{
     }>;
     assets: Readonly<{
         manifestVersion: string;
-        entries: readonly Readonly<{ id: string; type: 'image' | 'audio' | 'document'; path: string }>[];
+        entries: readonly Readonly<{ id: string; type: 'image' | 'audio' | 'document'; path: string; rights: AssetRights }>[];
     }>;
+    /**
+     * The case-level source-and-rights ledger (Story 3.3, FR26). Required, like every field it holds:
+     * the release gate reads it, and a case with no ledger is a case nobody audited.
+     */
+    ledger: CaseLedger;
 }>;

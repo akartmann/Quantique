@@ -19,7 +19,13 @@
 // none of them, `contentPath` builds a stable URL with no version query, so the stale response matches
 // the new request exactly and the new bundle strict-parses it into "content unavailable" with no
 // recovery. Exactly the change class v3, v5 and v6 were bumped for.
-const CACHE_NAME = 'quantique-bootstrap-v8';
+// v9 — Story 3.3. The same change class again, and the reason it is the same one: the source-and-rights
+// ledger makes `ledger`, one `ledgerEntry` per contextual artifact, and one `rights` block per manifest
+// asset **required** of every case. A cached 1.20.0 `case.json` and manifest 1.1.0 carry none of the
+// three, so the stale response — matched exactly, because `contentPath` builds a stable URL with no
+// version query — strict-parses into "content unavailable" with no recovery for an offline player who
+// had a working investigation before the update.
+const CACHE_NAME = 'quantique-bootstrap-v9';
 
 self.addEventListener('install', (event) => {
     event.waitUntil(self.skipWaiting());

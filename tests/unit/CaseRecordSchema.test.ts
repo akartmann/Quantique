@@ -319,6 +319,67 @@ describe('portable case records', () => {
             .toMatchObject({ ok: false, error: { code: 'incompatible-case-record' } });
     });
 
+    /**
+     * Story 3.3's two clauses. `case.json` gained three required blocks — the case-level `ledger`, a
+     * `ledgerEntry` per source and a `rights` block per asset — and nothing a record carries moved, so a
+     * record saved before them must still load. The alternative is a saved investigation discarded by a
+     * content edit that changed nothing the player did (NFR12).
+     */
+    it.each(['1.2.0', '1.10.0', '1.19.0', '1.20.0'])(
+        'accepts a %s Young record against the 1.21.0 ledger definition',
+        (recordVersion) => {
+            const ledgerDefinition = { ...definition, version: '1.21.0' } as CaseDefinition;
+            const parsed = CaseRecordSchema.parse({ ...validRecord, caseDefinitionVersion: recordVersion });
+
+            expect(validateCaseRecordForDefinition(parsed, ledgerDefinition)).toMatchObject({ ok: true });
+        }
+    );
+
+    it('still refuses a pre-contract record against the 1.21.0 ledger definition', () => {
+        // The clause is a list, not an "anything older" waiver: 1.1.0 predates the first compatible
+        // saved-progress contract and stays refused.
+        const ledgerDefinition = { ...definition, version: '1.21.0' } as CaseDefinition;
+        const parsed = CaseRecordSchema.parse({ ...validRecord, caseDefinitionVersion: '1.1.0' });
+
+        expect(validateCaseRecordForDefinition(parsed, ledgerDefinition))
+            .toMatchObject({ ok: false, error: { code: 'incompatible-case-record' } });
+    });
+
+    /**
+     * The prototype's **first** allowlist clause, and its own branch.
+     *
+     * `morley-miller` shipped at 1.0.0 with no clause at all, so this story's bump to 1.1.0 would have
+     * refused every saved prototype investigation. The branch is separate from Young's on purpose: two
+     * cases share one version namespace, and a shared list would have this case reasoning about version
+     * numbers that mean something different in Young's history than in its own — which the pair of
+     * negative cases below pins down.
+     */
+    it('accepts a 1.0.0 prototype record against the 1.1.0 ledger definition, in its own branch', () => {
+        const prototype = { ...definition, id: 'morley-miller', version: '1.1.0' } as CaseDefinition;
+        const record = CaseRecordSchema.parse({ ...validRecord, caseId: 'morley-miller', caseDefinitionVersion: '1.0.0' });
+
+        // Asserted on the failure *code* rather than on `ok`, and deliberately so: `definition` here is
+        // a Young-shaped fixture wearing the prototype's ID, so the record fails a later Young-specific
+        // check with `invalid-case-record`. That is the fixture, not the clause. What this clause decides
+        // is whether the version pairing is refused as `incompatible-case-record` — and the whole point
+        // is that it no longer is.
+        const versionRefused = (result: ReturnType<typeof validateCaseRecordForDefinition>): boolean =>
+            !result.ok && result.error.code === 'incompatible-case-record';
+
+        expect(versionRefused(validateCaseRecordForDefinition(record, prototype))).toBe(false);
+
+        // Young's clauses do not leak into it: 1.19.0 is compatible with Young's 1.20.0 and means
+        // nothing in this case's history, so the version pairing is refused here.
+        const youngEra = CaseRecordSchema.parse({ ...validRecord, caseId: 'morley-miller', caseDefinitionVersion: '1.19.0' });
+        expect(versionRefused(validateCaseRecordForDefinition(youngEra, prototype))).toBe(true);
+
+        // And the prototype's clause does not leak back into Young: Young has no 1.1.0 → 1.0.0 pairing,
+        // so the same version numbers against Young's ID stay refused.
+        const young = { ...definition, version: '1.1.0' } as CaseDefinition;
+        const youngRecord = CaseRecordSchema.parse({ ...validRecord, caseDefinitionVersion: '1.0.0' });
+        expect(versionRefused(validateCaseRecordForDefinition(youngRecord, young))).toBe(true);
+    });
+
     it('still rejects a record from an unrelated definition version', () => {
         const localized = { ...definition, version: '1.6.0' } as CaseDefinition;
         const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: '0.9.0' });

@@ -151,14 +151,30 @@ spec was deleted.
 
 ### Sign-off
 
-| Role | Name | Date | Status |
-|---|---|---|---|
-| Content author | Claude (Story 3.2 development) | 2026-08-19 | Authored |
-| Scholarly reviewer | *unassigned* | — | **Pending** — see the transcription-fidelity gap |
-| Accessibility reviewer | — | — | De-scoped (ADR-008) |
+**Fed by the ledger** (Story 3.3). Open `?ledger=1&case=morley-miller` — the Sign-off and References
+tables below are that surface's own rows, read from this case's authored `ledger` block rather than
+transcribed here, and the ledger is the evidence reference for each.
 
-Story 3.3 builds the source-and-rights ledger that will audit this table. This story supplies the data;
-it deliberately does **not** build the ledger.
+| Role | Name | Date | Status | Evidence |
+|---|---|---|---|---|
+| Content author | Claude (Story 3.2 development) | 2026-08-19 | Signed off | `?ledger=1&case=morley-miller` — Sign-off |
+| Scholarly reviewer | *unassigned* | — | **Pending** — see the transcription-fidelity gap | `?ledger=1&case=morley-miller` — Sign-off |
+| Accessibility reviewer | — | — | De-scoped (ADR-008) | `?ledger=1&case=morley-miller` — Sign-off |
+| Educator context sheet | *unassigned* | — | **Pending** | `?ledger=1&case=morley-miller` — References |
+| Accessible-controls reference | — | — | De-scoped (ADR-008) | `?ledger=1&case=morley-miller` — References |
+
+**What Story 3.3 actually did.** It built the ledger and pointed it at this table. The prototype's
+`case.json` went to 1.1.0: each source gained a `ledgerEntry` — the 1887 paper `primary`, the 1905
+reconstruction `secondary` — its one manifest asset gained a `rights` block, and the case gained the
+`ledger` block the five rows above are read from. `evaluateLedgerReleaseApproval` resolves this case to
+**BLOCKED** on two named rows, `scholarly-review-pending` and `educator-context-sheet-pending`, which is
+the honest verdict for the two roles nobody has been assigned to yet. Its single asset is the cleared
+`quantique-logo` and both sources are `reviewed`, so neither contributes a blocker.
+
+Nothing was authored `reviewed` to close a row: a name nobody supplied would be the defect AC7 forbids,
+and the two open roles stay open until Alexis assigns them. The reconstruction's `rightsStatus:
+'reviewed'` is likewise untouched — whether that is correct is the assigned scholarly reviewer's call,
+carried in `deferred-work.md`.
 
 ---
 

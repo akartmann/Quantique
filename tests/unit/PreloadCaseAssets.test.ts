@@ -1,22 +1,37 @@
 import { describe, expect, it } from 'vitest';
 
+import type { AssetRights } from '../../src/domain/cases/CaseDefinition';
 import {
     caseAssetTextureKey,
     preloadCaseAssets,
     type PreloadCaseAssetsTarget
 } from '../../src/adapters/phaser/preloadCaseAssets';
 
+/**
+ * Every manifest entry now carries a `rights` block (Story 3.3): the loader reads `id`, `type` and
+ * `path` and nothing else, so this is the one field here that exists purely to satisfy the contract —
+ * and it is authored rather than cast away, because a cast would stop this fixture tracking the shape
+ * the loader is handed.
+ */
+const rights = (claim: string): AssetRights => ({
+    holderOrOrigin: 'Quantique project',
+    status: 'reviewed',
+    claimOrUse: { en: claim, fr: `${claim} [fr]` },
+    reviewerState: 'reviewed',
+    provenanceReference: 'docs/source-rights/quantique-shared-assets.md'
+});
+
 const youngAssets = {
-    manifestVersion: '1.1.0',
+    manifestVersion: '1.2.0',
     entries: [
-        { id: 'quantique-logo', type: 'image' as const, path: '/assets/logo.png' },
-        { id: 'thea-young-portrait', type: 'image' as const, path: '/cases/young-interference/assets/characters/thea-young.png' },
-        { id: 'elias-wren-portrait', type: 'image' as const, path: '/cases/young-interference/assets/characters/elias-wren.png' },
-        { id: 'marianne-cole-portrait', type: 'image' as const, path: '/cases/young-interference/assets/characters/marianne-cole.png' },
-        { id: 'samuel-hart-portrait', type: 'image' as const, path: '/cases/young-interference/assets/characters/samuel-hart.png' },
-        { id: 'arthur-bell-portrait', type: 'image' as const, path: '/cases/young-interference/assets/characters/arthur-bell.png' },
-        { id: 'narration', type: 'audio' as const, path: '/cases/young-interference/audio/narration.mp3' },
-        { id: 'lecture-notes', type: 'document' as const, path: '/cases/young-interference/documents/lecture-notes.pdf' }
+        { id: 'quantique-logo', type: 'image' as const, path: '/assets/logo.png', rights: rights('Project mark.') },
+        { id: 'thea-young-portrait', type: 'image' as const, path: '/cases/young-interference/assets/characters/thea-young.png', rights: rights('Colleague portrait.') },
+        { id: 'elias-wren-portrait', type: 'image' as const, path: '/cases/young-interference/assets/characters/elias-wren.png', rights: rights('Colleague portrait.') },
+        { id: 'marianne-cole-portrait', type: 'image' as const, path: '/cases/young-interference/assets/characters/marianne-cole.png', rights: rights('Colleague portrait.') },
+        { id: 'samuel-hart-portrait', type: 'image' as const, path: '/cases/young-interference/assets/characters/samuel-hart.png', rights: rights('Colleague portrait.') },
+        { id: 'arthur-bell-portrait', type: 'image' as const, path: '/cases/young-interference/assets/characters/arthur-bell.png', rights: rights('Colleague portrait.') },
+        { id: 'narration', type: 'audio' as const, path: '/cases/young-interference/audio/narration.mp3', rights: rights('Narration track.') },
+        { id: 'lecture-notes', type: 'document' as const, path: '/cases/young-interference/documents/lecture-notes.pdf', rights: rights('Lecture notes.') }
     ]
 };
 

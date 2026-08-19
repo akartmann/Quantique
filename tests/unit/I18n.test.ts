@@ -7,7 +7,7 @@ import { fr } from '../../src/core/i18n/locales/fr';
 import { createTranslator, translate, translateError } from '../../src/core/i18n/translate';
 import { formatMeasurement, formatNumber } from '../../src/core/i18n/formatNumber';
 import { resolveLocalizedText, resolveLocalizedTextList } from '../../src/core/i18n/resolveLocalizedText';
-import { SourceProvenanceCategorySchema, SourceRightsStatusSchema, SourceTypeSchema } from '../../src/schemas/CaseDefinitionSchema';
+import { ReviewerStateSchema, SourceProvenanceCategorySchema, SourceRightsStatusSchema, SourceRoleSchema, SourceTypeSchema } from '../../src/schemas/CaseDefinitionSchema';
 import { RECOGNITION_IDS } from '../../src/domain/recognition/recognitionRules';
 
 /** U+202F. Asserted as a code point: a plain space would pass locally and drift across ICU builds. */
@@ -109,16 +109,26 @@ describe('locale resources', () => {
         // Derived from the schema, never transcribed: a hand-copied roster stops being updated, and a
         // fourth provenance category would leave this test green while a player read a blank rights
         // line or a raw enum value in the detail panel — the exact failure it exists to prevent.
+        //
+        // Story 3.3 adds the two ledger families on the same terms. `ReviewerStateSchema` and
+        // `SourceRoleSchema` are exported for exactly this: the ledger resolves every reviewer state and
+        // source role through a key, so a fourth reviewer state would leave a reviewer reading a raw
+        // `de-scoped` in a rights table. The rights statuses are deliberately **not** duplicated into a
+        // `ledger.rights.*` family — the ledger resolves the `source.rights.*` keys already listed here,
+        // which is why one vocabulary answers "may we ship this" on every surface that asks.
         const required = [
             ...SourceTypeSchema.options.map((value) => `source.type.${value}` as const),
             ...SourceProvenanceCategorySchema.options.map((value) => `source.provenanceName.${value}` as const),
-            ...SourceRightsStatusSchema.options.map((value) => `source.rights.${value}` as const)
+            ...SourceRightsStatusSchema.options.map((value) => `source.rights.${value}` as const),
+            ...ReviewerStateSchema.options.map((value) => `ledger.reviewer.${value}` as const),
+            ...SourceRoleSchema.options.map((value) => `ledger.role.${value}` as const)
         ];
 
         // The derivation itself must be live: an enum that resolved to nothing would make the loop
         // below vacuous, which is the shape of defect this review pass removed twice elsewhere.
         expect(required.length).toBe(
             SourceTypeSchema.options.length + SourceProvenanceCategorySchema.options.length + SourceRightsStatusSchema.options.length
+            + ReviewerStateSchema.options.length + SourceRoleSchema.options.length
         );
         expect(required.length).toBeGreaterThan(0);
 

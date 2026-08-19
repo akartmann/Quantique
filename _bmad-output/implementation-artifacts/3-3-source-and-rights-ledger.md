@@ -1,3 +1,6 @@
+---
+baseline_commit: 9254bef4d404be0fba54097747e65c576ad3ab31
+---
 <!--
   Story 3.3 — Source and rights ledger
   Epic 3: Reusable case authoring and provenance
@@ -5,7 +8,7 @@
 
 # Story 3.3: Source and rights ledger
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -107,39 +110,39 @@ so that only reviewed material reaches a public case.
 
 ## Tasks / Subtasks
 
-- [ ] **T1 — Contract (AC1, AC2, AC5)**
-  - [ ] `src/domain/cases/CaseDefinition.ts`: add `SourceRole`, `ReviewerState`, `ReviewerSignOff`, `LedgerEntry`, `AssetRights`, `CaseLedger`; extend `ContextualArtifact` with `ledgerEntry`, `assets.entries[]` with `rights`, and the definition with `ledger`. All `Readonly`, all required.
-  - [ ] `src/schemas/CaseDefinitionSchema.ts`: export `SourceRoleSchema` and `ReviewerStateSchema` (the I18n roster derives from them); add the three blocks `.strict()`; add refinements R1–R6 from Dev Notes §4, each with an authored message naming the offending path.
-  - [ ] Keep `SourceRightsStatusSchema` and `isSourceEligibleForInspection` **unchanged**. Reading-room eligibility is not a release gate and must not start behaving like one.
-- [ ] **T2 — The gate (AC3)**
-  - [ ] `src/domain/sources/releaseApproval.ts`: `LedgerBlocker`, `LedgerReleaseApproval`, `evaluateLedgerReleaseApproval`. Pure — no Phaser, DOM, fetch or IndexedDB. No waiver parameter.
-  - [ ] `src/domain/sources/caseLedger.ts`: `selectLedgerRows(definition)` projecting sources and assets into display rows, reading existing fields for provenance / rights / citation / claim-or-use.
-  - [ ] Do **not** move existing source types into `src/domain/sources/`. New modules only — see Dev Notes §5.
-- [ ] **T3 — Content (AC4, AC9)**
-  - [ ] `public/cases/young-interference/case.json` → 1.21.0, `assets.manifestVersion` → 1.2.0, ledger authored; `asset-manifest.json` → 1.2.0 with a `rights` block on all six entries.
-  - [ ] `public/cases/morley-miller/case.json` → 1.1.0, manifest → 1.1.0, same.
-  - [ ] The five portraits: `status: 'incomplete'`, `reviewerState: 'pending'`, real bilingual `replacementPlan`, `provenanceReference: "docs/validation/young-character-assets.md"`.
-  - [ ] `quantique-logo`: `status: 'reviewed'`, `provenanceReference: "docs/source-rights/quantique-shared-assets.md"`, `holderOrOrigin` naming the project.
-  - [ ] `public/sw.js` → `quantique-bootstrap-v9` with the change-class comment.
-  - [ ] `src/schemas/CaseRecordSchema.ts`: Young 1.21.0 clause + first `morley-miller` clause, each with the diff-verified reasoning.
-- [ ] **T4 — Surface (AC6, AC7)**
-  - [ ] `index.html`: add `<div id="source-rights-ledger"></div>`; add `'#source-rights-ledger'` to `REQUIRED_ROOTS` in `src/main.ts`.
-  - [ ] `src/adapters/content/resolveLedgerMode.ts`: `resolveLedgerMode(search): boolean` from `?ledger=1`, its own module so it is testable without a document (the `resolveCaseId` reason).
-  - [ ] `src/ui/SourceRightsLedger.ts`: `mountSourceRightsLedger(root, definition, locale)` — semantic tables, decision banner, blocker list, `data-testid` hooks.
-  - [ ] `src/main.ts`: after `loadCaseDefinition` succeeds, if ledger mode → mount and `return` before any store, repository or `StartGame`.
-  - [ ] `en.ts` / `fr.ts`: new `ledger.*` keys. Reuse `source.rights.*`.
-- [ ] **T5 — AC8**
-  - [ ] `resolveRendition`: fallback on `kind !== 'translation'`; unit test for the degraded path with a `reconstruction` of record.
-- [ ] **T6 — Tests (AC11)**
-  - [ ] `tests/unit/SourceRightsLedger.test.ts` — every blocker kind, `de-scoped` emits none, fail-closed, no waiver.
-  - [ ] `tests/unit/CaseDefinition.test.ts` — R1–R6 rejection fixtures; the real Young and prototype `case.json` still parse.
-  - [ ] `tests/integration/SourceRightsLedgerSurface.test.ts` — every row and blocker rendered, EN and FR.
-  - [ ] `tests/e2e/source-rights-ledger.spec.ts` — `?ledger=1` and `?ledger=1&case=morley-miller`: blocked banner, named rows, and **no Phaser canvas started**.
-  - [ ] `tests/unit/I18n.test.ts` — extend the derived roster and its count assertion.
-  - [ ] Record both mutation proofs in the Dev Agent Record.
-- [ ] **T7 — Docs (AC10)**
-  - [ ] `docs/source-rights/README.md`, `docs/source-rights/quantique-shared-assets.md` (new).
-  - [ ] Update `docs/validation/young-source-rights-review-template.md`, `docs/case-prototypes/morley-miller-prototype.md` §4, `deferred-work.md`.
+- [x] **T1 — Contract (AC1, AC2, AC5)**
+  - [x] `src/domain/cases/CaseDefinition.ts`: add `SourceRole`, `ReviewerState`, `ReviewerSignOff`, `LedgerEntry`, `AssetRights`, `CaseLedger`; extend `ContextualArtifact` with `ledgerEntry`, `assets.entries[]` with `rights`, and the definition with `ledger`. All `Readonly`, all required.
+  - [x] `src/schemas/CaseDefinitionSchema.ts`: export `SourceRoleSchema` and `ReviewerStateSchema` (the I18n roster derives from them); add the three blocks `.strict()`; add refinements R1–R6 from Dev Notes §4, each with an authored message naming the offending path.
+  - [x] Keep `SourceRightsStatusSchema` and `isSourceEligibleForInspection` **unchanged**. Reading-room eligibility is not a release gate and must not start behaving like one.
+- [x] **T2 — The gate (AC3)**
+  - [x] `src/domain/sources/releaseApproval.ts`: `LedgerBlocker`, `LedgerReleaseApproval`, `evaluateLedgerReleaseApproval`. Pure — no Phaser, DOM, fetch or IndexedDB. No waiver parameter.
+  - [x] `src/domain/sources/caseLedger.ts`: `selectLedgerRows(definition)` projecting sources and assets into display rows, reading existing fields for provenance / rights / citation / claim-or-use.
+  - [x] Do **not** move existing source types into `src/domain/sources/`. New modules only — see Dev Notes §5.
+- [x] **T3 — Content (AC4, AC9)**
+  - [x] `public/cases/young-interference/case.json` → 1.21.0, `assets.manifestVersion` → 1.2.0, ledger authored; `asset-manifest.json` → 1.2.0 with a `rights` block on all six entries.
+  - [x] `public/cases/morley-miller/case.json` → 1.1.0, manifest → 1.1.0, same.
+  - [x] The five portraits: `status: 'incomplete'`, `reviewerState: 'pending'`, real bilingual `replacementPlan`, `provenanceReference: "docs/validation/young-character-assets.md"`.
+  - [x] `quantique-logo`: `status: 'reviewed'`, `provenanceReference: "docs/source-rights/quantique-shared-assets.md"`, `holderOrOrigin` naming the project.
+  - [x] `public/sw.js` → `quantique-bootstrap-v9` with the change-class comment.
+  - [x] `src/schemas/CaseRecordSchema.ts`: Young 1.21.0 clause + first `morley-miller` clause, each with the diff-verified reasoning.
+- [x] **T4 — Surface (AC6, AC7)**
+  - [x] `index.html`: add `<div id="source-rights-ledger"></div>`; add `'#source-rights-ledger'` to `REQUIRED_ROOTS` in `src/main.ts`.
+  - [x] `src/adapters/content/resolveLedgerMode.ts`: `resolveLedgerMode(search): boolean` from `?ledger=1`, its own module so it is testable without a document (the `resolveCaseId` reason).
+  - [x] `src/ui/SourceRightsLedger.ts`: `mountSourceRightsLedger(root, definition, locale)` — semantic tables, decision banner, blocker list, `data-testid` hooks.
+  - [x] `src/main.ts`: after `loadCaseDefinition` succeeds, if ledger mode → mount and `return` before any store, repository or `StartGame`.
+  - [x] `en.ts` / `fr.ts`: new `ledger.*` keys. Reuse `source.rights.*`.
+- [x] **T5 — AC8**
+  - [x] `resolveRendition`: fallback on `kind !== 'translation'`; unit test for the degraded path with a `reconstruction` of record.
+- [x] **T6 — Tests (AC11)**
+  - [x] `tests/unit/SourceRightsLedger.test.ts` — every blocker kind, `de-scoped` emits none, fail-closed, no waiver.
+  - [x] `tests/unit/CaseDefinition.test.ts` — R1–R6 rejection fixtures; the real Young and prototype `case.json` still parse.
+  - [x] `tests/integration/SourceRightsLedgerSurface.test.ts` — every row and blocker rendered, EN and FR.
+  - [x] `tests/e2e/source-rights-ledger.spec.ts` — `?ledger=1` and `?ledger=1&case=morley-miller`: blocked banner, named rows, and **no Phaser canvas started**.
+  - [x] `tests/unit/I18n.test.ts` — extend the derived roster and its count assertion.
+  - [x] Record both mutation proofs in the Dev Agent Record.
+- [x] **T7 — Docs (AC10)**
+  - [x] `docs/source-rights/README.md`, `docs/source-rights/quantique-shared-assets.md` (new).
+  - [x] Update `docs/validation/young-source-rights-review-template.md`, `docs/case-prototypes/morley-miller-prototype.md` §4, `deferred-work.md`.
 
 ## Dev Notes
 
@@ -309,11 +312,223 @@ No `project-context.md` exists in this repository. The project-wide rules this s
 
 ### Agent Model Used
 
+claude-opus-5 (Claude Code)
+
 ### Debug Log References
+
+**Mutation proofs — every one broken and restored, and the schema verified byte-identical afterwards.**
+
+*Proof 1 — the gate reads assets, not only sources (AC11 clause 3.1).* Run twice, because the AC's
+version and the stronger version prove different halves.
+
+- *Content mutation, as AC11 words it:* authored `thea-young-portrait` `status: 'reviewed'` in the real
+  `case.json` **and** its manifest. Two tests failed — the exact-blocker-set assertion and the
+  replacement-plan projection — confirming a single portrait's rights status moves the verdict.
+- *Code mutation, stronger:* disabled the asset walk in `evaluateLedgerReleaseApproval`
+  (`if (false && entry.rights.status !== 'reviewed')`). Two unit tests failed: Young's exact blocker set,
+  and the fail-closed test. **The integration surface test did not fail**, which is itself worth
+  recording: it asserts `blockers.length > 0`, and Young still has two role blockers with the asset walk
+  gone. An evaluator that only walked sources would have passed the surface suite — which is precisely
+  the class of miss this proof exists to catch.
+
+*Proof 2 — the replacement-plan rule fires (AC11 clause 3.2).* Disabled both halves of R1 (the source
+half in the definition-level loop, the asset half in `AssetRightsSchema`). Two rejection fixtures failed;
+the hostile fixtures parsed clean with the rule gone.
+
+*Proof sweep — R2 through R6, on Dev Notes §10's instruction to ask what fails if each rule is deleted.*
+Disabled each refinement in turn (`if (false && …)`) and ran `CaseDefinition.test.ts`:
+
+| Rule | Result with the rule disabled |
+|---|---|
+| R2, asset half | 1 failed / 270 passed |
+| R2, source half | 1 failed / 270 passed |
+| R3 (`de-scoped` needs a reference) | 1 failed / 270 passed |
+| R4 (`pending` forbids name and date) | 1 failed / 270 passed |
+| R5 (at least one primary source) | 1 failed / 270 passed |
+| R6 (`reviewed` needs name and date) | 1 failed / 270 passed |
+
+**No refinement is a comment.** Every one has a fixture that fails when it is deleted, and
+`CaseDefinitionSchema.ts` was `diff`-verified byte-identical to its pre-sweep state after restoring.
+
+*Boot-layer defect, found by looking rather than by a test.* The first working ledger route rendered
+**nothing a reviewer could see**: `#game-container` and `#boot-shell` are both `position: fixed; inset: 0`
+with the frame at `z-index: 2`, so the ledger mounted into normal flow underneath them and the screen
+showed the boot splash with an "Enter laboratory" button. Caught by screenshotting the running app, not
+by any assertion — the same shape as the 3.2 review's blank bench. `main.ts` now hides both layers before
+mounting, `#boot-status` (`z-index: 3`) is deliberately left alone because the load-failure path returns
+before the mount, and `source-rights-ledger.spec.ts` asserts `toBeVisible` plus both layers hidden, so it
+cannot regress silently.
+
+*Column legibility, same method.* The ten-column sources table divided the container between its columns
+and rendered every cell as a two-word ribbon — all text present, so invisible to every assertion. Fixed
+with `min-width` floors that hand the wide tables to their own `overflow-x` scroll; re-screenshotted in
+both cases and both locales.
+
+*Process note.* A `git stash push --keep-index --include-untracked` run while measuring the typecheck
+baseline stashed the entire in-progress change. Recovered in full with `git stash pop`; separately, a
+`git checkout` used to revert mutation proof 1b reverted Young's `case.json` and manifest to HEAD, losing
+the authored ledger, which was re-authored and re-verified (`git diff` confirms the restored content is
+purely additive — every deleted line is a version bump or a line that gained a trailing comma). Both
+recoveries were verified by a full green suite before continuing.
 
 ### Completion Notes List
 
+**What shipped.** The ledger is authored case data, a pure fail-closed release gate over it, and a
+reviewer route that renders it.
+
+- **Contract (T1).** `SourceRole`, `ReviewerState`, `ReviewerSignOff`, `LedgerEntry`, `AssetRights` and
+  `CaseLedger` on `CaseDefinition`; `ledgerEntry` per contextual artifact, `rights` per manifest asset,
+  `ledger` per case — all required, all `Readonly`, all `.strict()`. `SourceRoleSchema` and
+  `ReviewerStateSchema` exported so the I18n roster derives from them. Six refinements R1–R6, each with
+  an authored message and the offending path. `SourceRightsStatusSchema` and
+  `isSourceEligibleForInspection` are untouched, with a test asserting the reading-room gate still reads
+  `rightsStatus` and nothing else.
+- **Two enums, not one widened.** `rightsStatus` answers *may we ship this*; `reviewerState` answers
+  *has a person signed this off*. The prototype's open item is exactly the gap between them, and the 1905
+  reconstruction now states it out loud: `rightsStatus: 'reviewed'` beside `reviewerState: 'pending'`.
+- **The gate (T2).** `evaluateLedgerReleaseApproval` is pure, fails closed, and **takes one parameter** —
+  asserted on `.length`, because a gate whose signature admits an override is a gate that will be
+  overridden.
+- **Content (T3).** Young → `case.json` 1.21.0 / manifest 1.2.0; prototype → 1.1.0 / 1.1.0, with
+  `assets.manifestVersion` bumped in lockstep in each. `sw.js` → `quantique-bootstrap-v9` with the
+  change-class comment. `CaseRecordSchema` gains Young's 1.21.0 clause and the prototype's **first**
+  clause — in its own branch, which is what that file's own note says a second case gets when it first
+  needs one. Nesting it beside Young's clauses made it unreachable and `tsc` caught that.
+- **`manifestsMatch` extended.** `loadCaseDefinition` now compares `rights` as well as `id`/`type`/`path`.
+  Both files declare the same entries, so a rights record is exactly the kind of field an author updates
+  in one and not the other; compared structurally so the next `AssetRights` field is covered without this
+  function being remembered.
+- **Surface (T4).** `?ledger=1` renders four semantic tables, a decision banner and a named blocker list,
+  and returns before any store, repository or `StartGame`. Split into a pure `getSourceRightsLedgerText`
+  and `mountSourceRightsLedger`, following `getValidationSessionDisclosureText`: `vitest` has no
+  `document`, so a surface whose strings exist only inside DOM calls is a surface whose French only a
+  browser can check. That split is what makes 13 bilingual surface assertions possible with no new
+  dependency — and it is the pattern `CaseRecordPrintView` should adopt when it gets an owner.
+- **AC8.** `resolveRendition` falls back on `kind !== 'translation'` rather than `=== 'transcription'`, so
+  a reconstruction of record is selected instead of falling through to a translation under a notice
+  naming English as the original. Four tests, all on the degraded-cache path, which is the only path
+  these branches run on.
+
+**The honest verdict is BLOCKED, for both cases, and the suite asserts exactly that.**
+
+| Case | Decision | Blockers |
+|---|---|---|
+| Young | `blocked` | 5 × `asset-rights-incomplete` (the portraits), `scholarly-review-pending`, `educator-context-sheet-pending` |
+| Morley–Miller | `blocked` | `scholarly-review-pending`, `educator-context-sheet-pending` |
+
+Nothing was authored `reviewed` to turn a banner green. The five portraits keep rendering in play — a
+fictional colleague portrait is not a verified historical claim, and blanking the cast to satisfy a rule
+about labelling would break shipped play — and what is forbidden, representing them as reviewed and
+letting them pass release, is what the gate now prevents.
+
+**Verification.**
+
+| Gate | Result | AC11 threshold |
+|---|---|---|
+| `npm run typecheck` | clean | clean ✓ |
+| `npm test` | **1392 passed / 77 files** (from 1344 / 74) | ≥ 1370 / ≥ 77 ✓ |
+| `npm run test:e2e` (chromium) | **65 passed** (from 61) | ≥ 62 ✓ |
+| `npm run typecheck:tests` | **114 errors / 60 files** | ≤ 114 / ≤ 59 — errors ✓, **files +1** |
+
+No lint script is configured in `package.json`, so the code-quality gate is the two typecheck runs.
+
+**⚠ The one AC11 deviation, stated plainly: `typecheck:tests` is at 60 files against a cap of 59.** The
+error count is exactly at the 114 baseline, so the backlog did not grow by a single error — the extra file
+is where one error now *lives*. `@types/node` is deliberately not a dependency (`tsconfig.test.json` says
+so and explains why), so every file importing a `node:` module contributes one `TS2307`; **26 existing
+files carry exactly that one error**. Two new test files reading shipped content would have added two
+more, so the read was consolidated into `tests/shippedCases.ts` and `CaseDefinition.test.ts` was routed
+through it too — net zero errors, one new file. Reaching 59 would mean routing an unrelated single-error
+file through the helper purely to move a number, which Dev Notes §7 explicitly rules out ("Do not 'fix'
+unrelated entries in it"). Flagged for Alexis rather than decided unilaterally.
+
+**Dev Notes §7's prediction held.** The 49 `as CaseDefinition` cast fixtures stayed green untouched — a
+cast silences a missing required property, and nothing outside the new evaluator reads the new fields. One
+fixture was **not** a cast and did need authoring: `PreloadCaseAssets.test.ts` assigns a manifest to a
+typed parameter, so `tsc` caught it; `rights` is authored there rather than cast away, so the fixture keeps
+tracking the shape the loader is handed.
+
+**Open for Alexis** — three things this story deliberately did not decide:
+
+1. **The reviewers.** `scholarlyReviewer` and `educatorContextSheet` ship `pending` for both cases. That
+   is the honest state and the correct blocker; naming them is a content edit, and a name nobody supplied
+   would be the defect Story 3.2 AC7 forbids.
+2. **The portraits' replacement plan** (story Open Question 2). Authored as: rights review must decide
+   whether to clear the generated derivative for public use *or* replace it with commissioned art, and the
+   case stays blocked until that decision is recorded. If you have already decided which, the plan text
+   should say so instead.
+3. **`logo.png` and `favicon.png` provenance.** `docs/source-rights/quantique-shared-assets.md` records
+   what the repository can prove — both replaced by you in `01f786b` ("Changed logo"), superseding the
+   Phaser template placeholders — and `quantique-logo` is `reviewed` on the basis that it is the project's
+   own mark. If either was commissioned or derived from third-party material, that origin belongs in the
+   doc and the rights status needs revisiting. Flagged in the doc itself.
+
+`project-context.md` still does not exist (story Open Question 3, unchanged): nothing here depended on it,
+and the project rules applied were taken from `game-architecture.md` and the `epics.md` Additional
+Requirements as the story's Dev Notes direct.
+
 ### File List
+
+**New — source (4)**
+
+- `src/domain/sources/releaseApproval.ts`
+- `src/domain/sources/caseLedger.ts`
+- `src/adapters/content/resolveLedgerMode.ts`
+- `src/ui/SourceRightsLedger.ts`
+
+**New — tests (5)**
+
+- `tests/unit/SourceRightsLedger.test.ts`
+- `tests/unit/ResolveRendition.test.ts`
+- `tests/integration/SourceRightsLedgerSurface.test.ts`
+- `tests/e2e/source-rights-ledger.spec.ts`
+- `tests/shippedCases.ts` — shared shipped-content loader (see the AC11 note above)
+
+**New — docs (2)**
+
+- `docs/source-rights/README.md`
+- `docs/source-rights/quantique-shared-assets.md`
+
+**Modified — source (9)**
+
+- `src/domain/cases/CaseDefinition.ts`
+- `src/schemas/CaseDefinitionSchema.ts`
+- `src/schemas/CaseRecordSchema.ts`
+- `src/adapters/content/loadCaseDefinition.ts`
+- `src/core/i18n/resolveLocalizedText.ts`
+- `src/core/i18n/locales/en.ts`
+- `src/core/i18n/locales/fr.ts`
+- `src/main.ts`
+- `index.html`
+
+**Modified — content and shell (5)**
+
+- `public/cases/young-interference/case.json`
+- `public/cases/young-interference/asset-manifest.json`
+- `public/cases/morley-miller/case.json`
+- `public/cases/morley-miller/asset-manifest.json`
+- `public/sw.js`
+- `public/style.css`
+
+**Modified — tests (4)**
+
+- `tests/unit/CaseDefinition.test.ts`
+- `tests/unit/CaseRecordSchema.test.ts`
+- `tests/unit/I18n.test.ts`
+- `tests/unit/PreloadCaseAssets.test.ts`
+
+**Modified — docs and artifacts (3)**
+
+- `docs/validation/young-source-rights-review-template.md`
+- `docs/case-prototypes/morley-miller-prototype.md`
+- `_bmad-output/implementation-artifacts/deferred-work.md`
+
+## Change Log
+
+| Date | Change |
+|---|---|
+| 2026-08-19 | Story 3.3 implemented. Ledger contract added to `CaseDefinition` and `CaseDefinitionSchema` (three required blocks, six load-time refinements R1–R6, each mutation-proved). `src/domain/sources/{releaseApproval,caseLedger}.ts` added — a pure, fail-closed release gate with no waiver parameter, and the row projection that reads existing fields rather than duplicating them. `?ledger=1` reviewer route added (`resolveLedgerMode`, `SourceRightsLedger`, `#source-rights-ledger`), isolated like the validation route and starting no Phaser game. Young → `case.json` 1.21.0 / manifest 1.2.0, Morley–Miller → 1.1.0 / 1.1.0, both ledgers authored from the material as it actually stands and both resolving to **blocked**. `sw.js` → v9; `CaseRecordSchema` gains Young's 1.21.0 clause and the prototype's first clause in its own branch; `manifestsMatch` extended to compare `rights`. `resolveRendition` falls back on the rendition of record rather than on `transcription` alone (AC8). Bilingual `ledger.*` keys in both bundles, rights statuses reusing the existing `source.rights.*` family, I18n roster derived from the newly exported `ReviewerStateSchema` / `SourceRoleSchema`. Docs: `docs/source-rights/` created; the Young review template, the prototype artifact §4 and `deferred-work.md` updated. 1392 tests / 77 files (from 1344 / 74), e2e 65 passed (from 61), `typecheck` clean, `typecheck:tests` 114 errors — at baseline — across 60 files. |
+| 2026-08-19 | Boot-layer defect fixed before completion: the ledger rendered beneath `#boot-shell` and `#game-container`, both `position: fixed; inset: 0`, so a reviewer saw the boot splash and no ledger. Found by screenshotting the running app. `main.ts` hides both layers before mounting and the e2e walk asserts visibility plus both layers hidden. |
 
 ## Open Questions for Alexis
 

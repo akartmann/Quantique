@@ -10,7 +10,7 @@ import { countFixedMinimumPathRuns } from '../domain/evidence/wavelengthComparis
 import { evaluateConclusionReadiness } from '../domain/theory/conclusionReadiness';
 import { evaluatePeerReview } from '../domain/review/peerReviewRules';
 import { deriveRecognition, RECOGNITION_IDS, recognitionDefinitions } from '../domain/recognition/recognitionRules';
-import { CaseIdSchema, YOUNG_CASE_ID } from './CaseDefinitionSchema';
+import { CaseIdSchema, MORLEY_MILLER_CASE_ID, YOUNG_CASE_ID } from './CaseDefinitionSchema';
 import { migrateCaseRecord } from './migrations/migrateCaseRecord';
 import { evaluateContextReadiness, evaluatePredictionReadiness } from '../domain/cases/contextPredictionReadiness';
 
@@ -245,6 +245,7 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
     // exact version match is the whole of its compatibility, which is correct for a case with no
     // shipped history.
     const isYoung = definition.id === YOUNG_CASE_ID;
+    const isPrototype = definition.id === MORLEY_MILLER_CASE_ID;
     const compatibleDefinitionVersion = record.caseDefinitionVersion === definition.version
         || (isYoung && (false
         || (definition.version === '1.2.0' && ['1.0.0', '1.1.0'].includes(record.caseDefinitionVersion))
@@ -413,7 +414,40 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // the four inserted `inlineLabel` blocks compares equal. `schemaVersion` stays 3 and
         // `migrateCaseRecord.ts` is untouched.
         || (definition.version === '1.20.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0', '1.16.0', '1.17.0', '1.18.0', '1.19.0'].includes(record.caseDefinitionVersion))
-        ));
+        // 1.21.0 — Story 3.3, the source-and-rights ledger. Three additive authored blocks:
+        //
+        // - **`ledger`**, the case-level sign-off and reference roles (FR26);
+        // - **`ledgerEntry`** per contextual artifact — its source role, reviewer state and, where rights
+        //   are not cleared, a replacement plan;
+        // - **`rights`** per manifest asset — holder, rights status, claim-or-use, reviewer state,
+        //   provenance reference and replacement plan.
+        //
+        // **Nothing recorded moves, and no ledger field is recomputed or compared by a record.** The
+        // ledger is read by `evaluateLedgerReleaseApproval` and by the `?ledger=1` reviewer surface, and
+        // by nothing that a `CaseRecord` touches: no run, decision, recognition or readiness value is
+        // derived from it, and `assets.manifestVersion` (1.1.0 → 1.2.0) is a content key the record does
+        // not carry. The recomputed canonical set is byte-identical to 1.20.0 — `peerReviewRules`'
+        // `feedback` and `revisionPath`, and the proposal claims and limitations — verified by **diffing
+        // the two files**: every deleted line in that diff is a version bump or a line that gained a
+        // trailing comma, and every added line is one of the three blocks above. `schemaVersion` stays 3
+        // and `migrateCaseRecord.ts` is untouched.
+        || (definition.version === '1.21.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0', '1.16.0', '1.17.0', '1.18.0', '1.19.0', '1.20.0'].includes(record.caseDefinitionVersion))
+        ))
+        // **The prototype's first clause.** `morley-miller` shipped at 1.0.0 in Story 3.2 and had no
+        // allowlist entry at all, so a record saved against 1.0.0 was refused the moment this story
+        // bumped the case to 1.1.0 — a player's prototype investigation discarded by a content edit that
+        // changed nothing they had recorded.
+        //
+        // The same three additive blocks as Young's 1.21.0 clause, and the same reasoning: nothing
+        // recorded moves. Verified the same way, by diffing 1.0.0 against 1.1.0 — the whole document
+        // apart from `version`, `assets.manifestVersion`, the one `rights` block, the two `ledgerEntry`
+        // blocks and the `ledger` block compares equal.
+        //
+        // Its own branch, which is what the note above says a second case gets when it first needs one —
+        // and it needs one now. Nesting this beside Young's clauses would have made it unreachable
+        // (`isYoung` is false here), and sharing them would have this case reasoning about version
+        // numbers that mean something different in Young's history than in its own.
+        || (isPrototype && definition.version === '1.1.0' && record.caseDefinitionVersion === '1.0.0');
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }

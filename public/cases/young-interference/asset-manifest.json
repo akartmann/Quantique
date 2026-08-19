@@ -1,35 +1,115 @@
 {
-  "manifestVersion": "1.1.0",
+  "manifestVersion": "1.2.0",
   "entries": [
     {
       "id": "quantique-logo",
       "type": "image",
-      "path": "/assets/logo.png"
+      "path": "/assets/logo.png",
+      "rights": {
+        "holderOrOrigin": "Quantique project",
+        "status": "reviewed",
+        "claimOrUse": {
+          "en": "The project’s own mark, shown by the laboratory shell.",
+          "fr": "La marque propre au projet, affichée par la coque du laboratoire."
+        },
+        "reviewerState": "reviewed",
+        "provenanceReference": "docs/source-rights/quantique-shared-assets.md"
+      }
     },
     {
       "id": "thea-young-portrait",
       "type": "image",
-      "path": "/cases/young-interference/assets/characters/thea-young.png"
+      "path": "/cases/young-interference/assets/characters/thea-young.png",
+      "rights": {
+        "holderOrOrigin": "Quantique project, generated derivative",
+        "status": "incomplete",
+        "claimOrUse": {
+          "en": "Fictional colleague portrait of Dr. Thea Young, shown beside her dialogue.",
+          "fr": "Portrait de collègue fictive, la docteure Thea Young, affiché à côté de ses répliques."
+        },
+        "reviewerState": "pending",
+        "provenanceReference": "docs/validation/young-character-assets.md",
+        "replacementPlan": {
+          "en": "Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.",
+          "fr": "L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique."
+        }
+      }
     },
     {
       "id": "elias-wren-portrait",
       "type": "image",
-      "path": "/cases/young-interference/assets/characters/elias-wren.png"
+      "path": "/cases/young-interference/assets/characters/elias-wren.png",
+      "rights": {
+        "holderOrOrigin": "Quantique project, generated derivative",
+        "status": "incomplete",
+        "claimOrUse": {
+          "en": "Fictional colleague portrait of Elias Wren, shown beside his dialogue.",
+          "fr": "Portrait de collègue fictif, Elias Wren, affiché à côté de ses répliques."
+        },
+        "reviewerState": "pending",
+        "provenanceReference": "docs/validation/young-character-assets.md",
+        "replacementPlan": {
+          "en": "Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.",
+          "fr": "L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique."
+        }
+      }
     },
     {
       "id": "marianne-cole-portrait",
       "type": "image",
-      "path": "/cases/young-interference/assets/characters/marianne-cole.png"
+      "path": "/cases/young-interference/assets/characters/marianne-cole.png",
+      "rights": {
+        "holderOrOrigin": "Quantique project, generated derivative",
+        "status": "incomplete",
+        "claimOrUse": {
+          "en": "Fictional colleague portrait of Marianne Cole, shown beside her dialogue.",
+          "fr": "Portrait de collègue fictive, Marianne Cole, affiché à côté de ses répliques."
+        },
+        "reviewerState": "pending",
+        "provenanceReference": "docs/validation/young-character-assets.md",
+        "replacementPlan": {
+          "en": "Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.",
+          "fr": "L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique."
+        }
+      }
     },
     {
       "id": "samuel-hart-portrait",
       "type": "image",
-      "path": "/cases/young-interference/assets/characters/samuel-hart.png"
+      "path": "/cases/young-interference/assets/characters/samuel-hart.png",
+      "rights": {
+        "holderOrOrigin": "Quantique project, generated derivative",
+        "status": "incomplete",
+        "claimOrUse": {
+          "en": "Fictional colleague portrait of Samuel Hart, shown beside his dialogue.",
+          "fr": "Portrait de collègue fictif, Samuel Hart, affiché à côté de ses répliques."
+        },
+        "reviewerState": "pending",
+        "provenanceReference": "docs/validation/young-character-assets.md",
+        "replacementPlan": {
+          "en": "Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.",
+          "fr": "L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique."
+        }
+      }
     },
     {
       "id": "arthur-bell-portrait",
       "type": "image",
-      "path": "/cases/young-interference/assets/characters/arthur-bell.png"
+      "path": "/cases/young-interference/assets/characters/arthur-bell.png",
+      "rights": {
+        "holderOrOrigin": "Quantique project, generated derivative",
+        "status": "incomplete",
+        "claimOrUse": {
+          "en": "Fictional colleague portrait of Mr. Arthur Bell, the rival lab’s voice.",
+          "fr": "Portrait de collègue fictif, M. Arthur Bell, la voix du laboratoire rival."
+        },
+        "reviewerState": "pending",
+        "provenanceReference": "docs/validation/young-character-assets.md",
+        "replacementPlan": {
+          "en": "Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.",
+          "fr": "L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique."
+        }
+      }
     }
   ]
 }

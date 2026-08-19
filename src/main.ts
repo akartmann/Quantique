@@ -12,15 +12,22 @@ import { createBootShell, getBootFailureMessage, setBootShellStatus } from './ui
 import { mountCaseRecordPrintView } from './ui/print/CaseRecordPrintView';
 import { mountValidationSessionDisclosure } from './ui/ValidationSessionDisclosure';
 import { resolveCaseId } from './adapters/content/resolveCaseId';
+import { resolveLedgerMode } from './adapters/content/resolveLedgerMode';
+import { mountSourceRightsLedger } from './ui/SourceRightsLedger';
 
 /**
- * The four roots this application still needs, and what each is for.
+ * The five roots this application still needs, and what each is for.
  *
  * Story 2.12 deleted eleven others with the panels that mounted into them. What is left is the boot
  * frame, the facilitator disclosure, ADR-007's printable record — the sole non-Phaser *surface*, which
- * dispatches nothing — and the canvas the game runs on.
+ * dispatches nothing — the canvas the game runs on, and Story 3.3's source-and-rights ledger, which is
+ * a reviewer's audit rather than a player surface and dispatches nothing either.
+ *
+ * The ledger root is required on every load rather than only on `?ledger=1`, deliberately: a root that
+ * is only checked on the route that uses it is a root whose absence is discovered by the reviewer who
+ * needed it, which is the silent-failure shape AC2's loud guard replaced.
  */
-const REQUIRED_ROOTS = ['#boot-shell', '#validation-session-disclosure', '#print-record', '#game-container'] as const;
+const REQUIRED_ROOTS = ['#boot-shell', '#validation-session-disclosure', '#print-record', '#game-container', '#source-rights-ledger'] as const;
 
 /**
  * Says so, loudly, when the document is not the one this build expects.
@@ -54,6 +61,7 @@ const reportMissingRoots = (missing: readonly string[], locale: ReturnType<typeo
 const initializeLaboratory = async (): Promise<void> => {
     const search = new URLSearchParams(window.location.search);
     const validationMode = search.get('mode') === 'validation';
+    const ledgerMode = resolveLedgerMode(search);
     const caseId = resolveCaseId(search);
     // This does not depend on any document root, so even a loud boot failure speaks the browser language.
     const locale = resolveBrowserLocale();
@@ -69,6 +77,7 @@ const initializeLaboratory = async (): Promise<void> => {
     const validationDisclosureRoot = roots['#validation-session-disclosure']!;
     const printRoot = roots['#print-record']!;
     const gameContainer = roots['#game-container']!;
+    const ledgerRoot = roots['#source-rights-ledger']!;
 
     // Resolved from the browser's own language preferences, synchronously and before any `await`, so
     // the language is settled before anything this function renders and nothing about it ever needs to
@@ -89,6 +98,31 @@ const initializeLaboratory = async (): Promise<void> => {
     if (!caseResult.ok) {
         // Localized by the stable error code, not by re-raising the dev-facing message (NFR18).
         setBootShellStatus(translateError(locale, caseResult.error));
+        return;
+    }
+
+    /**
+     * The ledger route, isolated the way the validation route is and then some: it builds no
+     * `CaseRecordRepository`, wires no autosave, mounts no printable record, and **does not start the
+     * Phaser game at all** — it returns here.
+     *
+     * Placed after `loadCaseDefinition` because the ledger audits authored content and has nothing to
+     * say without it, and before every line below because each of those is session machinery a reviewer
+     * reading a rights table has no use for. Starting the game would also put a running investigation
+     * behind the audit, autosaving over whatever that reviewer's browser already held.
+     */
+    if (ledgerMode) {
+        // **Both fixed layers come down first, and this is not cosmetic.** `#game-container` and
+        // `#boot-shell` are `position: fixed; inset: 0`, the frame at `z-index: 2`, so a ledger mounted
+        // into normal flow beneath them renders to a reviewer as the boot splash with an "Enter
+        // laboratory" button and no ledger at all — the blank-surface-behind-a-live-frame defect the 3.2
+        // review found on the prototype's bench. Verified in a browser rather than reasoned about.
+        //
+        // `#boot-status` stays (`z-index: 3`): it is the one region a boot failure speaks from, and the
+        // failure path above returns before this line, so the two never compete for the screen.
+        gameContainer.hidden = true;
+        bootShell.hidden = true;
+        mountSourceRightsLedger(ledgerRoot, caseResult.value, locale);
         return;
     }
 

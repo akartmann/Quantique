@@ -1,12 +1,12 @@
-import { readFile } from 'node:fs/promises';
-
 import { describe, expect, it, vi } from 'vitest';
 
 import { loadCaseDefinition } from '../../src/adapters/content/loadCaseDefinition';
+import { isSourceEligibleForInspection } from '../../src/domain/cases/CaseDefinition';
 import type { CaseDefinition, LocalizedText, LocalizedTextList, TextualRendition } from '../../src/domain/cases/CaseDefinition';
 import { CASE_PHASES, createInitialCaseProgress } from '../../src/domain/cases/CaseProgress';
 import { advanceCasePhase, resetCaseProgress, retreatCasePhase } from '../../src/domain/cases/caseReducer';
 import { CaseDefinitionSchema, MAX_PRIMARY_CONTROLS } from '../../src/schemas/CaseDefinitionSchema';
+import { readShippedCaseFile } from '../shippedCases';
 
 /** Fixture helpers: every localizable authored string must carry both shipped locales. */
 const bilingual = (english: string, french = `${english} [fr]`): LocalizedText => ({ en: english, fr: french });
@@ -50,7 +50,11 @@ const validYoungCase: CaseDefinition = {
             provenance: { category: 'primary-material', reference: 'young-1801-lecture' },
             rightsStatus: 'reviewed',
             caseRelationship: bilingual('Contemporary account of Young’s interference demonstration.'),
-            textualRendition: localLectureRendition('young-bakerian-page-12')
+            textualRendition: localLectureRendition('young-bakerian-page-12'),
+            // Both of Young's sources are primary material and both are public-domain `reviewed`, so
+            // neither needs a replacement plan and neither carries a reviewer's signature. That is R2's
+            // legal converse, on the shipped shape.
+            ledgerEntry: { sourceRole: 'primary', reviewerState: 'pending' }
         },
         {
             id: 'newton-opticks',
@@ -60,7 +64,8 @@ const validYoungCase: CaseDefinition = {
             provenance: { category: 'primary-material', reference: 'newton-opticks-1704' },
             rightsStatus: 'reviewed',
             caseRelationship: bilingual('Earlier source that frames the corpuscular account considered by Young.'),
-            textualRendition: localLectureRendition('newton-opticks-page-1')
+            textualRendition: localLectureRendition('newton-opticks-page-1'),
+            ledgerEntry: { sourceRole: 'primary', reviewerState: 'pending' }
         }
     ],
     prediction: { required: true },
@@ -195,16 +200,103 @@ const validYoungCase: CaseDefinition = {
         historicalComparison: { title: bilingual('Young and Opticks'), text: bilingual('The authored records remain fixed.'), sourceIds: ['young-lecture-1801', 'newton-opticks'] },
         deeperTheory: { title: bilingual('Deeper theory'), text: bilingual('A reconstruction is not the historical record.') }, replayLabel: bilingual('Start counterfactual replay')
     },
+    /**
+     * Mirrors `public/cases/young-interference/asset-manifest.json` exactly, because the
+     * `loadCaseDefinition` test below asserts the shipped manifest deep-equals this block. That is what
+     * makes it a statement about the shipped content rather than about itself: the rights records here
+     * are the authored ones, uncleared portraits included, and a content edit that forgets one file
+     * fails here rather than reaching a reviewer.
+     */
     assets: {
-        manifestVersion: '1.1.0',
+        manifestVersion: '1.2.0',
         entries: [
-            { id: 'quantique-logo', type: 'image', path: '/assets/logo.png' },
-            { id: 'thea-young-portrait', type: 'image', path: '/cases/young-interference/assets/characters/thea-young.png' },
-            { id: 'elias-wren-portrait', type: 'image', path: '/cases/young-interference/assets/characters/elias-wren.png' },
-            { id: 'marianne-cole-portrait', type: 'image', path: '/cases/young-interference/assets/characters/marianne-cole.png' },
-            { id: 'samuel-hart-portrait', type: 'image', path: '/cases/young-interference/assets/characters/samuel-hart.png' },
-            { id: 'arthur-bell-portrait', type: 'image', path: '/cases/young-interference/assets/characters/arthur-bell.png' }
+            {
+                id: 'quantique-logo',
+                type: 'image',
+                path: '/assets/logo.png',
+                rights: {
+                    holderOrOrigin: 'Quantique project',
+                    status: 'reviewed',
+                    claimOrUse: { en: 'The project’s own mark, shown by the laboratory shell.', fr: 'La marque propre au projet, affichée par la coque du laboratoire.' },
+                    reviewerState: 'reviewed',
+                    provenanceReference: 'docs/source-rights/quantique-shared-assets.md'
+                }
+            },
+            {
+                id: 'thea-young-portrait',
+                type: 'image',
+                path: '/cases/young-interference/assets/characters/thea-young.png',
+                rights: {
+                    holderOrOrigin: 'Quantique project, generated derivative',
+                    status: 'incomplete',
+                    claimOrUse: { en: 'Fictional colleague portrait of Dr. Thea Young, shown beside her dialogue.', fr: 'Portrait de collègue fictive, la docteure Thea Young, affiché à côté de ses répliques.' },
+                    reviewerState: 'pending',
+                    provenanceReference: 'docs/validation/young-character-assets.md',
+                    replacementPlan: { en: 'Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.', fr: 'L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique.' }
+                }
+            },
+            {
+                id: 'elias-wren-portrait',
+                type: 'image',
+                path: '/cases/young-interference/assets/characters/elias-wren.png',
+                rights: {
+                    holderOrOrigin: 'Quantique project, generated derivative',
+                    status: 'incomplete',
+                    claimOrUse: { en: 'Fictional colleague portrait of Elias Wren, shown beside his dialogue.', fr: 'Portrait de collègue fictif, Elias Wren, affiché à côté de ses répliques.' },
+                    reviewerState: 'pending',
+                    provenanceReference: 'docs/validation/young-character-assets.md',
+                    replacementPlan: { en: 'Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.', fr: 'L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique.' }
+                }
+            },
+            {
+                id: 'marianne-cole-portrait',
+                type: 'image',
+                path: '/cases/young-interference/assets/characters/marianne-cole.png',
+                rights: {
+                    holderOrOrigin: 'Quantique project, generated derivative',
+                    status: 'incomplete',
+                    claimOrUse: { en: 'Fictional colleague portrait of Marianne Cole, shown beside her dialogue.', fr: 'Portrait de collègue fictive, Marianne Cole, affiché à côté de ses répliques.' },
+                    reviewerState: 'pending',
+                    provenanceReference: 'docs/validation/young-character-assets.md',
+                    replacementPlan: { en: 'Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.', fr: 'L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique.' }
+                }
+            },
+            {
+                id: 'samuel-hart-portrait',
+                type: 'image',
+                path: '/cases/young-interference/assets/characters/samuel-hart.png',
+                rights: {
+                    holderOrOrigin: 'Quantique project, generated derivative',
+                    status: 'incomplete',
+                    claimOrUse: { en: 'Fictional colleague portrait of Samuel Hart, shown beside his dialogue.', fr: 'Portrait de collègue fictif, Samuel Hart, affiché à côté de ses répliques.' },
+                    reviewerState: 'pending',
+                    provenanceReference: 'docs/validation/young-character-assets.md',
+                    replacementPlan: { en: 'Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.', fr: 'L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique.' }
+                }
+            },
+            {
+                id: 'arthur-bell-portrait',
+                type: 'image',
+                path: '/cases/young-interference/assets/characters/arthur-bell.png',
+                rights: {
+                    holderOrOrigin: 'Quantique project, generated derivative',
+                    status: 'incomplete',
+                    claimOrUse: { en: 'Fictional colleague portrait of Mr. Arthur Bell, the rival lab’s voice.', fr: 'Portrait de collègue fictif, M. Arthur Bell, la voix du laboratoire rival.' },
+                    reviewerState: 'pending',
+                    provenanceReference: 'docs/validation/young-character-assets.md',
+                    replacementPlan: { en: 'Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.', fr: 'L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique.' }
+                }
+            }
         ]
+    },
+    ledger: {
+        signOff: {
+            contentAuthor: { state: 'reviewed', name: 'Claude (Story 3.3 development)', date: '2026-08-19' },
+            scholarlyReviewer: { state: 'pending' },
+            accessibilityReviewer: { state: 'de-scoped', reference: 'ADR-008' }
+        },
+        educatorContextSheet: { state: 'pending' },
+        accessibleControlsReference: { state: 'de-scoped', reference: 'ADR-008' }
     }
 };
 
@@ -1598,8 +1690,8 @@ describe('a second case', () => {
 
 describe('loadCaseDefinition', () => {
     it('loads the immutable authored Young content and its declared manifest', async () => {
-        const caseContent = await readFile(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf8');
-        const manifestContent = await readFile(new URL('../../public/cases/young-interference/asset-manifest.json', import.meta.url), 'utf8');
+        const caseContent = await readShippedCaseFile('young-interference', 'case.json');
+        const manifestContent = await readShippedCaseFile('young-interference', 'asset-manifest.json');
         const fetchCase = vi.fn()
             .mockResolvedValueOnce(new Response(caseContent, { status: 200 }))
             .mockResolvedValueOnce(new Response(manifestContent, { status: 200 }));
@@ -1673,7 +1765,7 @@ describe('loadCaseDefinition', () => {
      * until this story; a test naming it is how it stops being possible for that to happen quietly.
      */
     it('authors every debrief string the canvas renders, in both locales', async () => {
-        const caseContent = await readFile(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf8');
+        const caseContent = await readShippedCaseFile('young-interference', 'case.json');
         const definition = CaseDefinitionSchema.parse(JSON.parse(caseContent));
         const { debrief } = definition;
 
@@ -1967,5 +2059,214 @@ describe('the Young significance rule against the Young model inputs', () => {
         (second.experiment as Record<string, unknown>).wavelengthComparison = { fixedMinimumPathNm: 500, advancedChoicesNm: [450, 650] };
 
         expect(CaseDefinitionSchema.safeParse(second).success).toBe(true);
+    });
+});
+
+/**
+ * The source-and-rights ledger contract (Story 3.3, AC1/AC2/AC5).
+ *
+ * Six refinements, each with its own rejection fixture, because a refinement no fixture can break is a
+ * comment — the lesson three stories running (`activeControlValues`, most sharply). Every case below
+ * answers "what fails if I delete this rule?" with a named message and a path.
+ */
+describe('the source and rights ledger contract', () => {
+    /** The ledger `validYoungCase` authors, cloned so a mutation cannot leak between cases. */
+    const clonedLedger = (): Record<string, unknown> =>
+        structuredClone(validYoungCase.ledger) as unknown as Record<string, unknown>;
+
+    it('accepts the authored shape, on Young and on a case sharing none of its specifics', () => {
+        expect(CaseDefinitionSchema.safeParse(cloneValidCase()).success).toBe(true);
+        expect(CaseDefinitionSchema.safeParse(cloneSecondCase()).success).toBe(true);
+    });
+
+    it('R1 rejects an unreviewed source with no replacement plan', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        const artifacts = definition.contextualArtifacts as Array<Record<string, unknown>>;
+        // `incomplete` rights on a source whose rendition is dropped, so the pre-existing
+        // rendition and readiness rules do not answer for this one.
+        artifacts[0].rightsStatus = 'incomplete';
+        delete artifacts[0].textualRendition;
+        delete (artifacts[0].ledgerEntry as Record<string, unknown>).replacementPlan;
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+        expect(parsed.success).toBe(false);
+        if (!parsed.success) {
+            expect(parsed.error.issues.map(({ message }) => message)).toContain(
+                'A source whose rights are not reviewed must carry a replacement plan — an uncleared source with no plan is one nobody intends to fix.'
+            );
+            expect(parsed.error.issues.some(({ path }) => path.join('.') === 'contextualArtifacts.0.ledgerEntry.replacementPlan')).toBe(true);
+        }
+    });
+
+    it('R1 rejects an unreviewed asset with no replacement plan', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        const entries = (definition.assets as { entries: Array<Record<string, unknown>> }).entries;
+        const rights = entries[1].rights as Record<string, unknown>;
+        rights.status = 'incomplete';
+        delete rights.replacementPlan;
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+        expect(parsed.success).toBe(false);
+        if (!parsed.success) {
+            expect(parsed.error.issues.map(({ message }) => message)).toContain(
+                'An asset whose rights are not reviewed must carry a replacement plan — FR27 requires ambiguous-permission material to be replaced or linked, not left standing.'
+            );
+            expect(parsed.error.issues.some(({ path }) => path.join('.') === 'assets.entries.1.rights.replacementPlan')).toBe(true);
+        }
+    });
+
+    it('R2 rejects a signed-off reviewer state over rights that are not reviewed', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        const entries = (definition.assets as { entries: Array<Record<string, unknown>> }).entries;
+        const rights = entries[1].rights as Record<string, unknown>;
+        rights.status = 'incomplete';
+        rights.replacementPlan = { en: 'Clear or replace.', fr: 'Libérer ou remplacer.' };
+        rights.reviewerState = 'reviewed';
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+        expect(parsed.success).toBe(false);
+        if (!parsed.success) {
+            expect(parsed.error.issues.map(({ message }) => message)).toContain(
+                'A reviewer cannot have signed off an asset whose rights are not reviewed — a signature over uncleared rights represents unreviewed material as verified.'
+            );
+            expect(parsed.error.issues.some(({ path }) => path.join('.') === 'assets.entries.1.rights.reviewerState')).toBe(true);
+        }
+    });
+
+    it('R2 rejects the same contradiction on a source, and allows the legal converse', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        const artifacts = definition.contextualArtifacts as Array<Record<string, unknown>>;
+        artifacts[0].rightsStatus = 'incomplete';
+        delete artifacts[0].textualRendition;
+        const entry = artifacts[0].ledgerEntry as Record<string, unknown>;
+        entry.replacementPlan = { en: 'Clear or replace.', fr: 'Libérer ou remplacer.' };
+        entry.reviewerState = 'reviewed';
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+        expect(parsed.success).toBe(false);
+        if (!parsed.success) {
+            expect(parsed.error.issues.some(({ path }) => path.join('.') === 'contextualArtifacts.0.ledgerEntry.reviewerState')).toBe(true);
+        }
+
+        // The converse is legal, and must stay legal: an 1801 public-domain lecture is `reviewed`
+        // rights with nobody's signature on it, which is the whole reason these are two enums.
+        const legal = cloneValidCase() as unknown as Record<string, unknown>;
+        ((legal.contextualArtifacts as Array<Record<string, unknown>>)[0].ledgerEntry as Record<string, unknown>).reviewerState = 'pending';
+        expect(CaseDefinitionSchema.safeParse(legal).success).toBe(true);
+    });
+
+    it('R3 rejects a de-scoped role with no reference, so `de-scoped` can never be spelled `reviewed`', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        const ledger = clonedLedger();
+        delete ((ledger.signOff as Record<string, unknown>).accessibilityReviewer as Record<string, unknown>).reference;
+        definition.ledger = ledger;
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+        expect(parsed.success).toBe(false);
+        if (!parsed.success) {
+            expect(parsed.error.issues.map(({ message }) => message)).toContain(
+                'A de-scoped role must name the decision that de-scoped it — an unreferenced de-scoping is indistinguishable from a role that was silently dropped.'
+            );
+            expect(parsed.error.issues.some(({ path }) => path.join('.') === 'ledger.signOff.accessibilityReviewer.reference')).toBe(true);
+        }
+    });
+
+    it('R4 rejects a named reviewer beside a pending state', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        const ledger = clonedLedger();
+        ((ledger.signOff as Record<string, unknown>).scholarlyReviewer as Record<string, unknown>).name = 'A. Reviewer';
+        definition.ledger = ledger;
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+        expect(parsed.success).toBe(false);
+        if (!parsed.success) {
+            expect(parsed.error.issues.map(({ message }) => message)).toContain(
+                'A pending role must carry no reviewer name and no date — a name beside a pending state reads as a sign-off nobody gave.'
+            );
+        }
+
+        // The date half of the same rule, so neither half can be deleted without a fixture failing.
+        const dated = cloneValidCase() as unknown as Record<string, unknown>;
+        const datedLedger = clonedLedger();
+        ((datedLedger.signOff as Record<string, unknown>).scholarlyReviewer as Record<string, unknown>).date = '2026-08-19';
+        dated.ledger = datedLedger;
+        expect(CaseDefinitionSchema.safeParse(dated).success).toBe(false);
+    });
+
+    it('R5 rejects a ledger with no primary source, and accepts two primaries', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        (definition.contextualArtifacts as Array<Record<string, unknown>>).forEach((artifact) => {
+            (artifact.ledgerEntry as Record<string, unknown>).sourceRole = 'secondary';
+        });
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+        expect(parsed.success).toBe(false);
+        if (!parsed.success) {
+            expect(parsed.error.issues.map(({ message }) => message)).toContain(
+                'At least one source must be primary material — a case built entirely on secondary sources cites nothing at first hand.'
+            );
+        }
+
+        // Both primary is legal and must stay legal: Young's two *are* both primary material, and
+        // requiring one of each would force a false provenance claim onto shipped content.
+        const bothPrimary = cloneValidCase() as unknown as Record<string, unknown>;
+        (bothPrimary.contextualArtifacts as Array<Record<string, unknown>>).forEach((artifact) => {
+            (artifact.ledgerEntry as Record<string, unknown>).sourceRole = 'primary';
+        });
+        expect(CaseDefinitionSchema.safeParse(bothPrimary).success).toBe(true);
+    });
+
+    it('R6 rejects a reviewed role with no name, and one with a date that is not YYYY-MM-DD', () => {
+        const unnamed = cloneValidCase() as unknown as Record<string, unknown>;
+        const unnamedLedger = clonedLedger();
+        delete ((unnamedLedger.signOff as Record<string, unknown>).contentAuthor as Record<string, unknown>).name;
+        unnamed.ledger = unnamedLedger;
+
+        const parsed = CaseDefinitionSchema.safeParse(unnamed);
+        expect(parsed.success).toBe(false);
+        if (!parsed.success) {
+            expect(parsed.error.issues.map(({ message }) => message)).toContain(
+                'A reviewed role must record who signed it off and on what date — an unattributed sign-off is not one.'
+            );
+        }
+
+        const misdated = cloneValidCase() as unknown as Record<string, unknown>;
+        const misdatedLedger = clonedLedger();
+        ((misdatedLedger.signOff as Record<string, unknown>).contentAuthor as Record<string, unknown>).date = '19/08/2026';
+        misdated.ledger = misdatedLedger;
+        expect(CaseDefinitionSchema.safeParse(misdated).success).toBe(false);
+    });
+
+    it('rejects an unauthored key in each of the three new blocks', () => {
+        const withStray = (mutate: (definition: Record<string, unknown>) => void): boolean => {
+            const definition = cloneValidCase() as unknown as Record<string, unknown>;
+            mutate(definition);
+            return CaseDefinitionSchema.safeParse(definition).success;
+        };
+
+        expect(withStray((definition) => { (definition.ledger as Record<string, unknown>).waiver = true; })).toBe(false);
+        expect(withStray((definition) => {
+            ((definition.contextualArtifacts as Array<Record<string, unknown>>)[0].ledgerEntry as Record<string, unknown>).waiver = true;
+        })).toBe(false);
+        expect(withStray((definition) => {
+            ((definition.assets as { entries: Array<Record<string, unknown>> }).entries[0].rights as Record<string, unknown>).waiver = true;
+        })).toBe(false);
+    });
+
+    it('validates locale completeness on every authored ledger string', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        const rights = (definition.assets as { entries: Array<Record<string, unknown>> }).entries[1].rights as Record<string, unknown>;
+        rights.claimOrUse = { en: 'A generated portrait of a fictional colleague.' };
+
+        expect(CaseDefinitionSchema.safeParse(definition).success).toBe(false);
+    });
+
+    it('leaves the reading-room eligibility rule exactly where it was', () => {
+        // The reading-room gate and the release gate answer different questions, and wiring one to the
+        // other would make an unreviewed asset close the context gate. `isSourceEligibleForInspection`
+        // still reads `rightsStatus` and nothing else — not `ledgerEntry.reviewerState`.
+        const artifact = structuredClone(validYoungCase.contextualArtifacts[0]) as unknown as Record<string, unknown>;
+        (artifact.ledgerEntry as Record<string, unknown>).reviewerState = 'pending';
+        expect(isSourceEligibleForInspection(artifact as unknown as CaseDefinition['contextualArtifacts'][number])).toBe(true);
     });
 });

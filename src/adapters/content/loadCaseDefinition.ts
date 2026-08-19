@@ -7,12 +7,23 @@ type FetchCaseDefinition = (input: string) => Promise<Response>;
 const contentPath = (baseUrl: string, caseId: string, fileName: string): string =>
     `${baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`}cases/${encodeURIComponent(caseId)}/${fileName}`;
 
+/**
+ * Whether the case's declared asset block and the manifest file agree, field for field.
+ *
+ * `rights` is compared as well as `id`, `type` and `path` (Story 3.3). The two files each declare the
+ * same entries, so every field either file gains is a field they can silently disagree about — and a
+ * rights record is precisely the kind an author would update in one file and not the other. Compared
+ * structurally rather than key by key so the next field added to `AssetRights` is covered without this
+ * function being remembered.
+ */
 const manifestsMatch = (definition: CaseDefinition, manifest: CaseDefinition['assets']): boolean =>
     definition.assets.manifestVersion === manifest.manifestVersion
     && definition.assets.entries.length === manifest.entries.length
     && definition.assets.entries.every((asset) => {
         const manifestAsset = manifest.entries.find((entry) => entry.id === asset.id);
-        return manifestAsset?.type === asset.type && manifestAsset.path === asset.path;
+        return manifestAsset?.type === asset.type
+            && manifestAsset.path === asset.path
+            && JSON.stringify(manifestAsset.rights) === JSON.stringify(asset.rights);
     });
 
 const deepFreeze = <T>(value: T): T => {

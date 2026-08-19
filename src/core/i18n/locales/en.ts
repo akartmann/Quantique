@@ -238,6 +238,58 @@ export const en = {
     'source.rights.incomplete': 'Incomplete',
     'source.rights.unavailable': 'Unavailable',
 
+    // --- Source and rights ledger, the `?ledger=1` reviewer route (Story 3.3, FR26) --------------
+    // A reviewer surface, not a player surface. The three rights statuses deliberately reuse the
+    // `source.rights.*` family above rather than opening a second one: one vocabulary for "may we ship
+    // this" across the reading room, the debrief and the ledger. `ledger.reviewer.*` is the separate
+    // question of whether a *person* signed a row off, which is why it is its own family.
+    'ledger.title': 'Source and rights ledger',
+    'ledger.caseLine': '{title} · {id} · case content {version}',
+    'ledger.absent': '—',
+    'ledger.decision.blocked': 'Release approval: BLOCKED. This case may not be publicly released until every row below clears.',
+    'ledger.decision.clear': 'Release approval: clear. Every source, asset and reviewer role below has cleared.',
+    'ledger.blockers.title': 'What blocks release',
+    'ledger.blockers.none': 'Nothing blocks release.',
+    'ledger.blocker.source-rights-incomplete': 'Source rights are not reviewed: {subject}',
+    'ledger.blocker.asset-rights-incomplete': 'Asset rights are not reviewed: {subject}',
+    'ledger.blocker.content-author-unrecorded': 'No content author is recorded for this case: {subject}',
+    'ledger.blocker.scholarly-review-pending': 'Scholarly source and rights review is pending: {subject}',
+    'ledger.blocker.educator-context-sheet-pending': 'The educator context sheet is pending: {subject}',
+    'ledger.sources.title': 'Sources',
+    'ledger.assets.title': 'Assets',
+    'ledger.signOff.title': 'Sign-off',
+    'ledger.references.title': 'References',
+    'ledger.column.source': 'Source',
+    'ledger.column.asset': 'Asset',
+    'ledger.column.role': 'Role',
+    'ledger.column.type': 'Type',
+    'ledger.column.provenance': 'Provenance',
+    'ledger.column.reference': 'Reference',
+    'ledger.column.rights': 'Rights',
+    'ledger.column.reviewer': 'Reviewer',
+    'ledger.column.claimOrUse': 'Claim or use',
+    'ledger.column.citation': 'Citation',
+    'ledger.column.replacementPlan': 'Replacement plan',
+    'ledger.column.holder': 'Holder or origin',
+    'ledger.column.path': 'Path',
+    'ledger.column.state': 'State',
+    'ledger.column.name': 'Name',
+    'ledger.column.date': 'Date',
+    'ledger.column.decision': 'Decision of record',
+    'ledger.role.primary': 'Primary',
+    'ledger.role.secondary': 'Secondary',
+    'ledger.role.contentAuthor': 'Content author',
+    'ledger.role.scholarlyReviewer': 'Scholarly reviewer',
+    'ledger.role.accessibilityReviewer': 'Accessibility reviewer',
+    'ledger.role.educatorContextSheet': 'Educator context sheet',
+    'ledger.role.accessibleControlsReference': 'Accessible-controls reference',
+    'ledger.reviewer.reviewed': 'Signed off',
+    'ledger.reviewer.pending': 'Pending',
+    'ledger.reviewer.de-scoped': 'De-scoped',
+    // A de-scoped role reads with the decision that de-scoped it, so "de-scoped (ADR-008)" is on the
+    // page rather than a bare word a reviewer would have to take on trust.
+    'ledger.reviewer.withReference': '{state} ({reference})',
+
     // --- Inquiry recognition (canonical labels stay in the record; display resolves by id) -------
     // The trailing "recorded" left these labels when the debrief gave them a surface (Story 2.11): the
     // row's own status column says `Recorded` or `Not this time` beside the label, so carrying it in

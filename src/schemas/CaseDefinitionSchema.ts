@@ -167,6 +167,112 @@ export const SourceProvenanceCategorySchema = z.enum(['primary-material', 'recon
 export const SourceTypeSchema = z.enum(['lecture-record', 'published-book', 'reconstruction', 'interpretive-essay', 'fictionalized-account']);
 export const SourceRightsStatusSchema = z.enum(['reviewed', 'incomplete', 'unavailable']);
 
+/**
+ * The two ledger enums, exported for the same reason the three above are: `I18n.test.ts` derives its
+ * required `ledger.*` key roster from them rather than transcribing the members. A hand-copied roster
+ * is a roster that stops being updated — a fourth reviewer state would be added here and not there,
+ * and the test would stay green while the ledger rendered a raw enum value at a reviewer.
+ */
+export const SourceRoleSchema = z.enum(['primary', 'secondary']);
+export const ReviewerStateSchema = z.enum(['reviewed', 'pending', 'de-scoped']);
+
+/** Canonical: a date of record, not display text. */
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'A sign-off date must be YYYY-MM-DD.');
+
+/**
+ * One reviewer role, with R3, R4 and R6 enforced here rather than at the call sites — five roles share
+ * this shape and five copies of the same three rules is five places for them to drift apart.
+ */
+const ReviewerSignOffSchema = z.object({
+    state: ReviewerStateSchema,
+    // Canonical: a reviewer's name is a proper noun.
+    name: z.string().trim().min(1).optional(),
+    date: isoDate.optional(),
+    // Canonical: the ADR or document of record.
+    reference: z.string().trim().min(1).optional()
+}).strict().superRefine((signOff, context) => {
+    // R6. A sign-off with nobody's name on it is not a sign-off, and a reviewer reading the ledger
+    // cannot tell an unattributed `reviewed` from an authoring mistake.
+    if (signOff.state === 'reviewed' && (signOff.name === undefined || signOff.date === undefined)) {
+        context.addIssue({
+            code: 'custom',
+            message: 'A reviewed role must record who signed it off and on what date — an unattributed sign-off is not one.',
+            path: [signOff.name === undefined ? 'name' : 'date']
+        });
+    }
+    // R4. The ambiguity AC5 exists to stop, in its sign-off form: a name sitting beside `pending`
+    // reads as a signature that was given, which is exactly what `pending` says did not happen.
+    if (signOff.state === 'pending' && (signOff.name !== undefined || signOff.date !== undefined)) {
+        context.addIssue({
+            code: 'custom',
+            message: 'A pending role must carry no reviewer name and no date — a name beside a pending state reads as a sign-off nobody gave.',
+            path: [signOff.name !== undefined ? 'name' : 'date']
+        });
+    }
+    // R3. `de-scoped` is a decision, and a decision has a document. Without this an author could
+    // write `de-scoped` with nothing behind it, which is indistinguishable from a role that was
+    // quietly dropped — the thing Story 3.2 AC8 forbids and this state exists to prevent.
+    if (signOff.state === 'de-scoped' && signOff.reference === undefined) {
+        context.addIssue({
+            code: 'custom',
+            message: 'A de-scoped role must name the decision that de-scoped it — an unreferenced de-scoping is indistinguishable from a role that was silently dropped.',
+            path: ['reference']
+        });
+    }
+});
+
+/**
+ * What the ledger adds to a source. R1 and R2 are checked in the definition-level loop instead,
+ * because both compare this block against the artifact's own `rightsStatus` one level up.
+ */
+const LedgerEntrySchema = z.object({
+    sourceRole: SourceRoleSchema,
+    reviewerState: ReviewerStateSchema,
+    replacementPlan: LocalizedTextSchema.optional()
+}).strict();
+
+/** The rights record for one manifest asset. R1 and R2 apply here too, against `status` beside it. */
+const AssetRightsSchema = z.object({
+    // Canonical: a rights holder or originating process is a proper noun.
+    holderOrOrigin: z.string().trim().min(1),
+    status: SourceRightsStatusSchema,
+    claimOrUse: LocalizedTextSchema,
+    reviewerState: ReviewerStateSchema,
+    // Canonical: the repository path of the document recording this asset's origin.
+    provenanceReference: z.string().trim().min(1),
+    replacementPlan: LocalizedTextSchema.optional()
+}).strict().superRefine((rights, context) => {
+    // R1, asset half. FR27 requires ambiguous-permission material to be replaced or linked; an
+    // uncleared asset with no plan is an asset nobody intends to fix.
+    if (rights.status !== 'reviewed' && rights.replacementPlan === undefined) {
+        context.addIssue({
+            code: 'custom',
+            message: 'An asset whose rights are not reviewed must carry a replacement plan — FR27 requires ambiguous-permission material to be replaced or linked, not left standing.',
+            path: ['replacementPlan']
+        });
+    }
+    // R2, asset half. The converse is deliberately legal: public-domain material is `reviewed` rights
+    // with nobody's signature on it, which is why these are two enums and not one.
+    if (rights.reviewerState === 'reviewed' && rights.status !== 'reviewed') {
+        context.addIssue({
+            code: 'custom',
+            message: 'A reviewer cannot have signed off an asset whose rights are not reviewed — a signature over uncleared rights represents unreviewed material as verified.',
+            path: ['reviewerState']
+        });
+    }
+});
+
+/** The case-level ledger. Every role required, because `pending` is the honest state for an open one. */
+const CaseLedgerSchema = z.object({
+    signOff: z.object({
+        contentAuthor: ReviewerSignOffSchema,
+        scholarlyReviewer: ReviewerSignOffSchema,
+        accessibilityReviewer: ReviewerSignOffSchema
+    }).strict(),
+    educatorContextSheet: ReviewerSignOffSchema,
+    accessibleControlsReference: ReviewerSignOffSchema
+}).strict();
+
 const TextualRenditionSectionSchema = z.object({
     id: stableId,
     heading: z.string().trim().min(1),
@@ -248,7 +354,8 @@ const ContextualArtifactSchema = z.object({
     }).strict(),
     rightsStatus: SourceRightsStatusSchema,
     caseRelationship: LocalizedTextSchema,
-    textualRendition: TextualRenditionSchema.optional()
+    textualRendition: TextualRenditionSchema.optional(),
+    ledgerEntry: LedgerEntrySchema
 }).strict();
 
 const ConsultationPredicateSchema = z.discriminatedUnion('kind', [
@@ -610,7 +717,15 @@ export const AssetManifestSchema = z.object({
         // (`deferred-work.md:146` named `/\` and `..` in one sentence; only one was rejected).
         path: z.string()
             .regex(/^\/(?![/\\])/, 'Asset paths must be same-origin static root paths.')
-            .refine((path) => !decodeAssetPath(path).split(/[/\\]/).includes('..'), 'Asset paths must not contain a parent-directory segment.')
+            .refine((path) => !decodeAssetPath(path).split(/[/\\]/).includes('..'), 'Asset paths must not contain a parent-directory segment.'),
+        /**
+         * Who holds this asset and whether its reuse has been cleared (Story 3.3, AC5).
+         *
+         * The manifest carried `id`, `type` and `path` and nothing else, so no surface could answer
+         * either question — which is why the ledger is the first surface to read asset rights rather
+         * than the fifth. Required: an asset nobody audited is what this field exists to make impossible.
+         */
+        rights: AssetRightsSchema
     }).strict()).min(1)
 }).strict().superRefine((manifest, context) => {
     if (new Set(manifest.entries.map((asset) => asset.id)).size !== manifest.entries.length) {
@@ -733,7 +848,14 @@ export const CaseDefinitionSchema = z.object({
         deeperTheory: z.object({ title: LocalizedTextSchema, text: LocalizedTextSchema }).strict(),
         replayLabel: LocalizedTextSchema
     }).strict(),
-    assets: AssetManifestSchema
+    assets: AssetManifestSchema,
+    /**
+     * The source-and-rights ledger `evaluateLedgerReleaseApproval` reads (Story 3.3, FR26).
+     *
+     * Required, and required is the point: an optional ledger would let real content under
+     * `public/cases/` ship a row nobody audited, which is the whole reason the story exists.
+     */
+    ledger: CaseLedgerSchema
 }).strict().superRefine((definition, context) => {
     const controls = Object.fromEntries(definition.apparatus.primaryControls.map((control) => [control.id, control]));
 
@@ -995,7 +1117,43 @@ export const CaseDefinitionSchema = z.object({
                 path: ['contextualArtifacts', index, artifact.rightsStatus !== 'reviewed' ? 'rightsStatus' : 'textualRendition']
             });
         }
+
+        // R1 and R2, source half (Story 3.3). Checked here rather than inside `LedgerEntrySchema`
+        // because both compare the entry against the artifact's own `rightsStatus` one level up, which
+        // a nested schema cannot see. The asset half of each lives in `AssetRightsSchema`, where the
+        // status *is* beside the entry.
+        //
+        // Note the interaction with the readiness rule above, which is deliberate rather than
+        // redundant: today every shipped source must be `reviewed` to be inspectable at all, so R1's
+        // source half can only fire alongside it. It is authored anyway because it is a *different*
+        // rule with a different owner — if the reading room ever gains an uninspectable source class,
+        // the readiness rule relaxes and this one must not.
+        if (artifact.rightsStatus !== 'reviewed' && artifact.ledgerEntry.replacementPlan === undefined) {
+            context.addIssue({
+                code: 'custom',
+                message: 'A source whose rights are not reviewed must carry a replacement plan — an uncleared source with no plan is one nobody intends to fix.',
+                path: ['contextualArtifacts', index, 'ledgerEntry', 'replacementPlan']
+            });
+        }
+        if (artifact.ledgerEntry.reviewerState === 'reviewed' && artifact.rightsStatus !== 'reviewed') {
+            context.addIssue({
+                code: 'custom',
+                message: 'A reviewer cannot have signed off a source whose rights are not reviewed — a signature over uncleared rights represents unreviewed material as verified.',
+                path: ['contextualArtifacts', index, 'ledgerEntry', 'reviewerState']
+            });
+        }
     });
+
+    // R5. At least one primary source — **not** one of each. `MAX_CONTEXTUAL_ARTIFACTS` is 2 and
+    // Young's two are *both* primary material (the 1801 Bakerian lecture and Newton's `Opticks`), so a
+    // rule requiring a secondary would force a false provenance claim onto content that has shipped.
+    if (!definition.contextualArtifacts.some(({ ledgerEntry }) => ledgerEntry.sourceRole === 'primary')) {
+        context.addIssue({
+            code: 'custom',
+            message: 'At least one source must be primary material — a case built entirely on secondary sources cites nothing at first hand.',
+            path: ['contextualArtifacts']
+        });
+    }
     if (definition.debrief.historicalComparison.sourceIds.some((sourceId) => !sourceIds.has(sourceId)
         || definition.debrief.historicalComparison.sourceIds[0] === definition.debrief.historicalComparison.sourceIds[1])) {
         context.addIssue({ code: 'custom', message: 'Historical comparison must cite two distinct authored sources.', path: ['debrief', 'historicalComparison', 'sourceIds'] });

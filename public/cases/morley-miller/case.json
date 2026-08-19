@@ -1,6 +1,6 @@
 {
   "id": "morley-miller",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "title": {
     "en": "Morley–Miller — the rotating interferometer",
     "fr": "Morley–Miller — l’interféromètre tournant"
@@ -23,6 +23,7 @@
         "reference": "michelson-morley-1887-ajs"
       },
       "rightsStatus": "reviewed",
+      "ledgerEntry": { "sourceRole": "primary", "reviewerState": "pending" },
       "caseRelationship": {
         "en": "The published account of the null result this bench is built to re-examine.",
         "fr": "Le compte rendu publié du résultat nul que ce banc doit réexaminer."
@@ -123,6 +124,7 @@
         "reference": "morley-miller-1905-report"
       },
       "rightsStatus": "reviewed",
+      "ledgerEntry": { "sourceRole": "secondary", "reviewerState": "pending" },
       "caseRelationship": {
         "en": "Restates what the later, longer repetition of the experiment set out to settle, and what it found.",
         "fr": "Restitue ce que la reprise ultérieure et plus longue de l’expérience cherchait à trancher, et ce qu’elle a trouvé."
@@ -934,13 +936,32 @@
     }
   },
   "assets": {
-    "manifestVersion": "1.0.0",
+    "manifestVersion": "1.1.0",
     "entries": [
       {
         "id": "quantique-logo",
         "type": "image",
-        "path": "/assets/logo.png"
+        "path": "/assets/logo.png",
+        "rights": {
+          "holderOrOrigin": "Quantique project",
+          "status": "reviewed",
+          "claimOrUse": {
+            "en": "The project’s own mark, shown by the laboratory shell.",
+            "fr": "La marque propre au projet, affichée par la coque du laboratoire."
+          },
+          "reviewerState": "reviewed",
+          "provenanceReference": "docs/source-rights/quantique-shared-assets.md"
+        }
       }
     ]
+  },
+  "ledger": {
+    "signOff": {
+      "contentAuthor": { "state": "reviewed", "name": "Claude (Story 3.2 development)", "date": "2026-08-19" },
+      "scholarlyReviewer": { "state": "pending" },
+      "accessibilityReviewer": { "state": "de-scoped", "reference": "ADR-008" }
+    },
+    "educatorContextSheet": { "state": "pending" },
+    "accessibleControlsReference": { "state": "de-scoped", "reference": "ADR-008" }
   }
 }
