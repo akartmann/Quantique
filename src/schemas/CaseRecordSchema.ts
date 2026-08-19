@@ -423,7 +423,7 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         //   provenance reference and replacement plan.
         //
         // **Nothing recorded moves, and no ledger field is recomputed or compared by a record.** The
-        // ledger is read by `evaluateLedgerReleaseApproval` and by the `?ledger=1` reviewer surface, and
+        // ledger is read by `evaluateLedgerReleaseApproval` and by the generated reviewer report, and
         // by nothing that a `CaseRecord` touches: no run, decision, recognition or readiness value is
         // derived from it, and `assets.manifestVersion` (1.1.0 → 1.2.0) is a content key the record does
         // not carry. The recomputed canonical set is byte-identical to 1.20.0 — `peerReviewRules`'
@@ -432,6 +432,18 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // trailing comma, and every added line is one of the three blocks above. `schemaVersion` stays 3
         // and `migrateCaseRecord.ts` is untouched.
         || (definition.version === '1.21.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0', '1.16.0', '1.17.0', '1.18.0', '1.19.0', '1.20.0'].includes(record.caseDefinitionVersion))
+        // 1.22.0 — code review of 3.3. Three ledger corrections, none of them a recorded value:
+        // `quantique-logo`'s `rights.reviewerState` drops `reviewed` → `pending` (no name or date stood
+        // behind it, and `AssetRights` has no fields to carry them); the five portraits'
+        // `holderOrOrigin` loses the descriptive tail "…, generated derivative", which moved into the
+        // localized `claimOrUse` where a French reviewer can read it; and the row reviewer-state enum
+        // narrowed to `reviewed | pending`. Verified byte-identical **by diffing the two files** rather
+        // than assumed: the canonical English set this function recomputes and compares —
+        // `peerReviewRules`' `feedback` and `revisionPath`, and every proposal claim and limitation — is
+        // untouched at 1.21.0's values, and no ledger field is recomputed or compared by a record at
+        // all. `rights.status` did not move, so no blocker set changed and no saved decision is
+        // re-tested.
+        || (definition.version === '1.22.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0', '1.16.0', '1.17.0', '1.18.0', '1.19.0', '1.20.0', '1.21.0'].includes(record.caseDefinitionVersion))
         ))
         // **The prototype's first clause.** `morley-miller` shipped at 1.0.0 in Story 3.2 and had no
         // allowlist entry at all, so a record saved against 1.0.0 was refused the moment this story
@@ -447,7 +459,12 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // and it needs one now. Nesting this beside Young's clauses would have made it unreachable
         // (`isYoung` is false here), and sharing them would have this case reasoning about version
         // numbers that mean something different in Young's history than in its own.
-        || (isPrototype && definition.version === '1.1.0' && record.caseDefinitionVersion === '1.0.0');
+        || (isPrototype && definition.version === '1.1.0' && record.caseDefinitionVersion === '1.0.0')
+        // 1.2.0 — code review of 3.3. `quantique-logo`'s `reviewerState` drops to `pending`, the same
+        // correction as Young's 1.22.0 clause and for the same reason. The prototype authors no
+        // portraits, so the `holderOrOrigin` half does not apply to it. Diff-verified: nothing this
+        // function recomputes or compares moved.
+        || (isPrototype && definition.version === '1.2.0' && ['1.0.0', '1.1.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }

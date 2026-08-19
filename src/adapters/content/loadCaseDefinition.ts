@@ -13,8 +13,15 @@ const contentPath = (baseUrl: string, caseId: string, fileName: string): string 
  * `rights` is compared as well as `id`, `type` and `path` (Story 3.3). The two files each declare the
  * same entries, so every field either file gains is a field they can silently disagree about — and a
  * rights record is precisely the kind an author would update in one file and not the other. Compared
- * structurally rather than key by key so the next field added to `AssetRights` is covered without this
- * function being remembered.
+ * whole rather than key by key so the next field added to `AssetRights` is covered without this function
+ * being remembered.
+ *
+ * **`JSON.stringify` is order-sensitive, and this is safe only because both sides are already parsed.**
+ * The comparison used to be described as "structural", which it is not. `z.object` emits keys in
+ * schema-declaration order, so two files authoring the same `rights` block with keys in different orders
+ * both normalise to the same string — verified against `zod@4.4.3` during review, along with a reordered
+ * `claimOrUse`. Compare anything here that has *not* been through `AssetRightsSchema` and the invariant
+ * is gone, with a `manifest-mismatch` reported for two files that agree.
  */
 const manifestsMatch = (definition: CaseDefinition, manifest: CaseDefinition['assets']): boolean =>
     definition.assets.manifestVersion === manifest.manifestVersion

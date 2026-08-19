@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { CaseDefinition, LocalizedText } from '../../src/domain/cases/CaseDefinition';
 import { selectLedgerRows } from '../../src/domain/sources/caseLedger';
-import { evaluateLedgerReleaseApproval } from '../../src/domain/sources/releaseApproval';
+import { evaluateLedgerReleaseApproval, type LedgerReleaseApproval } from '../../src/domain/sources/releaseApproval';
 import { loadShippedCase } from '../shippedCases';
 
 /**
@@ -133,10 +133,68 @@ describe('evaluateLedgerReleaseApproval', () => {
         expect(evaluateLedgerReleaseApproval(asDefinition(definition)).decision).toBe('blocked');
     });
 
-    it('takes exactly one argument, so there is no waiver, override or force parameter to pass', () => {
-        // The no-waiver rule the release-decision template states in prose, asserted on the signature.
-        // A second parameter would be the override path; there is nowhere to put one.
+    /**
+     * The fail-open the code review found, and the fixture that would have caught it.
+     *
+     * `evaluateLedgerReleaseApproval` checked three of its five roles and carried a comment where the other
+     * two checks belonged, asserting that ADR-008 made them `de-scoped`. Nothing in `CaseLedgerSchema` made
+     * that true, so a case authoring either `pending` with everything else cleared returned
+     * `{ decision: 'clear', blockers: [] }` — while the sign-off table on the same page read Pending. No
+     * existing fixture could see it, because every authored ledger says `de-scoped`, and both tests that
+     * reached `clear` only ever moved the two roles that already had blocker kinds.
+     *
+     * ADR-008 being revisited is the natural trigger, which is exactly when a silent `clear` would be worst.
+     */
+    it.each([
+        ['accessibilityReviewer', 'accessibility-review-pending'],
+        ['accessibleControlsReference', 'accessible-controls-reference-pending']
+    ])('blocks on a pending %s rather than assuming ADR-008 de-scoped it', async (role, kind) => {
+        const definition = await mutable('morley-miller');
+        const ledger = definition.ledger as Record<string, unknown>;
+        const signOff = ledger.signOff as Record<string, unknown>;
+        signOff.scholarlyReviewer = { state: 'reviewed', name: 'A. Reviewer', date: '2026-08-19' };
+        ledger.educatorContextSheet = { state: 'reviewed', name: 'An Educator', date: '2026-08-19' };
+
+        // Sanity: with the two known roles closed the prototype clears, so the assertion below is about
+        // this role and not about some other row left blocking.
+        expect(evaluateLedgerReleaseApproval(asDefinition(structuredClone(definition))).decision).toBe('clear');
+
+        (role === 'accessibilityReviewer' ? signOff : ledger)[role] = { state: 'pending' };
+
+        const approval = evaluateLedgerReleaseApproval(asDefinition(definition));
+        expect(approval.decision).toBe('blocked');
+        expect(approval.blockers).toContainEqual({ kind, subjectId: 'morley-miller' });
+    });
+
+    it('ignores every extra argument, so there is no waiver, override or force parameter to pass', async () => {
+        // The no-waiver rule `docs/validation/young-release-decision-template.md` states in prose,
+        // asserted on behaviour rather than on the signature.
+        //
+        // **`.length` alone could not carry this claim, and the review proved it.** `Function.prototype
+        // .length` counts only the parameters before the first default or rest, so
+        // `(definition, waiver: boolean = false)` also reports 1 — a mutation adding exactly that, plus an
+        // early `clear` return, left the whole suite green. It was the single assertion behind the
+        // loudest guarantee in the module, repeated in four places, and the change it forbids satisfied
+        // it. The arity check is kept because it documents the intended signature, but what protects the
+        // rule is that a caller passing anything extra gets the same verdict.
         expect(evaluateLedgerReleaseApproval.length).toBe(1);
+
+        // The real shipped case, which is genuinely blocked — forcing a verdict that was already `clear`
+        // would prove nothing.
+        const blockedCase = await loadShippedCase('young-interference');
+        const honest = evaluateLedgerReleaseApproval(blockedCase);
+        expect(honest.decision).toBe('blocked');
+
+        const forced = (evaluateLedgerReleaseApproval as unknown as (
+            definition: CaseDefinition,
+            ...overrides: readonly unknown[]
+        ) => LedgerReleaseApproval);
+        [true, 'force', { waiver: true }, { override: 'release' }, 1].forEach((override) => {
+            const result = forced(blockedCase, override);
+            expect(result.decision, `override ${JSON.stringify(override)} changed the decision`).toBe('blocked');
+            expect(result.blockers, `override ${JSON.stringify(override)} changed the blockers`)
+                .toStrictEqual(honest.blockers);
+        });
     });
 });
 

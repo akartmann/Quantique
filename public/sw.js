@@ -25,7 +25,14 @@
 // three, so the stale response — matched exactly, because `contentPath` builds a stable URL with no
 // version query — strict-parses into "content unavailable" with no recovery for an offline player who
 // had a working investigation before the update.
-const CACHE_NAME = 'quantique-bootstrap-v9';
+// v10 — code review of 3.3. A *different* reason from v9, and the distinction is worth stating because
+// no field became required this time: the ledger corrections change `rights` values in both
+// `case.json` and `asset-manifest.json`, and Story 3.3 taught `manifestsMatch` to compare the two
+// files' `rights` blocks. A cache holding one file at the old values beside the other at the new ones
+// therefore fails `manifest-mismatch` at load — "content unavailable" again, reached through the
+// consistency check rather than through a missing field. Two files that must agree are two files that
+// must be evicted together.
+const CACHE_NAME = 'quantique-bootstrap-v10';
 
 self.addEventListener('install', (event) => {
     event.waitUntil(self.skipWaiting());

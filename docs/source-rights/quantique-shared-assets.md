@@ -20,10 +20,20 @@ rights are audited wherever it ships.
 template in `29266cd`. It is the project's own mark, used only as the project's own mark, and its reuse
 is cleared on that basis.
 
-> **⚠ Open for Alexis.** This records the file's *history in this repository*, which is what the
-> repository can prove. If the mark was commissioned or derived from third-party material, that origin
-> belongs here and the rights status should be revisited. Recorded rather than assumed, on the rule that
-> nothing unreviewed may be represented as reviewed.
+**Confirmed by Alexis, 2026-08-19 (code review of Story 3.3).** The mark is the project's own and derives
+from no third-party material — commissioned or otherwise. That closes the question this section used to
+leave open, and it is why `rights.status` stays `reviewed`.
+
+> **One honest caveat about the vocabulary, recorded rather than smoothed over.** `project-context.md`
+> §Organization defines `rightsStatus: 'reviewed'` as asserting the material *is* public-domain, "not
+> merely that somebody looked at it". The project's own mark is not public-domain — it is ours — so
+> `reviewed` is being used here to mean "cleared for us to ship", which is the question the ledger is
+> actually asking. The enum has no member for own work, and adding one is a change to a shared vocabulary
+> that AC7 told Story 3.3 to reuse; it is carried in `deferred-work.md` rather than made inside a review.
+>
+> `reviewerState` is `pending`, and that is not an oversight. `reviewed` there would assert a named person
+> signed this off on a date, which `docs/source-rights/README.md` requires and `AssetRights` has no fields
+> to carry. Nobody signed anything; the row says so.
 
 ## Outside the ledger, and why
 

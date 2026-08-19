@@ -1,5 +1,5 @@
 {
-  "manifestVersion": "1.2.0",
+  "manifestVersion": "1.3.0",
   "entries": [
     {
       "id": "quantique-logo",
@@ -12,7 +12,7 @@
           "en": "The project’s own mark, shown by the laboratory shell.",
           "fr": "La marque propre au projet, affichée par la coque du laboratoire."
         },
-        "reviewerState": "reviewed",
+        "reviewerState": "pending",
         "provenanceReference": "docs/source-rights/quantique-shared-assets.md"
       }
     },
@@ -21,11 +21,11 @@
       "type": "image",
       "path": "/cases/young-interference/assets/characters/thea-young.png",
       "rights": {
-        "holderOrOrigin": "Quantique project, generated derivative",
+        "holderOrOrigin": "Quantique project",
         "status": "incomplete",
         "claimOrUse": {
-          "en": "Fictional colleague portrait of Dr. Thea Young, shown beside her dialogue.",
-          "fr": "Portrait de collègue fictive, la docteure Thea Young, affiché à côté de ses répliques."
+          "en": "Generated derivative; fictional colleague portrait of Dr. Thea Young, shown beside her dialogue.",
+          "fr": "Dérivé généré ; portrait de collègue fictive, la docteure Thea Young, affiché à côté de ses répliques."
         },
         "reviewerState": "pending",
         "provenanceReference": "docs/validation/young-character-assets.md",
@@ -40,11 +40,11 @@
       "type": "image",
       "path": "/cases/young-interference/assets/characters/elias-wren.png",
       "rights": {
-        "holderOrOrigin": "Quantique project, generated derivative",
+        "holderOrOrigin": "Quantique project",
         "status": "incomplete",
         "claimOrUse": {
-          "en": "Fictional colleague portrait of Elias Wren, shown beside his dialogue.",
-          "fr": "Portrait de collègue fictif, Elias Wren, affiché à côté de ses répliques."
+          "en": "Generated derivative; fictional colleague portrait of Elias Wren, shown beside his dialogue.",
+          "fr": "Dérivé généré ; portrait de collègue fictif, Elias Wren, affiché à côté de ses répliques."
         },
         "reviewerState": "pending",
         "provenanceReference": "docs/validation/young-character-assets.md",
@@ -59,11 +59,11 @@
       "type": "image",
       "path": "/cases/young-interference/assets/characters/marianne-cole.png",
       "rights": {
-        "holderOrOrigin": "Quantique project, generated derivative",
+        "holderOrOrigin": "Quantique project",
         "status": "incomplete",
         "claimOrUse": {
-          "en": "Fictional colleague portrait of Marianne Cole, shown beside her dialogue.",
-          "fr": "Portrait de collègue fictive, Marianne Cole, affiché à côté de ses répliques."
+          "en": "Generated derivative; fictional colleague portrait of Marianne Cole, shown beside her dialogue.",
+          "fr": "Dérivé généré ; portrait de collègue fictive, Marianne Cole, affiché à côté de ses répliques."
         },
         "reviewerState": "pending",
         "provenanceReference": "docs/validation/young-character-assets.md",
@@ -78,11 +78,11 @@
       "type": "image",
       "path": "/cases/young-interference/assets/characters/samuel-hart.png",
       "rights": {
-        "holderOrOrigin": "Quantique project, generated derivative",
+        "holderOrOrigin": "Quantique project",
         "status": "incomplete",
         "claimOrUse": {
-          "en": "Fictional colleague portrait of Samuel Hart, shown beside his dialogue.",
-          "fr": "Portrait de collègue fictif, Samuel Hart, affiché à côté de ses répliques."
+          "en": "Generated derivative; fictional colleague portrait of Samuel Hart, shown beside his dialogue.",
+          "fr": "Dérivé généré ; portrait de collègue fictif, Samuel Hart, affiché à côté de ses répliques."
         },
         "reviewerState": "pending",
         "provenanceReference": "docs/validation/young-character-assets.md",
@@ -97,11 +97,11 @@
       "type": "image",
       "path": "/cases/young-interference/assets/characters/arthur-bell.png",
       "rights": {
-        "holderOrOrigin": "Quantique project, generated derivative",
+        "holderOrOrigin": "Quantique project",
         "status": "incomplete",
         "claimOrUse": {
-          "en": "Fictional colleague portrait of Mr. Arthur Bell, the rival lab’s voice.",
-          "fr": "Portrait de collègue fictif, M. Arthur Bell, la voix du laboratoire rival."
+          "en": "Generated derivative; fictional colleague portrait of Mr. Arthur Bell, the rival lab’s voice.",
+          "fr": "Dérivé généré ; portrait de collègue fictif, M. Arthur Bell, la voix du laboratoire rival."
         },
         "reviewerState": "pending",
         "provenanceReference": "docs/validation/young-character-assets.md",

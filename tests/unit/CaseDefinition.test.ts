@@ -208,7 +208,7 @@ const validYoungCase: CaseDefinition = {
      * fails here rather than reaching a reviewer.
      */
     assets: {
-        manifestVersion: '1.2.0',
+        manifestVersion: '1.3.0',
         entries: [
             {
                 id: 'quantique-logo',
@@ -218,7 +218,7 @@ const validYoungCase: CaseDefinition = {
                     holderOrOrigin: 'Quantique project',
                     status: 'reviewed',
                     claimOrUse: { en: 'The project’s own mark, shown by the laboratory shell.', fr: 'La marque propre au projet, affichée par la coque du laboratoire.' },
-                    reviewerState: 'reviewed',
+                    reviewerState: 'pending',
                     provenanceReference: 'docs/source-rights/quantique-shared-assets.md'
                 }
             },
@@ -227,9 +227,9 @@ const validYoungCase: CaseDefinition = {
                 type: 'image',
                 path: '/cases/young-interference/assets/characters/thea-young.png',
                 rights: {
-                    holderOrOrigin: 'Quantique project, generated derivative',
+                    holderOrOrigin: 'Quantique project',
                     status: 'incomplete',
-                    claimOrUse: { en: 'Fictional colleague portrait of Dr. Thea Young, shown beside her dialogue.', fr: 'Portrait de collègue fictive, la docteure Thea Young, affiché à côté de ses répliques.' },
+                    claimOrUse: { en: 'Generated derivative; fictional colleague portrait of Dr. Thea Young, shown beside her dialogue.', fr: 'Dérivé généré ; portrait de collègue fictive, la docteure Thea Young, affiché à côté de ses répliques.' },
                     reviewerState: 'pending',
                     provenanceReference: 'docs/validation/young-character-assets.md',
                     replacementPlan: { en: 'Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.', fr: 'L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique.' }
@@ -240,9 +240,9 @@ const validYoungCase: CaseDefinition = {
                 type: 'image',
                 path: '/cases/young-interference/assets/characters/elias-wren.png',
                 rights: {
-                    holderOrOrigin: 'Quantique project, generated derivative',
+                    holderOrOrigin: 'Quantique project',
                     status: 'incomplete',
-                    claimOrUse: { en: 'Fictional colleague portrait of Elias Wren, shown beside his dialogue.', fr: 'Portrait de collègue fictif, Elias Wren, affiché à côté de ses répliques.' },
+                    claimOrUse: { en: 'Generated derivative; fictional colleague portrait of Elias Wren, shown beside his dialogue.', fr: 'Dérivé généré ; portrait de collègue fictif, Elias Wren, affiché à côté de ses répliques.' },
                     reviewerState: 'pending',
                     provenanceReference: 'docs/validation/young-character-assets.md',
                     replacementPlan: { en: 'Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.', fr: 'L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique.' }
@@ -253,9 +253,9 @@ const validYoungCase: CaseDefinition = {
                 type: 'image',
                 path: '/cases/young-interference/assets/characters/marianne-cole.png',
                 rights: {
-                    holderOrOrigin: 'Quantique project, generated derivative',
+                    holderOrOrigin: 'Quantique project',
                     status: 'incomplete',
-                    claimOrUse: { en: 'Fictional colleague portrait of Marianne Cole, shown beside her dialogue.', fr: 'Portrait de collègue fictive, Marianne Cole, affiché à côté de ses répliques.' },
+                    claimOrUse: { en: 'Generated derivative; fictional colleague portrait of Marianne Cole, shown beside her dialogue.', fr: 'Dérivé généré ; portrait de collègue fictive, Marianne Cole, affiché à côté de ses répliques.' },
                     reviewerState: 'pending',
                     provenanceReference: 'docs/validation/young-character-assets.md',
                     replacementPlan: { en: 'Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.', fr: 'L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique.' }
@@ -266,9 +266,9 @@ const validYoungCase: CaseDefinition = {
                 type: 'image',
                 path: '/cases/young-interference/assets/characters/samuel-hart.png',
                 rights: {
-                    holderOrOrigin: 'Quantique project, generated derivative',
+                    holderOrOrigin: 'Quantique project',
                     status: 'incomplete',
-                    claimOrUse: { en: 'Fictional colleague portrait of Samuel Hart, shown beside his dialogue.', fr: 'Portrait de collègue fictif, Samuel Hart, affiché à côté de ses répliques.' },
+                    claimOrUse: { en: 'Generated derivative; fictional colleague portrait of Samuel Hart, shown beside his dialogue.', fr: 'Dérivé généré ; portrait de collègue fictif, Samuel Hart, affiché à côté de ses répliques.' },
                     reviewerState: 'pending',
                     provenanceReference: 'docs/validation/young-character-assets.md',
                     replacementPlan: { en: 'Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.', fr: 'L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique.' }
@@ -279,9 +279,9 @@ const validYoungCase: CaseDefinition = {
                 type: 'image',
                 path: '/cases/young-interference/assets/characters/arthur-bell.png',
                 rights: {
-                    holderOrOrigin: 'Quantique project, generated derivative',
+                    holderOrOrigin: 'Quantique project',
                     status: 'incomplete',
-                    claimOrUse: { en: 'Fictional colleague portrait of Mr. Arthur Bell, the rival lab’s voice.', fr: 'Portrait de collègue fictif, M. Arthur Bell, la voix du laboratoire rival.' },
+                    claimOrUse: { en: 'Generated derivative; fictional colleague portrait of Mr. Arthur Bell, the rival lab’s voice.', fr: 'Dérivé généré ; portrait de collègue fictif, M. Arthur Bell, la voix du laboratoire rival.' },
                     reviewerState: 'pending',
                     provenanceReference: 'docs/validation/young-character-assets.md',
                     replacementPlan: { en: 'Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.', fr: 'L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique.' }
@@ -1857,6 +1857,41 @@ describe('loadCaseDefinition', () => {
         await expect(loadCaseDefinition('young-interference', fetchCase)).resolves.toMatchObject({ ok: false, error: { code } });
     });
 
+    /**
+     * The two files must agree on **every `rights` block**, not merely on ids, types and paths.
+     *
+     * The existing "mismatched manifest" row above cannot reach this rule: its entries omit `rights`
+     * entirely, so `AssetManifestSchema.safeParse` rejects them before `manifestsMatch` runs, and its
+     * `manifestVersion` differs as well. Deleting the `rights` comparison from `manifestsMatch` therefore
+     * left the whole suite green — the single guard against the exact drift its docstring names ("a rights
+     * record is precisely the kind an author would update in one file and not the other") was unobserved.
+     *
+     * This fixture is deliberately *valid on both sides*: same version, same ids, same paths, one
+     * `rights.status` changed. Nothing but the cross-file comparison can catch it, which is what makes it
+     * a test of that comparison.
+     */
+    it('rejects a manifest that parses cleanly but disagrees with case.json on an asset rights block', async () => {
+        // Through `unknown`, because `assets` is deeply `Readonly` and the mutable view is the point of
+        // the fixture. Not a widening: the clone is genuinely mutable, only its type says otherwise.
+        const drifted = structuredClone(validYoungCase.assets) as unknown as {
+            entries: Array<{ id: string; rights: { status: string } }>;
+        };
+        // A portrait, not `entries[0]`: the logo is already `reviewed` with no plan, so "clearing" it
+        // would change nothing and the fixture would assert against a manifest identical to the case's.
+        // `unavailable` keeps both sides schema-valid — the plan R1 requires is still there — so the only
+        // thing that can reject this is the cross-file comparison.
+        const portrait = drifted.entries.find(({ id }) => id === 'thea-young-portrait')!;
+        expect(portrait.rights.status).toBe('incomplete');
+        portrait.rights.status = 'unavailable';
+
+        const fetchCase = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify(validYoungCase), { status: 200 }))
+            .mockResolvedValueOnce(new Response(JSON.stringify(drifted), { status: 200 }));
+
+        await expect(loadCaseDefinition('young-interference', fetchCase))
+            .resolves.toMatchObject({ ok: false, error: { code: 'invalid-case-definition' } });
+    });
+
     it('freezes a loaded authored definition recursively', async () => {
         const fetchCase = vi.fn()
             .mockResolvedValueOnce(new Response(JSON.stringify(validYoungCase), { status: 200 }))
@@ -2181,7 +2216,7 @@ describe('the source and rights ledger contract', () => {
         expect(parsed.success).toBe(false);
         if (!parsed.success) {
             expect(parsed.error.issues.map(({ message }) => message)).toContain(
-                'A pending role must carry no reviewer name and no date — a name beside a pending state reads as a sign-off nobody gave.'
+                'A pending role must carry no reviewer name and no date — a name beside a state that is not a sign-off reads as a sign-off nobody gave.'
             );
         }
 
@@ -2191,6 +2226,110 @@ describe('the source and rights ledger contract', () => {
         ((datedLedger.signOff as Record<string, unknown>).scholarlyReviewer as Record<string, unknown>).date = '2026-08-19';
         dated.ledger = datedLedger;
         expect(CaseDefinitionSchema.safeParse(dated).success).toBe(false);
+    });
+
+    /**
+     * R4's other two halves, both found reachable by the code review.
+     *
+     * The rule had been written for `pending` alone, while the harm it names — "a name beside a state that
+     * is not a sign-off reads as a sign-off nobody gave" — is equally available beside `de-scoped`. A
+     * `de-scoped` role carrying a name and a date parsed clean and rendered as
+     * `De-scoped (ADR-008) | Alexis Kartmann | 2026-08-19`, indistinguishable from a completed review. And
+     * a `reference` on a state that is not `de-scoped` points a reviewer at a decision nobody took;
+     * `.strict()` cannot catch that one, because the field is legal on the shape and wrong only in state.
+     */
+    it('R4 rejects a name or date beside a de-scoped state, and a reference beside any other state', () => {
+        const named = cloneValidCase() as unknown as Record<string, unknown>;
+        const namedLedger = clonedLedger();
+        const accessibility = (namedLedger.signOff as Record<string, unknown>).accessibilityReviewer as Record<string, unknown>;
+        accessibility.name = 'Alexis Kartmann';
+        accessibility.date = '2026-08-19';
+        named.ledger = namedLedger;
+
+        const parsed = CaseDefinitionSchema.safeParse(named);
+        expect(parsed.success).toBe(false);
+        if (!parsed.success) {
+            expect(parsed.error.issues.map(({ message }) => message)).toContain(
+                'A de-scoped role must carry no reviewer name and no date — a name beside a state that is not a sign-off reads as a sign-off nobody gave.'
+            );
+        }
+
+        const referenced = cloneValidCase() as unknown as Record<string, unknown>;
+        const referencedLedger = clonedLedger();
+        ((referencedLedger.signOff as Record<string, unknown>).scholarlyReviewer as Record<string, unknown>).reference = 'ADR-008';
+        referenced.ledger = referencedLedger;
+
+        const strayReference = CaseDefinitionSchema.safeParse(referenced);
+        expect(strayReference.success).toBe(false);
+        if (!strayReference.success) {
+            expect(strayReference.error.issues.map(({ message }) => message)).toContain(
+                'A pending role must carry no reference — a reference names the decision that de-scoped a role, and no such decision was taken here.'
+            );
+        }
+    });
+
+    /**
+     * `de-scoped` is not a state a **row** may occupy, because a row cannot record the decision.
+     *
+     * R3 requires a de-scoping to name its own decision and lives on `ReviewerSignOffSchema`, which has a
+     * `reference` field; neither row schema does, and both render call sites passed `undefined` for it. So
+     * a row authored `de-scoped` parsed clean and printed the bare word — the state R3's own message calls
+     * "indistinguishable from a role that was silently dropped". The review narrowed the row enum rather
+     * than granting rows a capability nothing authors: no shipped content uses `de-scoped` on a row.
+     */
+    it('rejects a de-scoped reviewer state on a source row and on an asset row', () => {
+        const onSource = cloneValidCase() as unknown as Record<string, unknown>;
+        ((onSource.contextualArtifacts as Array<Record<string, unknown>>)[0].ledgerEntry as Record<string, unknown>)
+            .reviewerState = 'de-scoped';
+        expect(CaseDefinitionSchema.safeParse(onSource).success).toBe(false);
+
+        const onAsset = cloneValidCase() as unknown as Record<string, unknown>;
+        (((onAsset.assets as Record<string, unknown>).entries as Array<Record<string, unknown>>)[0].rights as Record<string, unknown>)
+            .reviewerState = 'de-scoped';
+        expect(CaseDefinitionSchema.safeParse(onAsset).success).toBe(false);
+
+        // `pending` and `reviewed` remain legal on a row, so the narrowing did not close a state that is
+        // in use — the logo ships `reviewed` rights with a `pending` row after the review's D2 decision.
+        const stillLegal = cloneValidCase() as unknown as Record<string, unknown>;
+        ((stillLegal.contextualArtifacts as Array<Record<string, unknown>>)[0].ledgerEntry as Record<string, unknown>)
+            .reviewerState = 'pending';
+        expect(CaseDefinitionSchema.safeParse(stillLegal).success).toBe(true);
+    });
+
+    /**
+     * R1's converse: a cleared row may not keep the plan for replacing it.
+     *
+     * The likeliest real edit of all — a rights review clears a row and leaves the long authored paragraph
+     * in place because nobody wants to delete it — produced a row rendering `Rights: Reviewed` beside
+     * `Replacement plan: … the case stays blocked from public release`, asserting both that it may ship and
+     * that it may not. Only one direction of the rule existed.
+     */
+    it('R1 rejects a replacement plan on a row whose rights are reviewed, on both halves', () => {
+        const source = cloneValidCase() as unknown as Record<string, unknown>;
+        const artifact = (source.contextualArtifacts as Array<Record<string, unknown>>)[0];
+        expect(artifact.rightsStatus).toBe('reviewed');
+        (artifact.ledgerEntry as Record<string, unknown>).replacementPlan = bilingual('Replace it anyway.');
+
+        const parsedSource = CaseDefinitionSchema.safeParse(source);
+        expect(parsedSource.success).toBe(false);
+        if (!parsedSource.success) {
+            expect(parsedSource.error.issues.map(({ message }) => message)).toContain(
+                'A source whose rights are reviewed must carry no replacement plan — a cleared row with a plan to replace it states both that it may ship and that it may not.'
+            );
+        }
+
+        const asset = cloneValidCase() as unknown as Record<string, unknown>;
+        const logo = ((asset.assets as Record<string, unknown>).entries as Array<Record<string, unknown>>)[0];
+        expect((logo.rights as Record<string, unknown>).status).toBe('reviewed');
+        (logo.rights as Record<string, unknown>).replacementPlan = bilingual('Replace the project mark.');
+
+        const parsedAsset = CaseDefinitionSchema.safeParse(asset);
+        expect(parsedAsset.success).toBe(false);
+        if (!parsedAsset.success) {
+            expect(parsedAsset.error.issues.map(({ message }) => message)).toContain(
+                'An asset whose rights are reviewed must carry no replacement plan — a cleared row with a plan to replace it states both that it may ship and that it may not.'
+            );
+        }
     });
 
     it('R5 rejects a ledger with no primary source, and accepts two primaries', () => {

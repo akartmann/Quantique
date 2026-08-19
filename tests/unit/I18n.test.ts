@@ -8,6 +8,7 @@ import { createTranslator, translate, translateError } from '../../src/core/i18n
 import { formatMeasurement, formatNumber } from '../../src/core/i18n/formatNumber';
 import { resolveLocalizedText, resolveLocalizedTextList } from '../../src/core/i18n/resolveLocalizedText';
 import { ReviewerStateSchema, SourceProvenanceCategorySchema, SourceRightsStatusSchema, SourceRoleSchema, SourceTypeSchema } from '../../src/schemas/CaseDefinitionSchema';
+import { LEDGER_BLOCKER_KINDS } from '../../src/domain/sources/releaseApproval';
 import { RECOGNITION_IDS } from '../../src/domain/recognition/recognitionRules';
 
 /** U+202F. Asserted as a code point: a plain space would pass locally and drift across ICU builds. */
@@ -124,17 +125,52 @@ describe('locale resources', () => {
             ...SourceRoleSchema.options.map((value) => `ledger.role.${value}` as const)
         ];
 
-        // The derivation itself must be live: an enum that resolved to nothing would make the loop
-        // below vacuous, which is the shape of defect this review pass removed twice elsewhere.
-        expect(required.length).toBe(
-            SourceTypeSchema.options.length + SourceProvenanceCategorySchema.options.length + SourceRightsStatusSchema.options.length
-            + ReviewerStateSchema.options.length + SourceRoleSchema.options.length
-        );
-        expect(required.length).toBeGreaterThan(0);
+        // The derivation must be live, and **this is the assertion that checks it** — the previous one
+        // could not. It compared `required.length` against the sum of the same five `.options.length`
+        // values it was built from, which is that sum by construction: had `ReviewerStateSchema.options`
+        // resolved to `[]`, the left side would drop 3, the right side would drop 3, and it would stay
+        // green while the ledger rendered a raw `de-scoped` at a reviewer. Its comment claimed it caught
+        // exactly that, which made it an instance of the comment-vs-guarantee defect it invoked.
+        //
+        // Each enum is checked for emptiness on its own, so no other enum's members can cover for it, and
+        // the loop below is what proves the keys exist.
+        [
+            ['SourceTypeSchema', SourceTypeSchema],
+            ['SourceProvenanceCategorySchema', SourceProvenanceCategorySchema],
+            ['SourceRightsStatusSchema', SourceRightsStatusSchema],
+            ['ReviewerStateSchema', ReviewerStateSchema],
+            ['SourceRoleSchema', SourceRoleSchema]
+        ].forEach(([name, schema]) => {
+            expect((schema as { options: readonly string[] }).options.length, `${name as string} resolved to no members`)
+                .toBeGreaterThan(0);
+        });
 
         required.forEach((key) => {
             expect(en[key], `${key} (en)`).toBeDefined();
             expect(fr[key], `${key} (fr)`).toBeDefined();
+        });
+    });
+
+    /**
+     * Every blocker kind the release gate can emit has a sentence in both locales.
+     *
+     * Derived from `LEDGER_BLOCKER_KINDS` rather than transcribed, on the same terms as the roster above
+     * and for a sharper reason: the code review added two kinds to the union
+     * (`accessibility-review-pending`, `accessible-controls-reference-pending`) because the gate had been
+     * *assuming* two of its five roles were de-scoped rather than checking them. Neither string renders on
+     * either shipped case today, since both author `de-scoped` — so a missing key here would be found by
+     * the first reviewer to open a ledger after ADR-008 is revisited, which is exactly the wrong moment.
+     */
+    it('authors a readable sentence for every release blocker kind', () => {
+        expect(LEDGER_BLOCKER_KINDS.length).toBeGreaterThan(0);
+
+        LEDGER_BLOCKER_KINDS.forEach((kind) => {
+            const key = `ledger.blocker.${kind}` as 'ledger.blocker.source-rights-incomplete';
+            expect(en[key], `${key} (en)`).toBeDefined();
+            expect(fr[key], `${key} (fr)`).toBeDefined();
+            // The subject placeholder is what makes a blocker name its row rather than a category.
+            expect(en[key], `${key} (en) names its subject`).toContain('{subject}');
+            expect(fr[key], `${key} (fr) names its subject`).toContain('{subject}');
         });
     });
 

@@ -1,42 +1,59 @@
-import type { CaseDefinition, LocalizedText, ReviewerSignOff, ReviewerState } from '../domain/cases/CaseDefinition';
-import { selectLedgerRows } from '../domain/sources/caseLedger';
-import { evaluateLedgerReleaseApproval, type LedgerBlockerKind } from '../domain/sources/releaseApproval';
-import type { Locale } from '../core/i18n/Locale';
-import { resolveLocalizedText } from '../core/i18n/resolveLocalizedText';
-import { createTranslator } from '../core/i18n/translate';
+import type { CaseDefinition, LocalizedText, ReviewerSignOff, ReviewerState } from '../cases/CaseDefinition';
+import { selectLedgerRows } from './caseLedger';
+import { evaluateLedgerReleaseApproval, type LedgerBlockerKind } from './releaseApproval';
+import type { Locale } from '../../core/i18n/Locale';
+import { resolveLocalizedText } from '../../core/i18n/resolveLocalizedText';
+import { createTranslator } from '../../core/i18n/translate';
 
 /**
- * The reviewer's audit of one case's sources, assets, sign-off and references — the `?ledger=1` surface.
+ * The reviewer's audit of one case's sources, assets, sign-off and references, as text.
  *
- * **This is a reviewer surface, not a player surface**, which is what puts it here in `src/ui/` beside
- * `ValidationSessionDisclosure` rather than in a Phaser scene. It dispatches no intent and mirrors no
- * interactive gesture, so ADR-011's single-Phaser-surface rule and NFR20 do not reach it, on exactly the
- * reasoning `ValidationSessionDisclosure` already records in its own docstring. There is deliberately no
- * Phaser ledger scene: a reviewer reading a rights table wants a table.
+ * **This is a generated report, not a surface, and that is a deliberate correction.** Story 3.3 shipped
+ * it as `src/ui/SourceRightsLedger.ts` — a `?ledger=1` route mounting tables into the document — which
+ * added a fourth module to `src/ui/` against `project-context.md` §Engine: "`src/ui/` holds exactly
+ * three modules, and that is the whole non-Phaser surface set (Story 2.12) … Do not add a fourth." The
+ * story argued it joined `ValidationSessionDisclosure`'s exemption class; the code review found that
+ * argument foreclosed, because ADR-007's exemption is a *capability* one — printing and file export
+ * cross a boundary a canvas cannot — while a rights table is text, which this project already renders
+ * in Phaser in the case file, the notebook and the theory board. `game-architecture.md` §System Location
+ * Mapping also assigns rights/provenance presentation to `src/domain/sources/` and `LibraryScene`, not
+ * to `src/ui/`.
  *
- * It renders a semantic `<table>` per section with real `<th scope="col">` headers. That is not an
- * accessibility commitment under ADR-008 — no parity assertion is added and this route is not in
- * `tests/e2e/accessibility.spec.ts` — it is simply what a table costs when the markup is written
- * correctly the first time.
+ * Epic 3's own acceptance criterion says "**when** a reviewer **opens** its ledger" and names no route,
+ * so a generated markdown artifact satisfies it — and satisfies it better in one respect: two documents
+ * already claimed their tables were "read from this case's authored `ledger` block rather than
+ * transcribed", which was false of hand-written markdown and is true of this.
  *
- * **The banner never stands alone.** A surface that says `blocked` without saying what blocks it is not
+ * `npm run audit:ledger` writes the tables into `docs/source-rights/`. Nothing here touches a document,
+ * a file, or the network: the projection is pure and the writing lives in `scripts/auditLedger.mjs`.
+ *
+ * **The banner never stands alone.** A report that says `blocked` without saying what blocks it is not
  * visible blocking: the decision and the named blocker list are built together, always, and the blocker
  * list is the part a reviewer acts on.
- *
- * **Split into a pure text projection and a renderer**, following the split
- * `getValidationSessionDisclosureText` already makes and for the same reason: `vitest` runs in a Node
- * environment with no `document`, so a surface whose strings only exist inside DOM calls is a surface
- * whose French can only be checked by a browser. Everything readable is decided in
- * `getSourceRightsLedgerText`, which needs no document, and `mountSourceRightsLedger` only turns it into
- * elements.
  */
 
-/** One table's worth of readable text. `subject` is the stable ID a blocker names, not display text. */
+/**
+ * One table's worth of readable text. `subject` is a stable identifier, not display text.
+ *
+ * Getting from a blocker to the row it names is `findLedgerRow`'s job, and it is not the identity
+ * mapping: the code review found that three of the blocker kinds could not be traversed at all, because
+ * every case-level blocker carries `definition.id` as its `subjectId` while the row holding that role is
+ * keyed by the role name (`scholarlyReviewer`). The resolution is that a **blocker kind already names
+ * its role uniquely**, so the kind decides the row. An earlier attempt at this gave every role row the
+ * case ID as a second anchor, which made all three case-level rows equally matchable and resolved every
+ * one of them to `contentAuthor` — visible in the generated report on the first run.
+ */
 export interface LedgerTableText {
     readonly testId: string;
     readonly title: string;
     readonly headers: readonly string[];
-    readonly rows: readonly Readonly<{ subject: string; cells: readonly string[] }>[];
+    readonly rows: readonly LedgerRowText[];
+}
+
+export interface LedgerRowText {
+    /** The row's own stable identifier — a source ID, an asset ID, or a role key. */
+    readonly subject: string;
+    readonly cells: readonly string[];
 }
 
 export interface LedgerBlockerText {
@@ -196,83 +213,77 @@ export const getSourceRightsLedgerText = (definition: CaseDefinition, locale: Lo
     };
 };
 
-const cell = (value: string, kind: 'td' | 'th'): HTMLTableCellElement => {
-    const element = document.createElement(kind);
-    element.textContent = value;
-    if (kind === 'th') element.setAttribute('scope', 'col');
-    return element;
+/**
+ * Where each blocker kind's row lives: its table, and — for a case-level role — which row.
+ *
+ * A role blocker's `subjectId` is the *case* ID, because the case is what is blocked; the row stating the
+ * role is keyed by the role. So the kind carries the row key and the `subjectId` is not used for the
+ * lookup. The two row kinds keyed by `subjectId` (`subject: null`) are the per-source and per-asset ones,
+ * where the ID in the blocker genuinely is the row's own ID.
+ */
+const LEDGER_BLOCKER_ROWS: Readonly<Record<LedgerBlockerKind, Readonly<{ testId: string; subject: string | null }>>> = {
+    'source-rights-incomplete': { testId: 'ledger-sources', subject: null },
+    'asset-rights-incomplete': { testId: 'ledger-assets', subject: null },
+    'content-author-unrecorded': { testId: 'ledger-sign-off', subject: 'contentAuthor' },
+    'scholarly-review-pending': { testId: 'ledger-sign-off', subject: 'scholarlyReviewer' },
+    'accessibility-review-pending': { testId: 'ledger-sign-off', subject: 'accessibilityReviewer' },
+    'educator-context-sheet-pending': { testId: 'ledger-references', subject: 'educatorContextSheet' },
+    'accessible-controls-reference-pending': { testId: 'ledger-references', subject: 'accessibleControlsReference' }
 };
 
-const renderTable = ({ testId, title, headers, rows }: LedgerTableText): HTMLTableElement => {
-    const element = document.createElement('table');
-    element.dataset.testid = testId;
-
-    // The table's own caption rather than a heading beside it, so the accessible name of the table is
-    // the title a reviewer reads above it.
-    const caption = document.createElement('caption');
-    caption.textContent = title;
-
-    const head = document.createElement('thead');
-    const headerRow = document.createElement('tr');
-    headerRow.append(...headers.map((header) => cell(header, 'th')));
-    head.append(headerRow);
-
-    const body = document.createElement('tbody');
-    rows.forEach(({ subject, cells }) => {
-        const bodyRow = document.createElement('tr');
-        bodyRow.dataset.subject = subject;
-        bodyRow.append(...cells.map((value) => cell(value, 'td')));
-        body.append(bodyRow);
-    });
-
-    element.append(caption, head, body);
-    return element;
+/**
+ * The row a blocker names, or `undefined` when no row claims it.
+ *
+ * Resolved by kind rather than by identifier alone, for the reason `LEDGER_BLOCKER_ROWS` states. This
+ * also sidesteps a namespace collision the review probed: source IDs and asset IDs share one space, and
+ * nothing prevents a future case from authoring the same ID in both — pairing the table with the kind
+ * keeps the lookup unambiguous without imposing a cross-collection uniqueness rule on authors.
+ */
+export const findLedgerRow = (
+    content: SourceRightsLedgerText,
+    blocker: LedgerBlockerText
+): LedgerRowText | undefined => {
+    const { testId, subject } = LEDGER_BLOCKER_ROWS[blocker.kind];
+    return content.tables
+        .find((table) => table.testId === testId)
+        ?.rows.find((row) => row.subject === (subject ?? blocker.subjectId));
 };
 
-export const mountSourceRightsLedger = (root: HTMLElement, definition: CaseDefinition, locale: Locale): void => {
-    const content = getSourceRightsLedgerText(definition, locale);
+/** A markdown cell: pipes and newlines would otherwise break the row they sit in. */
+const markdownCell = (value: string): string => value.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 
-    const section = document.createElement('section');
-    section.className = 'source-rights-ledger';
-    section.setAttribute('aria-label', content.title);
+/**
+ * The report as markdown, for `npm run audit:ledger` to write into `docs/source-rights/`.
+ *
+ * Pure, and separate from the projection above so the tables can be asserted as *text* — the same reason
+ * `getSourceRightsLedgerText` is separate from what used to render it. `generatedNotice` is passed in
+ * rather than built here because it names the command that produced the file, which is the script's
+ * business, and because a timestamp inside a pure function would make this untestable.
+ */
+export const renderLedgerMarkdown = (content: SourceRightsLedgerText, generatedNotice: string): string => {
+    const lines: string[] = [`# ${content.title}`, '', generatedNotice, '', content.caseLine, ''];
 
-    const heading = document.createElement('h2');
-    heading.textContent = content.title;
-
-    const caseLine = document.createElement('p');
-    caseLine.dataset.testid = 'ledger-case';
-    caseLine.textContent = content.caseLine;
-
-    // `role="status"` on the one line a reviewer opened this route to read, so it is announced rather
-    // than merely present. `data-decision` carries the verdict as a value a test can assert without
-    // matching prose in two languages.
-    const banner = document.createElement('p');
-    banner.dataset.testid = 'ledger-decision';
-    banner.dataset.decision = content.decision;
-    banner.setAttribute('role', 'status');
-    banner.textContent = content.decisionText;
-
-    const blockers = document.createElement('div');
-    blockers.dataset.testid = 'ledger-blockers';
-    const blockersHeading = document.createElement('h3');
-    blockersHeading.textContent = content.blockersTitle;
-    blockers.append(blockersHeading);
+    lines.push(`**${content.decisionText}**`, '', `## ${content.blockersTitle}`, '');
     if (content.blockers.length === 0) {
-        const none = document.createElement('p');
-        none.textContent = content.blockersNone;
-        blockers.append(none);
+        lines.push(content.blockersNone, '');
     } else {
-        const list = document.createElement('ul');
-        content.blockers.forEach(({ kind, subjectId, text }) => {
-            const item = document.createElement('li');
-            item.dataset.blocker = kind;
-            item.dataset.subject = subjectId;
-            item.textContent = text;
-            list.append(item);
+        // The row reference is the point of the list: a named blocker a reviewer cannot locate is the
+        // defect this report exists to avoid.
+        content.blockers.forEach((blocker) => {
+            const row = findLedgerRow(content, blocker);
+            const where = row === undefined ? '' : ` — see \`${row.subject}\``;
+            lines.push(`- ${blocker.text}${where}`);
         });
-        blockers.append(list);
+        lines.push('');
     }
 
-    section.append(heading, caseLine, banner, blockers, ...content.tables.map(renderTable));
-    root.replaceChildren(section);
+    content.tables.forEach((table) => {
+        lines.push(`## ${table.title}`, '');
+        lines.push(`| ${table.headers.map(markdownCell).join(' | ')} |`);
+        lines.push(`| ${table.headers.map(() => '---').join(' | ')} |`);
+        table.rows.forEach((row) => lines.push(`| ${row.cells.map(markdownCell).join(' | ')} |`));
+        lines.push('');
+    });
+
+    return `${lines.join('\n').trimEnd()}\n`;
 };

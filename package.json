@@ -12,6 +12,7 @@
     "preview:subpath": "vite preview --config vite/config.prod.mjs --base=/Quantique/ --outDir dist-subpath --host 127.0.0.1 --port 4273 --strictPort",
     "typecheck": "tsc --noEmit",
     "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
+    "audit:ledger": "node scripts/auditLedger.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "cross-env PLAYWRIGHT_BROWSERS_PATH=0 playwright test --project=chromium",

@@ -238,7 +238,7 @@ export const en = {
     'source.rights.incomplete': 'Incomplete',
     'source.rights.unavailable': 'Unavailable',
 
-    // --- Source and rights ledger, the `?ledger=1` reviewer route (Story 3.3, FR26) --------------
+    // --- Source and rights ledger, the generated reviewer report (Story 3.3, FR26) ---------------
     // A reviewer surface, not a player surface. The three rights statuses deliberately reuse the
     // `source.rights.*` family above rather than opening a second one: one vocabulary for "may we ship
     // this" across the reading room, the debrief and the ledger. `ledger.reviewer.*` is the separate
@@ -252,9 +252,14 @@ export const en = {
     'ledger.blockers.none': 'Nothing blocks release.',
     'ledger.blocker.source-rights-incomplete': 'Source rights are not reviewed: {subject}',
     'ledger.blocker.asset-rights-incomplete': 'Asset rights are not reviewed: {subject}',
-    'ledger.blocker.content-author-unrecorded': 'No content author is recorded for this case: {subject}',
+    'ledger.blocker.content-author-unrecorded': 'No content author is recorded as having reviewed this case: {subject}',
     'ledger.blocker.scholarly-review-pending': 'Scholarly source and rights review is pending: {subject}',
     'ledger.blocker.educator-context-sheet-pending': 'The educator context sheet is pending: {subject}',
+    // The two ADR-008 roles. Authored `de-scoped` on both shipped cases, so neither string renders
+    // today — they exist because the gate now checks the roles instead of assuming their state, and a
+    // blocker with no sentence behind it would be a blocker a reviewer cannot read.
+    'ledger.blocker.accessibility-review-pending': 'Accessibility review is pending: {subject}',
+    'ledger.blocker.accessible-controls-reference-pending': 'The accessible-controls reference is pending: {subject}',
     'ledger.sources.title': 'Sources',
     'ledger.assets.title': 'Assets',
     'ledger.signOff.title': 'Sign-off',

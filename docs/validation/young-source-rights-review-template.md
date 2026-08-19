@@ -1,13 +1,14 @@
 # Young scholarly source and rights review — template
 
-**Fed by the ledger.** Open `?ledger=1` and read the release-approval banner and its named blocker list;
+**Fed by the ledger.** Run `npm run audit:ledger` and read
+`docs/source-rights/young-interference-ledger.en.md` — the release-approval banner and its named blocker list;
 that surface is the evidence for every row below, and `docs/source-rights/README.md` explains how to read
 it. Do not fill a Result in from memory — the ledger states it, per row, from the case's own authored data.
 
 | Gate | Reviewer | Evidence reference | Result (Pass / Blocked) | Remediation owner | Follow-up date |
 | --- | --- | --- | --- | --- | --- |
-| Scholarly claims and source labels reviewed | _Scholarly/rights reviewer_ | `?ledger=1` — Sources table and Sign-off table | **Blocked** (2026-08-19) | _Name_ | _YYYY-MM-DD_ |
-| Asset and source rights status reviewed | _Scholarly/rights reviewer_ | `?ledger=1` — Assets table and blocker list | **Blocked** (2026-08-19) | _Name_ | _YYYY-MM-DD_ |
+| Scholarly claims and source labels reviewed | _Scholarly/rights reviewer_ | `young-interference-ledger.en.md` — Sources and Sign-off | **Blocked** (2026-08-19) | _Name_ | _YYYY-MM-DD_ |
+| Asset and source rights status reviewed | _Scholarly/rights reviewer_ | `young-interference-ledger.en.md` — Assets and blocker list | **Blocked** (2026-08-19) | _Name_ | _YYYY-MM-DD_ |
 
 Any blocked row blocks Young public validation and later-case production. There is no waiver or override
 — not in this template and not in `evaluateLedgerReleaseApproval`, which takes no waiver parameter.

@@ -176,6 +176,21 @@ export const SourceRightsStatusSchema = z.enum(['reviewed', 'incomplete', 'unava
 export const SourceRoleSchema = z.enum(['primary', 'secondary']);
 export const ReviewerStateSchema = z.enum(['reviewed', 'pending', 'de-scoped']);
 
+/**
+ * The reviewer states a **row** may occupy — a source's `ledgerEntry` or an asset's `rights`.
+ *
+ * `de-scoped` is excluded because these two schemas have nowhere to record the decision that de-scoped
+ * them. R3 requires a `de-scoped` role to name its own decision and lives on `ReviewerSignOffSchema`,
+ * which has a `reference` field to require; neither row schema has one, and both render call sites pass
+ * `undefined` for it. The code review found the consequence reachable: a row authored `de-scoped`
+ * parsed clean and rendered the bare word, with nothing behind it — precisely the state R3's message
+ * calls "indistinguishable from a role that was silently dropped".
+ *
+ * `ReviewerStateSchema` keeps all three members for the case-level roles, so the derived I18n roster is
+ * unchanged and `ledger.reviewer.de-scoped` is still authored and still resolved.
+ */
+export const RowReviewerStateSchema = z.enum(['reviewed', 'pending']);
+
 /** Canonical: a date of record, not display text. */
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'A sign-off date must be YYYY-MM-DD.');
 
@@ -200,13 +215,27 @@ const ReviewerSignOffSchema = z.object({
             path: [signOff.name === undefined ? 'name' : 'date']
         });
     }
-    // R4. The ambiguity AC5 exists to stop, in its sign-off form: a name sitting beside `pending`
-    // reads as a signature that was given, which is exactly what `pending` says did not happen.
-    if (signOff.state === 'pending' && (signOff.name !== undefined || signOff.date !== undefined)) {
+    // R4. The ambiguity AC5 exists to stop, in its sign-off form: a name sitting beside a state that is
+    // not a sign-off reads as a signature that was given, which is exactly what the state says did not
+    // happen. **Both non-sign-off states, not just `pending`** — the code review found `de-scoped` with
+    // a name and a date parsing clean and rendering as `De-scoped (ADR-008) | Alexis Kartmann |
+    // 2026-08-19`, a row visually indistinguishable from a completed review. R4 had been written for
+    // `pending` alone while the harm it names is available beside either.
+    if (signOff.state !== 'reviewed' && (signOff.name !== undefined || signOff.date !== undefined)) {
         context.addIssue({
             code: 'custom',
-            message: 'A pending role must carry no reviewer name and no date — a name beside a pending state reads as a sign-off nobody gave.',
+            message: `A ${signOff.state} role must carry no reviewer name and no date — a name beside a state that is not a sign-off reads as a sign-off nobody gave.`,
             path: [signOff.name !== undefined ? 'name' : 'date']
+        });
+    }
+    // R4, second half. A `reference` is the document that de-scoped a role, so on any other state it is
+    // an authoring mistake pointing a reviewer at a decision that was never taken. `.strict()` cannot
+    // catch this one: the field is legal on the shape, just not in this state.
+    if (signOff.state !== 'de-scoped' && signOff.reference !== undefined) {
+        context.addIssue({
+            code: 'custom',
+            message: `A ${signOff.state} role must carry no reference — a reference names the decision that de-scoped a role, and no such decision was taken here.`,
+            path: ['reference']
         });
     }
     // R3. `de-scoped` is a decision, and a decision has a document. Without this an author could
@@ -227,7 +256,7 @@ const ReviewerSignOffSchema = z.object({
  */
 const LedgerEntrySchema = z.object({
     sourceRole: SourceRoleSchema,
-    reviewerState: ReviewerStateSchema,
+    reviewerState: RowReviewerStateSchema,
     replacementPlan: LocalizedTextSchema.optional()
 }).strict();
 
@@ -237,7 +266,7 @@ const AssetRightsSchema = z.object({
     holderOrOrigin: z.string().trim().min(1),
     status: SourceRightsStatusSchema,
     claimOrUse: LocalizedTextSchema,
-    reviewerState: ReviewerStateSchema,
+    reviewerState: RowReviewerStateSchema,
     // Canonical: the repository path of the document recording this asset's origin.
     provenanceReference: z.string().trim().min(1),
     replacementPlan: LocalizedTextSchema.optional()
@@ -248,6 +277,18 @@ const AssetRightsSchema = z.object({
         context.addIssue({
             code: 'custom',
             message: 'An asset whose rights are not reviewed must carry a replacement plan — FR27 requires ambiguous-permission material to be replaced or linked, not left standing.',
+            path: ['replacementPlan']
+        });
+    }
+    // R1, the converse — and the converse is a real defect, not symmetry for its own sake. Clearing a
+    // row's rights to `reviewed` while leaving its plan in place is the likeliest edit of all, because
+    // the plan is a long authored paragraph nobody wants to delete. The ledger then renders
+    // `Rights: Reviewed` beside `Replacement plan: … the case stays blocked from public release`, one
+    // row asserting both that it is cleared and that it is not. The plan is deleted when the row clears.
+    if (rights.status === 'reviewed' && rights.replacementPlan !== undefined) {
+        context.addIssue({
+            code: 'custom',
+            message: 'An asset whose rights are reviewed must carry no replacement plan — a cleared row with a plan to replace it states both that it may ship and that it may not.',
             path: ['replacementPlan']
         });
     }
@@ -1132,6 +1173,15 @@ export const CaseDefinitionSchema = z.object({
             context.addIssue({
                 code: 'custom',
                 message: 'A source whose rights are not reviewed must carry a replacement plan — an uncleared source with no plan is one nobody intends to fix.',
+                path: ['contextualArtifacts', index, 'ledgerEntry', 'replacementPlan']
+            });
+        }
+        // R1's converse, source half. Same defect as the asset half: a cleared row keeping the plan it
+        // no longer needs states both that it may ship and that it may not.
+        if (artifact.rightsStatus === 'reviewed' && artifact.ledgerEntry.replacementPlan !== undefined) {
+            context.addIssue({
+                code: 'custom',
+                message: 'A source whose rights are reviewed must carry no replacement plan — a cleared row with a plan to replace it states both that it may ship and that it may not.',
                 path: ['contextualArtifacts', index, 'ledgerEntry', 'replacementPlan']
             });
         }

@@ -1,6 +1,6 @@
 {
   "id": "morley-miller",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "title": {
     "en": "Morley–Miller — the rotating interferometer",
     "fr": "Morley–Miller — l’interféromètre tournant"
@@ -936,7 +936,7 @@
     }
   },
   "assets": {
-    "manifestVersion": "1.1.0",
+    "manifestVersion": "1.2.0",
     "entries": [
       {
         "id": "quantique-logo",
@@ -949,7 +949,7 @@
             "en": "The project’s own mark, shown by the laboratory shell.",
             "fr": "La marque propre au projet, affichée par la coque du laboratoire."
           },
-          "reviewerState": "reviewed",
+          "reviewerState": "pending",
           "provenanceReference": "docs/source-rights/quantique-shared-assets.md"
         }
       }

@@ -94,6 +94,23 @@ export type SourceRole = 'primary' | 'secondary';
 export type ReviewerState = 'reviewed' | 'pending' | 'de-scoped';
 
 /**
+ * The reviewer states a **row** may occupy: a source's `ledgerEntry` or an asset's `rights`.
+ *
+ * `de-scoped` is deliberately absent, and the reason is that the row schemas have nowhere to put the
+ * decision that de-scoped them. `de-scoped` is only honest when it names its own decision — that is
+ * R3, and R3 lives on `ReviewerSignOffSchema`, which is the case-level roles and has a `reference`
+ * field to require. A row carrying a bare `de-scoped` with no reference is exactly the state R3's
+ * message calls "indistinguishable from a role that was silently dropped", and the code review found
+ * it reachable: the value parsed and rendered as the bare word, because both call sites pass
+ * `undefined` for the reference. Narrowing makes the state unrepresentable rather than unvalidated,
+ * which is the honest expression of what the row schemas can actually support.
+ *
+ * A row whose review genuinely does not apply is authored `pending` against a case-level role that
+ * carries the de-scoping decision, or the decision is recorded and the row cleared.
+ */
+export type RowReviewerState = Extract<ReviewerState, 'reviewed' | 'pending'>;
+
+/**
  * One reviewer role's standing. The three conditional fields are conditional on `state` and each
  * condition is enforced at load, with the offending path named:
  *
@@ -121,7 +138,7 @@ export type ReviewerSignOff = Readonly<{
  */
 export type LedgerEntry = Readonly<{
     sourceRole: SourceRole;
-    reviewerState: ReviewerState;
+    reviewerState: RowReviewerState;
     /** Required unless `rightsStatus === 'reviewed'` (FR27). Enforced at load. */
     replacementPlan?: LocalizedText;
 }>;
@@ -139,7 +156,7 @@ export type AssetRights = Readonly<{
     /** The same three-state vocabulary as a source's. Reused deliberately, not forked. */
     status: SourceRightsStatus;
     claimOrUse: LocalizedText;
-    reviewerState: ReviewerState;
+    reviewerState: RowReviewerState;
     /** Canonical: the repository path of the document recording this asset's origin. */
     provenanceReference: string;
     /** Required unless `status === 'reviewed'` (FR27). Enforced at load. */
@@ -151,6 +168,13 @@ export type AssetRights = Readonly<{
  *
  * Every role is required. A case cannot ship with a role nobody thought about, because `pending` is
  * the honest state for an unassigned role and the release gate blocks on it — which is the point.
+ *
+ * **All five roles, not three.** This sentence was true of `contentAuthor`, `scholarlyReviewer` and
+ * `educatorContextSheet` and false of the other two until the code review: the evaluator carried a
+ * comment where their checks should have been, on the assumption that ADR-008 guaranteed them
+ * `de-scoped`, and nothing in the schema did. Both authored `pending` returned `clear` with an empty
+ * blocker list. Every role now routes through the gate, so ADR-008 being revisited is a content edit
+ * rather than a silent fail-open.
  */
 export type CaseLedger = Readonly<{
     signOff: Readonly<{

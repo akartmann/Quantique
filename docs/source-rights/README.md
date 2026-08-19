@@ -8,14 +8,29 @@ This is the process guidance for `src/domain/sources/`, the location
 
 ## Open the ledger
 
-The ledger is a **reviewer route**, not a game feature. There is no menu and no player path to it.
+The ledger is a **generated artifact**, not a game feature and not a route.
 
-- `?ledger=1` — audits the default case (`young-interference`)
-- `?ledger=1&case=morley-miller` — audits the Morley–Miller prototype
+```
+npm run audit:ledger                      # every known case, both locales
+npm run audit:ledger young-interference   # one case
+```
 
-It renders four tables — sources, assets, sign-off and references — a release-approval banner, and a
-named list of every row that blocks release. It starts no game, builds no progress repository, and
-autosaves nothing: a reviewer can open it against a player's browser without touching their work.
+It writes `docs/source-rights/<case-id>-ledger.<locale>.md` — four tables (sources, assets, sign-off and
+references), a release-approval banner, and a named list of every row that blocks release, with each
+blocker pointing at the row that states it. **The exit code is part of the contract:** `1` when any
+audited case is blocked, `2` when a case id is unknown or the two content files disagree. So the gate is
+usable by a release step and not only readable by a person.
+
+Story 3.3 first shipped this as a `?ledger=1` surface mounting tables into the document. The code review
+removed it: `project-context.md` §Engine holds `src/ui/` to exactly three modules ("Do not add a fourth")
+and the document to three elements outside `#game-container`, "each either transient or unseen". Epic 3's
+criterion is "**when** a reviewer **opens** its ledger" and names no route, so a file satisfies it — and
+satisfies it better in one respect, because the two review documents that describe their tables as read
+from the authored `ledger` block "rather than transcribed" are now telling the truth.
+
+An unknown case id **fails** rather than defaulting to Young. `resolveCaseId` falls back for the *game*
+route, on the reasoning that a mistyped link should open the game rather than a boot error; on an audit
+the same fallback would hand a reviewer a confident BLOCKED ledger for the wrong case.
 
 ## The three reviewer states
 
@@ -145,7 +160,8 @@ drawn.
 |---|---|
 | `src/domain/sources/releaseApproval.ts` | The gate. Pure, fails closed, no waiver parameter. |
 | `src/domain/sources/caseLedger.ts` | Projects sources and assets into display rows, reading existing fields. |
-| `src/ui/SourceRightsLedger.ts` | The `?ledger=1` surface. Splits text from rendering so both locales are testable without a document. |
+| `src/domain/sources/ledgerReport.ts` | The text projection and the markdown serializer. Pure — no document, no file, no network. |
+| `scripts/auditLedger.mjs` | Reads the shipped content, writes the reports, sets the exit code. Loads `src` through Vite so no dependency is added. |
 | `src/schemas/CaseDefinitionSchema.ts` | The six load-time refinements, each naming its own path. |
 
 The reading-room gate (`isSourceEligibleForInspection`) is **not** wired to this one and must not be.
