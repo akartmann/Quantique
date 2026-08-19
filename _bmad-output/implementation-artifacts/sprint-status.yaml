@@ -1,5 +1,5 @@
 # generated: 2026-08-04T18:18:39+0200
-# last_updated: 2026-08-07  # story 2.12 implemented, ready for review
+# last_updated: 2026-08-19  # story 3.1 context created, ready for dev; epic 3 opened
 # project: Quantique
 # project_key: NOKEY
 # tracking_system: file-system
@@ -67,7 +67,7 @@
 # ============================================================================
 
 generated: 2026-08-04T18:18:39+0200
-last_updated: 2026-08-07
+last_updated: 2026-08-19
 project: Quantique
 project_key: NOKEY
 tracking_system: file-system
@@ -105,8 +105,8 @@ development_status:
   2-11-debrief-scene-and-replay: done  # reviewed 2026-08-07, 29 patches applied (27 patch + 2 from decisions), 3 deferred, 3 dismissed. Three parallel review layers. The story's own work was sound — AC1-AC6 met, scope boundary held, test arithmetic exact (997/61 -> 1125/67 verified against a clean baseline worktree), 8 of 9 claimed mutation rows reproduced. What the review found was ONE defect class, sixteen times: text measured against a reserve that cannot hold it. The case file's reference row reserved 10px for a line that is ~15px at the clamp floor and its observation row one line for a three-part detail that wraps to two - both cropped in EN and FR on every render, no long string needed. Four French conclusion.missing.* lines (AC7's readiness list) measured 383-470px against a 372px column and were cut mid-sentence, two of them on the ordinary path to review. deeperTheory.title (unbounded authored text, no .max() in schema), the recognition status marker, the whole overlay chrome and the debrief refusal were unclamped. NONE of it was visible to 1125 green tests, because sceneSlice.ts reports a constant height:18 for every text object and french-typography swept fixed-height CONTROL LABELS only - the harness gap the dev had already flagged as carried-forward, now the top deferred item. Fixed by deriving every reserve from exported caseFileLineHeight/debriefLineHeight helpers, growing the rows to hold their own content (CASE_FILE_ROWS_PER_PAGE 4->3 pays for it), and shortening both locales rather than relaxing a bound. Also: the two clamps disagreed on no-room (case file left text painted outside its band, debrief hid it); selectPrimaryControl THROWS and was called unguarded inside render(), the 1.10 stranded-router door; the request control was armed unconditionally so a repeat earned an unearned refusal; a successful pin silently destroyed standing peer feedback (now reported, Alexis's call); error.conclusion-not-ready named the theory board, which lists nothing (now names the case file, AC7's own title made true). Test-side: two tautological expect(x).toBe(x), a pane test that passed with the pane fully armed, and two 'starts no tween' tests asserting nothing (sceneSlice now records tweens). The sweep measured the recognition status against 150px while the renderer paints 96 - a mutation at 129px passes the old bound and fails the new one. 6 guards mutation-proven. 1126 tests / 67 files; e2e 53/7 on an idle machine, identical to baseline. NOTE: three earlier e2e runs showed 8-10 failures purely from review-agent CPU contention (load 46 on 18 cores) - the canvas walks are frame-timed and the config's 'three consecutive runs identical' holds only unloaded. Deferred: the sceneSlice height:18 harness gap (highest value), CASE_FILE_READINESS_ROWS=11 silently dropping a 12th code, and WALK_TO_DEBRIEF_COST_MS re-derived but the walks still ~11-17s against 30s. apparatus.reset and consultation.requested STILL unowned - decide before 2.12.
   2-12-retire-dom-presentation-panels: done  # returned from review 2026-08-07: two code findings fixed; NFR1's manual 10-minute low-end-hardware profile remains deferred and blocks done.
   epic-2-retrospective: optional
-  epic-3: backlog
-  3-1-incremental-reusable-case-contract-hardening: backlog  # extend:pivot -> proposals, significance rule, colleague hints
+  epic-3: in-progress
+  3-1-incremental-reusable-case-contract-hardening: ready-for-dev  # context created 2026-08-19. Scope is NOT the epic's field list: 8 of its 9 fields shipped in Epics 1-2. Real work = de-Young the contract (id/control set/wavelength/counts are hard-pinned, so 3.2 cannot parse at all) + the one missing field (neutral auto-summary, FR23) + four schema-owned carry-overs assigned here by name (deferred-work.md 75, 99, 128, 146). Reads FR23's summary in the printable record (dispatches nothing, ADR-011-exempt) rather than a new surface.
   3-2-reviewable-morley-miller-prototype: backlog
   3-3-source-and-rights-ledger: backlog
   3-4-scenario-and-proposal-authoring-contract: backlog  # new (pivot) - scenario/dialogue scripting
