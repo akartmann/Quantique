@@ -159,7 +159,13 @@ const makeObject = (kind: string, log: DrawnObject[]) => {
         setPosition: (x, y) => { self.x = x as number; self.y = y as number; state.x = self.x; state.y = self.y; return chain; },
         setX: (value) => { self.x = value as number; state.x = self.x; return chain; },
         setY: (value) => { self.y = value as number; state.y = self.y; return chain; },
-        setRotation: (value) => { state.rotation = value as number; return chain; },
+        // Written back onto the object as well as recorded, which `setX`/`setY`/`setPosition` above
+        // already do. Without it `self.rotation` was never assigned, so the proxy's `if (property in
+        // target)` missed and reading `.rotation` off a faked Graphics returned a *function* — any
+        // read-modify-write in production (`setRotation(indicator.rotation + delta)`, a nudge, a
+        // reduced-motion snap-back) yielded `NaN` under test while behaving correctly in Phaser, and
+        // every `toBeCloseTo` on it then failed as an uninformative `NaN`.
+        setRotation: (value) => { self.rotation = value as number; state.rotation = self.rotation; return chain; },
         // A cleared `Graphics` holds nothing until something is drawn into it again, which is exactly what
         // the bench's unlit state is.
         clear: () => { state.commands = 0; state.commandNames.length = 0; state.clears += 1; return chain; },

@@ -49,7 +49,12 @@ import {
     benchControlLeft,
     benchObjectBands,
     KNOB_FOCUS_RADIUS,
+    DIAL_FOCUS_RADIUS,
+    DIAL_INDEX_OUTER_RADIUS,
+    SLIDER_HALF_WIDTH,
+    SLIDER_HALF_HEIGHT,
     instrumentBand,
+    instrumentCentre,
     instrumentSlotLeft,
     knobCentre,
     notebookCloseControlCentre,
@@ -520,13 +525,41 @@ describe('the bench with three affordances', () => {
         });
     });
 
-    it('gives each affordance a genuinely different band, so measuring the wrong one is detectable', () => {
-        // If all three were the same rectangle, the affordance-awareness below would be untestable and
-        // the sweep could go on assuming a knob for ever without anything going red.
-        const bands = CONTROL_AFFORDANCES.map((affordance) => JSON.stringify(instrumentBand(affordance, 0)));
+    it('gives each affordance a band derived from what it actually draws', () => {
+        // The previous version of this test could not fail for the dial, and said in its own title that
+        // it made "measuring the wrong one detectable". `DIAL_FOCUS_RADIUS` is `DIAL_INDEX_OUTER_RADIUS
+        // + 6` = 54 and `KNOB_FOCUS_RADIUS` is `KNOB_TRAVEL_RADIUS + 8` = 54 — deliberately equal, so
+        // that a dial's band matches a knob's and the bench row does not move. That equality is *design*
+        // and stays. What it means for a test is that `new Set(bands).size > 1` was satisfied by the
+        // slider alone, and returning `KNOB_FOCUS_RADIUS` unconditionally passed everything here.
+        //
+        // Assert the derivation rather than the difference: each band is the one its own constants
+        // describe. **This still cannot catch a dial band hard-coded to `KNOB_FOCUS_RADIUS`**, and no
+        // value-based assertion can, because the two radii are numerically equal on purpose. That is
+        // stated here rather than papered over — the equality is pinned below, so the day somebody
+        // changes the index mark's clearance and the two diverge, this test becomes live and the
+        // hard-coding it cannot see today starts failing.
+        const slot = 0;
+        const centre = instrumentCentre('knob', slot);
 
-        expect(new Set(bands).size).toBeGreaterThan(1);
-        expect(instrumentBand('slider', 0)).not.toEqual(instrumentBand('knob', 0));
+        expect(instrumentBand('slider', slot)).toEqual({
+            left: centre.x - SLIDER_HALF_WIDTH, right: centre.x + SLIDER_HALF_WIDTH,
+            top: centre.y - SLIDER_HALF_HEIGHT, bottom: centre.y + SLIDER_HALF_HEIGHT
+        });
+        expect(instrumentBand('dial', slot)).toEqual({
+            left: centre.x - DIAL_FOCUS_RADIUS, right: centre.x + DIAL_FOCUS_RADIUS,
+            top: centre.y - DIAL_FOCUS_RADIUS, bottom: centre.y + DIAL_FOCUS_RADIUS
+        });
+        expect(instrumentBand('knob', slot)).toEqual({
+            left: centre.x - KNOB_FOCUS_RADIUS, right: centre.x + KNOB_FOCUS_RADIUS,
+            top: centre.y - KNOB_FOCUS_RADIUS, bottom: centre.y + KNOB_FOCUS_RADIUS
+        });
+        // And the dial really does reach further than its ring, which is what its band has to cover —
+        // the index mark is painted outside the ring and is now inside the hit area too.
+        expect(DIAL_FOCUS_RADIUS).toBeGreaterThan(DIAL_INDEX_OUTER_RADIUS);
+        // The deliberate equality, pinned so it is a decision rather than a coincidence. If this line
+        // ever fails, the band assertions above stop being tautological for the dial — read the comment.
+        expect(DIAL_FOCUS_RADIUS).toBe(KNOB_FOCUS_RADIUS);
     });
 
     it('measures each control by its own affordance, not by the knob', () => {

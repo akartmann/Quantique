@@ -314,6 +314,22 @@
           "skinTone": "light"
         }
       }
+    },
+    {
+      "id": "nell-armitage",
+      "name": "Nell Armitage",
+      "role": "communicator",
+      "portrait": {
+        "kind": "silhouette",
+        "accentColor": "#8a5a83",
+        "figure": {
+          "build": "gowned",
+          "pose": "arms-folded",
+          "hair": "swept",
+          "hairColor": "auburn",
+          "skinTone": "tan"
+        }
+      }
     }
   ],
   "predictionProposals": [
@@ -670,6 +686,14 @@
               "en": "Two notes, one disagreement. Read both before you touch the bench.",
               "fr": "Deux notes, un désaccord. Lisez les deux avant de toucher au banc."
             }
+          },
+          {
+            "id": "provenance",
+            "speakerId": "nell-armitage",
+            "text": {
+              "en": "Both notes are in the archive. Neither has been checked against the apparatus.",
+              "fr": "Les deux notes sont aux archives. Aucune n'a été confrontée à l'appareil."
+            }
           }
         ]
       },
@@ -677,7 +701,8 @@
         "phase": "prediction",
         "sceneKey": "Colleagues",
         "cast": [
-          "ada-reeve"
+          "ada-reeve",
+          "owen-blake"
         ],
         "dialogueBeats": [
           {

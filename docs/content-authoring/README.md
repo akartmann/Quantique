@@ -14,19 +14,26 @@ Everything here is validated by `CaseDefinitionSchema` (`src/schemas/CaseDefinit
 ## Start from the worked example
 
 [`minimal-scenario.case.json`](minimal-scenario.case.json) is a **complete** case definition — the
-smallest one that parses, with nothing removable except the two optional fields it exists to
-demonstrate. Copy it and replace the content.
+smallest one that parses. Copy it and replace the content.
+
+"Smallest" is measured, and it is worth knowing exactly what is measured: **no top-level field can be
+deleted and no bounded array shortened** without the example being refused. Nested optional content is
+a different question and is *not* swept — the example authors `dialogueBeats`, which the schema treats
+as optional, because an example with no dialogue would demonstrate none of the cast rules. The
+exceptions are named in the test rather than left open-ended.
 
 It is deliberately not under `public/cases/`: that directory is shipped, immutable content and the
 `?case=` route gate only admits `KNOWN_CASE_IDS`, so an example there would be dead weight in the
 bundle and a live route to a case that teaches nothing.
 
 `tests/unit/ScenarioAuthoringContract.test.ts` parses it through the production schema and asserts
-its minimality, so it cannot rot into an invalid example or quietly grow removable parts.
+its top-level minimality, so it cannot rot into an invalid example or quietly grow removable fields.
 
 To check your own case, put it under `public/cases/<your-case-id>/case.json`, add the id to
-`KNOWN_CASE_IDS`, and load `?case=<your-case-id>`. A refusal appears as a load error naming the
-offending path.
+`KNOWN_CASE_IDS`, and load `?case=<your-case-id>`. The page reports "Case content does not match the
+case contract"; **the refusals themselves, each naming its offending path, are logged to the browser
+console.** Open it — the messages quoted throughout this guide are the ones that appear there. (The
+page deliberately does not show them: a player must not be handed a schema dump.)
 
 ## The contract, and where each rule lives
 
@@ -88,7 +95,7 @@ asymmetry is deliberate.
 Optional. **Absent means the whole cast.**
 
 ```jsonc
-{ "phase": "prediction", "sceneKey": "Colleagues", "cast": ["ada-reeve"] }
+{ "phase": "prediction", "sceneKey": "Colleagues", "cast": ["ada-reeve", "owen-blake"] }
 ```
 
 It decides **presence only**. Sequence is still proposal order — the members who authored a proposal
@@ -96,7 +103,7 @@ on this board, in proposal order, then the rest of the authored cast in the orde
 is not a detail: the two boards attribute in different orders, so staging in cast order would put most
 of the cast beside somebody else's draft.
 
-Four rules hold it, all at load:
+Five rules hold it, all at load:
 
 1. Every id resolves to an authored `colleagues[]` entry. This also stops you staging the rival lab,
    who is deliberately not a member of the cast.
@@ -105,6 +112,18 @@ Four rules hold it, all at load:
    "nobody", and no scene that draws a figure column can render that.
 4. Every one of that scene's `dialogueBeats` must be spoken by a member of the cast. This is the rule
    that makes the field safe: without it a beat plays with its speaker nowhere on stage.
+5. **Every proposal that board shows must be attributed to a member of the cast.** Selecting a
+   proposal brings its author forward, by matching the author against the staged set — so a proposer
+   you leave out has a card that is selectable, is attributed to them, and foregrounds nobody.
+
+   The practical consequence is worth stating plainly: a cast can only ever *narrow against colleagues
+   who author no proposal on that board*. If your four prediction proposals come from four different
+   colleagues, that scene's cast must contain all four, and authoring it buys you nothing. The field
+   earns its keep when a case has people in the room who did not write a card — an archivist, a
+   visitor, a colleague who only speaks. The worked example is built that way for exactly this reason.
+
+   The reverse is deliberately allowed: a cast **may** include somebody who authored nothing. Staging
+   is who is in the room; attribution is who wrote a card.
 
 **Only a scene that draws a figure column may author one** — `Colleagues` and `TheoryBoard`. A `cast`
 on `Library`, `Laboratory` or `Debrief` is refused rather than shipped as content nothing reads.
@@ -129,10 +148,15 @@ snaps to the authored step before dispatching.
 | `dial` | A full circle read against a fixed index mark, no dead zone | A **cyclic** quantity. The prototype's bench rotation. |
 | `slider` | Linear travel along a track with a draggable thumb | A quantity read off a scale. The prototype's bath temperature. |
 
-**A dial's travel closes**, so its minimum and its maximum stand at the index mark together and it
-cannot distinguish them. That is right for a cyclic quantity and wrong for anything else. No schema
-can tell which yours is — cyclicity is a property of the *model*, not of the range — so the rule is
-yours to keep, and `ScenarioAuthoringContract.test.ts` checks every shipped dial against its own model
+**A dial's travel closes**, so its minimum and its maximum sit **one detent apart** across a seam at
+the index mark, rather than at opposite ends of a sweep. Every authored value is still reachable by
+drag and by keyboard, and the two ends stay distinguishable as *settings* — what closing means is that
+they are adjacent, so an author is saying the quantity wraps.
+
+That is right for a cyclic quantity and wrong for anything else. No schema can tell which yours is —
+cyclicity is a property of the *model*, not of the range — so the rule is yours to keep, and
+`ScenarioAuthoringContract.test.ts` checks every dial in the repository, the worked example included,
+against its own model
 to make sure the two ends really do read the same. Author a `knob` if they do not.
 
 ## Proposals
@@ -257,6 +281,7 @@ issue names the offending path — `scenarioScript.scenes.1.cast.0`, and so on.
 | `Dialogue beat IDs must be unique within a scene.` | Two beats in one scene share an id. Across scenes a repeat is fine — `prediction` and `review` may both open with `intro`. |
 | `Every dialogue beat must be spoken by an authored colleague.` | A `speakerId` is not in `colleagues[]`. |
 | `Every dialogue beat must be spoken by a member of its own scene's cast.` | The speaker is authored, but this scene's `cast` leaves them out. |
+| `Every proposal on a staged board must be attributed to a member of that scene's cast, or selecting it brings nobody forward.` | A scene authors a `cast` that omits somebody whose proposal that board shows. Selecting their card would foreground no figure. |
 | `Every scene cast member must be an authored colleague.` | A `cast` id is not in `colleagues[]` — the rival lab included. |
 | `A scene cast must not name the same colleague twice.` | A duplicate in `cast`. |
 | `An authored scene cast must name at least one colleague. Omit the field to stage the whole cast.` | `"cast": []`. |

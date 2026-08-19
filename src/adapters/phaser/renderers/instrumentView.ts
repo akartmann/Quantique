@@ -195,10 +195,29 @@ export const knobTickAngles = (control: PrimaryControl): readonly number[] =>
 // the knob, it is the right instrument for a *cyclic* quantity — a rotation angle has no hard stop,
 // and the knob's 90° shaft quadrant is an artefact of the widget rather than of the thing measured.
 //
-// The consequence an author has to know, and which `docs/content-authoring/` states: the travel
-// closes, so the minimum and the maximum meet at the index mark. Author `dial` only where they really
-// are the same reading. For the prototype's `rotationDeg` they are — its model is `cos(2θ)`, and 0°
-// and 180° give the identical fringe displacement.
+// **The seam, added by Story 3.4's code review.** The travel is a closed ring to look at, but the
+// authored values are *not* spread over the whole of it: they occupy `stepCount / (stepCount + 1)` of
+// the circle, leaving one detent-width gap between the maximum and the minimum at the index mark.
+//
+// Without it the two ends aliased, because spreading `[0, 1]` over a full `2π` puts fraction 0 and
+// fraction 1 at the same angle. Three things followed, and all three are the same bug: the maximum was
+// **unreachable by drag** for any dial on any content (`dialFractionForAngle` takes a modulo, so it
+// returns `[0, 1)` and never 1) while the keyboard could still step onto it — two run records for one
+// gesture, which is exactly what ADR-012 forbids; `dialTickAngles` emitted `stepCount + 1` angles that
+// painted `stepCount` graduations, one hidden under the index mark; and the end detents were half the
+// angular width of every other, so the two hardest values to read were also the twitchiest to set.
+//
+// The gap is not a dead zone — that is still the whole difference from the knob. Every direction from
+// the centre is a reading: an angle inside the seam resolves to whichever end it is nearer, so the
+// instrument never holds its value for want of a direction. What the seam removes is the *aliasing*,
+// not the coverage.
+//
+// The consequence an author still has to know, and which `docs/content-authoring/` states: a dial's
+// travel closes, so its ends sit one detent apart rather than at opposite extremes of a sweep. Author
+// `dial` only for a quantity where that is the truth. For the prototype's `rotationDeg` it is — its
+// model is `cos(2θ)`, so 0° and 180° give the identical fringe displacement. **That aliasing is the
+// model's, not the widget's, and this seam does not close it**: `configurationKey` still counts the
+// two as distinct configurations. Carried in `deferred-work.md` for the significance rule's owner.
 
 /**
  * Where a dial reads zero: straight up, in the same convention {@link pointerAngleRad} uses.
@@ -209,25 +228,55 @@ export const knobTickAngles = (control: PrimaryControl): readonly number[] =>
 export const DIAL_INDEX_ANGLE_RAD = -Math.PI / 2;
 
 /**
+ * How much of the circle the authored values occupy, in radians.
+ *
+ * `stepCount / (stepCount + 1)` of a turn, so the remaining detent-width slice is the seam between the
+ * maximum and the minimum. Derived from the control rather than fixed, because a 4-step dial needs a
+ * fifth of the circle held back and a 24-step dial a twenty-fifth — a constant gap would make a
+ * coarse dial's seam narrower than its own detents and a fine dial's wider.
+ */
+export const dialTravelRad = (control: PrimaryControl): number => {
+    const steps = knobStepCount(control);
+    return steps <= 0 ? TWO_PI : TWO_PI * (steps / (steps + 1));
+};
+
+/**
  * How far round the dial an angle is, as 0…1.
  *
  * Never `undefined` for a finite angle, which is the whole difference from
  * {@link knobFractionForAngle}: every direction from the centre is a reading, so there is nowhere for
  * the value to be held. The centre itself is still not a direction — {@link KNOB_MIN_TRACKING_RADIUS}
  * guards that for both instruments, for the `Math.atan2(0, 0) === 0` reason recorded on it.
+ *
+ * The `undefined` return is **not** dead, and the code review that added the seam confirmed it by
+ * trying to delete it: `resolveAffordanceValueForPointer` guards on `Math.hypot(dx, dy) <
+ * KNOB_MIN_TRACKING_RADIUS`, and `NaN < x` is `false`, so a non-finite pointer falls *through* that
+ * guard and arrives here. This is what holds the value when it does.
+ *
+ * Inside the seam there is no authored value to report, so the angle resolves to whichever end it is
+ * nearer — the instrument reads something everywhere, and the two ends stay distinguishable.
  */
-export const dialFractionForAngle = (angleRad: number): number | undefined => {
+export const dialFractionForAngle = (control: PrimaryControl, angleRad: number): number | undefined => {
     if (!Number.isFinite(angleRad)) return undefined;
-    return ((((angleRad - DIAL_INDEX_ANGLE_RAD) % TWO_PI) + TWO_PI) % TWO_PI) / TWO_PI;
+    const travel = dialTravelRad(control);
+    const round = ((((angleRad - DIAL_INDEX_ANGLE_RAD) % TWO_PI) + TWO_PI) % TWO_PI);
+    if (round <= travel) return round / travel;
+    // In the seam: nearer the maximum's graduation, or nearer the minimum's?
+    return round < (travel + TWO_PI) / 2 ? 1 : 0;
 };
 
-export const dialAngleForFraction = (fraction: number): number =>
-    DIAL_INDEX_ANGLE_RAD + (clamp01(fraction) * TWO_PI);
+export const dialAngleForFraction = (control: PrimaryControl, fraction: number): number =>
+    DIAL_INDEX_ANGLE_RAD + (clamp01(fraction) * dialTravelRad(control));
 
 export const dialAngleForValue = (control: PrimaryControl, value: number): number =>
-    dialAngleForFraction(knobFractionForValue(control, value));
+    dialAngleForFraction(control, knobFractionForValue(control, value));
 
-/** The angle of every detent round the dial, for the painter. Derived from the drag's own conversion. */
+/**
+ * The angle of every detent round the dial, for the painter. Derived from the drag's own conversion.
+ *
+ * `stepCount + 1` angles and, since the seam, `stepCount + 1` *distinct* ones — the count and the
+ * painted graduations agree, which they did not before the seam.
+ */
 export const dialTickAngles = (control: PrimaryControl): readonly number[] =>
     Array.from({ length: knobStepCount(control) + 1 }, (_unused, index) =>
         dialAngleForValue(control, control.min + (index * control.step)));
@@ -244,9 +293,17 @@ export const dialTickAngles = (control: PrimaryControl): readonly number[] =>
  * no wrap to fall through, so a hand that overshoots the end of the track means the end of the track.
  * A degenerate track reads as fully left rather than as `NaN`, the same guard
  * {@link knobFractionForValue} carries for degenerate bounds.
+ *
+ * A **non-finite** `dx` is a different question from a degenerate track, and Story 3.4's code review
+ * found the two conflated here: returning `0` for it dispatched `control.min` — the slider slammed to
+ * its minimum where both rotary affordances hold, because they route a non-finite reading through
+ * `undefined` to `steppedControlValue(control, currentValue)`. So this now returns `undefined` for
+ * "no reading", and the one entry point below decides what that means, uniformly for all three.
  */
-export const sliderFractionForOffset = (dx: number, trackWidth: number): number =>
-    trackWidth <= 0 || !Number.isFinite(dx) ? 0 : clamp01((dx + (trackWidth / 2)) / trackWidth);
+export const sliderFractionForOffset = (dx: number, trackWidth: number): number | undefined => {
+    if (!Number.isFinite(dx)) return undefined;
+    return trackWidth <= 0 ? 0 : clamp01((dx + (trackWidth / 2)) / trackWidth);
+};
 
 /** Where along the track a value sits, as 0…1. The same fraction the knob and the dial read. */
 export const sliderFractionForValue = knobFractionForValue;
@@ -285,14 +342,18 @@ export const resolveAffordanceValueForPointer = (
         trackWidth: number;
     }>
 ): number => {
-    if (affordance === 'slider') {
-        return steppedControlValue(control, control.min + (sliderFractionForOffset(dx, trackWidth) * (control.max - control.min)));
-    }
+    // One "no reading" rule for all three, rather than each branch inventing its own. Before Story
+    // 3.4's code review the slider's branch returned a *value* for a non-finite pointer while the two
+    // rotary branches held — so the same broken input moved one instrument to its minimum and left the
+    // others alone.
+    const fraction = affordance === 'slider'
+        ? sliderFractionForOffset(dx, trackWidth)
+        : Math.hypot(dx, dy) < KNOB_MIN_TRACKING_RADIUS
+            ? undefined
+            : affordance === 'dial'
+                ? dialFractionForAngle(control, pointerAngleRad(dx, dy))
+                : knobFractionForAngle(pointerAngleRad(dx, dy));
 
-    if (Math.hypot(dx, dy) < KNOB_MIN_TRACKING_RADIUS) return steppedControlValue(control, currentValue);
-
-    const angleRad = pointerAngleRad(dx, dy);
-    const fraction = affordance === 'dial' ? dialFractionForAngle(angleRad) : knobFractionForAngle(angleRad);
     if (fraction === undefined) return steppedControlValue(control, currentValue);
     return steppedControlValue(control, control.min + (fraction * (control.max - control.min)));
 };

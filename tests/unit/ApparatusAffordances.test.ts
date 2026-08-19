@@ -6,7 +6,8 @@ import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore, type AppStore } from '../../src/core/store/createStore';
 import { CONTROL_AFFORDANCES, controlAffordance, type CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 import { selectControlValue, selectPrimaryControl } from '../../src/core/store/selectors';
-import { SLIDER_TRACK_WIDTH, sliderCentre } from '../../src/adapters/phaser/renderers/apparatusGeometry';
+import { SLIDER_TRACK_WIDTH, instrumentCentre } from '../../src/adapters/phaser/renderers/apparatusGeometry';
+import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
 import {
     dialAngleForValue,
     knobAngleForValue,
@@ -66,10 +67,35 @@ const mount = (definition: CaseDefinition) => {
 };
 
 /**
+ * The graphics list, having first checked the tail really is the instruments' three-per-control.
+ *
+ * The net the two helpers below used to claim they had. A fourth graphics inside
+ * `ApparatusInstrument.create`, or any graphics added after the instrument loop, slides every index —
+ * so a test would go on passing while measuring the previous instrument's focus ring. This fails
+ * instead, and says which number moved.
+ */
+const expectInstrumentTail = (ui: ReturnType<typeof mount>, controlCount: number): readonly DrawnObject[] => {
+    const graphics = ui.ofKind('graphics');
+    // Every instrument contributes exactly three, and the bench's own graphics all precede them.
+    expect(graphics.length).toBe(BENCH_GRAPHICS_BEFORE_INSTRUMENTS + (3 * controlCount));
+    return graphics;
+};
+
+/**
+ * How many graphics the bench draws before the first instrument — the light, the screen and the frame.
+ *
+ * A magic number in a test is normally the thing this project forbids; it is here deliberately, as the
+ * *fixture's* shape rather than the source's, and its only job is to go red when construction order
+ * moves. Derived once from a mounted bench rather than reasoned about: change the renderer and this
+ * number tells you, which is the whole point of pinning it.
+ */
+const BENCH_GRAPHICS_BEFORE_INSTRUMENTS = 3;
+
+/**
  * The moving part of each instrument: the third graphics of its triple (face, focus ring, mover).
  */
 const instrumentMovers = (ui: ReturnType<typeof mount>, controlCount: number): readonly DrawnObject[] => {
-    const graphics = ui.ofKind('graphics');
+    const graphics = expectInstrumentTail(ui, controlCount);
     const movers: DrawnObject[] = [];
     for (let index = 0; index < controlCount; index += 1) {
         movers.push(graphics[graphics.length - (3 * (controlCount - index)) + 2]!);
@@ -80,14 +106,20 @@ const instrumentMovers = (ui: ReturnType<typeof mount>, controlCount: number): r
 /**
  * The instrument faces, found the way the renderer builds them rather than by a fabricated index.
  *
- * `ApparatusInstrument.create` adds, per instrument and in this order: the face, the focus ring, the
- * moving part, a hit zone and a readout. The instruments are the **last** graphics the bench creates —
- * everything before them belongs to the light and the screen — so taking the tail three-at-a-time is
- * the renderer's own order and not this test's guess. The count assertion below is what keeps that
- * honest: if the construction order moves, this fails rather than measuring the wrong object.
+ * `ApparatusInstrument.create` adds, per instrument and in this order: the face, the focus ring and the
+ * moving part. Taking the tail three-at-a-time therefore reads the instruments — **but only for a bench
+ * mounted the way `mount` mounts one.**
+ *
+ * Story 3.4's code review corrected the claim that used to stand here. It said the tail was "the
+ * renderer's own order and not this test's guess", kept honest by "the count assertion below" — and no
+ * assertion on `ofKind('graphics').length` existed anywhere in this file. Worse, the tail only holds
+ * because `mount` omits `openReference`: `ApparatusRenderer.create()` calls `createReferenceShelf()`
+ * *after* the instrument loop, and on the bench players actually use it adds another graphics behind
+ * them. So the arithmetic is a property of this file's fixture, which is now asserted rather than
+ * assumed — {@link expectInstrumentTail} runs before every index is taken.
  */
 const instrumentFaces = (ui: ReturnType<typeof mount>, controlCount: number): readonly DrawnObject[] => {
-    const graphics = ui.ofKind('graphics');
+    const graphics = expectInstrumentTail(ui, controlCount);
     const faces: DrawnObject[] = [];
     for (let index = 0; index < controlCount; index += 1) {
         faces.push(graphics[graphics.length - (3 * (controlCount - index))]!);
@@ -130,8 +162,13 @@ describe('what each affordance actually paints', () => {
 
     it('gives every affordance a detent per authored step, so none claims a resolution it lacks', () => {
         // `lineBetween` is how all three draw a graduation, and each control's step count is its own.
-        // The prototype's two differ from each other (12 steps against 12), so a hard-coded tick count
-        // would not satisfy both cases at once.
+        //
+        // The comment here used to justify deriving the count by saying the prototype's two controls
+        // "differ from each other (12 steps against 12)" — which names the same number twice. They do
+        // not differ: `rotationDeg` is (180−0)/15 and `bathTempC` is (24−18)/0.5, both 12, so the
+        // literal 13 would satisfy every shipped control and this sweep would prove nothing about the
+        // derivation. It is derived because a *future* control will differ, and that is the honest
+        // reason; the fixture below is what makes the derivation load-bearing today.
         [young, prototype].forEach((definition) => {
             const ui = mount(definition);
             const faces = instrumentFaces(ui, definition.apparatus.primaryControls.length);
@@ -164,7 +201,13 @@ describe('what does not change with the affordance (AC3, AC4)', () => {
         [young, prototype].forEach((definition) => {
             const ui = mount(definition);
 
-            expect(ui.capturedKeys()).toEqual([]);
+            // Focus an instrument first. Without this the capture is never taken and both assertions
+            // compare `[]` to `[]` — which is how this test passed with `removeCapture` deleted
+            // outright, the 2.10 fix it is named for left completely unguarded.
+            const zone = ui.ofKind('zone')[0]!;
+            zone.handlers.get('pointerdown')!({ x: 0, y: 0 });
+            expect(ui.capturedKeys().length).toBeGreaterThan(0);
+
             ui.renderer.destroy();
 
             expect(ui.capturedKeys()).toEqual([]);
@@ -176,23 +219,57 @@ describe('what does not change with the affordance (AC3, AC4)', () => {
 
     it('keeps two discrete step affordances per instrument, whatever it is drawn as', () => {
         // ADR-012 again: every draggable instrument keeps its step affordances. A slider that dropped
-        // them would leave the keyboard path with nothing to point at, and this is the count that says
-        // so — two rectangles per control, in both cases.
-        [young, prototype].forEach((definition) => {
-            const ui = mount(definition);
-            const perControl = ui.ofKind('rectangle').length / definition.apparatus.primaryControls.length;
+        // them would leave the keyboard path with nothing to point at.
+        //
+        // Counted **per instrument, at its own slot**, not averaged over the bench. The average was the
+        // defect: `rectangles / controls >= 2` ran at 8.5 against a floor of 2 for the prototype, so a
+        // slider drawing none and a dial drawing four passed — and deleting the slider's step
+        // affordances outright left the whole suite green.
+        // Measured **differentially**, one affordance against another, because neither an absolute
+        // count nor a position filter can be trusted here: the bench draws pressable rectangles that
+        // are not step affordances, and the harness discards a rectangle's constructor coordinates
+        // (see `deferred-work.md`). What no affordance may do is draw *fewer* than another, and that is
+        // exactly the regression — a slider that dropped its pair leaves the keyboard path with nothing
+        // to point at, while `knob` goes on passing and names the culprit.
+        const pressableRectangles = (affordance: string): number => {
+            const definition = structuredClone(prototype) as unknown as Record<string, unknown>;
+            const controls = (definition.apparatus as { primaryControls: Array<Record<string, unknown>> }).primaryControls;
+            controls.forEach((control) => { control.affordance = affordance; });
+            return mount(definition as unknown as CaseDefinition)
+                .ofKind('rectangle').filter(({ handlers }) => handlers.has('pointerup')).length;
+        };
 
-            expect(perControl).toBeGreaterThanOrEqual(2);
+        const baseline = pressableRectangles('knob');
+        // Two per control, plus whatever the bench itself contributes — the +4 is what must not move.
+        expect(baseline).toBeGreaterThanOrEqual(2 * prototype.apparatus.primaryControls.length);
+        CONTROL_AFFORDANCES.forEach((affordance) => {
+            expect({ affordance, count: pressableRectangles(affordance) }).toEqual({ affordance, count: baseline });
         });
     });
 
     it('paints a static frame and starts no tween under reduced motion, for the prototype too', () => {
+        // Both halves asserted, because the reduced-motion half alone is insensitive to the flag: an
+        // idle bench registers no update handler and starts no tween in *either* mode, so flipping
+        // `setReducedMotion(true)` to `false` used to leave this green. What the flag must actually
+        // change is the painted frame, and what it must not change is the tween count.
         stub.setReducedMotion(true);
-        const ui = mount(prototype);
+        const reduced = mount(prototype);
+        expect(reduced.updateHandlers).toHaveLength(0);
+        expect(reduced.tweens).toHaveLength(0);
+        const reducedFrame = instrumentFaces(reduced, prototype.apparatus.primaryControls.length)
+            .map(({ state }) => state.commandNames.join(','));
+        reduced.renderer.destroy();
 
-        expect(ui.updateHandlers).toHaveLength(0);
-        expect(ui.tweens).toHaveLength(0);
-        ui.renderer.destroy();
+        stub.setReducedMotion(false);
+        const full = mount(prototype);
+        expect(full.tweens).toHaveLength(0);
+        const fullFrame = instrumentFaces(full, prototype.apparatus.primaryControls.length)
+            .map(({ state }) => state.commandNames.join(','));
+        full.renderer.destroy();
+
+        // The instrument faces are drawn once and never animated, so they must be identical — that is
+        // what "a static frame" means here, and it is now a comparison rather than an assumption.
+        expect(reducedFrame).toEqual(fullFrame);
     });
 
     it('leaves the authored range, step and default untouched by the affordance', () => {
@@ -211,9 +288,24 @@ describe('what does not change with the affordance (AC3, AC4)', () => {
     });
 
     it.each(CONTROL_AFFORDANCES)('is a vocabulary the domain and the schema agree on: %s', (affordance) => {
-        // Cheap, but it is what makes a fourth member a `tsc` error rather than a silently unhandled
-        // branch: the schema's `z.enum` reads this same list.
-        expect(CONTROL_AFFORDANCES).toContain(affordance);
+        // This used to assert `expect(CONTROL_AFFORDANCES).toContain(affordance)` while iterating
+        // `CONTROL_AFFORDANCES` — true for any array whatsoever, and it never imported the schema whose
+        // agreement it is named for. Narrowing `PrimaryControlSchema` to `z.enum(['knob','dial'])`
+        // passed it. Parse a real control through the production schema instead.
+        const definition = structuredClone(prototype) as unknown as Record<string, unknown>;
+        const controls = (definition.apparatus as { primaryControls: Array<Record<string, unknown>> }).primaryControls;
+        controls[0]!.affordance = affordance;
+
+        expect(CaseDefinitionSchema.safeParse(definition).success).toBe(true);
+    });
+
+    it('refuses an affordance the vocabulary does not carry', () => {
+        // The other half: an enum that accepted anything would pass every row above.
+        const definition = structuredClone(prototype) as unknown as Record<string, unknown>;
+        const controls = (definition.apparatus as { primaryControls: Array<Record<string, unknown>> }).primaryControls;
+        controls[0]!.affordance = 'lever';
+
+        expect(CaseDefinitionSchema.safeParse(definition).success).toBe(false);
     });
 });
 
@@ -338,7 +430,7 @@ describe('the indicator points where the affordance reads', () => {
         ui.store.dispatch({ type: 'apparatus.controlSet', controlId: bath.id, value: 19, origin: 'phaser' });
         ui.renderer.render(ui.store.getState());
 
-        expect(thumb.state.x - sliderCentre(1).x).toBeCloseTo(sliderOffsetForValue(bath, 19, SLIDER_TRACK_WIDTH), 9);
+        expect(thumb.state.x - instrumentCentre('slider', 1).x).toBeCloseTo(sliderOffsetForValue(bath, 19, SLIDER_TRACK_WIDTH), 9);
         ui.renderer.destroy();
     });
 });

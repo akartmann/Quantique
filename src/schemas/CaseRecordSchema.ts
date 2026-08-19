@@ -464,7 +464,18 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // correction as Young's 1.22.0 clause and for the same reason. The prototype authors no
         // portraits, so the `holderOrOrigin` half does not apply to it. Diff-verified: nothing this
         // function recomputes or compares moved.
-        || (isPrototype && definition.version === '1.2.0' && ['1.0.0', '1.1.0'].includes(record.caseDefinitionVersion));
+        || (isPrototype && definition.version === '1.2.0' && ['1.0.0', '1.1.0'].includes(record.caseDefinitionVersion))
+        // 1.3.0 — Story 3.4. `rotationDeg` gains `affordance: 'dial'` and `bathTempC` `affordance:
+        // 'slider'`. Neither field is persisted and neither changes a control's authored `min`, `max`,
+        // `step` or `defaultValue`: an affordance selects the instrument the bench *draws*, and the run
+        // record stores the control's value, which is unchanged. So every value a saved record holds is
+        // still in range, still on step, and still names a control this case authors.
+        //
+        // Added because Story 3.4's code review found this clause had not been extended with the bump —
+        // the third time on this case that a content edit changing nothing recorded would have discarded
+        // a player's investigation, and the reason the 1.1.0 clause above exists at all. **Bumping
+        // `CaseDefinition.version` and extending this allowlist are one action, not two.**
+        || (isPrototype && definition.version === '1.3.0' && ['1.0.0', '1.1.0', '1.2.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }

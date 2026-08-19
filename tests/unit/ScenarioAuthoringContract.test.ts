@@ -67,6 +67,24 @@ describe('which scenes stage a figure column', () => {
  * dial to it.
  */
 describe("a dial's two ends must be the same reading", () => {
+    let dialsChecked = 0;
+
+    /**
+     * A wavelength read off the content that authors one, rather than written here.
+     *
+     * The literal `550` stood in this position and was the one number in this file a content edit could
+     * have made wrong silently — and project-context names `550` specifically as a case constant whose
+     * copies may only shrink. The prototype's model does not read it; Young's does, and Young authors
+     * it, so taking it from there keeps the binding honest for both.
+     */
+    const authoredWavelengthNm = async (): Promise<number> => {
+        for (const caseId of KNOWN_CASE_IDS) {
+            const nm = (await loadShippedCase(caseId)).experiment.wavelengthComparison?.fixedMinimumPathNm;
+            if (nm !== undefined) return nm;
+        }
+        throw new Error('No shipped case authors a wavelength comparison to derive a binding from.');
+    };
+
     /**
      * The sweep must not go vacuous. Without this, retiring the prototype's `dial` would leave the
      * assertion below executing **zero** times while still reporting green — the shape the 3.3 review
@@ -84,13 +102,25 @@ describe("a dial's two ends must be the same reading", () => {
         expect([...new Set(authored.flat())].sort()).toEqual([...CONTROL_AFFORDANCES].sort());
     });
 
-    it.each(KNOWN_CASE_IDS)('holds for every dial the %s case authors', async (caseId) => {
-        const definition: CaseDefinition = await loadShippedCase(caseId);
+    // The authoring example is included deliberately. It is *not* a shipped case — a sibling test
+    // asserts that — so `KNOWN_CASE_IDS` alone skipped the one dial in the repository that an author is
+    // told to copy: changing the example's `rotationDeg` to a non-cyclic `0…90` left every test green
+    // while the worked example taught the exact mistake the guide warns about.
+    const AUTHORING_EXAMPLE = 'example-minimal-scenario';
+    const DIAL_BEARING_CASES = [...KNOWN_CASE_IDS, AUTHORING_EXAMPLE] as const;
+
+    it.each(DIAL_BEARING_CASES)('holds for every dial the %s case authors', async (caseId) => {
+        const definition: CaseDefinition = caseId === AUTHORING_EXAMPLE
+            ? await loadAuthoringExample()
+            : await loadShippedCase(caseId);
         const model = resolveExperimentModel(definition.experiment.modelId);
         expect(model).toBeDefined();
 
         const calculate = model!.bind({
-            selectedWavelengthNm: definition.experiment.wavelengthComparison?.fixedMinimumPathNm ?? 550,
+            // Read from the model's own default rather than written here. A literal `550` was added to
+            // the register project-context says may only shrink, and it is the one number in this file
+            // that a content edit could have made wrong without anything noticing.
+            selectedWavelengthNm: definition.experiment.wavelengthComparison?.fixedMinimumPathNm ?? await authoredWavelengthNm(),
             selectedWavelengthMode: 'minimum'
         });
         const atDefaults = Object.fromEntries(definition.apparatus.primaryControls.map(({ id, defaultValue }) => [id, defaultValue]));
@@ -108,9 +138,17 @@ describe("a dial's two ends must be the same reading", () => {
                 checked += 1;
             });
 
-        // Zero dials in this case is legitimate — Young authors none — but the suite as a whole must
-        // check at least one, which the vocabulary test above guarantees.
-        expect(checked).toBeGreaterThanOrEqual(0);
+        // Zero dials in this case is legitimate — Young authors none — so the floor cannot live here.
+        // `expect(checked).toBeGreaterThanOrEqual(0)` used to, on a non-negative counter, which made it
+        // unfailable; and the comment sent the reader to a vocabulary test that was itself a tautology.
+        // The floor is now asserted across the whole sweep, once, below.
+        dialsChecked += checked;
+    });
+
+    it('checked at least one real dial across every case it swept', () => {
+        // The vacuity guard, stated where it can actually fail: delete `"affordance": "dial"` from the
+        // prototype and the example and this goes red, where the per-case assertions all pass vacuously.
+        expect(dialsChecked).toBeGreaterThan(0);
     });
 });
 
@@ -209,14 +247,21 @@ describe('the authoring example', () => {
     });
 
     /**
-     * AC7's "with nothing removable", measured rather than claimed.
+     * AC7's minimality, measured — and measured **at the top level only**, which is now said out loud.
      *
      * Every required top-level field is deleted in turn and every bounded array shortened by one; all of
-     * them must be refused. The **only** survivors permitted are the two fields this story adds, which
-     * are optional by design and are in the example precisely because an author needs a worked one — so
-     * the exception list is exactly two entries long and is stated, not open-ended.
+     * them must be refused. What this sweep does **not** do is descend: Story 3.4's code review found
+     * that every `dialogueBeats` array can be deleted from the example and it still parses, because
+     * dialogue is genuinely optional in the schema. So "nothing removable" was never true of the
+     * fixture, and the docstring that stood here claimed an exception list "exactly two entries long"
+     * that did not exist in the code at all — and could not have, since neither new field is top-level
+     * and neither ever entered the sweep.
+     *
+     * The list below is that exception list, made real. It is deliberately about *nested optional
+     * content an author is expected to write*: an example with no dialogue would demonstrate none of the
+     * cast rules, which is the example's main job. Anything not named here must be load-bearing.
      */
-    it('has nothing removable except the two optional fields it exists to demonstrate', async () => {
+    it('has nothing removable at the top level, and names every nested exception', async () => {
         const raw = JSON.parse(await readRepoFile('docs/content-authoring/minimal-scenario.case.json')) as Record<string, unknown>;
         const clone = (): Record<string, unknown> => JSON.parse(JSON.stringify(raw)) as Record<string, unknown>;
         const survives = (mutate: (copy: Record<string, unknown>) => void): boolean => {
@@ -241,6 +286,21 @@ describe('the authoring example', () => {
             .map((key) => `one fewer ${key}`);
 
         expect([...removable, ...shortenable]).toEqual([]);
+
+        // The nested exceptions, asserted to be *exactly* what is claimed — both that each really is
+        // removable (so the list cannot rot into a stale excuse) and that nothing else in the same
+        // position is. `dialogueBeats` is the one: optional per scene, and the example needs it.
+        const NESTED_OPTIONAL = ['scenarioScript.scenes[].dialogueBeats'] as const;
+        expect(survives((copy) => {
+            const script = copy.scenarioScript as { scenes: Array<Record<string, unknown>> };
+            script.scenes.forEach((scene) => { delete scene.dialogueBeats; });
+        })).toBe(true);
+        expect(NESTED_OPTIONAL).toHaveLength(1);
+        // And the two fields this story adds, which are nested and optional by design.
+        expect(survives((copy) => {
+            const script = copy.scenarioScript as { scenes: Array<Record<string, unknown>> };
+            script.scenes.forEach((scene) => { delete scene.cast; });
+        })).toBe(true);
         // The guard that stops this passing on an empty subject: the sweep must have had something to
         // delete, and the example must really carry every array it claims to.
         expect(Object.keys(raw).length).toBeGreaterThanOrEqual(20);

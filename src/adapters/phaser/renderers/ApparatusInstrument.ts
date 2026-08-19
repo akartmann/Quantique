@@ -30,7 +30,7 @@ import {
     STEP_AFFORDANCE_HEIGHT,
     STEP_AFFORDANCE_WIDTH,
     instrumentSlotLeft,
-    knobCentre,
+    instrumentCentre,
     stepAffordanceCentre
 } from './apparatusGeometry';
 import {
@@ -199,7 +199,7 @@ export class ApparatusInstrument {
     }
 
     public create(): void {
-        const centre = knobCentre(this.options.index);
+        const centre = instrumentCentre(this.affordance, this.options.index);
 
         // Drawn once. Nothing below is reissued on a render — see the header.
         // Held only as a local: it is pushed onto `objects` and released there, and nothing after
@@ -238,8 +238,13 @@ export class ApparatusInstrument {
             moving.fillCircle(0, 0, 4);
             moving.setPosition(centre.x, centre.y);
             this.indicator = moving;
+            // Sized to `DIAL_FOCUS_RADIUS`, not to the ring. Story 3.4's code review found this zone
+            // at `DIAL_RING_RADIUS * 2` — half-extent 40 — while the index mark is painted from 42 out
+            // to 48, so every pixel of the feature the class docstring calls "the affordance that tells
+            // a player the travel does not stop" sat outside the instrument's own hit area: pressing it
+            // armed no drag and did not even focus. A painted read-against feature has to be pressable.
             this.hitArea = this.scene.add
-                .zone(centre.x, centre.y, DIAL_RING_RADIUS * 2, DIAL_RING_RADIUS * 2)
+                .zone(centre.x, centre.y, DIAL_FOCUS_RADIUS * 2, DIAL_FOCUS_RADIUS * 2)
                 .setOrigin(0.5, 0.5);
         } else {
             this.paintKnobFace(face, centre);
@@ -363,7 +368,7 @@ export class ApparatusInstrument {
         if (!this.dragging || !this.inputEnabled) return;
         // Only the pointer that armed this drag turns this knob.
         if (pointer.id !== this.dragPointerId) return;
-        const centre = knobCentre(this.options.index);
+        const centre = instrumentCentre(this.affordance, this.options.index);
         this.report(resolveAffordanceValueForPointer({
             affordance: this.affordance,
             control: this.options.control,
@@ -473,7 +478,7 @@ export class ApparatusInstrument {
      */
     private paintValue(value: number): void {
         if (this.affordance === 'slider') {
-            this.thumb?.setX(knobCentre(this.options.index).x + sliderOffsetForValue(this.options.control, value, SLIDER_TRACK_WIDTH));
+            this.thumb?.setX(instrumentCentre('slider', this.options.index).x + sliderOffsetForValue(this.options.control, value, SLIDER_TRACK_WIDTH));
             return;
         }
         const angleForValue = this.affordance === 'dial' ? dialAngleForValue : knobAngleForValue;

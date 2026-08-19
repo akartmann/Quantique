@@ -346,6 +346,25 @@ describe('an authored scenario drives the whole flow', () => {
         } as unknown as AppStore;
     };
 
+    /**
+     * A store whose phase can actually be moved, with subscribers notified.
+     *
+     * `storeReporting` deliberately notifies nobody, which is right for "what does the router do when
+     * it is constructed". It is wrong for any test about a *transition*, and Story 3.4's code review
+     * found one relying on it: a test named for reusing a scene across two phases held the phase still,
+     * so a router that restarted the scene on every notification would have passed it.
+     */
+    const movableStore = (phase: CasePhase): AppStore & { moveTo: (next: CasePhase) => void } => {
+        let state = { ...createInitialAppState(example), phase };
+        const listeners = new Set<() => void>();
+        return {
+            getState: () => state,
+            subscribe: (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener); },
+            dispatch: () => ({ ok: true, value: state }),
+            moveTo: (next: CasePhase) => { state = { ...state, phase: next }; listeners.forEach((listener) => listener()); }
+        } as unknown as AppStore & { moveTo: (next: CasePhase) => void };
+    };
+
     const authoredSceneFor = (script: ScenarioScript, phase: CasePhase): SceneKey =>
         script.scenes.find((scene) => scene.phase === phase)!.sceneKey;
 
@@ -401,8 +420,22 @@ describe('an authored scenario drives the whole flow', () => {
         const shared = script.scenes.filter(({ sceneKey }) => sceneKey === 'TheoryBoard');
         expect(shared.length).toBeGreaterThan(1);
 
-        const router = createSceneRouter(scenes, storeReporting(shared[0]!.phase), script);
+        const store = movableStore(shared[0]!.phase);
+        const router = createSceneRouter(scenes, store, script);
         expect(scenes.calls).toEqual(['start:TheoryBoard']);
+
+        // The transition the test is named for, which it never used to make. Both phases author the
+        // same scene key, so the router must resolve the second and start nothing further.
+        store.moveTo(shared[1]!.phase);
+        expect(scenes.calls).toEqual(['start:TheoryBoard']);
+
+        // And a phase that authors a *different* scene still starts it, so the assertion above is
+        // "did not restart" rather than "never starts anything".
+        const elsewhere = script.scenes.find(({ sceneKey }) => sceneKey !== 'TheoryBoard')!;
+        store.moveTo(elsewhere.phase);
+        // Stopped then started, which is what a *real* scene change looks like — and the contrast with
+        // the assertion above is the whole point: the reuse transition produced no call at all.
+        expect(scenes.calls).toEqual(['start:TheoryBoard', 'stop:TheoryBoard', `start:${elsewhere.sceneKey}`]);
         router.dispose();
     });
 });

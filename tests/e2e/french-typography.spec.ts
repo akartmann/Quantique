@@ -217,15 +217,19 @@ const stagedFigureCounts = (): readonly number[] => SHIPPED_CASE_IDS.flatMap((ca
         colleagues: { id: string }[];
         predictionProposals: { colleagueId: string }[];
         conclusionProposals: { colleagueId: string }[];
-        scenarioScript: { scenes: { sceneKey: string; cast?: string[]; dialogueBeats?: { speakerId: string }[] }[] };
+        scenarioScript: { scenes: { phase: string; sceneKey: string; cast?: string[]; dialogueBeats?: { speakerId: string }[] }[] };
     };
 
     return definition.scenarioScript.scenes
         .filter(({ sceneKey }) => (FIGURE_STAGING_SCENE_KEYS as readonly string[]).includes(sceneKey))
-        .map(({ sceneKey, cast, dialogueBeats }) => presentColleagueIds({
-            // `Colleagues` hosts the prediction board; `TheoryBoard` hosts the conclusion one. That
-            // pairing is the scenes' own, asserted against the source in `ScenarioAuthoringContract`.
-            proposerIds: (sceneKey === 'Colleagues' ? definition.predictionProposals : definition.conclusionProposals)
+        .map(({ phase, cast, dialogueBeats }) => presentColleagueIds({
+            // Keyed on **phase**, which is how `stageCast` and `selectDialogueBeats` key it. This used
+            // to select by scene key with a comment claiming the pairing was "asserted against the
+            // source in `ScenarioAuthoringContract`" — no such assertion existed, and the schema
+            // happily accepts a script routing `prediction` to `TheoryBoard`, at which point a
+            // key-based lookup reads one board's proposals for the other's and this sweep bounds a
+            // slot nothing paints. That is the defect this file has now been patched for three times.
+            proposerIds: (phase === 'prediction' ? definition.predictionProposals : definition.conclusionProposals)
                 .map(({ colleagueId }) => colleagueId),
             speakerIds: (dialogueBeats ?? []).map(({ speakerId }) => speakerId),
             castIds: definition.colleagues.map(({ id }) => id),
@@ -233,7 +237,12 @@ const stagedFigureCounts = (): readonly number[] => SHIPPED_CASE_IDS.flatMap((ca
         }).length);
 });
 
-const FIGURE_SLOT_WIDTH = PROPOSAL_SURFACE_WIDTH / Math.max(...stagedFigureCounts());
+const stagedCounts = stagedFigureCounts();
+// `Math.max()` of an empty list is `-Infinity`, which would make every bound below compare against a
+// negative width and either fail uninterpretably or pass on nothing. Its sibling sweeps guard this
+// shape three times over; this one did not.
+if (stagedCounts.length === 0) throw new Error('No shipped case stages a figure column — the slot bound would be meaningless.');
+const FIGURE_SLOT_WIDTH = PROPOSAL_SURFACE_WIDTH / Math.max(...stagedCounts);
 /**
  * The dialogue panel is narrower than the surface since Story 2.9 — it shares its row with the control
  * column instead of stacking below it, which is what bought the room its height. Both bounds are

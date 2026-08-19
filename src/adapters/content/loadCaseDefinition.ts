@@ -75,6 +75,15 @@ const loadCaseDefinition = async (
 
     const parsed = CaseDefinitionSchema.safeParse(content);
     if (!parsed.success) {
+        // The authoring guide's central promise is that a refusal names the offending path, and the
+        // schema does emit exactly that — but until Story 3.4's code review this function discarded
+        // `parsed.error` entirely, so no author following `docs/content-authoring/`'s own workflow
+        // could ever see one. The issues go to the console, deliberately *beside* the returned message
+        // rather than inside it: an author needs the path, and a player must not be shown a Zod dump.
+        console.error(
+            `[quantique] "${caseId}" does not match the case contract. Refusals, each naming its path:`,
+            parsed.error.issues.map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.message}`)
+        );
         // Not "the Young case contract" any more (Story 3.1): the contract is shared and a second case
         // loads through this same boundary, so naming Young would misreport which case failed. Verified
         // nothing asserts the old string.

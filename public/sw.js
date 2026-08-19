@@ -32,7 +32,17 @@
 // therefore fails `manifest-mismatch` at load — "content unavailable" again, reached through the
 // consistency check rather than through a missing field. Two files that must agree are two files that
 // must be evicted together.
-const CACHE_NAME = 'quantique-bootstrap-v10';
+// v11 — code review of 3.4. A *third* reason, and the one the story's own §11 reasoned past: the two
+// new fields are optional, so a cached v10-era `case.json` still strict-parses under the new schema —
+// that direction is genuinely safe and the story was right about it. The direction it did not consider
+// is the reverse. `contentPath` builds `cases/<id>/case.json` with no version query and this worker is
+// a per-response fetch-through cache with no atomic swap, so mid-deploy a returning player can reach
+// the network for `case.json` while the hashed bundle still comes from cache. `PrimaryControlSchema`
+// is `.strict()` and the pre-3.4 schema has no `affordance` key, so the *new* file parsed by the *old*
+// bundle fails into `invalid-case-definition` — "content unavailable", with no recovery offline. The
+// rule this makes explicit, and which the header did not say before: **an additive optional field is
+// still a bump, because `.strict()` makes every schema change breaking in the old-bundle direction.**
+const CACHE_NAME = 'quantique-bootstrap-v11';
 
 self.addEventListener('install', (event) => {
     event.waitUntil(self.skipWaiting());

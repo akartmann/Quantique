@@ -2426,6 +2426,30 @@ describe('an authored scene cast', () => {
         return definition;
     };
 
+    /**
+     * Every colleague a board attributes a proposal to, which the sixth rule requires the cast to cover.
+     *
+     * Read off the definition rather than written out, so a content edit that re-attributes a proposal
+     * moves these tests with it instead of quietly making them assert an old cast.
+     */
+    const boardProposers = (definition: Record<string, unknown>, field: 'predictionProposals' | 'conclusionProposals'): readonly string[] =>
+        [...new Set((definition[field] as ReadonlyArray<{ colleagueId: string }>).map(({ colleagueId }) => colleagueId))];
+
+    /**
+     * The valid case plus one colleague who authors no proposal on either board.
+     *
+     * Both shipped cases attribute one proposal per colleague on each board, so with the sixth rule in
+     * place *neither of them can narrow a cast at all* — the cast has to cover every proposer, and every
+     * colleague is one. A narrowing cast is only expressible when a case has somebody in the room who
+     * did not write a card, which is what this adds: an archivist who speaks in the reading room.
+     */
+    const withSpareColleague = (definition: Record<string, unknown>): Record<string, unknown> => {
+        const colleagues = definition.colleagues as Array<Record<string, unknown>>;
+        colleagues.push({ ...structuredClone(colleagues[0]!), id: SPARE_COLLEAGUE });
+        return definition;
+    };
+    const SPARE_COLLEAGUE = 'spare-archivist';
+
     /** Scene 1 is `prediction` → `Colleagues`, one of the two that stage a figure column. */
     const PREDICTION_SCENE = 1;
     /** Scene 0 is `context` → `Library`, which stages none. */
@@ -2437,7 +2461,37 @@ describe('an authored scene cast', () => {
     };
 
     it('accepts a cast naming a subset of the authored colleagues', () => {
-        expect(CaseDefinitionSchema.safeParse(withCast(PREDICTION_SCENE, ['thea-young', 'elias-wren'])).success).toBe(true);
+        // The subset excludes the spare, not a proposer — see `withSpareColleague` for why that is the
+        // only shape of narrowing the sixth rule leaves, and why the shipped cases cannot demonstrate it.
+        const definition = withSpareColleague(withCast(PREDICTION_SCENE, []));
+        ((definition.scenarioScript as { scenes: Array<Record<string, unknown>> }).scenes[PREDICTION_SCENE]).cast =
+            boardProposers(definition, 'predictionProposals');
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+        expect(parsed.success).toBe(true);
+        expect((definition.colleagues as unknown[]).length)
+            .toBeGreaterThan(boardProposers(definition, 'predictionProposals').length);
+    });
+
+    it('rejects a cast that leaves out a colleague whose proposal the board shows', () => {
+        // Story 3.4's code review, the sixth rule. Selecting a proposal brings its author forward by
+        // matching `colleagueId` against the staged set, with no fallback — so a proposer left out of
+        // the cast is a card that is selectable, is attributed, and foregrounds nobody.
+        const definition = withCast(PREDICTION_SCENE, ['thea-young']);
+        const dropped = boardProposers(definition, 'predictionProposals').indexOf('elias-wren');
+
+        expect(issuePaths(definition)).toContain(`predictionProposals.${dropped}.colleagueId`);
+    });
+
+    it('holds the same rule for the conclusion board, which the theory board stages', () => {
+        // Keyed on phase, not scene key: `TheoryBoard` hosts `synthesis` and `review` as two entries,
+        // and a key-based lookup would read one board's proposals for the other's.
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        const scenes = (definition.scenarioScript as { scenes: Array<Record<string, unknown>> }).scenes;
+        const index = scenes.findIndex((scene) => scene.phase === 'review');
+        scenes[index]!.cast = ['thea-young'];
+
+        expect(issuePaths(definition).some((path) => path.startsWith('conclusionProposals.'))).toBe(true);
     });
 
     it('accepts a scene with no cast at all — absence is how a scene says "everyone"', () => {
@@ -2473,7 +2527,10 @@ describe('an authored scene cast', () => {
         const index = scenes.findIndex((scene) => scene.sceneKey === sceneKey);
 
         expect(index).toBeGreaterThanOrEqual(0);
-        scenes[index]!.cast = ['thea-young'];
+        scenes[index]!.cast = boardProposers(
+            definition,
+            scenes[index]!.phase === 'prediction' ? 'predictionProposals' : 'conclusionProposals'
+        );
         expect(CaseDefinitionSchema.safeParse(definition).success).toBe(true);
     });
 
@@ -2489,7 +2546,9 @@ describe('an authored scene cast', () => {
     });
 
     it('accepts a beat spoken by a member of its own scene cast', () => {
-        const definition = withCast(PREDICTION_SCENE, ['thea-young']);
+        const definition = withCast(PREDICTION_SCENE, []);
+        ((definition.scenarioScript as { scenes: Array<Record<string, unknown>> }).scenes[PREDICTION_SCENE]).cast =
+            boardProposers(definition, 'predictionProposals');
         ((definition.scenarioScript as { scenes: Array<Record<string, unknown>> }).scenes[PREDICTION_SCENE]).dialogueBeats = [
             { id: 'intro', speakerId: 'thea-young', text: bilingual('A bounded claim needs a second measurement.') }
         ];

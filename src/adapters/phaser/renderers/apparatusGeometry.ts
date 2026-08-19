@@ -248,8 +248,11 @@ export const DIAL_INDEX_INNER_RADIUS = DIAL_RING_RADIUS + 2;
 export const DIAL_INDEX_OUTER_RADIUS = DIAL_RING_RADIUS + 8;
 export const DIAL_FOCUS_RADIUS = DIAL_INDEX_OUTER_RADIUS + 6;
 
-/** The same slot placement as a knob: an authored affordance moves no instrument on the bench. */
-export const dialCentre = knobCentre;
+// (`dialCentre` lived here and had no reader anywhere in `src/` or `tests/`. Story 3.4's code review
+// removed it and replaced both it and `sliderCentre` with `instrumentCentre` below, which the painter
+// actually calls — an exported alias nothing consumes is the "author a field nothing reads" rule at
+// the API layer, and it had already produced a test asserting a thumb's offset against a helper the
+// code under test never invoked.)
 
 /**
  * The slider's track, thumb and graduations.
@@ -268,8 +271,19 @@ export const SLIDER_FOCUS_PADDING = 8;
 export const SLIDER_HALF_WIDTH = (SLIDER_TRACK_WIDTH / 2) + (SLIDER_THUMB_WIDTH / 2) + SLIDER_FOCUS_PADDING;
 export const SLIDER_HALF_HEIGHT = (SLIDER_THUMB_HEIGHT / 2) + SLIDER_TICK_LENGTH + SLIDER_FOCUS_PADDING;
 
-/** The track's midpoint, on the same row centre as a knob's. */
-export const sliderCentre = knobCentre;
+/**
+ * Where one instrument sits, by affordance — the companion to {@link instrumentBand}.
+ *
+ * All three answer the same point today, and that is the *design*: an authored affordance selects an
+ * instrument, it does not move the bench. But it is a function rather than three aliases so the
+ * painter has one thing to call and a test has one thing to measure against. The aliases it replaced
+ * had no consumer at all, which is how a thumb-placement test came to compare the painter's output
+ * against a helper the painter never called.
+ */
+export const instrumentCentre = (
+    _affordance: ControlAffordance,
+    index: number
+): Readonly<{ x: number; y: number }> => knobCentre(index);
 
 /**
  * The band one instrument occupies, by affordance — the rectangle that must not overlap its neighbour.

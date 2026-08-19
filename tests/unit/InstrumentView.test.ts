@@ -7,6 +7,7 @@ import {
     KNOB_ARC_START_RAD,
     KNOB_ARC_SWEEP_RAD,
     DIAL_INDEX_ANGLE_RAD,
+    dialTravelRad,
     KNOB_MIN_TRACKING_RADIUS,
     dialAngleForFraction,
     dialAngleForValue,
@@ -372,13 +373,20 @@ const eachAuthoredControl = (assert: (control: PrimaryControl) => void): void =>
 };
 
 describe('the dial travel', () => {
-    it('reads zero at the index mark and closes the circle', () => {
-        // Straight up, in the shared `atan2` convention: `-π/2` points at twelve o'clock.
-        expect(DIAL_INDEX_ANGLE_RAD).toBeCloseTo(-Math.PI / 2, 12);
-        expect(dialFractionForAngle(DIAL_INDEX_ANGLE_RAD)).toBeCloseTo(0, 12);
-        expect(dialFractionForAngle(DIAL_INDEX_ANGLE_RAD + Math.PI)).toBeCloseTo(0.5, 12);
-        // The travel closes: a full turn is back at the index mark, which is what "no hard stop" means.
-        expect(dialFractionForAngle(DIAL_INDEX_ANGLE_RAD + (Math.PI * 2))).toBeCloseTo(0, 12);
+    it('reads zero at the index mark and comes back to it after a full turn', () => {
+        eachAuthoredControl((control) => {
+            // Straight up, in the shared `atan2` convention: `-π/2` points at twelve o'clock.
+            expect(DIAL_INDEX_ANGLE_RAD).toBeCloseTo(-Math.PI / 2, 12);
+            expect(dialFractionForAngle(control, DIAL_INDEX_ANGLE_RAD)).toBeCloseTo(0, 12);
+            // Halfway round the *travel* is halfway through the values — not halfway round the circle,
+            // since the seam holds a detent back.
+            expect(dialFractionForAngle(control, DIAL_INDEX_ANGLE_RAD + (dialTravelRad(control) / 2))).toBeCloseTo(0.5, 12);
+            // The travel still closes: a full turn is back at the index mark, which is what "no hard
+            // stop" means. The seam changes where the *values* stop, not where the ring does.
+            expect(dialFractionForAngle(control, DIAL_INDEX_ANGLE_RAD + (Math.PI * 2))).toBeCloseTo(0, 12);
+            // And the maximum is a detent short of the index mark rather than on it.
+            expect(dialFractionForAngle(control, DIAL_INDEX_ANGLE_RAD + dialTravelRad(control))).toBeCloseTo(1, 12);
+        });
     });
 
     /**
@@ -387,15 +395,19 @@ describe('the dial travel', () => {
      * knob's dead zone in it and it fails at 89 of these angles.
      */
     it('reads every direction, with no dead zone anywhere on the circle', () => {
-        const unread: string[] = [];
-        for (let degrees = 0; degrees < 360; degrees += 1) {
-            if (dialFractionForAngle((degrees * Math.PI) / 180) === undefined) unread.push(`${degrees}°`);
-        }
+        eachAuthoredControl((control) => {
+            const unread: string[] = [];
+            for (let degrees = 0; degrees < 360; degrees += 1) {
+                if (dialFractionForAngle(control, (degrees * Math.PI) / 180) === undefined) unread.push(`${degrees}°`);
+            }
 
-        expect(unread).toEqual([]);
-        // And the knob genuinely does refuse those angles, so the two are not the same function.
-        expect(knobFractionForAngle(Math.PI / 2)).toBeUndefined();
-        expect(dialFractionForAngle(Math.PI / 2)).toBeDefined();
+            // Including the seam: it withholds *values*, never a reading. An angle in it resolves to the
+            // nearer end, which is asserted by name in `reads every angle in the seam…` below.
+            expect(unread).toEqual([]);
+            // And the knob genuinely does refuse those angles, so the two are not the same function.
+            expect(knobFractionForAngle(Math.PI / 2)).toBeUndefined();
+            expect(dialFractionForAngle(control, Math.PI / 2)).toBeDefined();
+        });
     });
 
     it('never resolves an off-step value, anywhere on the circle', () => {
@@ -422,7 +434,7 @@ describe('the dial travel', () => {
     it('reaches both range ends', () => {
         eachAuthoredControl((control) => {
             const at = (fraction: number): number => {
-                const angleRad = dialAngleForFraction(fraction);
+                const angleRad = dialAngleForFraction(control, fraction);
                 return resolveAffordanceValueForPointer({
                     affordance: 'dial',
                     control,
@@ -434,9 +446,11 @@ describe('the dial travel', () => {
             };
 
             expect(at(0)).toBe(control.min);
-            // Just short of a full turn, because a dial's travel closes — the last detent before the
-            // index mark is the maximum, and the index mark itself is the minimum again.
-            expect(at(0.9999)).toBe(control.max);
+            // Fraction 1 *is* the maximum now that the travel is seamed, so there is no "just short of"
+            // constant to tune. The 0.9999 that stood here was arithmetically wrong for any control
+            // with more than ~5000 steps — reaching the top needs `1 - fraction < step / (2 * range)` —
+            // and it only ever passed because every shipped control has twelve.
+            expect(at(1)).toBe(control.max);
         });
     });
 
@@ -568,12 +582,13 @@ describe('every affordance dispatches the value a step would', () => {
 
     it.each(CONTROL_AFFORDANCES)('agrees with steppedNeighbour on %s', (affordance) => {
         eachAuthoredControl((control) => {
-            // The maximum is excluded for the dial alone, and not because the rule is weaker there: a
-            // closed travel *identifies its endpoints*, so the maximum is drawn at the index mark where
-            // the minimum is. That is asserted as its own property below rather than hidden here.
-            const stepsTaken = affordance === 'dial'
-                ? authoredValues(control).slice(0, -2)
-                : authoredValues(control).slice(0, -1);
+            // No affordance is excused any of its authored values. The dial used to be — its last two
+            // were skipped here, because a full-circle travel put the maximum at the index mark where
+            // the minimum is and dragging there dispatched the minimum. That carve-out *was* the ADR-012
+            // defect: keyboard and drag disagreed at the top of every dial's range, and the sweep that
+            // exists to catch exactly that was shaped around it. Story 3.4's code review seamed the
+            // travel; the carve-out goes with it, and this line failing again means the seam is gone.
+            const stepsTaken = authoredValues(control).slice(0, -1);
             const disagreements = stepsTaken.map((value) => {
                 const stepped = steppedNeighbour(control, value, 1);
                 return { value, stepped, dragged: pointerAt(affordance, control, stepped, value) };
@@ -585,22 +600,50 @@ describe('every affordance dispatches the value a step would', () => {
     });
 
     /**
-     * The dial's defining property, stated rather than discovered at review: **its travel closes**.
+     * The dial's defining property since Story 3.4's code review: **its travel closes, with a seam**.
      *
-     * The maximum and the minimum occupy the same angle, so a dial cannot distinguish them — which is
-     * exactly right for a cyclic quantity and exactly wrong for anything else. `docs/content-authoring/`
-     * carries the resulting authoring rule ("author `dial` only where the two ends are the same
-     * reading"), and `MorleyMillerPrototype.test.ts` pins that the shipped case obeys it against its own
-     * model. A knob has a hard stop and must **not** behave this way, which the second half asserts.
+     * The ring is continuous to look at, but the authored values occupy `stepCount / (stepCount + 1)`
+     * of it, so the maximum sits one detent *before* the index mark rather than on it. Every value is
+     * therefore reachable by drag, which is what ADR-012 requires of the gesture and what the sweep
+     * above no longer has to excuse.
+     *
+     * The authoring rule `docs/content-authoring/` carries is unchanged and is about the *model*, not
+     * the widget: a dial's ends sit adjacent, so author one only where that adjacency is the truth.
+     * `ScenarioAuthoringContract.test.ts` pins every shipped dial against its own model at both ends.
      */
-    it('closes the dial travel at the index mark, and keeps the knob bounded', () => {
+    it('seams the dial travel before the index mark, and keeps the knob bounded', () => {
         eachAuthoredControl((control) => {
-            expect(dialAngleForValue(control, control.max)).toBeCloseTo(dialAngleForValue(control, control.min) + (Math.PI * 2), 12);
-            expect(pointerAt('dial', control, control.max, control.defaultValue)).toBe(control.min);
+            // One detent of gap, and the two ends no longer share an angle.
+            const travel = dialTravelRad(control);
+            expect(dialAngleForValue(control, control.max) - dialAngleForValue(control, control.min)).toBeCloseTo(travel, 12);
+            expect(travel).toBeLessThan(Math.PI * 2);
+            expect(pointerAt('dial', control, control.max, control.defaultValue)).toBe(control.max);
 
             // The knob's ends are 270° apart and stay apart: the wrap a bounded instrument must not have.
             expect(pointerAt('knob', control, control.max, control.defaultValue)).toBe(control.max);
             expect(pointerAt('slider', control, control.max, control.defaultValue)).toBe(control.max);
+        });
+    });
+
+    it('reads every angle in the seam as one of the two ends it lies between', () => {
+        // The seam is a gap in the *values*, not a dead zone: an instrument that held its value here
+        // would be a knob with extra steps, and the no-dead-zone property is the dial's whole point.
+        eachAuthoredControl((control) => {
+            const travel = dialTravelRad(control);
+            const readings = Array.from({ length: 24 }, (_unused, index) => {
+                const angleRad = DIAL_INDEX_ANGLE_RAD + travel + (((index + 0.5) / 24) * ((Math.PI * 2) - travel));
+                return resolveAffordanceValueForPointer({
+                    affordance: 'dial',
+                    control,
+                    dx: Math.cos(angleRad) * 30,
+                    dy: Math.sin(angleRad) * 30,
+                    // Deliberately neither end, so a "held the current value" bug cannot pass as a read.
+                    currentValue: steppedNeighbour(control, control.min, 1),
+                    trackWidth: SLIDER_TRACK_WIDTH
+                });
+            });
+
+            expect(new Set(readings)).toEqual(new Set([control.min, control.max]));
         });
     });
 

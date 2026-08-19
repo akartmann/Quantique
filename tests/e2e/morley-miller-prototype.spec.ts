@@ -122,3 +122,29 @@ test('carries the Morley–Miller prototype from the review route to the conclus
 });
 
 test.describe.configure({ timeout: WALK_TO_DEBRIEF_COST_MS });
+
+/**
+ * The slider, driven through real Phaser input.
+ *
+ * Added by Story 3.4's code review, which found that **no e2e walk touched a slider at all**:
+ * `varyingInstrument` was only ever called for `rotationDeg`, `accessibility.spec.ts` never loads the
+ * prototype, and the unit harness discards a zone's constructor geometry — so the one affordance with a
+ * genuinely new pointer→value conversion had its drag path exercised nowhere in the engine. A slider
+ * built with the knob's hit area, or centred on the wrong slot, passed every test in the suite.
+ *
+ * `bathTempC` is 18–24 step 0.5 and is a member of the case's `criticalControlIds`, so varying it alone
+ * still produces two distinct configurations and the walk reaches the board exactly as the rotation one
+ * does. The assertion that matters is inside `walkToTheBoard`: `recordTwoObservations` waits for the
+ * *readout* to reach the value the production conversion says the drag means, in either locale. A slider
+ * whose hit area or conversion was wrong never gets there.
+ */
+const BATH = varyingInstrument('morley-miller', 'bathTempC', 19);
+
+test('records a prototype observation by dragging the bath-temperature slider', async ({ page }) => {
+    test.slow();
+
+    await walkToTheBoard(page, 'morley-miller', BATH);
+
+    await expectActiveScene(page, 'TheoryBoard');
+    await expect(recordedObservations(page)).toHaveCount(2);
+});

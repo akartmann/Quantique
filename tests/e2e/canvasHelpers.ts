@@ -624,18 +624,29 @@ export const varyingInstrument = (caseId: string, controlId: string, targetValue
      * Where the drag lands, and what the readout must then say.
      *
      * Defaults to the control's maximum, which is the far end of the travel and the cheapest place to
-     * drag to. **A caller must pass `targetValue` when the maximum is not a distinguishing setting** —
-     * and always for a `dial`, whose travel closes, so its maximum is drawn where its minimum is.
+     * drag to. **A caller must pass `targetValue` when the maximum is not a distinguishing setting.**
      * The prototype's `rotationDeg` runs 0–180 and its model is `cos(2θ)`, period 180°, so the default
      * dragged from 0° to 180° and recorded *the same displacement twice* — two runs the significance
      * gate counted as two configurations (it keys on the control value) while the readings were
      * identical to the last decimal. AC10 asks the walk to record two **distinguishing** runs; it
      * recorded two identical ones, and the unit test that picks a real pair uses 0°/90°
      * (review 2026-08-19).
+     *
+     * For a **dial** the rule is now enforced rather than written down. Story 3.4's code review found
+     * that a caller omitting `targetValue` on a dial dragged to where the dial read its *minimum* — the
+     * travel used to alias its ends — and the walk then failed at a readout mismatch pointing nowhere
+     * near the cause. The travel is seamed now, so the maximum is genuinely reachable; the refusal
+     * stays because the *model* reason above is unchanged, and a prose "a caller must" is not a guard.
      */
     const destination = targetValue ?? control.max;
     if (destination < control.min || destination > control.max) {
         throw new Error(`${controlId} cannot travel to ${destination}: authored range is ${control.min}–${control.max}.`);
+    }
+    if (targetValue === undefined && controlAffordance(control) === 'dial') {
+        throw new Error(
+            `${controlId} is drawn as a dial, whose ends sit one detent apart: pass an explicit targetValue `
+            + 'so the walk records a distinguishing configuration rather than the far end of the travel.'
+        );
     }
     /**
      * Where on the bench the drag has to end, **for the instrument this control is actually drawn as**
@@ -657,7 +668,7 @@ export const varyingInstrument = (caseId: string, controlId: string, targetValue
         if (affordance === 'slider') {
             return { x: centre.x + sliderOffsetForValue(control, destination, SLIDER_TRACK_WIDTH), y: centre.y };
         }
-        const angle = affordance === 'dial' ? dialAngleForFraction(fraction) : knobAngleForFraction(fraction);
+        const angle = affordance === 'dial' ? dialAngleForFraction(control, fraction) : knobAngleForFraction(fraction);
         const radius = (affordance === 'dial' ? DIAL_RING_RADIUS : KNOB_TRAVEL_RADIUS) - 6;
         return { x: centre.x + (Math.cos(angle) * radius), y: centre.y + (Math.sin(angle) * radius) };
     })();

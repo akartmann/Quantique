@@ -1585,6 +1585,40 @@ export const CaseDefinitionSchema = z.object({
                     });
                 }
             });
+
+            // **The sixth rule, added by Story 3.4's code review.** A board attributes proposals to
+            // colleagues, and selecting a proposal brings its author forward — 2.9's AC3. That emphasis
+            // is a match on `colleagueId` against the staged set, with no fallback: a proposal whose
+            // author the scene's cast leaves out is selectable, is attributed on the card, and
+            // foregrounds nobody. Silent, and the same graceful-degradation shape as a `cast` that is
+            // ignored or an `affordance` drawn as a knob.
+            //
+            // Keyed on **phase**, not on scene key, for the reason `selectDialogueBeats` is: the theory
+            // board hosts `synthesis` and `review` as separate script entries, and a key-based lookup
+            // would read one board's proposals for the other's.
+            //
+            // The reverse rule is deliberately *not* imposed — a cast may include somebody who authored
+            // no proposal on this board. Staging is who is in the room; attribution is who wrote a card.
+            if (cast.length > 0) {
+                const boardProposals = scene.phase === 'prediction'
+                    ? definition.predictionProposals
+                    : (scene.phase === 'synthesis' || scene.phase === 'review')
+                        ? definition.conclusionProposals
+                        : undefined;
+                boardProposals?.forEach((proposal, proposalIndex) => {
+                    if (!cast.includes(proposal.colleagueId)) {
+                        context.addIssue({
+                            code: 'custom',
+                            message: "Every proposal on a staged board must be attributed to a member of that scene's cast, or selecting it brings nobody forward.",
+                            path: [
+                                scene.phase === 'prediction' ? 'predictionProposals' : 'conclusionProposals',
+                                proposalIndex,
+                                'colleagueId'
+                            ]
+                        });
+                    }
+                });
+            }
         }
 
         const beats = scene.dialogueBeats;
