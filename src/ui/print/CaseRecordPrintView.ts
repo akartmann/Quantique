@@ -8,6 +8,7 @@ import {
     selectSourceLabel, selectTheoryBoardDraft
 } from '../../core/store/selectors';
 import type { AppState } from '../../core/store/AppState';
+import { composeCaseSummary } from '../../domain/evidence/caseSummary';
 import { CANONICAL_UNAVAILABLE_MESSAGE, type PeerReviewProjection } from '../../domain/review/peerReviewRules';
 
 const term = (label: string, value: string): HTMLDivElement => {
@@ -155,6 +156,28 @@ export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): ((
         if (!historyList.children.length) historyList.append(listItem(t('print.history.empty')));
         history.append(historyHeading, historyList);
 
+        // The neutral auto-summary (FR23, AC5). One section, in the file that already builds settings,
+        // observations, sources and prediction the same way — and no new `src/ui/` module, which
+        // project-context forbids.
+        //
+        // Here rather than on the canvas because this file is the **retained** portable record (ADR-007)
+        // and ADR-011/NFR20's sole exemption, and it earns that exemption by dispatching nothing. A
+        // read-only summary dispatches nothing either, so rendering it creates no canvas-completeness
+        // obligation. The alternative — shipping the authored field with nothing reading it — is the
+        // unreachable-content defect this codebase's refinements exist to catch.
+        const summary = document.createElement('section');
+        const summaryHeading = document.createElement('h3'); summaryHeading.textContent = t('print.summary.heading');
+        const summaryText = document.createElement('p');
+        // Composed in the domain and merely printed here: the composer is pure and unit-tested directly,
+        // and this view stays a projection. It states what the player did and never evaluates it —
+        // no defensibility, no ranking, no "correct" (ADR-006, UX-DR5).
+        summaryText.textContent = composeCaseSummary(state.caseDefinition, {
+            runs: state.runs,
+            inspectedSourceIds: state.inspectedSourceIds,
+            decisionHistory: selectDecisionHistory(state)
+        }, locale);
+        summary.append(summaryHeading, summaryText);
+
         const completion = selectCompletionSnapshot(state);
         if (completion) {
             const completed = document.createElement('section');
@@ -165,9 +188,9 @@ export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): ((
                 conclusion: completion.finalDecision.conclusion
             });
             completed.append(completedHeading, completedText);
-            record.append(heading, settings, observations, sources, prediction, comparison, conclusion, history, completed);
+            record.append(heading, summary, settings, observations, sources, prediction, comparison, conclusion, history, completed);
         } else {
-            record.append(heading, settings, observations, sources, prediction, comparison, conclusion, history);
+            record.append(heading, summary, settings, observations, sources, prediction, comparison, conclusion, history);
         }
         root.replaceChildren(record);
     };

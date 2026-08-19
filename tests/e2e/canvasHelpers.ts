@@ -412,6 +412,18 @@ export const recordedSources = (page: Page) =>
         .filter({ hasNotText: fr['print.sources.empty'] });
 
 /**
+ * The neutral auto-summary (FR23, Story 3.1) — the one section whose text is **authored case content**
+ * rather than a translation key, filled from the player's own evidence by `composeCaseSummary`.
+ *
+ * Asserted here rather than in a unit test because the section needs a DOM to exist, and the unit suite
+ * has no DOM environment configured (adding jsdom would be a new dependency). The composer itself is
+ * unit-tested directly in `CaseSummary.test.ts`; what this reaches is AC5's *reachable* clause — that the
+ * authored field is not shipped-and-dead.
+ */
+export const recordedAutoSummary = (page: Page) =>
+    printSection(page, en['print.summary.heading']).locator('p');
+
+/**
  * The completion snapshot, present only once the case has actually been closed.
  *
  * `CaseRecordPrintView` renders this section **only** when `selectCompletionSnapshot` returns one, so

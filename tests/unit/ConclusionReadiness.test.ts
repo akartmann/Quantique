@@ -11,6 +11,13 @@ const definition = { requirements: { minimumRuns: 2, minimumSources: 2, minimumS
     significanceRule: { criticalControlIds: ['slitSpacingMm', 'screenDistanceM'] },
     colleagueHints: [] } as CaseDefinition;
 
+/**
+ * The control set these fixture runs snapshot. `createRunRecord` validates a run against its case's
+ * authored controls since Story 3.1, and this file's `definition` fixture is deliberately partial — it
+ * authors only the fields conclusion readiness reads — so the contract is stated here instead.
+ */
+const YOUNG_CONTROLS = { controlIds: ['slitSpacingMm', 'screenDistanceM'] };
+
 const createRun = (id: string) => {
     const result = createRunRecord({
         id,
@@ -19,7 +26,7 @@ const createRun = (id: string) => {
         result: { label: 'Observation', value: 1, unit: 'relative units' },
         timestamp: '2026-08-04T12:00:00.000Z',
         experimentModelVersion: 'young-observation-v1'
-    });
+    }, YOUNG_CONTROLS);
     if (!result.ok) throw new Error('Fixture run must be valid.');
     return result.value;
 };

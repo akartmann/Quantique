@@ -10,7 +10,7 @@ import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 import { selectConsultation as chooseConsultation } from '../../src/domain/review/ConsultationRule';
 import { evaluatePeerReview } from '../../src/domain/review/peerReviewRules';
 import { createTheoryBoardDraft } from '../../src/domain/theory/conclusionReadiness';
-import { createRunRecord } from '../../src/domain/evidence/RunRecord';
+import { createRunRecord, runControlContract } from '../../src/domain/evidence/RunRecord';
 
 const definition = {
     // Story 2.12 removed the free-text `prediction.recorded` / `theory.conclusionSet` /
@@ -61,7 +61,7 @@ const definition = {
 } as CaseDefinition;
 
 const run = (id: string, screenDistanceM = 2) => {
-    const result = createRunRecord({ id, caseId: 'young-interference', controls: { slitSpacingMm: 0.25, screenDistanceM }, result: { label: 'Observation', value: 1, unit: 'relative units' }, timestamp: '2026-08-04T12:00:00.000Z', experimentModelVersion: 'young-v1' });
+    const result = createRunRecord({ id, caseId: 'young-interference', controls: { slitSpacingMm: 0.25, screenDistanceM }, result: { label: 'Observation', value: 1, unit: 'relative units' }, timestamp: '2026-08-04T12:00:00.000Z', experimentModelVersion: 'young-v1' }, runControlContract(definition));
     if (!result.ok) throw new Error('fixture must be valid');
     return result.value;
 };

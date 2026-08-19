@@ -6,7 +6,7 @@ import { loadCaseDefinition } from '../../src/adapters/content/loadCaseDefinitio
 import type { CaseDefinition, LocalizedText, LocalizedTextList, TextualRendition } from '../../src/domain/cases/CaseDefinition';
 import { CASE_PHASES, createInitialCaseProgress } from '../../src/domain/cases/CaseProgress';
 import { advanceCasePhase, resetCaseProgress, retreatCasePhase } from '../../src/domain/cases/caseReducer';
-import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
+import { CaseDefinitionSchema, MAX_PRIMARY_CONTROLS } from '../../src/schemas/CaseDefinitionSchema';
 
 /** Fixture helpers: every localizable authored string must carry both shipped locales. */
 const bilingual = (english: string, french = `${english} [fr]`): LocalizedText => ({ en: english, fr: french });
@@ -174,6 +174,10 @@ const validYoungCase: CaseDefinition = {
         historicalDebrief: true,
         optionalReplay: true
     },
+    autoSummary: bilingual(
+        'Observations recorded: {runCount}. Distinct settings: {configurationCount}. Sources read: {sourceCount}. Sources: {sourceNames}. Revisions: {revisionCount}.',
+        'Observations enregistrées : {runCount}. Réglages distincts : {configurationCount}. Sources consultées : {sourceCount}. Sources : {sourceNames}. Révisions : {revisionCount}.'
+    ),
     scenarioScript: {
         scenes: [
             { phase: 'context', sceneKey: 'Library' },
@@ -203,6 +207,74 @@ const validYoungCase: CaseDefinition = {
 };
 
 const cloneValidCase = (): CaseDefinition => structuredClone(validYoungCase);
+
+/**
+ * The same canonical fixture, re-authored as a case that shares **none** of Young's specifics — a
+ * different kebab-case ID, a different control set with different bounds and units, no wavelength at
+ * all, its own significance rule, and its own evidence floor (AC3).
+ *
+ * Derived from `validYoungCase` rather than written out beside it, deliberately. A parallel 200-line
+ * fixture is a fixture that stops tracking the contract: the next authored field would be added to one
+ * and not the other, and the "a second case still parses" guarantee would quietly start testing an
+ * older shape. Deriving means every field Story 3.2 adds is inherited here for free, and anything that
+ * *cannot* be de-Younged shows up immediately as a parse failure in this file.
+ *
+ * It also carries counts Young does not: `minimumRuns: 3` proves the requirement floors really are
+ * floors rather than literals, and a 2-to-6 cycle range proves the same of FR3's range.
+ */
+const cloneSecondCase = (): CaseDefinition => {
+    const definition = structuredClone(validYoungCase) as unknown as Record<string, unknown>;
+    definition.id = 'morley-drift-bench';
+
+    // A rotating bench with one temperature control: a genuinely different apparatus, and one of the
+    // two IDs is a *single* control so the `.min(1)` end of the range is exercised too.
+    (definition.apparatus as { primaryControls: unknown }).primaryControls = [
+        { id: 'rotationDeg', label: { en: 'Bench rotation', fr: 'Rotation du banc' }, unit: '°', min: 0, max: 90, step: 15, defaultValue: 45 },
+        { id: 'bathTempC', label: { en: 'Bath temperature', fr: 'Température du bain' }, unit: '°C', min: 10, max: 30, step: 2, defaultValue: 20 }
+    ];
+
+    // No wavelength, and no wavelength comparison: this apparatus has neither.
+    const experiment = definition.experiment as Record<string, unknown>;
+    delete experiment.wavelengthNm;
+    delete experiment.wavelengthComparison;
+    experiment.modelVersion = 'morley-drift-v1';
+
+    definition.requirements = { minimumRuns: 3, minimumSources: 2, minimumSignificantRuns: 2 };
+    definition.flow = { ...(definition.flow as Record<string, unknown>), minimumExperimentCycles: 2, maximumExperimentCycles: 6 };
+    definition.significanceRule = { criticalControlIds: ['rotationDeg', 'bathTempC'] };
+
+    // Every predicate that names a control names one of *this* case's controls. Before Story 3.1 these
+    // were `z.enum(['slitSpacingMm', 'screenDistanceM'])` and each of them made this fixture unparseable.
+    (definition.consultationRules as Array<{ predicate: { kind: string; controlId?: string } }>)
+        .filter(({ predicate }) => predicate.kind === 'alternative-test')
+        .forEach(({ predicate }) => { predicate.controlId = 'bathTempC'; });
+    (definition.conclusionProposals as Array<{ supportPredicate: unknown }>).forEach((proposal) => {
+        proposal.supportPredicate = renameControls(proposal.supportPredicate);
+    });
+
+    return definition as unknown as CaseDefinition;
+};
+
+/** Rewrites every `varied-control` leaf to one authored ID, at every depth. */
+const replaceControlId = (predicate: unknown, controlId: string): unknown => {
+    const node = predicate as { kind: string; predicates?: unknown[] };
+    if (node.kind === 'all-of') {
+        return { ...node, predicates: (node.predicates ?? []).map((child) => replaceControlId(child, controlId)) };
+    }
+    return node.kind === 'varied-control' ? { ...node, controlId } : node;
+};
+
+/** Rewrites Young's control IDs to the second case's, at every depth of an authored support predicate. */
+const renameControls = (predicate: unknown): unknown => {
+    const node = predicate as { kind: string; controlId?: string; predicates?: unknown[] };
+    if (node.kind === 'all-of') {
+        return { ...node, predicates: (node.predicates ?? []).map(renameControls) };
+    }
+    if (node.kind === 'varied-control') {
+        return { ...node, controlId: node.controlId === 'slitSpacingMm' ? 'rotationDeg' : 'bathTempC' };
+    }
+    return node;
+};
 
 /**
  * The valid case with `dialogueBeats` attached to the `prediction` scene (index 1), as a loose record
@@ -237,7 +309,14 @@ describe('CaseDefinitionSchema', () => {
     });
 
     it.each([
-        ['bad ID', (definition: Record<string, unknown>) => { definition.id = 'another-case'; }],
+        // Story 3.1 replaced `z.literal('young-interference')` with a kebab-case rule, so a *different*
+        // case ID is no longer a rejection — that is AC3, asserted positively in `describe('a second
+        // case')` below. What still has to be rejected is an ID that could not be a directory name
+        // under `public/cases/`, because a case whose assets cannot be addressed is unloadable content.
+        ['a case ID that is not kebab-case', (definition: Record<string, unknown>) => { definition.id = 'Young Interference'; }],
+        ['a case ID with an underscore', (definition: Record<string, unknown>) => { definition.id = 'young_interference'; }],
+        ['a case ID with a leading hyphen', (definition: Record<string, unknown>) => { definition.id = '-young-interference'; }],
+        ['a case ID with a path segment', (definition: Record<string, unknown>) => { definition.id = 'cases/young-interference'; }],
         ['empty version', (definition: Record<string, unknown>) => { definition.version = ''; }],
         ['not exactly two artifacts', (definition: Record<string, unknown>) => { definition.contextualArtifacts = [definition.contextualArtifacts instanceof Array ? definition.contextualArtifacts[0] : undefined]; }],
         ['off-step control', (definition: Record<string, unknown>) => { ((definition.apparatus as { primaryControls: Array<{ defaultValue: number }> }).primaryControls[0]).defaultValue = 0.23; }],
@@ -851,7 +930,34 @@ describe('CaseDefinitionSchema', () => {
             (definition: Record<string, unknown>) => {
                 (definition.conclusionProposals as Array<{ limitation: LocalizedText }>)[0].limitation = { en: 'One apparatus only.', fr: 'Ouvrez la scène du laboratoire pour vérifier.' };
             }
-        ]
+        ],
+        // --- FR7's exact Young bounds (Story 3.1) -----------------------------------------------
+        //
+        // Nothing pinned these two messages before this story, and Story 3.1 moves the check that
+        // raises them from the shared shape into a branch scoped to `id === 'young-interference'`.
+        // A branch that never runs would delete FR7's enforcement in silence, so each bound is
+        // mutated on its own here: three per control, because a check that only looked at `min`
+        // would still pass a test that only moved `min`.
+        ...(['min', 'max', 'step'] as const).flatMap((field) => ([
+            [
+                `Young's slit spacing with a wrong ${field}`,
+                'Young slit spacing must be 0.10–0.50 mm in 0.05 mm steps.',
+                (definition: Record<string, unknown>) => {
+                    const controls = (definition.apparatus as { primaryControls: Array<Record<string, number>> }).primaryControls;
+                    // 0.1 keeps `defaultValue` in range and on step for every one of the three, so the
+                    // failure that fires is the Young bound and not `PrimaryControlSchema`'s own rules.
+                    controls[0][field] = controls[0][field] + 0.1;
+                }
+            ],
+            [
+                `Young's screen distance with a wrong ${field}`,
+                'Young screen distance must be 1.0–4.0 m in 0.25 m steps.',
+                (definition: Record<string, unknown>) => {
+                    const controls = (definition.apparatus as { primaryControls: Array<Record<string, number>> }).primaryControls;
+                    controls[1][field] = controls[1][field] + 1;
+                }
+            ]
+        ] as Array<[string, string, (definition: Record<string, unknown>) => void]>))
     ])('rejects %s', (_description, expectedMessage, mutate) => {
         const definition = cloneValidCase() as unknown as Record<string, unknown>;
         mutate(definition);
@@ -1182,6 +1288,288 @@ describe('CaseDefinitionSchema', () => {
         mutate(definition);
 
         expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
+});
+
+/**
+ * AC3, AC4 and the rules Story 3.1 had to *add* because the shapes that used to hold them were relaxed.
+ *
+ * Every test here is against `cloneSecondCase`, where the `id === 'young-interference'` branch does not
+ * run. That matters: three existing rejection tests in this file use a duplicate control ID as their
+ * lever and pass only because Young's bounds refinement notices `screenDistanceM` has gone missing —
+ * they never exercised uniqueness, and they would keep passing if the uniqueness rule were deleted.
+ */
+describe('a second case', () => {
+    it('parses with no Young-specific field authored anywhere', () => {
+        const parsed = CaseDefinitionSchema.safeParse(cloneSecondCase());
+
+        // The whole point of the story: the failure list, not just the boolean, so a regression says which
+        // field re-Younged the contract rather than only that something did.
+        expect(parsed.success ? [] : parsed.error.issues.map(({ message, path }) => `${path.join('.')}: ${message}`)).toEqual([]);
+    });
+
+    it('carries its own control set, evidence floor and cycle range through to the parsed output', () => {
+        const parsed = CaseDefinitionSchema.safeParse(cloneSecondCase());
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        expect(parsed.data.apparatus.primaryControls.map(({ id }) => id)).toEqual(['rotationDeg', 'bathTempC']);
+        expect(parsed.data.experiment.wavelengthNm).toBeUndefined();
+        // Not 2: the requirement counts are floors now, and a second case may ask for more evidence.
+        expect(parsed.data.requirements.minimumRuns).toBe(3);
+        expect(parsed.data.flow.maximumExperimentCycles).toBe(6);
+    });
+
+    it('accepts a single authored control', () => {
+        const definition = cloneSecondCase() as unknown as Record<string, unknown>;
+        const controls = (definition.apparatus as { primaryControls: Array<{ id: string }> }).primaryControls;
+        (definition.apparatus as { primaryControls: unknown }).primaryControls = [controls[0]];
+        definition.significanceRule = { criticalControlIds: ['rotationDeg'] };
+        (definition.consultationRules as Array<{ predicate: { kind: string; controlId?: string } }>)
+            .filter(({ predicate }) => predicate.kind === 'alternative-test')
+            .forEach(({ predicate }) => { predicate.controlId = 'rotationDeg'; });
+        (definition.conclusionProposals as Array<{ supportPredicate: unknown }>).forEach((proposal) => {
+            proposal.supportPredicate = replaceControlId(proposal.supportPredicate, 'rotationDeg');
+        });
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
+    });
+
+    it.each([
+        [
+            'a duplicate control ID, which would silently halve the apparatus',
+            'Primary control IDs must be stable and unique.',
+            (definition: Record<string, unknown>) => {
+                const controls = (definition.apparatus as { primaryControls: Array<{ id: string }> }).primaryControls;
+                controls[1].id = controls[0].id;
+            }
+        ],
+        [
+            'a cycle range that runs backwards',
+            'The minimum experiment cycle count must not exceed the maximum.',
+            (definition: Record<string, unknown>) => {
+                definition.flow = { ...(definition.flow as Record<string, unknown>), minimumExperimentCycles: 7, maximumExperimentCycles: 6 };
+            }
+        ],
+        [
+            'a significance rule naming a control this case does not author',
+            'The significance rule may only name authored primary controls.',
+            (definition: Record<string, unknown>) => {
+                // Young's control ID specifically. Before Story 3.1 the field enum admitted it for every
+                // case; now it is checked against the case's own apparatus, which is the stronger rule.
+                definition.significanceRule = { criticalControlIds: ['slitSpacingMm'] };
+            }
+        ],
+        [
+            'a consultation rule naming a control this case does not author',
+            'Consultation rules may only reference authored controls.',
+            (definition: Record<string, unknown>) => {
+                (definition.consultationRules as Array<{ predicate: { kind: string; controlId?: string } }>)
+                    .filter(({ predicate }) => predicate.kind === 'alternative-test')
+                    .forEach(({ predicate }) => { predicate.controlId = 'screenDistanceM'; });
+            }
+        ],
+        [
+            'a conclusion proposal naming a control this case does not author',
+            'Conclusion proposals may only reference authored controls.',
+            (definition: Record<string, unknown>) => {
+                (definition.conclusionProposals as Array<{ supportPredicate: unknown }>)[1]
+                    .supportPredicate = { kind: 'varied-control', controlId: 'slitSpacingMm' };
+            }
+        ]
+    ])('rejects %s', (_description, expectedMessage, mutate) => {
+        const definition = cloneSecondCase() as unknown as Record<string, unknown>;
+        mutate(definition);
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues.map(({ message }) => message)).toContain(expectedMessage);
+    });
+
+    it('rejects a third control, which the bench would draw over the wavelength chooser', () => {
+        const definition = cloneSecondCase() as unknown as Record<string, unknown>;
+        const controls = (definition.apparatus as { primaryControls: Array<Record<string, unknown>> }).primaryControls;
+        controls.push({ ...controls[0], id: 'tiltMrad' });
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        // The code and path rather than Zod's wording: the ceiling is a `.max()` on the field, so the
+        // message is generated and would change under a Zod upgrade while the rule had not moved.
+        expect(parsed.error.issues).toEqual(expect.arrayContaining([
+            expect.objectContaining({ code: 'too_big', path: ['apparatus', 'primaryControls'] })
+        ]));
+    });
+
+    // The negative pair AC3 asks for, in both directions: the case-scoped branch must fire on the ID and
+    // only on the ID. Without the second half, a refinement that had quietly become unconditional would
+    // still pass every test above.
+    it('fails Young’s bounds refinement the moment it claims to be Young', () => {
+        const definition = cloneSecondCase() as unknown as Record<string, unknown>;
+        definition.id = 'young-interference';
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues.map(({ message }) => message)).toEqual(expect.arrayContaining([
+            'Young slit spacing must be 0.10–0.50 mm in 0.05 mm steps.',
+            'Young screen distance must be 1.0–4.0 m in 0.25 m steps.',
+            'The Young case runs at a fixed 550 nm.',
+            'The Young case requires exactly two runs, two sources, and two significant measurements.',
+            'The Young case runs two to four experiment cycles.'
+        ]));
+    });
+
+    it('holds Young to its own bounds when a foreign control ID appears in Young content', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        (definition.apparatus as { primaryControls: Array<{ id: string }> }).primaryControls[1].id = 'bathTempC';
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues.map(({ message }) => message)).toContain('Young screen distance must be 1.0–4.0 m in 0.25 m steps.');
+    });
+
+    // --- AC6: no authored content may leave the context gate unsatisfiable --------------------------
+    //
+    // `deferred-work.md:75`, assigned to this story by review decision 2026-08-07. Both halves are the
+    // same defect: `evaluateContextReadiness` counts an artifact missing while it is ineligible *or*
+    // uninspected, so an artifact that can never be inspected is counted missing forever and the
+    // reading room can never be left. The selector is correct in both cases — see the reconciled test
+    // in `ReadingGateHints.test.ts` — so the fix is that the content becomes unauthorable.
+    it.each([
+        ['incomplete', 'rightsStatus', 'is not reviewed, so it can never be inspected'],
+        ['unavailable', 'rightsStatus', 'is not reviewed, so it can never be inspected']
+    ])('rejects a %s artifact, which context readiness would count missing forever', (rightsStatus, path, reason) => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        const artifacts = definition.contextualArtifacts as Array<Record<string, unknown>>;
+        artifacts[1].rightsStatus = rightsStatus;
+        // The rendition has to go too, or the *rights* rule fires first and this test would pass
+        // without the readiness rule existing at all.
+        delete artifacts[1].textualRendition;
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                message: `Context readiness requires every authored source to be inspected, and this one ${reason} — the gate could never open.`,
+                path: ['contextualArtifacts', 1, path]
+            })
+        ]));
+    });
+
+    it('rejects a reviewed artifact with nothing to read, by the same rule and with its own reason', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        const artifacts = definition.contextualArtifacts as Array<Record<string, unknown>>;
+        delete artifacts[0].textualRendition;
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues.map(({ message }) => message)).toContain(
+            'Context readiness requires every authored source to be inspected, and this one has no local textual rendition, so it can never be read — the gate could never open.'
+        );
+    });
+
+    it('still names the rights violation when an unreviewed artifact ships a transcription', () => {
+        // The one rule of the three that is genuinely about rights rather than readiness, kept separate
+        // because reusing someone's text without clearing it is a defect whatever the gate does.
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        (definition.contextualArtifacts as Array<Record<string, unknown>>)[0].rightsStatus = 'incomplete';
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues.map(({ message }) => message)).toContain('Only reviewed sources may provide a local textual rendition.');
+    });
+
+    // --- AC5: the neutral auto-summary's authored template ------------------------------------------
+    it.each([
+        ['en', 'The auto-summary template names {runsRecorded}, which is not a value the summary can fill.'],
+        ['fr', 'The auto-summary template names {runsRecorded}, which is not a value the summary can fill.']
+    ])('rejects an auto-summary naming an unknown placeholder in %s', (locale, message) => {
+        // Both locales, because the check is per locale: a template whose English is right and whose
+        // French carries the typo is the exact asymmetry this project keeps producing, and validating the
+        // English alone would ship the literal token to French players only.
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        (definition.autoSummary as Record<string, string>)[locale] = 'Observations: {runsRecorded}.';
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues).toEqual(expect.arrayContaining([
+            expect.objectContaining({ message, path: ['autoSummary', locale] })
+        ]));
+    });
+
+    it('rejects an auto-summary that encodes a scene, route, or phase path', () => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        definition.autoSummary = { en: 'Return to the laboratory scene to see {runCount}.', fr: 'Observations : {runCount}.' };
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues.map(({ message }) => message))
+            .toContain('The auto-summary template must not encode a scene, route, or phase path.');
+    });
+
+    it.each(['en', 'fr'])('rejects an auto-summary missing its %s content', (locale) => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        delete (definition.autoSummary as Record<string, string>)[locale];
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
+
+    it('accepts a template that names no placeholder at all', () => {
+        // Authoring is not obliged to use every value on offer, and prose with no counts in it is still a
+        // neutral summary. The rule is "name nothing unknown", not "name everything".
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        definition.autoSummary = { en: 'This record lists the observations and references it carries.', fr: 'Ce dossier liste les observations et les références qu’il contient.' };
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
+    });
+
+    // --- AC7 row 1: the asset path regex (deferred-work.md:146) --------------------------------------
+    it.each([
+        // Protocol-relative with a backslash. Browsers normalise `\` to `/` in the authority position,
+        // so this fetches from `evil.example` — and the old `/^\/(?!\/)/` accepted it, because it only
+        // ruled out a second forward slash. The reason it matters at all is the Pages deploy: assets now
+        // go through `resolveAssetUrl`, and at a domain root there is no subpath to contain them.
+        ['a backslash protocol-relative path', '/\\evil.example/x.png'],
+        ['a parent-directory segment', '/cases/../../etc/passwd'],
+        ['a bare parent-directory segment', '/../secrets.png'],
+        ['a trailing parent-directory segment', '/cases/young-interference/..']
+    ])('rejects %s in the asset manifest', (_description, path) => {
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        (definition.assets as { entries: Array<{ path: string }> }).entries[0].path = path;
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: false });
+    });
+
+    it('still accepts an ordinary same-origin asset path with a dotted filename', () => {
+        // The `..` rule is a *segment* rule, not a substring rule: `young..v2.png` is a filename, and a
+        // regex hunting for `..` anywhere would have rejected it.
+        const definition = cloneValidCase() as unknown as Record<string, unknown>;
+        (definition.assets as { entries: Array<{ path: string }> }).entries[0].path = '/cases/young-interference/young..v2.png';
+
+        expect(CaseDefinitionSchema.safeParse(definition)).toMatchObject({ success: true });
+    });
+
+    it('states the control ceiling once, where the bench geometry can be checked against it', () => {
+        // Guards the number itself: `ApparatusGeometry.test.ts` proves 2 is the largest count whose
+        // instrument slots clear the wavelength chooser, and reads this same constant to do it.
+        expect(MAX_PRIMARY_CONTROLS).toBe(2);
     });
 });
 

@@ -503,6 +503,111 @@ describe('portable case records', () => {
         expect(createAppStateFromCaseRecord(parsed.data, rivalDefinition)).toMatchObject({ ok: true, value: { critiqueHistory: [] } });
     });
 
+    // --- AC8: the two persisted shapes Story 3.1 widened -------------------------------------------
+    //
+    // `caseId` went from `z.literal('young-interference')` to a kebab-case string, and
+    // `activeControlValues` from a strict two-key object to `z.record(z.string(), z.number().finite())`.
+    // Both are **relaxations**, which is why `schemaVersion` stays 3 and `migrateCaseRecord.ts` is
+    // untouched. These tests are what makes "relaxation" a checked claim rather than an assertion in a
+    // comment — and the `SignificanceRule` docstring warns that widening `RunControls` would "fail every
+    // saved record on load and let autosave overwrite it — a silent progress wipe against NFR12".
+    it('still loads a record written in the exact shape older builds saved', () => {
+        // Byte-for-byte the pre-3.1 projection: `caseId` the old literal, `activeControlValues` the old
+        // two-key object. If this ever fails, a player's saved investigation has been made unloadable.
+        const parsed = CaseRecordSchema.safeParse(validRecord);
+
+        expect(parsed.success).toBe(true);
+        if (!parsed.success) return;
+        expect(parsed.data.caseId).toBe('young-interference');
+        expect(parsed.data.activeControlValues).toEqual({ slitSpacingMm: 0.25, screenDistanceM: 2 });
+        expect(validateCaseRecordForDefinition(parsed.data, definition)).toMatchObject({ ok: true });
+        expect(parsed.data.schemaVersion).toBe(3);
+    });
+
+    it('rejects a record from a different case, which the literal used to do less well than this does', () => {
+        // The relaxation does not lose cross-case protection — that protection never lived in the literal.
+        // `validateCaseRecordForDefinition` compares `record.caseId` against `definition.id`, which is
+        // *stronger*: the literal admitted a Young record while some other case was loaded, and this
+        // does not.
+        const foreign = CaseRecordSchema.parse({ ...validRecord, caseId: 'morley-drift-bench' });
+
+        expect(validateCaseRecordForDefinition(foreign, definition))
+            .toMatchObject({ ok: false, error: { code: 'incompatible-case-record' } });
+    });
+
+    it('accepts a record for a second case when that second case is the one loaded', () => {
+        // The other half, and the point of the story: the same record and definition that were rejected
+        // above are accepted when they agree. Without this, the test above would also pass against a
+        // schema that simply rejected every non-Young ID.
+        const secondCase = {
+            ...definition,
+            id: 'morley-drift-bench',
+            apparatus: { primaryControls: [
+                { id: 'rotationDeg', label: { en: 'Bench rotation', fr: 'Rotation du banc' }, unit: '°', min: 0, max: 90, step: 15, defaultValue: 45 }
+            ] },
+            significanceRule: { criticalControlIds: ['rotationDeg'] }
+        } as CaseDefinition;
+        const record = CaseRecordSchema.parse({
+            ...validRecord,
+            caseId: 'morley-drift-bench',
+            activeControlValues: { rotationDeg: 45 },
+            runs: [{
+                id: 'run-001', caseId: 'morley-drift-bench', controls: { rotationDeg: 45 },
+                result: { label: 'Observation', value: 1, unit: 'relative units' }, timestamp: '2026-08-05T10:00:00.000Z',
+                experimentModelVersion: 'young-v1', linkedEvidenceIds: ['source-1']
+            }],
+            comparison: { selectedRunIds: ['run-001'], notes: [] },
+            theory: { selectedRunIds: ['run-001'], selectedSourceIds: ['source-1'], conclusion: 'A bounded conclusion.', limitation: 'A limitation.' }
+        });
+
+        expect(validateCaseRecordForDefinition(record, secondCase)).toMatchObject({ ok: true });
+    });
+
+    it.each([
+        ['a control value off its authored step', { slitSpacingMm: 0.27, screenDistanceM: 2 }],
+        ['a control value outside its authored range', { slitSpacingMm: 0.25, screenDistanceM: 9 }],
+        ['a control the case does not author', { slitSpacingMm: 0.25, wanderingControl: 2 }],
+        ['a missing authored control', { slitSpacingMm: 0.25 }]
+    ])('still rejects %s, now against the case’s own control set', (_description, activeControlValues) => {
+        // The exact-key and in-bounds guarantees the `.strict()` two-key object held. They did not move
+        // to nowhere: the loop in `validateCaseRecordForDefinition` iterates
+        // `definition.apparatus.primaryControls` and normalises each value against its authored control,
+        // which is the same guarantee stated against the *case's* controls rather than against Young's.
+        const record = CaseRecordSchema.parse({ ...validRecord, activeControlValues });
+
+        expect(validateCaseRecordForDefinition(record, definition))
+            .toMatchObject({ ok: false, error: { code: 'invalid-case-record' } });
+    });
+
+    it('rejects a non-kebab-case caseId, which is not a directory name any case could load from', () => {
+        expect(CaseRecordSchema.safeParse({ ...validRecord, caseId: 'Young Interference' })).toMatchObject({ success: false });
+        expect(CaseRecordSchema.safeParse({ ...validRecord, caseId: '../escape' })).toMatchObject({ success: false });
+    });
+
+    it('infers a string-keyed record for activeControlValues rather than a complete one', () => {
+        // The Zod 4 trap this story's notes call out: `z.record` with an *enum* key yields a record
+        // requiring every member, and would have made a one-control case unparseable. Proved by reading a
+        // key the type could not know, which only compiles under `Record<string, number>`.
+        const parsed = CaseRecordSchema.parse({ ...validRecord, activeControlValues: { slitSpacingMm: 0.25, screenDistanceM: 2 } });
+        const readByUnknownKey: number | undefined = parsed.activeControlValues['someLaterCaseControl'];
+
+        expect(readByUnknownKey).toBeUndefined();
+    });
+
+    it('keeps every saved definition version loadable against 1.17.0', () => {
+        // NFR12. Story 3.1 adds `autoSummary` and re-words one consultation rule; neither is a field any
+        // record carries, so no saved investigation may be refused by the bump.
+        const current = { ...definition, version: '1.17.0' } as CaseDefinition;
+
+        ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0',
+            '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0', '1.16.0'].forEach((saved) => {
+            const parsed = CaseRecordSchema.safeParse({ ...validRecord, caseDefinitionVersion: saved });
+            expect(parsed.success).toBe(true);
+            if (!parsed.success) return;
+            expect(validateCaseRecordForDefinition(parsed.data, current), saved).toMatchObject({ ok: true });
+        });
+    });
+
     it('only replaces store state through record validation and serializes progress operations', () => {
         const store = createStore(createInitialAppState(definition));
         const mismatch = CaseRecordSchema.parse({ ...validRecord, caseDefinitionVersion: '2.0.0' });

@@ -5,10 +5,12 @@ import { normalizeControlValue } from '../domain/apparatus/ApparatusControl';
 import { calculateYoungFringeSpacing } from '../domain/apparatus/calculateYoungFringeSpacing';
 import { isSourceEligibleForInspection, type CaseDefinition } from '../domain/cases/CaseDefinition';
 import { CASE_PHASES } from '../domain/cases/CaseProgress';
-import { createRunRecord } from '../domain/evidence/RunRecord';
+import { createRunRecord, runControlContract } from '../domain/evidence/RunRecord';
+import { countFixedMinimumPathRuns } from '../domain/evidence/wavelengthComparison';
 import { evaluateConclusionReadiness } from '../domain/theory/conclusionReadiness';
 import { evaluatePeerReview } from '../domain/review/peerReviewRules';
 import { deriveRecognition, RECOGNITION_IDS, recognitionDefinitions } from '../domain/recognition/recognitionRules';
+import { CaseIdSchema } from './CaseDefinitionSchema';
 import { migrateCaseRecord } from './migrations/migrateCaseRecord';
 import { evaluateContextReadiness, evaluatePredictionReadiness } from '../domain/cases/contextPredictionReadiness';
 
@@ -22,7 +24,20 @@ const unique = <T>(values: readonly T[]): boolean => new Set(values).size === va
 const RunRecordSchema = z.object({
     id: text,
     caseId: text,
-    controls: z.object({ slitSpacingMm: z.number().finite(), screenDistanceM: z.number().finite() }).strict(),
+    // The same relaxation as `activeControlValues` below, and for the same reason — but this one was not
+    // in Story 3.1's own inventory, and `tsc` could not surface it: it is a Zod shape, not a type, so
+    // nothing failed to compile. It was found by writing the test that persists a second case's run.
+    //
+    // Leaving it pinned would have made the whole de-Younging cosmetic: a second case could load, its
+    // bench could run, and the moment its first observation was saved the record would fail to parse on
+    // the next load — with `CaseProgressPanel` autosaving over it. Every saved Young run carries exactly
+    // Young's two keys, so this still accepts every one of them and `schemaVersion` stays 3.
+    //
+    // The exact-key guarantee is preserved twice over, against the *case's* controls rather than Young's:
+    // `createRunRecord` validates each run's snapshot against the authored control set, and the loop in
+    // `validateCaseRecordForDefinition` normalises each authored control's recorded value against its
+    // authored bounds.
+    controls: z.record(z.string(), z.number().finite()),
     modelInputs: z.object({
         slitSpacingMm: z.number().finite(),
         screenDistanceM: z.number().finite(),
@@ -112,10 +127,30 @@ const RecognitionSchema = z.discriminatedUnion('version', [
 
 export const CaseRecordSchema = z.object({
     schemaVersion: z.literal(3),
-    caseId: z.literal('young-interference'),
+    // A **relaxation**, so `schemaVersion` stays 3 and `migrateCaseRecord` is untouched (Story 3.1):
+    // every record ever saved carries `young-interference`, which is still a valid kebab-case ID, so no
+    // older record fails to load. Cross-case protection is not lost — it never lived here.
+    // `validateCaseRecordForDefinition` compares `record.caseId` against `definition.id` below, which
+    // is a *stronger* check than the literal was: the literal admitted a Young record while a different
+    // case was loaded, and the comparison does not.
+    //
+    // `CaseIdSchema` is imported rather than restated: a record naming a case ID the definition schema
+    // would reject is a record naming a case that can never load.
+    caseId: CaseIdSchema,
     caseDefinitionVersion: text,
     phase: z.enum(CASE_PHASES),
-    activeControlValues: z.object({ slitSpacingMm: z.number().finite(), screenDistanceM: z.number().finite() }).strict(),
+    // Also a relaxation, for the same reason and with the same consequence for `schemaVersion`: every
+    // saved record holds exactly Young's two keys, and a record of finite numbers still accepts them.
+    //
+    // The exact-key guarantee the `.strict()` object held moves nowhere. The loop in
+    // `validateCaseRecordForDefinition` already iterates `definition.apparatus.primaryControls` and
+    // normalises each authored control's value against its authored bounds, so a record missing a
+    // control, or carrying one this case does not author, is still rejected — against the *case's* control
+    // set rather than against Young's, which is the point of Story 3.1.
+    //
+    // Zod 4 note: `z.record` takes two arguments, and the key must be `z.string()` rather than an enum —
+    // an enum key yields a *complete* record requiring every member.
+    activeControlValues: z.record(z.string(), z.number().finite()),
     selectedWavelengthNm: z.union([z.literal(450), z.literal(550), z.literal(650)]).optional(),
     selectedWavelengthMode: z.enum(['minimum', 'advanced']).optional(),
     inspectedSourceIds: z.array(text),
@@ -286,7 +321,29 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // 1.16.0 adds only optional image references and their optional vector fallbacks. Neither
         // field is recorded, evaluated, or used to gate progression; the pre-existing accent/figure
         // remains the safe rendering fallback. The record fields recomputed below are unchanged.
-        || (definition.version === '1.16.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0'].includes(record.caseDefinitionVersion));
+        || (definition.version === '1.16.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0'].includes(record.caseDefinitionVersion))
+        // 1.17.0 — Story 3.1. Three changes to `case.json`, and what each means for an older record:
+        //
+        // - **`autoSummary` is new** (FR23). An authored template, filled from evidence and read in the
+        //   printable record. Nothing records it, nothing gates on it, and no record field references it.
+        // - **`consultationRules[3]`'s `nextStep` and `layers.observation` are re-worded** in both
+        //   locales (`deferred-work.md:128`): they described adding a limitation as a separate act, which
+        //   Story 2.12 removed. **This is display copy that is *not* in the recomputed canonical set
+        //   below** — `validateCaseRecordForDefinition` recomputes `peerReviewRules`' `feedback` and
+        //   `revisionPath` and the proposal claims and limitations, and consultation copy is none of
+        //   those. It is said out loud here rather than left implicit, because the 2.12 clause's
+        //   "byte-identical" claim is exactly what deferred this re-word in the first place.
+        // - **`version` itself.**
+        //
+        // The recomputed canonical strings *are* byte-identical to 1.16.0. Verified by diffing the two
+        // files and comparing that set field by field, not assumed — the discipline the 2.8 review asked
+        // for and the reason this allowlist is a list of reasons rather than a list of numbers.
+        //
+        // The schema shapes this story relaxes — `caseId` from a literal to a kebab-case string,
+        // `activeControlValues` from a strict two-key object to a record — are **relaxations**, so every
+        // record an older build saved still parses and `schemaVersion` stays 3. See their own comments
+        // above; `migrateCaseRecord.ts` is untouched.
+        || (definition.version === '1.17.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0', '1.16.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }
@@ -345,7 +402,7 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
 
     const runIds: string[] = [];
     for (const run of record.runs) {
-        const validatedRun = createRunRecord(run, runIds);
+        const validatedRun = createRunRecord(run, runControlContract(definition), runIds);
         if (!validatedRun.ok || validatedRun.value.caseId !== definition.id
             || validatedRun.value.experimentModelVersion !== definition.experiment.modelVersion
             || !validatedRun.value.linkedEvidenceIds.every((sourceId) => record.inspectedSourceIds.includes(sourceId))
@@ -372,9 +429,10 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
 
     const selectedWavelengthMode = record.selectedWavelengthMode ?? 'minimum';
     const selectedWavelengthNm = record.selectedWavelengthNm ?? 550;
-    const fixedMinimumRunCount = record.runs.filter((run) =>
-        run.modelInputs?.wavelengthMode === 'minimum' && run.modelInputs.wavelengthNm === 550
-    ).length;
+    // The third copy of the same count, now the same function (`deferred-work.md:99`). Left as a count
+    // rather than the `isAdvancedWavelengthUnlocked` predicate because the comparison below is against a
+    // *record's* claimed mode, not against live state, and reads better naming the threshold it uses.
+    const fixedMinimumRunCount = countFixedMinimumPathRuns(definition, record.runs);
     if ((selectedWavelengthMode === 'minimum' && selectedWavelengthNm !== 550)
         || (selectedWavelengthMode === 'advanced'
             && (!definition.experiment.wavelengthComparison?.advancedChoicesNm.includes(selectedWavelengthNm as 450 | 650)
@@ -447,7 +505,7 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         let priorRunTimestamp = '';
         let fixedMinimumRunCount = 0;
         const validCompletionRuns = completion.runs.every((run) => {
-            const parsedRun = createRunRecord(run);
+            const parsedRun = createRunRecord(run, runControlContract(definition));
             if (!parsedRun.ok || !parsedRun.value.modelInputs
                 || parsedRun.value.caseId !== definition.id
                 || parsedRun.value.experimentModelVersion !== definition.experiment.modelVersion
@@ -466,7 +524,12 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
                 && calculated.value.value === parsedRun.value.result.value && calculated.value.unit === parsedRun.value.result.unit;
             const chronological = !priorRunTimestamp || parsedRun.value.timestamp >= priorRunTimestamp;
             priorRunTimestamp = parsedRun.value.timestamp;
-            if (parsedRun.value.modelInputs.wavelengthMode === 'minimum' && parsedRun.value.modelInputs.wavelengthNm === 550) fixedMinimumRunCount += 1;
+            // The fourth copy of the baseline. Incremental rather than `countFixedMinimumPathRuns`, and
+            // deliberately so: this walk is chronological and the count must reflect only the runs
+            // recorded *before* the one being checked, which a whole-set count cannot express. The
+            // number itself still comes from the case (`deferred-work.md:99`).
+            if (parsedRun.value.modelInputs.wavelengthMode === 'minimum'
+                && parsedRun.value.modelInputs.wavelengthNm === definition.experiment.wavelengthComparison?.fixedMinimumPathNm) fixedMinimumRunCount += 1;
             return validResult && chronological;
         });
         const validCompletionHistory = completion.decisionHistory.every((entry, index) => {

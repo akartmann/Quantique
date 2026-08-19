@@ -10,7 +10,7 @@ import {
     selectSelectedComparisonPair,
     selectSourceLabel
 } from '../../src/core/store/selectors';
-import { createRunRecord } from '../../src/domain/evidence/RunRecord';
+import { createRunRecord, runControlContract } from '../../src/domain/evidence/RunRecord';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 
 const caseDefinition = {
@@ -74,7 +74,7 @@ const createRecord = (id: string, value: number) => {
         result: { label: 'Observed fringe spacing', value, unit: 'mm' },
         timestamp: `2026-08-04T10:15:0${value}.000Z`,
         experimentModelVersion: 'young-observation-v1'
-    });
+    }, runControlContract(caseDefinition));
     if (!result.ok) throw new Error('Fixture run must be valid.');
     return result.value;
 };
@@ -122,7 +122,7 @@ describe('evidence store transitions', () => {
             timestamp: '2026-08-04T10:15:01.000Z',
             experimentModelVersion: 'young-observation-v1',
             linkedEvidenceIds: ['uninspected-source']
-        });
+        }, runControlContract(caseDefinition));
         if (!record.ok) throw new Error('Fixture run must be valid.');
         let notifications = 0;
         store.subscribe(() => { notifications += 1; });
@@ -161,7 +161,7 @@ describe('evidence store transitions', () => {
             result: { label: 'Observed fringe spacing', value: 1, unit: 'mm' },
             timestamp: '2026-08-04T10:15:01.000Z',
             experimentModelVersion: 'another-model'
-        });
+        }, runControlContract(caseDefinition));
         if (!foreign.ok) throw new Error('Fixture run must be valid.');
         let notifications = 0;
         store.subscribe(() => { notifications += 1; });

@@ -311,6 +311,7 @@ export const fr: Record<TranslationKey, string> = {
     'print.history.noSources': 'Aucune source',
     'print.history.noIssues': 'La relecture par les pairs n’a relevé aucun point.',
     'print.history.empty': 'Aucune révision relue enregistrée.',
+    'print.summary.heading': 'Ce que cette enquête a enregistré',
     'print.completion.heading': 'Instantané d’achèvement historique',
     'print.completion.text': 'Terminée le {timestamp}. Conclusion finale : {conclusion}. Le dossier historique reste inchangé pendant une rejouabilité contrefactuelle.',
 

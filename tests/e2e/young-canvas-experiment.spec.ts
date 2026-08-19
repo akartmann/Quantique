@@ -36,6 +36,7 @@ import {
     waitForBookToOpen,
     waitForInputToSettle,
     recordedComparisonNotes,
+    recordedAutoSummary,
     recordedObservations,
     recordedSetting,
     startTheLightUntilRecorded
@@ -224,6 +225,17 @@ test('records two significant Young measurements from the canvas alone, and open
     // transition is the assertion that the drag really moved the screen.
     await clickDesign(page, LABORATORY_ADVANCE);
     await expectActiveScene(page, 'TheoryBoard');
+
+    // The neutral auto-summary reports what this walk actually did (FR23, Story 3.1 AC5): two
+    // observations at two distinct configurations. Asserted *here* rather than in its own spec because
+    // this is the only walk in the suite that produces a state where the two counts differ from each
+    // other's default — a summary reading "2 and 2" proves both numbers are being composed, where a walk
+    // with one observation could not tell `runCount` from `configurationCount`.
+    //
+    // And it proves the field is reachable at all. An authored field nothing renders is the
+    // unreachable-content defect this project's validation exists to catch.
+    await expect(recordedAutoSummary(page)).toContainText('Observations recorded: 2');
+    await expect(recordedAutoSummary(page)).toContainText('Distinct apparatus settings among them: 2');
 });
 
 test('steps the instrument with its discrete affordance to the same effect as a drag', async ({ page }) => {

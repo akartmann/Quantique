@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore } from '../../src/core/store/createStore';
 import { selectComparisonNote, selectNotebookObservations, selectSelectedComparisonPair } from '../../src/core/store/selectors';
-import { createRunRecord } from '../../src/domain/evidence/RunRecord';
+import { createRunRecord, runControlContract } from '../../src/domain/evidence/RunRecord';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 
 const caseDefinition = {
@@ -49,7 +49,7 @@ const fixtureRun = (id: string, controls: { slitSpacingMm: number; screenDistanc
         timestamp: `2026-08-04T10:20:0${value}.000Z`,
         experimentModelVersion: 'young-observation-v1',
         linkedEvidenceIds: []
-    });
+    }, runControlContract(caseDefinition));
     if (!created.ok) throw new Error('Fixture run must be valid.');
     return created.value;
 };

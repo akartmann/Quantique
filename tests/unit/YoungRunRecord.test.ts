@@ -87,6 +87,90 @@ describe('the recorded value is model-derived', () => {
         expect(recorded).toBeGreaterThan(1);
     });
 
+    // --- The run/bench agreement check (rewritten by Story 3.1) ------------------------------------
+    //
+    // `reduceRecordRun` refuses a model-derived run that does not match the validated setup. Story 3.1
+    // rewrote that check from four reads of `slitSpacingMm`/`screenDistanceM` into a loop over the
+    // authored controls — and **nothing in 1266 tests noticed when the rewritten guard was deleted.**
+    // Found by mutation testing during the rewrite, not by reading.
+    //
+    // Two things had to be got right for these to be able to fail, and the first attempt got neither:
+    //
+    // 1. Driven through `run.record`, not `experiment.run`. `experiment.run` builds the record *from* the
+    //    bench, so it can never disagree with it. The disagreement is reachable exactly where the record
+    //    comes from somewhere else — a restored session, an imported record, a replay.
+    // 2. **The result must be the model's value for the record's own inputs.** The first version of these
+    //    tests left `result` at a fixed 4.4 mm, so the deterministic-model check three lines further down
+    //    refused the run with the *same* `mismatched-experiment-record` code — and both tests passed with
+    //    the guard under test deleted. Computing the result from the record's own `modelInputs` is what
+    //    makes the bench-agreement check the only thing that can refuse it.
+    const importedRun = (
+        store: AppStore,
+        controls: Record<string, number>,
+        modelInputs: Readonly<{ slitSpacingMm: number; screenDistanceM: number }>
+    ) => {
+        const state = store.getState();
+        const model = calculateYoungFringeSpacing({ ...modelInputs, wavelengthNm: state.selectedWavelengthNm });
+        if (!model.ok) throw new Error('The fixture inputs must have a model value.');
+        return store.dispatch({
+            type: 'run.record',
+            record: {
+                id: 'imported-run',
+                caseId: definition.id,
+                controls,
+                modelInputs: { ...modelInputs, wavelengthNm: state.selectedWavelengthNm, wavelengthMode: state.selectedWavelengthMode },
+                result: model.value,
+                timestamp: '2026-08-07T10:00:00.000Z',
+                experimentModelVersion: definition.experiment.modelVersion,
+                linkedEvidenceIds: []
+            }
+        });
+    };
+
+    it('refuses an observation recorded at a control value the bench is not set to', () => {
+        const store = storeAtTheBench();
+        const { slitSpacingMm, screenDistanceM } = store.getState().activeControlValues;
+        // One authored control moved, the other left alone — so a check that looked at only one of them
+        // would pass half the time, and a `.some()` where `.every()` belongs would pass outright.
+        const elsewhere = { slitSpacingMm: slitSpacingMm!, screenDistanceM: screenDistanceM! + 0.25 };
+
+        expect(importedRun(store, elsewhere, elsewhere)).toMatchObject({ ok: false, error: { code: 'mismatched-experiment-record' } });
+        expect(store.getState().runs).toHaveLength(0);
+    });
+
+    // Each model input on its own. The two comparisons are separate lines in the reducer, so one case
+    // would leave the other line deletable with the suite still green — which is exactly what the first
+    // version of this test did: it moved only the screen distance, and removing the slit-spacing
+    // comparison changed nothing anywhere in 1269 tests.
+    it.each([
+        ['the slit spacing', { slitSpacingMm: 0.05, screenDistanceM: 0 }],
+        ['the screen distance', { slitSpacingMm: 0, screenDistanceM: 0.25 }]
+    ])('refuses an observation whose model inputs disagree with its own recorded controls on %s', (_description, offset) => {
+        const store = storeAtTheBench();
+        const bench = { ...store.getState().activeControlValues } as Record<string, number>;
+
+        // Controls agree with the bench; the model was fed something else. The run would claim a reading
+        // taken at a setting its own snapshot does not record.
+        const refusal = importedRun(store, bench, {
+            slitSpacingMm: bench.slitSpacingMm! + offset.slitSpacingMm,
+            screenDistanceM: bench.screenDistanceM! + offset.screenDistanceM
+        });
+
+        expect(refusal).toMatchObject({ ok: false, error: { code: 'mismatched-experiment-record' } });
+        expect(store.getState().runs).toHaveLength(0);
+    });
+
+    it('accepts an observation that agrees with the bench on every authored control', () => {
+        // The other half. Without it both refusals above would also pass against a reducer that refused
+        // every `run.record` — the shape of a guard that has quietly become unconditional.
+        const store = storeAtTheBench();
+        const bench = { ...store.getState().activeControlValues } as Record<string, number>;
+
+        expect(importedRun(store, bench, { slitSpacingMm: bench.slitSpacingMm!, screenDistanceM: bench.screenDistanceM! }))
+            .toMatchObject({ ok: true });
+        expect(store.getState().runs).toHaveLength(1);
+    });
+
     it('preserves the model version each observation was recorded under, and never restates it', () => {
         const store = storeAtTheBench();
         store.dispatch({ type: 'experiment.run', id: 'run-1', timestamp: '2026-08-07T10:00:00.000Z' });

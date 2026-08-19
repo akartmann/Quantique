@@ -103,6 +103,18 @@ describe('selectReadingGateHint', () => {
         // and this selector reuses it rather than re-deriving "missing". Inspecting an unreviewed
         // artifact would therefore still leave a line to say — the readiness rule and the colleague
         // must never disagree about what is outstanding.
+        //
+        // **Reconciled by Story 3.1 (AC6), and deliberately kept.** The state this test describes is a
+        // permanent dead end at play time: the artifact is counted missing forever, `reduceSourceInspection`
+        // refuses `source.inspected` for it with `source-not-eligible`, and the colleague keeps naming a
+        // reference nothing can open. The selector is not what was wrong — it agrees with readiness, which
+        // is exactly its contract, and it must keep agreeing whatever a definition happens to contain.
+        // What changed is that a *case* can no longer be authored into this state:
+        // `CaseDefinitionSchema` now rejects an artifact that can never be inspected, with the artifact's
+        // own path (see `CaseDefinition.test.ts`, "rejects a %s artifact, which context readiness would
+        // count missing forever"). So this fixture is built in memory on purpose — it asserts the
+        // selector's behaviour in a state no shipped content can reach, which is the right place for the
+        // guarantee to live rather than a reason to delete the test.
         const [first, second] = definition.contextualArtifacts;
         const unreviewed = {
             ...definition,

@@ -6,7 +6,8 @@ import { isSourceEligibleForInspection, type CaseDefinition, type PrimaryControl
 import { advanceCasePhase, retreatCasePhase } from '../../domain/cases/caseReducer';
 import { evaluateContextReadiness, evaluatePredictionReadiness } from '../../domain/cases/contextPredictionReadiness';
 import type { CasePhase } from '../../domain/cases/CaseProgress';
-import { createRunRecord, type RunRecord } from '../../domain/evidence/RunRecord';
+import { createRunRecord, runControlContract, type RunRecord } from '../../domain/evidence/RunRecord';
+import { isAdvancedWavelengthUnlocked } from '../../domain/evidence/wavelengthComparison';
 import { isSignificantMeasureGateMet } from '../../domain/evidence/significantMeasures';
 import { createTheoryBoardDraft, evaluateConclusionReadiness, type TheoryBoardDraft } from '../../domain/theory/conclusionReadiness';
 import { selectConsultation, type ConsultationProjection } from '../../domain/review/ConsultationRule';
@@ -235,7 +236,7 @@ export const createAppStateFromCaseRecord = (record: CaseRecord, caseDefinition:
 
     const runs: RunRecord[] = [];
     for (const recordRun of validated.runs) {
-        const snapshot = createRunRecord(recordRun, runs.map(({ id }) => id));
+        const snapshot = createRunRecord(recordRun, runControlContract(caseDefinition), runs.map(({ id }) => id));
         if (!snapshot.ok) return { ok: false, error: snapshot.error };
         runs.push(snapshot.value);
     }
@@ -299,17 +300,26 @@ const reduceRecordRun = (state: AppState, record: RunRecord): Result<AppState> =
     if (state.phase !== 'experiment') {
         return failure('experiment-phase-required', 'Enter the experiment phase before running the apparatus.');
     }
-    const validated = createRunRecord(record, state.runs.map(({ id }) => id));
+    const validated = createRunRecord(record, runControlContract(state.caseDefinition), state.runs.map(({ id }) => id));
     if (!validated.ok) return validated;
     if (validated.value.caseId !== state.caseDefinition.id) {
         return failure('run-case-mismatch', 'That observation belongs to a different investigation.');
     }
     if (validated.value.modelInputs) {
+        // Definition-driven (Story 3.1): every authored control the case has, compared against the bench.
+        // This used to name Young's two controls twice over, which meant a third authored control was
+        // simply not checked — a run could have been recorded at a bench setting it was never taken at.
+        const matchesBench = state.caseDefinition.apparatus.primaryControls.every((control) =>
+            validated.value.controls[control.id] === state.activeControlValues[control.id]);
+        // The model inputs are compared against the *run's own controls* rather than against the bench.
+        // `YoungModelInputs` names `slitSpacingMm`/`screenDistanceM` in its own type, so those two reads
+        // are the Young model's shape and not the control set's; and with `matchesBench` above holding,
+        // "the model was fed this run's controls" is the same guarantee stated where it belongs.
+        // `CaseRecordSchema` already validates completion runs exactly this way.
         if (validated.value.experimentModelVersion !== state.caseDefinition.experiment.modelVersion
-            || validated.value.controls.slitSpacingMm !== state.activeControlValues.slitSpacingMm
-            || validated.value.controls.screenDistanceM !== state.activeControlValues.screenDistanceM
-            || validated.value.modelInputs.slitSpacingMm !== state.activeControlValues.slitSpacingMm
-            || validated.value.modelInputs.screenDistanceM !== state.activeControlValues.screenDistanceM
+            || !matchesBench
+            || validated.value.modelInputs.slitSpacingMm !== validated.value.controls.slitSpacingMm
+            || validated.value.modelInputs.screenDistanceM !== validated.value.controls.screenDistanceM
             || validated.value.modelInputs.wavelengthNm !== state.selectedWavelengthNm
             || validated.value.modelInputs.wavelengthMode !== state.selectedWavelengthMode) {
             return failure('mismatched-experiment-record', 'The observation does not match the current validated experiment setup.');
@@ -328,10 +338,6 @@ const reduceRecordRun = (state: AppState, record: RunRecord): Result<AppState> =
     return { ok: true, value: freezeState({ ...state, runs: [...state.runs, validated.value], consultation: undefined, peerReview: undefined, rivalLabCritique: undefined }) };
 };
 
-const minimumPathRunCount = (state: AppState): number => state.runs.filter((run) =>
-    run.modelInputs?.wavelengthMode === 'minimum' && run.modelInputs.wavelengthNm === 550
-).length;
-
 const reduceWavelengthSet = (state: AppState, wavelengthNm: 450 | 550 | 650): Result<AppState> => {
     if (wavelengthNm === 550) {
         return { ok: true, value: freezeState({ ...state, selectedWavelengthNm: 550, selectedWavelengthMode: 'minimum', consultation: undefined, peerReview: undefined, rivalLabCritique: undefined }) };
@@ -340,7 +346,10 @@ const reduceWavelengthSet = (state: AppState, wavelengthNm: 450 | 550 | 650): Re
     if (!choices.includes(wavelengthNm)) {
         return failure('unavailable-wavelength', 'That authored wavelength comparison is unavailable.');
     }
-    if (minimumPathRunCount(state) < state.caseDefinition.requirements.minimumRuns) {
+    // One shared gate with `selectAdvancedWavelengthUnlocked`, from the authored baseline rather than a
+    // written-down 550 (`deferred-work.md:99`). The reducer refuses the click; the selector decides how
+    // the choice is painted before one, and the two must not be able to disagree.
+    if (!isAdvancedWavelengthUnlocked(state.caseDefinition, state.runs)) {
         return failure('advanced-wavelength-locked', 'Record two fixed 550 nm observations before using the optional wavelength comparison.');
     }
     return { ok: true, value: freezeState({
@@ -371,7 +380,7 @@ const reduceExperimentRun = (state: AppState, action: Extract<AppAction, { type:
     if ((state.selectedWavelengthMode === 'minimum' && state.selectedWavelengthNm !== 550)
         || (state.selectedWavelengthMode === 'advanced'
             && (!advancedChoices.includes(state.selectedWavelengthNm as 450 | 650)
-                || minimumPathRunCount(state) < state.caseDefinition.requirements.minimumRuns))) {
+                || !isAdvancedWavelengthUnlocked(state.caseDefinition, state.runs)))) {
         return failure('advanced-wavelength-locked', 'Record two fixed 550 nm observations before using the optional wavelength comparison.');
     }
     const result = calculateYoungFringeSpacing({
@@ -394,7 +403,7 @@ const reduceExperimentRun = (state: AppState, action: Extract<AppAction, { type:
         timestamp: action.timestamp,
         experimentModelVersion: state.caseDefinition.experiment.modelVersion,
         linkedEvidenceIds: state.inspectedSourceIds
-    }, state.runs.map(({ id }) => id));
+    }, runControlContract(state.caseDefinition), state.runs.map(({ id }) => id));
     if (!record.ok) return record;
     return reduceRecordRun(state, record.value);
 };

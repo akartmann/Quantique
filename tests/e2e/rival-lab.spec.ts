@@ -30,6 +30,7 @@ import {
     chooseProposalThroughColleague,
     enterTheLaboratory,
     expectActiveScene,
+    recordedAutoSummary,
     recordedObservations,
     startTheLightUntilRecorded,
     waitForBookToClose,
@@ -176,5 +177,16 @@ test.describe('French', () => {
         await clickDesign(page, REVISE);
 
         await expectActiveScene(page, 'TheoryBoard');
+
+        // The neutral auto-summary in French (FR23, AC9). This is the project's most-repeated defect —
+        // authored content that ships English-only — and the section's *heading* is chrome while its body
+        // is authored `case.json` content, so the two localize by different mechanisms and only one of
+        // them would be caught by `I18n.test.ts`'s key roster.
+        //
+        // A French fragment specifically, not merely "non-empty": the English template renders
+        // "Observations recorded", and a `case.json` whose `autoSummary.fr` had been copied from `en`
+        // would satisfy every assertion but this one.
+        await expect(recordedAutoSummary(page)).toContainText('Observations enregistrées');
+        await expect(recordedAutoSummary(page)).not.toContainText('Observations recorded');
     });
 });

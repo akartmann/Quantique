@@ -8,6 +8,7 @@ import type { ContextualArtifact, PrimaryControl } from '../../domain/cases/Case
 import type { Colleague, ConclusionProposal, PredictionProposal } from '../../domain/cases/ColleagueCast';
 import { selectDefensibleConclusionIds } from '../../domain/theory/conclusionProposals';
 import type { RunRecord } from '../../domain/evidence/RunRecord';
+import { isAdvancedWavelengthUnlocked } from '../../domain/evidence/wavelengthComparison';
 import { countSignificantMeasures } from '../../domain/evidence/significantMeasures';
 import { selectColleagueHint } from '../../domain/review/colleagueHints';
 import { selectReadingGateHint } from '../../domain/review/readingGateHints';
@@ -169,8 +170,11 @@ export const selectWavelengthChoices = (state: AppState): readonly WavelengthCho
  * the click; this only decides how the choice is painted before one.
  */
 export const selectAdvancedWavelengthUnlocked = (state: AppState): boolean =>
-    state.runs.filter((run) => run.modelInputs?.wavelengthMode === 'minimum' && run.modelInputs.wavelengthNm === 550).length
-        >= state.caseDefinition.requirements.minimumRuns;
+    // The *same* function `reduceWavelengthSet` refuses on, from the authored `fixedMinimumPathNm` rather
+    // than a written-down 550. This selector and the reducer used to be two copies of one gate with the
+    // number in each, so a case authoring a different baseline would have had the bench paint the
+    // comparison unlocked while every click on it was refused (`deferred-work.md:99`, Story 3.1).
+    isAdvancedWavelengthUnlocked(state.caseDefinition, state.runs);
 
 export const selectCasePhase = (state: AppState): CasePhase => state.phase;
 

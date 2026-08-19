@@ -429,6 +429,10 @@ export const en = {
     'print.history.noSources': 'No sources',
     'print.history.noIssues': 'Peer review found no issues.',
     'print.history.empty': 'No reviewed revisions saved.',
+    // The neutral auto-summary's section chrome (FR23, Story 3.1). The heading is interface text and
+    // lives here; the summary sentence itself is authored `case.json` content filled from the player's
+    // own evidence, so it carries `LocalizedText` rather than a key.
+    'print.summary.heading': 'What this investigation recorded',
     'print.completion.heading': 'Historical completion snapshot',
     'print.completion.text': 'Completed {timestamp}. Final conclusion: {conclusion}. The historical record remains unchanged during counterfactual replay.',
 

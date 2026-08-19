@@ -32,7 +32,12 @@ const freezeProjection = (hint: ColleagueHint): ColleagueHintProjection => Objec
 });
 
 /** Distinct recorded values for one control — the same test `varied-control` applies. */
-const distinctValues = (runs: readonly RunRecord[], controlId: 'slitSpacingMm' | 'screenDistanceM'): number =>
+/**
+ * How many different values a control has been recorded at. The ID is any authored control (Story
+ * 3.1), and validation guarantees a hint may only name one this case actually authors, so a run
+ * missing the key is a run recorded before that control existed rather than a typo reaching here.
+ */
+const distinctValues = (runs: readonly RunRecord[], controlId: string): number =>
     new Set(runs.map((run) => run.controls[controlId])).size;
 
 const applies = (

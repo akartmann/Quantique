@@ -4,7 +4,7 @@ import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore } from '../../src/core/store/createStore';
 import { selectCasePhase, selectConclusionReadiness, selectTheoryBoardDraft } from '../../src/core/store/selectors';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
-import { createRunRecord } from '../../src/domain/evidence/RunRecord';
+import { createRunRecord, runControlContract } from '../../src/domain/evidence/RunRecord';
 
 const definition = {
     // Story 2.12 removed the free-text `prediction.recorded` / `theory.conclusionSet` /
@@ -50,7 +50,7 @@ const run = (id: string, screenDistanceM = 2) => {
     const result = createRunRecord({
         id, caseId: 'young-interference', controls: { slitSpacingMm: 0.25, screenDistanceM },
         result: { label: 'Observation', value: 1, unit: 'relative units' }, timestamp: '2026-08-04T12:00:00.000Z', experimentModelVersion: 'young-observation-v1'
-    });
+    }, runControlContract(definition));
     if (!result.ok) throw new Error('Fixture run must be valid.');
     return result.value;
 };

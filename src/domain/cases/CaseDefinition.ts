@@ -81,7 +81,11 @@ export type ContextualArtifact = Readonly<{
 export const isSourceEligibleForInspection = (source: ContextualArtifact): boolean => source.rightsStatus === 'reviewed';
 
 export type PrimaryControl = Readonly<{
-    id: 'slitSpacingMm' | 'screenDistanceM';
+    /**
+     * Authored per case (Story 3.1), not a union of Young's two. Every predicate that names a control
+     * is validated against the case's own authored IDs, which is what the union used to approximate.
+     */
+    id: string;
     label: LocalizedText;
     /** Canonical: SI unit symbols are identical in French. */
     unit: string;
@@ -204,26 +208,30 @@ export type SignificanceRule = Readonly<{
      * and a run without `modelInputs` (a fixture run) occupies its own slot rather than colliding
      * with a recorded one.
      */
-    criticalModelInputIds?: readonly 'wavelengthNm'[];
+    criticalModelInputIds?: readonly string[];
 }>;
 
 export type CaseDefinition = Readonly<{
-    id: 'young-interference';
+    /** Kebab-case, and this case's directory name under `public/cases/`. Validated by `CaseIdSchema`. */
+    id: string;
     version: string;
     openingDispute: LocalizedText;
-    contextualArtifacts: readonly [ContextualArtifact, ContextualArtifact];
+    /** At least two: FR4 makes two sources a precondition for predicting, which is a floor. */
+    contextualArtifacts: readonly ContextualArtifact[];
     prediction: Readonly<{ required: true }>;
-    apparatus: Readonly<{ primaryControls: readonly [PrimaryControl, PrimaryControl] }>;
+    /** One or two, capped by `MAX_PRIMARY_CONTROLS` for the bench-geometry reason recorded there. */
+    apparatus: Readonly<{ primaryControls: readonly PrimaryControl[] }>;
     experiment: Readonly<{
         /** Canonical: the model version is a compatibility key stored in every run record. */
         modelVersion: string;
-        wavelengthNm: 550;
+        /** Young's fixed 550 nm. Absent for a case whose apparatus has no wavelength at all. */
+        wavelengthNm?: number;
         wavelengthComparison?: WavelengthComparison;
         assumptions: LocalizedTextList;
         confound: Readonly<{ id: string; description: LocalizedText; discoverableBy: RecoveryRoute }>;
         resetPath: Readonly<{ recoveryRoute: RecoveryRoute; description: LocalizedText }>;
     }>;
-    requirements: Readonly<{ minimumRuns: 2; minimumSources: 2; minimumSignificantRuns: 2 }>;
+    requirements: Readonly<{ minimumRuns: number; minimumSources: number; minimumSignificantRuns: number }>;
     /** When a run counts as a distinguishing measurement. Read only by `significantMeasures.ts`. */
     significanceRule: SignificanceRule;
     /**
@@ -252,12 +260,22 @@ export type CaseDefinition = Readonly<{
         openingDispute: true;
         curatedRecord: true;
         labSetup: true;
-        minimumExperimentCycles: 2;
-        maximumExperimentCycles: 4;
+        minimumExperimentCycles: number;
+        maximumExperimentCycles: number;
         theoryBoardReview: true;
         historicalDebrief: true;
         optionalReplay: true;
     }>;
+    /**
+     * The neutral auto-summary template (FR23, Story 3.1): a statement of what the player did, filled
+     * from their own recorded evidence by `composeCaseSummary` and read in the printable record.
+     *
+     * Authored `LocalizedText` with `{placeholder}` tokens rather than a translation key, and never
+     * evaluative — see `caseSummary.ts` for both reasons. Its placeholder set is validated at load
+     * against `AUTO_SUMMARY_PLACEHOLDERS`, so an unknown token fails with a typed `Result` instead of
+     * printing itself into the player's record.
+     */
+    autoSummary: LocalizedText;
     /** Drives the SceneRouter: the case, not the code, decides which scene mirrors each phase (ADR-009). */
     scenarioScript: ScenarioScript;
     debrief: Readonly<{

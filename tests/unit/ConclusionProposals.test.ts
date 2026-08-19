@@ -9,6 +9,9 @@ import type { AuthoritativeEvidence } from '../../src/domain/theory/conclusionRe
 import { evaluateSupportPredicate, selectDefensibleConclusionIds } from '../../src/domain/theory/conclusionProposals';
 import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
 
+/** The control set these fixture runs snapshot; `createRunRecord` validates against it (Story 3.1). */
+const contract = { controlIds: ['slitSpacingMm', 'screenDistanceM'] };
+
 const createRun = (id: string, slitSpacingMm = 0.25, screenDistanceM = 2): RunRecord => {
     const result = createRunRecord({
         id,
@@ -17,7 +20,7 @@ const createRun = (id: string, slitSpacingMm = 0.25, screenDistanceM = 2): RunRe
         result: { label: 'Fringe spacing', value: 4.4, unit: 'mm' },
         timestamp: '2026-08-06T12:00:00.000Z',
         experimentModelVersion: 'young-double-slit-v1'
-    });
+    }, contract);
     if (!result.ok) throw new Error('Fixture run must be valid.');
     return result.value;
 };

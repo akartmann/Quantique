@@ -1,6 +1,6 @@
 {
   "id": "young-interference",
-  "version": "1.16.0",
+  "version": "1.17.0",
   "openingDispute": {
     "en": "Does light travel as particles, waves, or something more subtle?",
     "fr": "La lumière se propage-t-elle comme des particules, comme des ondes, ou d’une manière plus subtile ?"
@@ -1413,8 +1413,8 @@
       },
       "layers": {
         "observation": {
-          "en": "No limitation or alternative explanation is recorded with the draft.",
-          "fr": "Aucune limite ni explication alternative n’accompagne le brouillon."
+          "en": "The chosen conclusion has not yet been recorded with the limitation it carries.",
+          "fr": "La conclusion retenue n’a pas encore été enregistrée avec la limite qu’elle porte."
         },
         "plainLanguage": {
           "en": "State what the available evidence does not settle.",
@@ -1426,8 +1426,8 @@
         }
       },
       "nextStep": {
-        "en": "Add a limitation or alternative explanation to the Theory Board.",
-        "fr": "Ajoutez une limite ou une explication alternative au tableau de théorie."
+        "en": "Choose a conclusion whose stated limitation matches what the evidence settles.",
+        "fr": "Choisissez une conclusion dont la limite énoncée correspond à ce que les preuves établissent."
       }
     }
   ],
@@ -1500,6 +1500,10 @@
     "theoryBoardReview": true,
     "historicalDebrief": true,
     "optionalReplay": true
+  },
+  "autoSummary": {
+    "en": "Observations recorded: {runCount}. Distinct apparatus settings among them: {configurationCount}. Sources read: {sourceCount}. Sources named in this record: {sourceNames}. Revisions of the conclusion recorded: {revisionCount}.",
+    "fr": "Observations enregistrées : {runCount}. Réglages distincts de l’appareil parmi elles : {configurationCount}. Sources consultées : {sourceCount}. Sources citées dans ce dossier : {sourceNames}. Révisions de la conclusion enregistrées : {revisionCount}."
   },
   "scenarioScript": {
     "scenes": [

@@ -2,10 +2,52 @@ import { z } from 'zod';
 
 import { DEFAULT_LOCALE, LOCALES } from '../core/i18n/Locale';
 import { CASE_PHASES } from '../domain/cases/CaseProgress';
+import { AUTO_SUMMARY_PLACEHOLDERS, templatePlaceholders } from '../domain/evidence/caseSummary';
 import { SCENE_KEYS } from '../domain/cases/ScenarioScript';
 
 const stableId = z.string().trim().min(1);
 const sourceRef = z.string().trim().min(1);
+
+/**
+ * A case identity. Kebab-case because a case ID is also its directory name under `public/cases/`
+ * and every asset path beneath it (the project's naming convention), so a case whose ID could not
+ * be a path segment would be unloadable content that validated.
+ *
+ * Exported so `CaseRecordSchema` validates a persisted `caseId` against **this** rule rather than a
+ * second copy of the pattern. The two must not drift: a record whose `caseId` the definition schema
+ * would reject is a record naming a case that can never load.
+ */
+export const CaseIdSchema = z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'A case ID must be kebab-case.');
+
+/**
+ * The Young case's own ID, and the key of the case-scoped refinement branch at the foot of this file.
+ *
+ * Story 3.1 replaced `id: z.literal('young-interference')` with {@link CaseIdSchema} so a second case
+ * can parse at all. FR7's exact Young bounds did not become optional in the process — they moved from
+ * the shared shape into a branch that runs only for this ID. The constant is exported so a test can
+ * assert the branch fires for it and does not fire for anything else, rather than repeating the string.
+ */
+export const YOUNG_CASE_ID = 'young-interference';
+
+/**
+ * The most primary controls a case may author, and the reason it is a schema rule rather than a
+ * renderer clamp.
+ *
+ * `ApparatusRenderer` gives each control an instrument slot at
+ * `BENCH_LEFT + index * (INSTRUMENT_SLOT_WIDTH + INSTRUMENT_SLOT_GAP)` — 40, 222, 404 … with a slot
+ * 168 wide. Slot index 2 therefore spans x 404–572, straight through the wavelength chooser at
+ * x 410–660, and nothing in the renderer clamps it: a third authored control silently draws two
+ * interactive surfaces on top of each other.
+ *
+ * Before this story the collision was unreachable because `primaryControls` was a two-member
+ * `z.tuple`. Relaxing the tuple to an array to unblock a second case would have opened it, so the
+ * ceiling the tuple was holding is re-stated here explicitly. Raising it is renderer work
+ * (`deferred-work.md:100`), not authoring work.
+ *
+ * Exported so `ApparatusGeometry.test.ts` can prove the number against the real geometry constants
+ * instead of restating 2 — the bound and its justification must fail together.
+ */
+export const MAX_PRIMARY_CONTROLS = 2;
 
 /**
  * Every localizable authored string must carry both shipped locales (AC3). The requirement lives in
@@ -50,7 +92,11 @@ const isOnStep = (value: number, min: number, step: number): boolean =>
     Math.abs((value - min) / step - Math.round((value - min) / step)) < 0.0000001;
 
 const PrimaryControlSchema = z.object({
-    id: z.enum(['slitSpacingMm', 'screenDistanceM']),
+    // A stable ID, not an enum of Young's two: the control set is authored per case (Story 3.1). Every
+    // predicate that names a control is checked against *this case's* authored IDs in the top-level
+    // refinement, which is a stronger guarantee than the enum gave — the enum admitted
+    // `screenDistanceM` even for a case that authored no such control.
+    id: stableId,
     label: LocalizedTextSchema,
     unit: z.string().trim().min(1),
     min: z.number().finite(),
@@ -155,7 +201,7 @@ const ContextualArtifactSchema = z.object({
 const ConsultationPredicateSchema = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('missing-run') }).strict(),
     z.object({ kind: z.literal('missing-source'), sourceId: stableId }).strict(),
-    z.object({ kind: z.literal('alternative-test'), controlId: z.enum(['slitSpacingMm', 'screenDistanceM']) }).strict(),
+    z.object({ kind: z.literal('alternative-test'), controlId: stableId }).strict(),
     z.object({ kind: z.literal('missing-limitation') }).strict()
 ]);
 
@@ -194,14 +240,14 @@ const PeerReviewRuleSchema = z.object({
  * (2026-08-06) because it made the count depend on recording order; see {@link SignificanceRule}.
  */
 const SignificanceRuleSchema = z.object({
-    criticalControlIds: z.array(z.enum(['slitSpacingMm', 'screenDistanceM'])).min(1),
-    criticalModelInputIds: z.array(z.enum(['wavelengthNm'])).min(1).optional()
+    criticalControlIds: z.array(stableId).min(1),
+    criticalModelInputIds: z.array(stableId).min(1).optional()
 }).strict();
 
 const ColleagueHintPredicateSchema = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('no-recorded-runs') }).strict(),
     z.object({ kind: z.literal('repeated-configuration') }).strict(),
-    z.object({ kind: z.literal('unvaried-control'), controlId: z.enum(['slitSpacingMm', 'screenDistanceM']) }).strict(),
+    z.object({ kind: z.literal('unvaried-control'), controlId: stableId }).strict(),
     z.object({ kind: z.literal('below-significant-measures') }).strict()
 ]);
 
@@ -303,7 +349,7 @@ const ColleagueSchema = z.object({
 const leafSupportPredicates = [
     z.object({ kind: z.literal('never') }).strict(),
     z.object({ kind: z.literal('minimum-runs'), count: z.number().int().positive() }).strict(),
-    z.object({ kind: z.literal('varied-control'), controlId: z.enum(['slitSpacingMm', 'screenDistanceM']) }).strict(),
+    z.object({ kind: z.literal('varied-control'), controlId: stableId }).strict(),
     z.object({ kind: z.literal('inspected-source'), sourceId: stableId }).strict()
 ] as const;
 
@@ -464,7 +510,21 @@ export const AssetManifestSchema = z.object({
     entries: z.array(z.object({
         id: stableId,
         type: z.enum(['image', 'audio', 'document']),
-        path: z.string().regex(/^\/(?!\/)/, 'Asset paths must be same-origin static root paths.')
+        // Same-origin static root paths only, and three hostile shapes rejected by name:
+        //
+        // - `//evil.com/x.png` is a protocol-relative URL, which a browser resolves against the
+        //   *scheme* and fetches cross-origin. Rejected before this story, by the `(?!\/)`.
+        // - `/\evil.com/x.png` is the same attack with a backslash. Browsers normalise `\` to `/` in
+        //   the authority position, so this is protocol-relative too — and the old pattern accepted
+        //   it, because it only ruled out a second forward slash.
+        // - `/cases/../../etc/passwd` walks out of the static root. `resolveAssetUrl` (added by the
+        //   Pages deploy) prefixes a base path, so at a domain root a `..` segment escapes the app.
+        //
+        // A path is rejected outright rather than normalised: an author who wrote `..` meant something,
+        // and silently resolving it would ship an asset reference nobody authored.
+        path: z.string()
+            .regex(/^\/(?![/\\])/, 'Asset paths must be same-origin static root paths.')
+            .refine((path) => !path.split('/').includes('..'), 'Asset paths must not contain a parent-directory segment.')
     }).strict()).min(1)
 }).strict().superRefine((manifest, context) => {
     if (new Set(manifest.entries.map((asset) => asset.id)).size !== manifest.entries.length) {
@@ -473,15 +533,24 @@ export const AssetManifestSchema = z.object({
 });
 
 export const CaseDefinitionSchema = z.object({
-    id: z.literal('young-interference'),
+    id: CaseIdSchema,
     version: z.string().trim().min(1),
     openingDispute: LocalizedTextSchema,
-    contextualArtifacts: z.tuple([ContextualArtifactSchema, ContextualArtifactSchema]),
+    // FR4 requires *two* contextual artifacts before a prediction, which is a floor and not a
+    // ceiling: a later case citing three sources is richer content, not invalid content.
+    contextualArtifacts: z.array(ContextualArtifactSchema).min(2),
     prediction: z.object({ required: z.literal(true) }).strict(),
-    apparatus: z.object({ primaryControls: z.tuple([PrimaryControlSchema, PrimaryControlSchema]) }).strict(),
+    // An array rather than a 2-tuple, so a case may author its own pair or a single control. The
+    // ceiling stays 2 for the bench-geometry reason recorded on {@link MAX_PRIMARY_CONTROLS}.
+    apparatus: z.object({ primaryControls: z.array(PrimaryControlSchema).min(1).max(MAX_PRIMARY_CONTROLS) }).strict(),
     experiment: z.object({
         modelVersion: z.string().trim().min(1),
-        wavelengthNm: z.literal(550),
+        // Optional at the shared shape and required for Young in the case-scoped refinement below: a
+        // case whose apparatus is a rotating interferometer or a flying clock has no wavelength, and
+        // making every case declare one would be exactly the all-purpose schema epic AC1 forbids.
+        // Nothing in `src/` reads this field — only `wavelengthComparison` is read — so the relaxation
+        // costs no behaviour.
+        wavelengthNm: z.number().positive().finite().optional(),
         wavelengthComparison: z.object({
             fixedMinimumPathNm: z.literal(550),
             advancedChoicesNm: z.tuple([z.literal(450), z.literal(650)])
@@ -497,12 +566,13 @@ export const CaseDefinitionSchema = z.object({
             description: LocalizedTextSchema
         }).strict()
     }).strict(),
+    // Floors of two rather than literal twos. For Young all three are still pinned at exactly 2 by the
+    // case-scoped refinement — the count really is the design *for this case* — but a later case may
+    // legitimately require more evidence, and the shared shape has no business deciding that.
     requirements: z.object({
-        minimumRuns: z.literal(2),
-        minimumSources: z.literal(2),
-        // The ≥2-significant-measure gate. A literal for the same reason the other two are: the count
-        // is the design, not a tuning knob.
-        minimumSignificantRuns: z.literal(2)
+        minimumRuns: z.number().int().min(2),
+        minimumSources: z.number().int().min(2),
+        minimumSignificantRuns: z.number().int().min(2)
     }).strict(),
     significanceRule: SignificanceRuleSchema,
     // `.min(1)` only. "At least one hint applies with no runs recorded" is a cross-field rule and
@@ -524,12 +594,19 @@ export const CaseDefinitionSchema = z.object({
         openingDispute: z.literal(true),
         curatedRecord: z.literal(true),
         labSetup: z.literal(true),
-        minimumExperimentCycles: z.literal(2),
-        maximumExperimentCycles: z.literal(4),
+        // Positive ints with `min <= max` checked in the refinement below. FR3's two-to-four range is
+        // Young's, and is pinned case-scoped rather than shape-wide.
+        minimumExperimentCycles: z.number().int().positive(),
+        maximumExperimentCycles: z.number().int().positive(),
         theoryBoardReview: z.literal(true),
         historicalDebrief: z.literal(true),
         optionalReplay: z.literal(true)
     }).strict(),
+    // No `.max()` bound, unlike `colleagueHints` and the rival-lab critiques. Those are clamped because
+    // they are painted into a fixed canvas band with no scroll, where over-long prose would crop the one
+    // thing the player needs to read. This one is a paragraph in the printable record, which is HTML that
+    // reflows and prints across pages — so a bound here would refuse valid authoring for no reason.
+    autoSummary: LocalizedTextSchema,
     scenarioScript: ScenarioScriptSchema,
     debrief: z.object({
         summary: LocalizedTextSchema,
@@ -545,19 +622,99 @@ export const CaseDefinitionSchema = z.object({
     assets: AssetManifestSchema
 }).strict().superRefine((definition, context) => {
     const controls = Object.fromEntries(definition.apparatus.primaryControls.map((control) => [control.id, control]));
-    const slitSpacing = controls.slitSpacingMm;
-    const screenDistance = controls.screenDistanceM;
 
-    if (!slitSpacing || slitSpacing.min !== 0.1 || slitSpacing.max !== 0.5 || slitSpacing.step !== 0.05) {
-        context.addIssue({ code: 'custom', message: 'Young slit spacing must be 0.10–0.50 mm in 0.05 mm steps.', path: ['apparatus', 'primaryControls'] });
+    // --- What every case shares --------------------------------------------------------------------
+    //
+    // Uniqueness was free while `primaryControls` was a 2-tuple whose two members had to carry Young's
+    // two different sets of bounds; an array of one schema will happily take the same control twice.
+    // It has to be a rule now, because a duplicate ID silently halves the apparatus: `activeControlValues`
+    // and `RunControls` are keyed by ID, so the second control would overwrite the first everywhere,
+    // and the bench would draw two knobs that move together.
+    if (new Set(definition.apparatus.primaryControls.map((control) => control.id)).size !== definition.apparatus.primaryControls.length) {
+        context.addIssue({ code: 'custom', message: 'Primary control IDs must be stable and unique.', path: ['apparatus', 'primaryControls'] });
     }
 
-    if (!screenDistance || screenDistance.min !== 1 || screenDistance.max !== 4 || screenDistance.step !== 0.25) {
-        context.addIssue({ code: 'custom', message: 'Young screen distance must be 1.0–4.0 m in 0.25 m steps.', path: ['apparatus', 'primaryControls'] });
+    if (definition.flow.minimumExperimentCycles > definition.flow.maximumExperimentCycles) {
+        context.addIssue({
+            code: 'custom',
+            message: 'The minimum experiment cycle count must not exceed the maximum.',
+            path: ['flow', 'minimumExperimentCycles']
+        });
     }
 
-    if (new Set(definition.contextualArtifacts.map((artifact) => artifact.id)).size !== 2) {
+    // --- What is true of Young alone (Story 3.1) ---------------------------------------------------
+    //
+    // Epic AC1's second clause: hardening the contract must not make Young "depend on a future
+    // all-purpose schema". The shared shape above therefore holds only what every case shares, and
+    // FR7's exact numbers — which are a claim about *this apparatus*, not about apparatus in general —
+    // live in a branch keyed on the case ID. Young loses no guarantee; a second case inherits none of
+    // Young's.
+    //
+    // Deliberately one `if`, not a registry of per-case rule modules: at two cases a branch is the
+    // whole mechanism, and an indirection layer here would be the all-purpose schema by another name.
+    if (definition.id === YOUNG_CASE_ID) {
+        const slitSpacing = controls.slitSpacingMm;
+        const screenDistance = controls.screenDistanceM;
+
+        if (!slitSpacing || slitSpacing.min !== 0.1 || slitSpacing.max !== 0.5 || slitSpacing.step !== 0.05) {
+            context.addIssue({ code: 'custom', message: 'Young slit spacing must be 0.10–0.50 mm in 0.05 mm steps.', path: ['apparatus', 'primaryControls'] });
+        }
+
+        if (!screenDistance || screenDistance.min !== 1 || screenDistance.max !== 4 || screenDistance.step !== 0.25) {
+            context.addIssue({ code: 'custom', message: 'Young screen distance must be 1.0–4.0 m in 0.25 m steps.', path: ['apparatus', 'primaryControls'] });
+        }
+
+        // The optical model is not injected for Young: `reduceExperimentRun` calls
+        // `calculateYoungFringeSpacing` directly and `RunRecord`'s `YoungModelInputs` names a
+        // wavelength, so the field is load-bearing here even though a case with no wavelength at all
+        // must be able to omit it. `z.literal(550)` required is re-stated as exactly that, no weaker.
+        //
+        // `wavelengthComparison` is deliberately **not** required alongside it. It was already
+        // `.optional()` before this story and the code reads it as absent-tolerant
+        // (`wavelengthComparison?.advancedChoicesNm ?? []`), so requiring it here would tighten the
+        // contract rather than preserve it — and would reject Young content that has always been valid.
+        // Story 3.1 re-states the guarantees it removes; it does not add new ones.
+        if (definition.experiment.wavelengthNm !== 550) {
+            context.addIssue({ code: 'custom', message: 'The Young case runs at a fixed 550 nm.', path: ['experiment', 'wavelengthNm'] });
+        }
+
+        // FR6's counts and FR3's cycle range, still exact — just exact *for Young* rather than for
+        // every case that will ever exist.
+        if (definition.requirements.minimumRuns !== 2 || definition.requirements.minimumSources !== 2 || definition.requirements.minimumSignificantRuns !== 2) {
+            context.addIssue({ code: 'custom', message: 'The Young case requires exactly two runs, two sources, and two significant measurements.', path: ['requirements'] });
+        }
+
+        if (definition.flow.minimumExperimentCycles !== 2 || definition.flow.maximumExperimentCycles !== 4) {
+            context.addIssue({ code: 'custom', message: 'The Young case runs two to four experiment cycles.', path: ['flow'] });
+        }
+    }
+
+    if (new Set(definition.contextualArtifacts.map((artifact) => artifact.id)).size !== definition.contextualArtifacts.length) {
         context.addIssue({ code: 'custom', message: 'Contextual artifact IDs must be stable and unique.', path: ['contextualArtifacts'] });
+    }
+
+    // --- The neutral auto-summary (FR23, Story 3.1) -------------------------------------------------
+    //
+    // Checked per locale, not on the English alone. The two renderings need not name the same
+    // placeholders in the same order — French and English put a count in different places — but each has
+    // to name only values the composer supplies.
+    //
+    // The failure mode this exists for: `interpolate` leaves an unknown `{token}` verbatim (its own
+    // docstring, `translate.ts:39`), so a typo'd placeholder would print itself into the player's
+    // printable record with nothing warning anyone. Named here, at load, once.
+    LOCALES.forEach((locale) => {
+        templatePlaceholders(definition.autoSummary[locale]).forEach((placeholder) => {
+            if (!(AUTO_SUMMARY_PLACEHOLDERS as readonly string[]).includes(placeholder)) {
+                context.addIssue({
+                    code: 'custom',
+                    message: `The auto-summary template names {${placeholder}}, which is not a value the summary can fill.`,
+                    path: ['autoSummary', locale]
+                });
+            }
+        });
+    });
+    if (encodesPath(definition.autoSummary)) {
+        context.addIssue({ code: 'custom', message: 'The auto-summary template must not encode a scene, route, or phase path.', path: ['autoSummary'] });
     }
 
     const consultationIds = definition.consultationRules.map((rule) => rule.id);
@@ -567,27 +724,43 @@ export const CaseDefinitionSchema = z.object({
     }
     const sourceIds = new Set(definition.contextualArtifacts.map((artifact) => artifact.id));
     definition.contextualArtifacts.forEach((artifact, index) => {
+        // A rights rule, and the only one of the two below that is about rights: shipping a local
+        // transcription of material whose reuse has not been cleared is a provenance defect whatever
+        // the reading room does with it.
         if (artifact.textualRendition && artifact.rightsStatus !== 'reviewed') {
             context.addIssue({ code: 'custom', message: 'Only reviewed sources may provide a local textual rendition.', path: ['contextualArtifacts', index, 'textualRendition'] });
         }
-        // The converse, and the one that matters at play time (Story 2.8 review).
+
+        // **Context readiness must be able to become ready.** One rule, stated as the general shape,
+        // because the two ways an author can break it have one cause and one consequence.
         //
-        // `isSourceEligibleForInspection` is `rightsStatus === 'reviewed'` alone, so
-        // `evaluateContextReadiness` requires every reviewed artifact to be *inspected* before the
-        // player may leave the reading room. But the room refuses to open an artifact with no rendition
-        // — correctly, per AC3 — and so never dispatches `source.inspected` for it, while the reducer
-        // would have accepted it. The result was authorable content that shut the context gate forever:
-        // readiness could never reach `ready`, and the colleague's hint kept naming a reference the room
-        // had just said could not be read. Unreachable with shipped Young content, and an unconditional
-        // soft-lock once Story 2.12 removes the DOM panel that dispatches unconditionally.
+        // `evaluateContextReadiness` counts an artifact missing while it is *ineligible or uninspected*,
+        // and requires none missing before the player may leave the reading room. So every authored
+        // artifact must be reachably inspectable, which takes two things at once:
         //
-        // Closed here rather than at play time because a case that cannot be finished is a content
-        // defect, and the cheapest place to say so is at load, once, with the artifact's own path.
-        if (artifact.rightsStatus === 'reviewed' && !artifact.textualRendition) {
+        // - `rightsStatus === 'reviewed'`, because that is the whole of `isSourceEligibleForInspection`.
+        //   An artifact that is not reviewed is counted forever-missing, and `reduceSourceInspection`
+        //   refuses `source.inspected` for it with `source-not-eligible` — so no surface can ever clear
+        //   it. Assigned to this story by review decision 2026-08-07 (`deferred-work.md:75`).
+        // - a `textualRendition`, because the reading room refuses to open an artifact with nothing to
+        //   read (correctly, per Story 2.8 AC3) and so never dispatches `source.inspected` for it,
+        //   while the reducer would have accepted it. Found in the 2.8 review.
+        //
+        // Either alone shuts the context gate permanently: readiness can never reach `ready`, and the
+        // colleague's reading-gate line keeps naming a reference the room has just said cannot be read.
+        // The selector is right in both cases — it is the *content* that is unauthorable, which is why
+        // this is a load-time rule and `contextPredictionReadiness.ts` is untouched.
+        //
+        // Closed at load, once, with the offending artifact's own path: a case that cannot be finished
+        // is a content defect, and an author needs to see it before a player does.
+        const blocksReadiness = artifact.rightsStatus !== 'reviewed'
+            ? 'is not reviewed, so it can never be inspected'
+            : !artifact.textualRendition ? 'has no local textual rendition, so it can never be read' : undefined;
+        if (blocksReadiness) {
             context.addIssue({
                 code: 'custom',
-                message: 'A reviewed source must provide a local textual rendition: context readiness requires it to be inspected, and a source with nothing to read can never be.',
-                path: ['contextualArtifacts', index, 'textualRendition']
+                message: `Context readiness requires every authored source to be inspected, and this one ${blocksReadiness} — the gate could never open.`,
+                path: ['contextualArtifacts', index, artifact.rightsStatus !== 'reviewed' ? 'rightsStatus' : 'textualRendition']
             });
         }
     });

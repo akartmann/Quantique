@@ -57,7 +57,10 @@ const loadCaseDefinition = async (
 
     const parsed = CaseDefinitionSchema.safeParse(content);
     if (!parsed.success) {
-        return { ok: false, error: { code: 'invalid-case-definition', message: 'Case content does not match the Young case contract.' } };
+        // Not "the Young case contract" any more (Story 3.1): the contract is shared and a second case
+        // loads through this same boundary, so naming Young would misreport which case failed. Verified
+        // nothing asserts the old string.
+        return { ok: false, error: { code: 'invalid-case-definition', message: 'Case content does not match the case contract.' } };
     }
 
     let manifestResponse: Response;

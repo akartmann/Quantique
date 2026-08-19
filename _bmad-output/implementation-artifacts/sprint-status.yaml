@@ -1,5 +1,5 @@
 # generated: 2026-08-04T18:18:39+0200
-# last_updated: 2026-08-19  # story 3.1 context created, ready for dev; epic 3 opened
+# last_updated: 2026-08-19  # story 3.1 implemented, in review
 # project: Quantique
 # project_key: NOKEY
 # tracking_system: file-system
@@ -106,7 +106,7 @@ development_status:
   2-12-retire-dom-presentation-panels: done  # returned from review 2026-08-07: two code findings fixed; NFR1's manual 10-minute low-end-hardware profile remains deferred and blocks done.
   epic-2-retrospective: optional
   epic-3: in-progress
-  3-1-incremental-reusable-case-contract-hardening: ready-for-dev  # context created 2026-08-19. Scope is NOT the epic's field list: 8 of its 9 fields shipped in Epics 1-2. Real work = de-Young the contract (id/control set/wavelength/counts are hard-pinned, so 3.2 cannot parse at all) + the one missing field (neutral auto-summary, FR23) + four schema-owned carry-overs assigned here by name (deferred-work.md 75, 99, 128, 146). Reads FR23's summary in the printable record (dispatches nothing, ADR-011-exempt) rather than a new surface.
+  3-1-incremental-reusable-case-contract-hardening: review  # implemented 2026-08-19 — contract de-Younged (id/control set/wavelength/artifact + requirement counts + cycle range relaxed; Young pinned in an id-scoped refinement), neutral auto-summary added at case.json 1.17.0 and read in the printable record, four carry-overs closed (75, 99, 128, 146). 1270 tests/71 files, e2e 59 passed, 18 mutation proofs. THREE things the story missed: RunRecordSchema.controls was also Young-pinned (tsc cannot see a Zod shape); tsconfig includes only src, so 11 test call sites failed silently; and two renderers call selectPrimaryControl with Young control ids written down and it THROWS inside render() — unreachable today, ASSIGNED to 3.2. One AC clause not met literally: print-view unit coverage needs jsdom (a new dependency), so the section is proved e2e in both locales instead. Scope is NOT the epic's field list: 8 of its 9 fields shipped in Epics 1-2. Real work = de-Young the contract (id/control set/wavelength/counts are hard-pinned, so 3.2 cannot parse at all) + the one missing field (neutral auto-summary, FR23) + four schema-owned carry-overs assigned here by name (deferred-work.md 75, 99, 128, 146). Reads FR23's summary in the printable record (dispatches nothing, ADR-011-exempt) rather than a new surface.
   3-2-reviewable-morley-miller-prototype: backlog
   3-3-source-and-rights-ledger: backlog
   3-4-scenario-and-proposal-authoring-contract: backlog  # new (pivot) - scenario/dialogue scripting

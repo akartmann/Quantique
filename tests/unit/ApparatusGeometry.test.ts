@@ -64,7 +64,7 @@ import {
     wavelengthChoiceCentre
 } from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../../src/adapters/phaser/designSurface';
-import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
+import { CaseDefinitionSchema, MAX_PRIMARY_CONTROLS } from '../../src/schemas/CaseDefinitionSchema';
 
 /**
  * The laboratory side column must not sit on top of the apparatus it stands beside.
@@ -235,6 +235,26 @@ describe('the bench', () => {
             .map((second) => `${first.name} overlaps ${second.name}`));
 
         expect(collisions).toEqual([]);
+    });
+
+    // Story 3.1 removed the `z.tuple([PC, PC])` that made the control count unauthorable and replaced it
+    // with `z.array(PC).min(1).max(MAX_PRIMARY_CONTROLS)`. This is what pins that ceiling to the geometry
+    // it exists for, so the number and its justification fail together rather than the number drifting
+    // into a comment nobody checks. The schema exports the constant; nothing here restates 2.
+    it('caps the authored control count at the largest number of slots that clears the wavelength chooser', () => {
+        const collisions = (count: number): readonly string[] => {
+            const controls = Array.from({ length: count }, (_control, index) => ({ ...authoredControls()[0]!, id: `control-${index}` }));
+            const bands = benchObjectBands(controls);
+            return bands.flatMap((first, index) => bands.slice(index + 1)
+                .filter((second) => first.top < second.bottom && second.top < first.bottom
+                    && first.left < second.right && second.left < first.right)
+                .map((second) => `${first.name} overlaps ${second.name}`));
+        };
+
+        // At the ceiling every band is disjoint; one above it, the instruments reach into the chooser.
+        expect(collisions(MAX_PRIMARY_CONTROLS)).toEqual([]);
+        expect(collisions(MAX_PRIMARY_CONTROLS + 1)).not.toEqual([]);
+        expect(collisions(MAX_PRIMARY_CONTROLS + 1).join(' ')).toContain('wavelength chooser');
     });
 
     it('gives each authored control its own slot, in order, left to right', () => {

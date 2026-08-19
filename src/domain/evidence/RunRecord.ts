@@ -1,7 +1,22 @@
 import type { Result } from '../../core/errors/Result';
 import type { PrimaryControl, WavelengthMode } from '../cases/CaseDefinition';
 
+/**
+ * A run's snapshot of the apparatus, keyed by authored control ID (Story 3.1). Which keys are required
+ * is a claim about the *case*, so `createRunRecord` takes the authored control set and checks the
+ * snapshot against it rather than against Young's two names.
+ */
 export type RunControls = Readonly<Record<PrimaryControl['id'], number>>;
+
+/**
+ * The authored control set a run is validated against.
+ *
+ * An object rather than a bare `readonly string[]` on purpose: `createRunRecord`'s other array
+ * parameter is `existingRunIds`, and two adjacent `string[]` parameters are two parameters the compiler
+ * cannot tell apart. Passing them the wrong way round would have made every run "valid" against a list
+ * of run IDs, silently — so the shape is what makes the argument order a `tsc` error.
+ */
+export type RunControlContract = Readonly<{ controlIds: readonly string[] }>;
 
 export type ExperimentResult = Readonly<{
     label: string;
@@ -38,6 +53,10 @@ export type CreateRunRecordInput = Readonly<{
     linkedEvidenceIds?: readonly string[];
 }>;
 
+/** The control set of a loaded case, in the shape `createRunRecord` wants it. */
+export const runControlContract = (definition: Readonly<{ apparatus: Readonly<{ primaryControls: readonly Readonly<{ id: string }>[] }> }>): RunControlContract =>
+    ({ controlIds: definition.apparatus.primaryControls.map(({ id }) => id) });
+
 /** A pure calculation seam supplied by composition until Story 2.2 owns the model. */
 export type CalculateExperimentResult = (controls: RunControls) => Result<ExperimentResult>;
 
@@ -70,20 +89,38 @@ const isIsoTimestamp = (timestamp: unknown): timestamp is string => {
         && hour <= 23 && minute <= 59 && second <= 59;
 };
 
-const validateControls = (controls: unknown): Result<RunControls> => {
-    if (!controls || typeof controls !== 'object'
-        || !Number.isFinite((controls as RunControls).slitSpacingMm)
-        || !Number.isFinite((controls as RunControls).screenDistanceM)) {
-        return failure('invalid-run-controls', 'A run needs finite snapshots of both apparatus controls.');
+/**
+ * A run must snapshot **exactly** the controls its case authors: every authored control present and
+ * finite, and nothing else.
+ *
+ * Before Story 3.1 this hard-coded Young's two names and rebuilt the snapshot from them, so a third
+ * authored control would have been dropped from the persisted run record without a word — the run would
+ * have claimed a configuration it was not taken at, and `countSignificantMeasures` would have counted
+ * two different arrangements as one.
+ *
+ * The rejection of *extra* keys is the other half, and the reason the ids arrive by parameter rather
+ * than this function accepting "any finite-valued keys" (D3): a typo'd control ID would otherwise pass
+ * validation, persist, and then read as `undefined` at every consumer that looks it up by authored name.
+ */
+const validateControls = (controls: unknown, contract: RunControlContract): Result<RunControls> => {
+    if (!controls || typeof controls !== 'object' || Array.isArray(controls)) {
+        return failure('invalid-run-controls', 'A run needs finite snapshots of every apparatus control.');
     }
-    const snapshot = controls as RunControls;
+    const candidate = controls as Readonly<Record<string, unknown>>;
+    if (contract.controlIds.some((controlId) => !Number.isFinite(candidate[controlId]))) {
+        return failure('invalid-run-controls', 'A run needs finite snapshots of every apparatus control.');
+    }
+    if (Object.keys(candidate).some((key) => !contract.controlIds.includes(key))) {
+        return failure('invalid-run-controls', 'A run may only snapshot the controls this case authors.');
+    }
 
+    // Rebuilt from the authored ids, not spread from the input: the snapshot is the *case's* control set
+    // in the case's own order, so two runs of the same configuration serialise identically.
     return {
         ok: true,
-        value: Object.freeze({
-            slitSpacingMm: snapshot.slitSpacingMm,
-            screenDistanceM: snapshot.screenDistanceM
-        })
+        value: Object.freeze(Object.fromEntries(
+            contract.controlIds.map((controlId) => [controlId, candidate[controlId] as number])
+        ))
     };
 };
 
@@ -135,6 +172,7 @@ const validateLinkedEvidence = (linkedEvidenceIds: unknown): Result<readonly str
 
 export const createRunRecord = (
     input: CreateRunRecordInput,
+    contract: RunControlContract,
     existingRunIds: readonly string[] = []
 ): Result<RunRecord> => {
     if (!input || typeof input !== 'object' || Array.isArray(input)) {
@@ -146,7 +184,7 @@ export const createRunRecord = (
     if (!isIsoTimestamp(input.timestamp)) return failure('invalid-run-timestamp', 'A run needs an ISO timestamp.');
     if (!isNonBlankString(input.experimentModelVersion)) return failure('invalid-experiment-model-version', 'A run needs an experiment model version.');
 
-    const controls = validateControls(input.controls);
+    const controls = validateControls(input.controls, contract);
     if (!controls.ok) return controls;
     const result = validateResult(input.result);
     if (!result.ok) return result;
@@ -172,6 +210,7 @@ export const createRunRecord = (
 
 export const createCalculatedRunRecord = (
     input: CreateCalculatedRunRecordInput,
+    contract: RunControlContract,
     existingRunIds: readonly string[] = []
 ): Result<RunRecord> => {
     const calculated = input.calculateResult(input.controls);
@@ -186,5 +225,5 @@ export const createCalculatedRunRecord = (
         timestamp: input.timestamp,
         experimentModelVersion: input.experimentModelVersion,
         linkedEvidenceIds: input.linkedEvidenceIds
-    }, existingRunIds);
+    }, contract, existingRunIds);
 };

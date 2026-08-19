@@ -38,7 +38,14 @@ const UNRECORDED_INPUT = '∅';
  */
 export const configurationKey = (rule: SignificanceRule, run: RunRecord): string => [
     ...rule.criticalControlIds.map((controlId) => `${controlId}=${run.controls[controlId]}`),
-    ...(rule.criticalModelInputIds ?? []).map((inputId) => `${inputId}=${run.modelInputs?.[inputId] ?? UNRECORDED_INPUT}`)
+    // `criticalModelInputIds` is an authored stable ID since Story 3.1, and `modelInputs` is the
+    // Young model's own typed shape — so the read is a lookup on a record whose keys this rule cannot
+    // know. An ID naming nothing on the run yields `UNRECORDED_INPUT`, which is the same slot a run
+    // with no `modelInputs` at all occupies: genuinely unknown, never silently equal to a value.
+    ...(rule.criticalModelInputIds ?? []).map((inputId) => {
+        const inputs: Readonly<Record<string, unknown>> | undefined = run.modelInputs;
+        return `${inputId}=${inputs?.[inputId] ?? UNRECORDED_INPUT}`;
+    })
 ].join('|');
 
 /**

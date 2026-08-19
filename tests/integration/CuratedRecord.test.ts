@@ -4,7 +4,7 @@ import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore } from '../../src/core/store/createStore';
 import { selectContextualArtifacts, selectInspectedSourceIds, selectNotebookObservations } from '../../src/core/store/selectors';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
-import { createCalculatedRunRecord } from '../../src/domain/evidence/RunRecord';
+import { createCalculatedRunRecord, runControlContract } from '../../src/domain/evidence/RunRecord';
 
 const caseDefinition = {
     id: 'young-interference',
@@ -35,7 +35,7 @@ const prepareRun = (store: ReturnType<typeof createStore>, id: string) => create
     experimentModelVersion: store.getState().caseDefinition.experiment.modelVersion,
     linkedEvidenceIds: store.getState().inspectedSourceIds,
     calculateResult: () => ({ ok: true, value: { label: 'Prepared observation', value: 1, unit: 'relative units' } })
-}, store.getState().runs.map(({ id: runId }) => runId));
+}, runControlContract(store.getState().caseDefinition), store.getState().runs.map(({ id: runId }) => runId));
 
 describe('Curated Record public evidence flow', () => {
     it('projects validated source labels and snapshots inspected evidence only into later runs', () => {
