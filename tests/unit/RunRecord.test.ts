@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createRunRecord } from '../../src/domain/evidence/RunRecord';
+import { createRunRecord, runControlContract, type RunControlContract } from '../../src/domain/evidence/RunRecord';
 
 const validInput = {
     id: 'run-001',
@@ -17,7 +17,7 @@ const validInput = {
  * than being hard-coded inside `validateControls`, so a case authoring different controls gets its own
  * snapshot validated rather than Young's two silently required and everything else dropped.
  */
-const contract = { controlIds: ['slitSpacingMm', 'screenDistanceM'] };
+const contract: RunControlContract = { controlIds: ['slitSpacingMm', 'screenDistanceM'] };
 
 describe('createRunRecord', () => {
     it('creates a deterministic, deeply immutable historical snapshot', () => {
@@ -106,6 +106,14 @@ describe('createRunRecord', () => {
         // Not a style point. Both were `readonly string[]` in an earlier draft of this change, adjacent
         // in the signature, and swapping them would have validated every run against a list of run IDs
         // with no compiler complaint at all.
-        expect(Object.keys(contract)).toEqual(['controlIds']);
+        //
+        // Asserted against the contract the *production* helper builds, not against the local fixture.
+        // The earlier version read `Object.keys(contract)` — the literal declared in this file — so it
+        // exercised no production symbol and could only fail if the fixture were edited. It stood in for a
+        // compiler check that does not run: `tsconfig.json` includes only `src`, so no `tsc` invocation
+        // sees this file at all (review 2026-08-19, `deferred-work.md`).
+        expect(Object.keys(runControlContract({
+            apparatus: { primaryControls: [{ id: 'slitSpacingMm' }, { id: 'screenDistanceM' }] }
+        }))).toEqual(['controlIds']);
     });
 });

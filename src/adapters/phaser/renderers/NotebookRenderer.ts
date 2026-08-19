@@ -10,7 +10,7 @@ import {
     selectLocale,
     selectLocalizedError,
     selectNotebookObservations,
-    selectPrimaryControl
+    findPrimaryControl
 } from '../../../core/store/selectors';
 import type { RunRecord } from '../../../domain/evidence/RunRecord';
 import {
@@ -429,11 +429,25 @@ export class NotebookRenderer {
      */
     private settingsLine(state: AppState, t: Translator, record: RunRecord): string {
         const locale = selectLocale(state);
+        // `findPrimaryControl`, not `selectPrimaryControl`: the latter **throws** on an id the case does
+        // not author, and this runs inside `render()` — inside `dispatch() → notify()`, where a throw
+        // advances the phase, skips every later subscriber and strands the router with no visible error
+        // (the 1.10 failure mode). The two ids below are Young's, written down here because
+        // `notebook.row.settings` has two authored slots; a second case needs its own authored row, which
+        // is Story 3.2's work. Until then the row degrades to the canonical number instead of taking the
+        // scene down — the same fallback `CaseFilePresenter.observationDetail` already applies.
         const readout = (controlId: 'slitSpacingMm' | 'screenDistanceM'): string => {
-            const control = selectPrimaryControl(state, controlId);
+            const control = findPrimaryControl(state, controlId);
+            const recorded = record.controls[controlId];
+            if (!control || !Number.isFinite(recorded)) {
+                return t('lab.control.readout', {
+                    label: controlId,
+                    value: Number.isFinite(recorded) ? String(recorded) : '—'
+                });
+            }
             return t('lab.control.readout', {
                 label: control.label ? String(control.label[locale] ?? control.label.en) : controlId,
-                value: formatMeasurement(locale, record.controls[controlId], decimalPlaces(control.step), control.unit)
+                value: formatMeasurement(locale, recorded, decimalPlaces(control.step), control.unit)
             });
         };
         return t('notebook.row.settings', {

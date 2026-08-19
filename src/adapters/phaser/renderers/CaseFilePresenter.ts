@@ -486,10 +486,13 @@ export class CaseFilePresenter {
         // `selectPrimaryControl` **throws** on an id the case does not author, and this runs inside
         // `render()`, which runs inside `dispatch() → notify()` — where a throw advances the phase, skips
         // every later subscriber and strands the router with no visible error (the 1.10 failure mode).
-        // The schema makes both ids mandatory today, so this guard is unreachable through authored
-        // content; it is reachable through a **restored record against a degraded cached `case.json`**,
-        // which is the same door `DebriefRenderer` already guards for a stale `critiqueId`. A row that
-        // cannot describe its settings falls back to its result rather than taking the room down.
+        // The schema pins both ids for `young-interference` specifically, so this guard is unreachable
+        // through *Young's* authored content — but no longer through authored content in general: Story
+        // 3.1 made the control set authored, so any other case reaches it. It is also reachable through a
+        // **restored record against a degraded cached `case.json`**, the same door `DebriefRenderer`
+        // already guards for a stale `critiqueId`. A row that cannot describe its settings falls back to
+        // its result rather than taking the room down. (The earlier wording claimed the guard was dead
+        // code; review 2026-08-19.)
         const readout = (controlId: 'slitSpacingMm' | 'screenDistanceM'): string | undefined => {
             const control = selectPrimaryControl(state, controlId);
             const recorded = record.controls[controlId];

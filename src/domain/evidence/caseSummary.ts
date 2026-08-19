@@ -3,7 +3,7 @@ import type { Locale } from '../../core/i18n/Locale';
 import { resolveLocalizedText } from '../../core/i18n/resolveLocalizedText';
 import type { CaseDefinition } from '../cases/CaseDefinition';
 import type { RunRecord } from './RunRecord';
-import { countSignificantMeasures } from './significantMeasures';
+import { countApparatusSettings, countSignificantMeasures } from './significantMeasures';
 
 /**
  * The neutral auto-summary (FR23): a plain statement of what the player *did*, composed from their own
@@ -39,11 +39,29 @@ export const AUTO_SUMMARY_PLACEHOLDERS = [
     'runCount',
     /** How many *distinct* critical configurations those observations cover, per the case's significance rule. */
     'configurationCount',
+    /**
+     * How many distinct *apparatus* settings those observations cover — the critical controls alone.
+     *
+     * Distinct from {@link configurationCount} on purpose (review decision 2c, 2026-08-19). A
+     * configuration includes every dimension the significance rule names, and Young's rule names
+     * `wavelengthNm` as well as the two knobs — so recording a second observation at a new wavelength
+     * without touching the bench moves `configurationCount` and not the apparatus. The authored template
+     * called that "distinct apparatus settings", which was a statement about the apparatus the player
+     * could contradict by looking at it.
+     */
+    'apparatusSettingCount',
     /** How many contextual sources have been inspected. */
     'sourceCount',
     /** Those sources by authored display name, in the case's authored order, listed for the active locale. */
     'sourceNames',
-    /** How many revisions of the conclusion are on record. */
+    /**
+     * How many recorded versions of the conclusion are on record.
+     *
+     * `decisionHistory.length`, and the first entry is the *initial* conclusion (its `priorConclusion`
+     * is empty) rather than a revision of anything — so the authored copy says "versions", not
+     * "revisions" (review decision 3a, 2026-08-19). Naming the placeholder after the count keeps the
+     * sentence and the number one decision.
+     */
     'revisionCount'
 ] as const;
 
@@ -107,6 +125,7 @@ export const summaryValues = (
     return Object.freeze({
         runCount: formatNumber(locale, evidence.runs.length, 0),
         configurationCount: formatNumber(locale, countSignificantMeasures(definition.significanceRule, evidence.runs), 0),
+        apparatusSettingCount: formatNumber(locale, countApparatusSettings(definition.significanceRule, evidence.runs), 0),
         // The inspected ids intersected with the authored artifacts, not `inspectedSourceIds.length`: a
         // record can name a source the case no longer authors, and counting it would report a source the
         // list beside it does not show.
@@ -132,9 +151,45 @@ export const composeCaseSummary = (
 ): string => {
     const values = summaryValues(definition, evidence, locale);
     return resolveLocalizedText(definition.autoSummary, locale)
-        .replace(/\{(\w+)\}/g, (match, name: string) => values[name as AutoSummaryPlaceholder] ?? match);
+        // An own-property check rather than a truthiness check on the lookup: `values` is a plain object,
+        // so `values['constructor']` resolves up the prototype chain to a function and `?? match` never
+        // runs — `{constructor}` would render `function Object() { [native code] }` into the record.
+        // `Object.freeze` does not sever the prototype. Load-time validation rejects such a token today,
+        // which is exactly why the guard must not depend on it.
+        //
+        // `hasOwnProperty.call` rather than `Object.hasOwn`, which needs `lib: ES2022`; this project is
+        // pinned at ES2020 for the same reason `formatList` is a constant instead of `Intl.ListFormat`.
+        .replace(/\{(\w+)\}/g, (match, name: string) =>
+            (Object.prototype.hasOwnProperty.call(values, name) ? values[name as AutoSummaryPlaceholder] : match));
 };
 
-/** The placeholders an authored template names, in the order they appear. Used by validation. */
+/**
+ * Every brace-delimited token an authored template contains, in the order they appear. Used by validation.
+ *
+ * Matches `\{[^{}]*\}` rather than the composer's `\{(\w+)\}`, because validation and substitution want
+ * *opposite* breadth. The composer should fill only well-formed known tokens; validation has to see
+ * everything an author might have meant as one — `{run-count}`, `{run.count}`, `{ runCount }`. Sharing
+ * the composer's `\w+` meant a malformed token was enumerated by neither: validation found nothing to
+ * reject and substitution found nothing to replace, so it printed itself into the player's record
+ * (review 2026-08-19). `{{runCount}}` is caught by {@link unfillableTemplateTokens}' brace sweep.
+ */
 export const templatePlaceholders = (template: string): readonly string[] =>
-    [...template.matchAll(/\{(\w+)\}/g)].map(([, name]) => name);
+    [...template.matchAll(/\{([^{}]*)\}/g)].map(([, name]) => name);
+
+/**
+ * The reasons an authored template cannot be filled, as printable token text — empty when it can.
+ *
+ * Two checks, because a template can fail in two ways. Any token this module cannot fill is reported by
+ * name. And any brace surviving substitution of the *known* tokens is reported as itself: that catches
+ * the shapes no token regex can, an unclosed `{runCount` and a doubled `{{runCount}}` — the latter
+ * renders `{2}`, since the inner token is well-formed and the outer braces are just text.
+ */
+export const unfillableTemplateTokens = (template: string): readonly string[] => {
+    const unknown = templatePlaceholders(template)
+        .filter((name) => !(AUTO_SUMMARY_PLACEHOLDERS as readonly string[]).includes(name))
+        .map((name) => `{${name}}`);
+    const substituted = template.replace(/\{([^{}]*)\}/g, (match, name: string) =>
+        (AUTO_SUMMARY_PLACEHOLDERS as readonly string[]).includes(name) ? '' : match);
+    const strayBraces = /[{}]/.test(substituted) ? [substituted.trim()] : [];
+    return [...unknown, ...strayBraces.filter((stray) => !unknown.some((token) => stray.includes(token)))];
+};

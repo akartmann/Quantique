@@ -350,7 +350,7 @@ const reduceWavelengthSet = (state: AppState, wavelengthNm: 450 | 550 | 650): Re
     // written-down 550 (`deferred-work.md:99`). The reducer refuses the click; the selector decides how
     // the choice is painted before one, and the two must not be able to disagree.
     if (!isAdvancedWavelengthUnlocked(state.caseDefinition, state.runs)) {
-        return failure('advanced-wavelength-locked', 'Record two fixed 550 nm observations before using the optional wavelength comparison.');
+        return failure('advanced-wavelength-locked', 'Record the required fixed-baseline observations before using the optional wavelength comparison.');
     }
     return { ok: true, value: freezeState({
         ...state,
@@ -381,7 +381,7 @@ const reduceExperimentRun = (state: AppState, action: Extract<AppAction, { type:
         || (state.selectedWavelengthMode === 'advanced'
             && (!advancedChoices.includes(state.selectedWavelengthNm as 450 | 650)
                 || !isAdvancedWavelengthUnlocked(state.caseDefinition, state.runs)))) {
-        return failure('advanced-wavelength-locked', 'Record two fixed 550 nm observations before using the optional wavelength comparison.');
+        return failure('advanced-wavelength-locked', 'Record the required fixed-baseline observations before using the optional wavelength comparison.');
     }
     const result = calculateYoungFringeSpacing({
         slitSpacingMm: state.activeControlValues.slitSpacingMm,

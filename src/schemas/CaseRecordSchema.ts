@@ -142,11 +142,16 @@ export const CaseRecordSchema = z.object({
     // Also a relaxation, for the same reason and with the same consequence for `schemaVersion`: every
     // saved record holds exactly Young's two keys, and a record of finite numbers still accepts them.
     //
-    // The exact-key guarantee the `.strict()` object held moves nowhere. The loop in
-    // `validateCaseRecordForDefinition` already iterates `definition.apparatus.primaryControls` and
-    // normalises each authored control's value against its authored bounds, so a record missing a
-    // control, or carrying one this case does not author, is still rejected — against the *case's* control
-    // set rather than against Young's, which is the point of Story 3.1.
+    // The exact-key guarantee the `.strict()` object held is re-stated in
+    // `validateCaseRecordForDefinition`, in two halves. The loop over
+    // `definition.apparatus.primaryControls` normalises each authored control's value against its
+    // authored bounds, which rejects a record *missing* a control — and an explicit key sweep beside it
+    // rejects a record carrying one the case does not author. The loop alone cannot do the second job:
+    // it iterates the definition, so a key the definition does not name is structurally invisible to it.
+    // (Story 3.1 shipped with only the loop and a comment claiming both; review 2026-08-19.)
+    //
+    // `createRunRecord` re-states the same guarantee for `runs[].controls`, and the two must keep
+    // agreeing on what "exact" means.
     //
     // Zod 4 note: `z.record` takes two arguments, and the key must be `z.string()` rather than an enum —
     // an enum key yields a *complete* record requiring every member.
@@ -340,12 +345,41 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // for and the reason this allowlist is a list of reasons rather than a list of numbers.
         //
         // The schema shapes this story relaxes — `caseId` from a literal to a kebab-case string,
-        // `activeControlValues` from a strict two-key object to a record — are **relaxations**, so every
-        // record an older build saved still parses and `schemaVersion` stays 3. See their own comments
-        // above; `migrateCaseRecord.ts` is untouched.
-        || (definition.version === '1.17.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0', '1.16.0'].includes(record.caseDefinitionVersion));
+        // `activeControlValues` from a strict two-key object to a record, and `runs[].controls` from the
+        // same strict two-key object to a record — are **relaxations**, so every record an older build
+        // saved still parses and `schemaVersion` stays 3. See their own comments above;
+        // `migrateCaseRecord.ts` is untouched.
+        //
+        // All three are listed because the third was missing from this clause while being the one the
+        // story's own inventory overlooked (`tsc` cannot see a Zod shape), which is precisely the reader
+        // this list exists for.
+        || (definition.version === '1.17.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0', '1.16.0'].includes(record.caseDefinitionVersion))
+        // 1.18.0 — Story 3.1 code review (2026-08-19). Two changes to `case.json`, both to `autoSummary`
+        // and both display copy:
+        //
+        // - **The revision line is re-worded** in both locales, from "Revisions of the conclusion
+        //   recorded" to "Conclusion versions recorded". The count it prints is `decisionHistory.length`,
+        //   and the first entry is the *initial* conclusion rather than a revision of anything, so the old
+        //   sentence reported one revision for an investigation that had none (review decision 3a).
+        // - **A second count is stated**, so the record distinguishes critical configurations from
+        //   apparatus settings. `configurationCount` includes the wavelength dimension the significance
+        //   rule names, so it moved without the knobs moving; `apparatusSettingCount` is the knobs alone
+        //   (review decision 2c). This adds `apparatusSettingCount` to the closed placeholder vocabulary.
+        //
+        // Neither is in the recomputed canonical set — `validateCaseRecordForDefinition` recomputes
+        // `peerReviewRules`' `feedback` and `revisionPath` and the proposal claims and limitations, and
+        // `autoSummary` is none of those; nothing records it and nothing gates on it. Verified the same
+        // way as 1.17.0: by diffing the two files and comparing that set field by field.
+        || (definition.version === '1.18.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0', '1.16.0', '1.17.0'].includes(record.caseDefinitionVersion));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
+    }
+
+    // The extra-key half of the guarantee the removed `.strict()` was holding. Without it a record
+    // carrying a control this case does not author loads, is copied verbatim into `AppState`, and is
+    // written back by every future save — a phantom setting that outlives the edit that introduced it.
+    if (Object.keys(record.activeControlValues).some((controlId) => !definition.apparatus.primaryControls.some((control) => control.id === controlId))) {
+        return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
     }
 
     for (const control of definition.apparatus.primaryControls) {

@@ -1,0 +1,25 @@
+{
+  // The test suite, typechecked.
+  //
+  // `tsconfig.json` includes only `src`, so until this file existed `npm run typecheck` never looked at
+  // `tests/` — and the compiler was not an inventory for test call sites. Story 3.1 found out the
+  // expensive way: relaxing a Zod shape is invisible to `tsc` by nature (a schema is a value, not a
+  // type), and eleven test call sites that no longer matched their production signatures failed silently
+  // because they were outside the program. Two nets are the point — the compiler for signatures, the
+  // suite for behaviour — and one of them was switched off.
+  //
+  // Separate from the app program rather than merged into it: tests may import Vitest and Playwright
+  // globals that application code must never see, and `include: ["src", "tests"]` would put them in one
+  // graph.
+  //
+  // Run by `npm run typecheck:tests`, and **not** by `npm run typecheck`, deliberately: switching the
+  // compiler on over `tests/` for the first time surfaces 106 pre-existing errors across 56 files, and
+  // all three CI workflows gate on `typecheck`. Folding them in would turn a green pipeline red and block
+  // publishing on a backlog this file exists to *measure*, not to have caused. The count is the point:
+  // it can now be watched going down. See `deferred-work.md` for the breakdown and the owner.
+  // No `types` override: the specs import `describe`/`it`/`expect` from `vitest` and `test`/`expect`
+  // from `@playwright/test` explicitly, so no ambient globals are needed and `@types/node` is not a
+  // dependency of this project.
+  "extends": "./tsconfig.json",
+  "include": ["tests", "src"]
+}

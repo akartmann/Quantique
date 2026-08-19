@@ -324,7 +324,7 @@ export const fr: Record<TranslationKey, string> = {
     'error.mismatched-experiment-record': 'L’observation ne correspond pas au montage expérimental validé actuel.',
     'error.uninspected-linked-evidence': 'Les preuves liées doivent être examinées avant d’enregistrer une observation.',
     'error.unavailable-wavelength': 'Cette comparaison de longueurs d’onde n’est pas prévue par le scénario.',
-    'error.advanced-wavelength-locked': 'Enregistrez deux observations à 550 nm fixes avant d’utiliser la comparaison optionnelle de longueurs d’onde.',
+    'error.advanced-wavelength-locked': 'Enregistrez {count} observations à {baseline} nm fixes avant d’utiliser la comparaison optionnelle de longueurs d’onde.',
     'error.unknown-run-id': 'Cette observation est indisponible pour la comparaison.',
     'error.duplicate-comparison-run': 'Choisissez deux observations différentes à comparer.',
     'error.too-many-comparison-runs': 'Ne comparez que deux observations à la fois.',

@@ -1807,3 +1807,142 @@ describe('caseReducer', () => {
             .toMatchObject({ ok: false, error: { code: 'invalid-case-retreat' } });
     });
 });
+
+/**
+ * The guarantees the Story 3.1 review found unheld (2026-08-19).
+ *
+ * Every case here was **impossible before this story** and became reachable when a shape was relaxed
+ * without re-stating what it held. They live in one block so the pattern is visible: relaxing
+ * `contextualArtifacts`, the three requirement counts, `criticalModelInputIds` and the asset-path rule
+ * each moved a guarantee to nowhere. `MAX_PRIMARY_CONTROLS` is the one the story did re-state, and it is
+ * the template the rest now follow.
+ */
+describe('what the relaxed shapes were silently holding', () => {
+    const rejects = (mutate: (definition: Record<string, unknown>) => void, expectedMessage: string): void => {
+        const definition = cloneSecondCase() as unknown as Record<string, unknown>;
+        mutate(definition);
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues.map(({ message }) => message)).toContain(expectedMessage);
+    };
+
+    it('rejects a third contextual artifact, which the case file has no row to cite', () => {
+        // `CASE_FILE_SOURCE_ROWS` is 2. A third source would be readable, would count toward the reading
+        // gate, and could never be pinned as supporting evidence — with `minimumSources: 3`, a dead end.
+        const definition = cloneSecondCase() as unknown as Record<string, unknown>;
+        const artifacts = definition.contextualArtifacts as Array<Record<string, unknown>>;
+        artifacts.push({ ...artifacts[0], id: 'a-third-source' });
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues.map(({ path }) => path.join('.'))).toContain('contextualArtifacts');
+    });
+
+    it('rejects a source requirement above the sources the case authors', () => {
+        rejects(
+            (definition) => { definition.requirements = { minimumRuns: 3, minimumSources: 3, minimumSignificantRuns: 2 }; },
+            'The source requirement must not exceed the sources the case authors.'
+        );
+    });
+
+    it('rejects a significant-measure requirement above the configurations the controls can produce', () => {
+        // `rotationDeg` is 0–90 in steps of 15 (7 positions) and `bathTempC` 10–30 in steps of 2 (11), so
+        // the reachable space is 77. A requirement of 78 can never be met and the colleague would repeat
+        // its floor hint forever.
+        rejects(
+            (definition) => { definition.requirements = { minimumRuns: 3, minimumSources: 2, minimumSignificantRuns: 78 }; },
+            'The significant-measure requirement must not exceed the configurations the authored controls can produce.'
+        );
+    });
+
+    it('accepts a significant-measure requirement exactly at the reachable ceiling', () => {
+        const definition = cloneSecondCase() as unknown as Record<string, unknown>;
+        definition.requirements = { minimumRuns: 3, minimumSources: 2, minimumSignificantRuns: 77 };
+
+        expect(CaseDefinitionSchema.safeParse(definition).success).toBe(true);
+    });
+
+    it.each([
+        ['a backslash-separated traversal', '/cases\\..\\..\\etc/passwd'],
+        ['a percent-encoded traversal', '/cases/%2e%2e/%2e%2e/etc/passwd'],
+        ['an uppercase percent-encoded traversal', '/cases/%2E%2E/etc/passwd']
+    ])('rejects %s in an asset path', (_case, path) => {
+        // `deferred-work.md:146` named `/\` and `..` in one sentence. Story 3.1 closed the backslash in the
+        // *authority* position and the `..` segment when slash-delimited, and left their intersection open:
+        // `resolveAssetUrl` is string concatenation, and the browser normalises both forms to a traversal.
+        const definition = cloneSecondCase() as unknown as Record<string, unknown>;
+        const entries = (definition.assets as { entries: Array<Record<string, unknown>> }).entries;
+        entries[0] = { ...entries[0], path };
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues.map(({ message }) => message))
+            .toContain('Asset paths must not contain a parent-directory segment.');
+    });
+
+    it('still accepts an ordinary authored asset path', () => {
+        expect(CaseDefinitionSchema.safeParse(cloneSecondCase()).success).toBe(true);
+    });
+});
+
+/**
+ * `criticalModelInputIds` lost its `z.enum(['wavelengthNm'])` and gained only a duplicate check, so a
+ * single transposed letter loaded clean and resolved to `UNRECORDED_INPUT` for every run — silently
+ * collapsing the wavelength dimension out of `configurationKey`. Checked in the Young branch, because the
+ * vocabulary is the Young model's own and no shared one exists yet.
+ */
+describe('the Young significance rule against the Young model inputs', () => {
+    it('rejects a misspelled model input', () => {
+        const definition = structuredClone(validYoungCase) as unknown as Record<string, unknown>;
+        definition.significanceRule = {
+            ...(definition.significanceRule as Record<string, unknown>),
+            criticalModelInputIds: ['wavelenghtNm']
+        };
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues.map(({ message }) => message))
+            .toContain('The Young significance rule may only name a recorded Young model input.');
+    });
+
+    it('accepts every name the Young model actually records', () => {
+        // Asserted against a real recorded run rather than a second copy of the list, so the schema's set
+        // and `YoungModelInputs` cannot drift apart silently.
+        const recorded = { slitSpacingMm: 0.25, screenDistanceM: 2, wavelengthNm: 550 as const, wavelengthMode: 'minimum' as const };
+        const definition = structuredClone(validYoungCase) as unknown as Record<string, unknown>;
+        definition.significanceRule = {
+            ...(definition.significanceRule as Record<string, unknown>),
+            criticalModelInputIds: Object.keys(recorded)
+        };
+
+        expect(CaseDefinitionSchema.safeParse(definition).success).toBe(true);
+    });
+
+    it('pins the comparison baseline for Young and leaves it authored for anyone else', () => {
+        const young = structuredClone(validYoungCase) as unknown as Record<string, unknown>;
+        (young.experiment as { wavelengthComparison: Record<string, unknown> })
+            .wavelengthComparison = { fixedMinimumPathNm: 500, advancedChoicesNm: [450, 650] };
+
+        const parsedYoung = CaseDefinitionSchema.safeParse(young);
+        expect(parsedYoung.success).toBe(false);
+        if (!parsedYoung.success) {
+            expect(parsedYoung.error.issues.map(({ message }) => message))
+                .toContain('The Young comparison measures against the fixed 550 nm path.');
+        }
+
+        // The same shape on a second case parses: the baseline is authored, which is the whole point.
+        const second = cloneSecondCase() as unknown as Record<string, unknown>;
+        (second.experiment as Record<string, unknown>).wavelengthComparison = { fixedMinimumPathNm: 500, advancedChoicesNm: [450, 650] };
+
+        expect(CaseDefinitionSchema.safeParse(second).success).toBe(true);
+    });
+});

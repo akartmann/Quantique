@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { DEFAULT_LOCALE, LOCALES } from '../core/i18n/Locale';
 import { CASE_PHASES } from '../domain/cases/CaseProgress';
-import { AUTO_SUMMARY_PLACEHOLDERS, templatePlaceholders } from '../domain/evidence/caseSummary';
+import { unfillableTemplateTokens } from '../domain/evidence/caseSummary';
 import { SCENE_KEYS } from '../domain/cases/ScenarioScript';
 
 const stableId = z.string().trim().min(1);
@@ -48,6 +48,23 @@ export const YOUNG_CASE_ID = 'young-interference';
  * instead of restating 2 — the bound and its justification must fail together.
  */
 export const MAX_PRIMARY_CONTROLS = 2;
+
+/**
+ * The most contextual artifacts a case may author.
+ *
+ * Same reasoning as {@link MAX_PRIMARY_CONTROLS}, and the same omission it was written to prevent.
+ * `contextualArtifacts` was a `z.tuple([A, A])` before Story 3.1; relaxing it to an array to let a
+ * later case cite its own sources removed the only thing keeping a third artifact off a case file
+ * that renders exactly `CASE_FILE_SOURCE_ROWS` rows. A third source would be readable, would count
+ * toward the reading gate (`evaluateContextReadiness` counts every authored artifact), and could
+ * never be pinned as supporting evidence — authored content the player cannot use, and with
+ * `minimumSources: 3` an unrecoverable dead end.
+ *
+ * Raising it is renderer work — the case file, the reading room and the debrief each reserve rows —
+ * not authoring work. Exported so `ApparatusGeometry.test.ts` can prove it against the real
+ * `CASE_FILE_SOURCE_ROWS`, so the bound and its justification fail together.
+ */
+export const MAX_CONTEXTUAL_ARTIFACTS = 2;
 
 /**
  * Every localizable authored string must carry both shipped locales (AC3). The requirement lives in
@@ -505,6 +522,30 @@ const encodesPath = (text: Readonly<{ en: string; fr: string }>): boolean =>
     forbiddenPath.en.some((pattern) => pattern.test(text.en))
     || forbiddenPath.fr.some((pattern) => pattern.test(text.fr));
 
+/**
+ * The Young optical model's own input names, for the case-scoped `criticalModelInputIds` check.
+ *
+ * Mirrors `YoungModelInputs` in `src/domain/evidence/RunRecord.ts`. A schema cannot read a type, so
+ * this is the one place the two are written down separately; `CaseDefinition.test.ts` asserts the set
+ * against a real recorded run so they cannot drift apart silently.
+ */
+const YOUNG_MODEL_INPUT_IDS = new Set(['slitSpacingMm', 'screenDistanceM', 'wavelengthNm', 'wavelengthMode']);
+
+/**
+ * An authored asset path with percent-encoding resolved, for the traversal check only.
+ *
+ * `decodeURIComponent` throws on a malformed escape (`%zz`), and a path we cannot decode is one we
+ * cannot clear — so the raw string is returned and the caller's `..` check runs against it. A
+ * malformed path fails the fetch anyway; what matters is that a decode failure never reads as "safe".
+ */
+const decodeAssetPath = (path: string): string => {
+    try {
+        return decodeURIComponent(path);
+    } catch {
+        return path;
+    }
+};
+
 export const AssetManifestSchema = z.object({
     manifestVersion: z.string().trim().min(1),
     entries: z.array(z.object({
@@ -522,9 +563,16 @@ export const AssetManifestSchema = z.object({
         //
         // A path is rejected outright rather than normalised: an author who wrote `..` meant something,
         // and silently resolving it would ship an asset reference nobody authored.
+        //
+        // The traversal check decodes first and splits on *both* separators, because the same two
+        // normalisations the authority rule above guards against apply to the rest of the path:
+        // `/cases\..\..\etc/passwd` and `/cases/%2e%2e/%2e%2e/etc/passwd` both reach the loader as
+        // traversals once the browser is done with them, and `resolveAssetUrl` is string concatenation
+        // that normalises nothing. Splitting on `/` alone left the third hostile shape half-closed
+        // (`deferred-work.md:146` named `/\` and `..` in one sentence; only one was rejected).
         path: z.string()
             .regex(/^\/(?![/\\])/, 'Asset paths must be same-origin static root paths.')
-            .refine((path) => !path.split('/').includes('..'), 'Asset paths must not contain a parent-directory segment.')
+            .refine((path) => !decodeAssetPath(path).split(/[/\\]/).includes('..'), 'Asset paths must not contain a parent-directory segment.')
     }).strict()).min(1)
 }).strict().superRefine((manifest, context) => {
     if (new Set(manifest.entries.map((asset) => asset.id)).size !== manifest.entries.length) {
@@ -536,9 +584,12 @@ export const CaseDefinitionSchema = z.object({
     id: CaseIdSchema,
     version: z.string().trim().min(1),
     openingDispute: LocalizedTextSchema,
-    // FR4 requires *two* contextual artifacts before a prediction, which is a floor and not a
-    // ceiling: a later case citing three sources is richer content, not invalid content.
-    contextualArtifacts: z.array(ContextualArtifactSchema).min(2),
+    // FR4 requires *two* contextual artifacts before a prediction. An array rather than a 2-tuple so
+    // the count is authored rather than structural — but bounded above as well as below, because the
+    // case file, the reading room and the debrief all reserve a fixed number of rows. See
+    // {@link MAX_CONTEXTUAL_ARTIFACTS}: a third artifact parses as valid content the player can read
+    // and never cite.
+    contextualArtifacts: z.array(ContextualArtifactSchema).min(2).max(MAX_CONTEXTUAL_ARTIFACTS),
     prediction: z.object({ required: z.literal(true) }).strict(),
     // An array rather than a 2-tuple, so a case may author its own pair or a single control. The
     // ceiling stays 2 for the bench-geometry reason recorded on {@link MAX_PRIMARY_CONTROLS}.
@@ -552,7 +603,14 @@ export const CaseDefinitionSchema = z.object({
         // costs no behaviour.
         wavelengthNm: z.number().positive().finite().optional(),
         wavelengthComparison: z.object({
-            fixedMinimumPathNm: z.literal(550),
+            // Authored rather than pinned: a second case comparing two path lengths has its own
+            // baseline, and `isAdvancedWavelengthUnlocked` reads this as a plain number. Young's 550
+            // is re-stated in the case-scoped refinement below.
+            //
+            // `advancedChoicesNm` stays pinned deliberately: it feeds `AppState.selectedWavelengthNm`,
+            // whose `450 | 550 | 650` union is persisted in `CaseRecordSchema` and cannot be widened
+            // without a record migration (`deferred-work.md`, deferred from this review).
+            fixedMinimumPathNm: z.number().positive().finite(),
             advancedChoicesNm: z.tuple([z.literal(450), z.literal(650)])
         }).strict().optional(),
         assumptions: LocalizedTextListSchema,
@@ -687,10 +745,83 @@ export const CaseDefinitionSchema = z.object({
         if (definition.flow.minimumExperimentCycles !== 2 || definition.flow.maximumExperimentCycles !== 4) {
             context.addIssue({ code: 'custom', message: 'The Young case runs two to four experiment cycles.', path: ['flow'] });
         }
+
+        // The comparison's baseline is authored in the shared shape, so Young's own 550 is pinned here
+        // beside its fixed wavelength rather than in the field schema.
+        if (definition.experiment.wavelengthComparison && definition.experiment.wavelengthComparison.fixedMinimumPathNm !== 550) {
+            context.addIssue({
+                code: 'custom',
+                message: 'The Young comparison measures against the fixed 550 nm path.',
+                path: ['experiment', 'wavelengthComparison', 'fixedMinimumPathNm']
+            });
+        }
+
+        // `criticalModelInputIds` is a free-form stable ID in the shared shape, because model inputs are
+        // each case's own model shape and no shared vocabulary exists to check against. For Young the
+        // vocabulary IS known — `YoungModelInputs` — so it is checked here. Without this, a single
+        // transposed letter (`wavelenghtNm`) loads clean and resolves to `UNRECORDED_INPUT` for every
+        // run, silently collapsing the wavelength dimension out of `configurationKey`: runs at 450 and
+        // 550 nm at one knob position count as one configuration, the gate quietly gets harder, and the
+        // printable record under-reports. The enum this replaced was the only thing holding it.
+        //
+        // A second case's model inputs stay unchecked until Story 3.2 gives the contract a way to
+        // declare them; that gap is recorded rather than closed by widening this list.
+        (definition.significanceRule.criticalModelInputIds ?? []).forEach((inputId, index) => {
+            if (!YOUNG_MODEL_INPUT_IDS.has(inputId)) {
+                context.addIssue({
+                    code: 'custom',
+                    message: 'The Young significance rule may only name a recorded Young model input.',
+                    path: ['significanceRule', 'criticalModelInputIds', index]
+                });
+            }
+        });
     }
 
     if (new Set(definition.contextualArtifacts.map((artifact) => artifact.id)).size !== definition.contextualArtifacts.length) {
         context.addIssue({ code: 'custom', message: 'Contextual artifact IDs must be stable and unique.', path: ['contextualArtifacts'] });
+    }
+
+    // --- Requirement counts against what the case can actually supply (Story 3.1 review) ------------
+    //
+    // The three counts were `z.literal(2)` beside a two-artifact tuple, so they were consistent by
+    // construction. Both sides were relaxed independently and nothing related them again — the same
+    // "can an author fill this in a way that makes the case unfinishable?" question the readiness and
+    // defensibility rules already ask, asked of the numbers.
+
+    if (definition.requirements.minimumSources > definition.contextualArtifacts.length) {
+        context.addIssue({
+            code: 'custom',
+            // `evaluateConclusionReadiness` counts *inspected authored* sources, so a requirement above
+            // the number authored can never be met and the theory board never unlocks.
+            message: 'The source requirement must not exceed the sources the case authors.',
+            path: ['requirements', 'minimumSources']
+        });
+    }
+
+    // The reachable configuration space is the product, over the controls the significance rule calls
+    // critical, of each control's distinct authored positions. A requirement above it makes
+    // `isSignificantMeasureGateMet` permanently false and leaves the colleague repeating a floor hint
+    // the player cannot act on.
+    //
+    // Controls only, deliberately: `criticalModelInputIds` can only *add* dimensions, so this bound is
+    // conservative. A case that reaches its count by varying a model input rather than a control would
+    // be rejected here — an accepted trade (review decision 4a, 2026-08-19), because a false rejection
+    // is an authoring error message and a false acceptance is an unfinishable case.
+    const criticalControls = definition.significanceRule.criticalControlIds
+        .map((controlId) => controls[controlId])
+        .filter((control): control is NonNullable<typeof control> => Boolean(control));
+    if (criticalControls.length === definition.significanceRule.criticalControlIds.length) {
+        const reachableConfigurations = criticalControls.reduce(
+            (total, control) => total * (Math.floor((control.max - control.min) / control.step) + 1),
+            1
+        );
+        if (definition.requirements.minimumSignificantRuns > reachableConfigurations) {
+            context.addIssue({
+                code: 'custom',
+                message: 'The significant-measure requirement must not exceed the configurations the authored controls can produce.',
+                path: ['requirements', 'minimumSignificantRuns']
+            });
+        }
     }
 
     // --- The neutral auto-summary (FR23, Story 3.1) -------------------------------------------------
@@ -702,15 +833,19 @@ export const CaseDefinitionSchema = z.object({
     // The failure mode this exists for: `interpolate` leaves an unknown `{token}` verbatim (its own
     // docstring, `translate.ts:39`), so a typo'd placeholder would print itself into the player's
     // printable record with nothing warning anyone. Named here, at load, once.
+    //
+    // `unfillableTemplateTokens` rather than a placeholder walk, because the first version of this check
+    // shared the composer's `\w+` and so was blind to every token an author is most likely to get wrong:
+    // `{run-count}` (this project's ids are kebab-case), `{ runCount }`, an unclosed `{runCount`, and
+    // `{{runCount}}` — which renders `{2}`. None were enumerated, so none were rejected, and each printed
+    // itself into the record the check exists to protect (review 2026-08-19).
     LOCALES.forEach((locale) => {
-        templatePlaceholders(definition.autoSummary[locale]).forEach((placeholder) => {
-            if (!(AUTO_SUMMARY_PLACEHOLDERS as readonly string[]).includes(placeholder)) {
-                context.addIssue({
-                    code: 'custom',
-                    message: `The auto-summary template names {${placeholder}}, which is not a value the summary can fill.`,
-                    path: ['autoSummary', locale]
-                });
-            }
+        unfillableTemplateTokens(definition.autoSummary[locale]).forEach((token) => {
+            context.addIssue({
+                code: 'custom',
+                message: `The auto-summary template names ${token}, which is not a value the summary can fill.`,
+                path: ['autoSummary', locale]
+            });
         });
     });
     if (encodesPath(definition.autoSummary)) {

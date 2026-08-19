@@ -859,6 +859,13 @@ export class ApparatusRenderer {
     private renderApparatusGeometry(state: AppState): void {
         const slitSpacing = state.activeControlValues.slitSpacingMm;
         const screenDistance = state.activeControlValues.screenDistanceM;
+        // Young's two control ids, written down. Until Story 3.1 the schema guaranteed they exist; the
+        // control set is now authored, so a case without them reads `undefined` here — and unlike the
+        // readouts this path does not throw, it computes `NaN` and calls `setY(NaN)` on the slits and the
+        // screen, which paints nothing and reports nothing. Leave the last good geometry standing instead;
+        // a bench for a second case is Story 3.2's work, and a silently blank apparatus would be a worse
+        // way to discover that than an unmoved one.
+        if (!Number.isFinite(slitSpacing) || !Number.isFinite(screenDistance)) return;
         const slitGapPx = 28 + ((slitSpacing - 0.1) / 0.4) * 92;
         this.screenX = screenXForDistance(screenDistance);
         this.slitTopY = CENTRE_Y - (slitGapPx / 2);

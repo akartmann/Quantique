@@ -1,4 +1,4 @@
-import { decimalPlaces, formatMeasurement } from '../i18n/formatNumber';
+import { decimalPlaces, formatMeasurement, formatNumber } from '../i18n/formatNumber';
 import { DEFAULT_LOCALE, type Locale } from '../i18n/Locale';
 import { resolveLocalizedText } from '../i18n/resolveLocalizedText';
 import { formatAttribution, type Attribution } from '../i18n/formatAttribution';
@@ -25,10 +25,33 @@ import type { CaseRecord } from '../../schemas/CaseRecordSchema';
 import type { RecognitionId, RecognitionItem, RecognitionState } from '../../domain/recognition/recognitionRules';
 import { evaluateContextReadiness, evaluatePredictionReadiness, type ContextReadiness, type PredictionReadiness } from '../../domain/cases/contextPredictionReadiness';
 
+/** The floor the record and the notebook already use for "nothing to show here", reused for parity. */
+const NOTHING_RECORDED = '—';
+
 export const selectLocale = (state: AppState): Locale => state.locale;
 
+/**
+ * An authored control, or `undefined` — the fallible seam.
+ *
+ * Added by the Story 3.1 review. `PrimaryControl['id']` was a two-member union until this story widened
+ * it to `string`, so `tsc` used to reject a call naming a control the case does not author; now it does
+ * not, and {@link selectPrimaryControl} throws. Presentation code must branch instead of throwing:
+ * a throw inside `render()` is inside `dispatch() → notify()`, where it advances the phase, skips every
+ * later subscriber and strands the router with no visible error (the 1.10 failure mode).
+ *
+ * Reach for this in anything a renderer calls. {@link selectPrimaryControl} stays for callers holding a
+ * genuine invariant.
+ */
+export const findPrimaryControl = (state: AppState, controlId: PrimaryControl['id']): PrimaryControl | undefined =>
+    state.caseDefinition.apparatus.primaryControls.find(({ id }) => id === controlId);
+
+/**
+ * An authored control, or a throw.
+ *
+ * **Not for render paths** — see {@link findPrimaryControl} for why, and prefer it there.
+ */
 export const selectPrimaryControl = (state: AppState, controlId: PrimaryControl['id']): PrimaryControl => {
-    const control = state.caseDefinition.apparatus.primaryControls.find(({ id }) => id === controlId);
+    const control = findPrimaryControl(state, controlId);
     if (!control) {
         throw new Error(`Unknown authored control: ${controlId}`);
     }
@@ -38,10 +61,22 @@ export const selectPrimaryControl = (state: AppState, controlId: PrimaryControl[
 export const selectControlValue = (state: AppState, controlId: PrimaryControl['id']): number =>
     state.activeControlValues[controlId];
 
-/** Locale-aware display of a bounded control value (AC6). The authored step still sets the precision. */
+/**
+ * Locale-aware display of a bounded control value (AC6). The authored step still sets the precision.
+ *
+ * **Total, not throwing** (Story 3.1 review): every caller is a renderer, and a control the case does not
+ * author now type-checks. An unauthored or unrecorded control reads as the canonical number, or as the
+ * "nothing recorded" dash — the same graceful degradation the notebook and the printable record already
+ * apply to a record they cannot fully describe. A missing control here means degraded state (a restored
+ * record against a changed `case.json`), never invalid authored content: the schema validates the
+ * authored set at load.
+ */
 export const selectFormattedControlValue = (state: AppState, controlId: PrimaryControl['id']): string => {
-    const control = selectPrimaryControl(state, controlId);
-    return formatMeasurement(selectLocale(state), selectControlValue(state, controlId), decimalPlaces(control.step), control.unit);
+    const control = findPrimaryControl(state, controlId);
+    const value = selectControlValue(state, controlId);
+    if (!Number.isFinite(value)) return NOTHING_RECORDED;
+    if (!control) return formatNumber(selectLocale(state), value, 0);
+    return formatMeasurement(selectLocale(state), value, decimalPlaces(control.step), control.unit);
 };
 
 /** The authored control name in the active language. SI unit symbols stay canonical. */
@@ -83,6 +118,19 @@ export const selectLocalizedError = (state: AppState, error: ResultError): strin
     const locale = selectLocale(state);
     if (error.code === 'missing-contextual-sources') {
         return translateError(locale, error, { label: selectMissingContextArtifactNames(state)[0] ?? '' });
+    }
+    // The refusal the player reads named "two" and "550 nm" as fixed prose, while the gate it explains
+    // had already become case-driven — so a case requiring three baseline runs refused the fourth click
+    // by telling the player to record two. The one copy of these two numbers the story set out to
+    // de-duplicate that it did not (review 2026-08-19).
+    //
+    // No plural form needed: `requirements.minimumRuns` has a floor of 2 in the schema, so `count` is
+    // never 1 in either locale.
+    if (error.code === 'advanced-wavelength-locked') {
+        return translateError(locale, error, {
+            count: formatNumber(locale, state.caseDefinition.requirements.minimumRuns, 0),
+            baseline: formatNumber(locale, state.caseDefinition.experiment.wavelengthComparison?.fixedMinimumPathNm ?? 0, 0)
+        });
     }
     return translateError(locale, error);
 };

@@ -6,7 +6,7 @@ import { LOCALES, type Locale } from '../../src/core/i18n/Locale';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 import {
     AUTO_SUMMARY_PLACEHOLDERS, composeCaseSummary, summaryValues, templatePlaceholders,
-    type CaseSummaryEvidence
+    unfillableTemplateTokens, type CaseSummaryEvidence
 } from '../../src/domain/evidence/caseSummary';
 import { createRunRecord, runControlContract, type RunRecord } from '../../src/domain/evidence/RunRecord';
 import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
@@ -54,6 +54,7 @@ describe('the neutral auto-summary', () => {
         expect(values).toEqual({
             runCount: '0',
             configurationCount: '0',
+            apparatusSettingCount: '0',
             sourceCount: '0',
             // The same "nothing here" floor `resolveLocalizedText` uses, so the record reads alike
             // throughout rather than printing an empty string or the word `undefined`.
@@ -167,5 +168,81 @@ describe('the neutral auto-summary', () => {
 
         authored.forEach((placeholder) => expect(AUTO_SUMMARY_PLACEHOLDERS).toContain(placeholder));
         expect([...AUTO_SUMMARY_PLACEHOLDERS].filter((placeholder) => !authored.has(placeholder))).toEqual([]);
+    });
+});
+
+/**
+ * The holes the Story 3.1 review found in the placeholder contract (2026-08-19).
+ *
+ * Each case below rendered a literal brace into the player's printable record before the fix, and each
+ * was invisible to the old check because validation and substitution shared the composer's `\w+`: the
+ * token was enumerated by neither, so there was nothing to reject and nothing to replace.
+ */
+describe('the placeholder contract, against what an author can actually write', () => {
+    it.each([
+        ['a kebab-case token, which is this project\'s own id convention', 'Observations: {run-count}.'],
+        ['a dotted token', 'Observations: {run.count}.'],
+        ['a padded token', 'Observations: { runCount }.'],
+        ['an unclosed token', 'Observations: {runCount.'],
+        // The inner token is well-formed, so the old validation passed it and substitution filled it —
+        // rendering `{2}`, with the outer braces surviving as text.
+        ['a doubled token', 'Observations: {{runCount}}.'],
+        ['a well-formed unknown token', 'Observations: {runsRecorded}.']
+    ])('rejects %s', (_case, template) => {
+        expect(unfillableTemplateTokens(template)).not.toEqual([]);
+    });
+
+    it('accepts every placeholder the composer can fill, and the shipped template', () => {
+        const everyToken = AUTO_SUMMARY_PLACEHOLDERS.map((name) => `{${name}}`).join(' ');
+
+        expect(unfillableTemplateTokens(everyToken)).toEqual([]);
+        LOCALES.forEach((locale) => {
+            expect(unfillableTemplateTokens(definition.autoSummary[locale])).toEqual([]);
+        });
+    });
+
+    it('never resolves a placeholder through the prototype chain', () => {
+        // `values['constructor']` is a function rather than nullish, so a `?? match` fallback let
+        // `{constructor}` render `function Object() { [native code] }` into the record. `Object.freeze`
+        // does not sever the prototype, so the own-property check is the guard.
+        const composed = composeCaseSummary(
+            { ...definition, autoSummary: { en: 'Observations: {constructor}.', fr: 'Observations : {constructor}.' } },
+            evidence(),
+            'en'
+        );
+
+        expect(composed).toBe('Observations: {constructor}.');
+        expect(composed).not.toContain('native code');
+    });
+
+    it('reports an unfillable token for both locales independently', () => {
+        // The French rendering is not a copy of the English one and can carry its own typo.
+        expect(unfillableTemplateTokens('Observations : {nombre-de-relevés}.')).not.toEqual([]);
+    });
+});
+
+/**
+ * Review decision 2c (2026-08-19): the record states configurations and apparatus settings separately,
+ * because Young's significance rule names the wavelength as well as the two knobs — so a configuration
+ * can change without the apparatus moving, and calling one the other told the player something they
+ * could contradict by looking at the bench.
+ */
+describe('apparatus settings against critical configurations', () => {
+    it('counts a new wavelength as a new configuration and the same apparatus setting', () => {
+        const sameKnobs = [
+            run('run-1', 0.25, 2),
+            { ...run('run-2', 0.25, 2), modelInputs: { slitSpacingMm: 0.25, screenDistanceM: 2, wavelengthNm: 450 as const, wavelengthMode: 'advanced' as const } }
+        ];
+        const values = summaryValues(definition, evidence({ runs: sameKnobs }), 'en');
+
+        expect(values.configurationCount).toBe('2');
+        expect(values.apparatusSettingCount).toBe('1');
+    });
+
+    it('counts a moved knob as both', () => {
+        const values = summaryValues(definition, evidence({ runs: [run('run-1', 0.25, 2), run('run-2', 0.35, 2)] }), 'en');
+
+        expect(values.configurationCount).toBe('2');
+        expect(values.apparatusSettingCount).toBe('2');
     });
 });

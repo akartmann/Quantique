@@ -61,6 +61,21 @@ export const countSignificantMeasures = (rule: SignificanceRule, runs: readonly 
     new Set(runs.map((run) => configurationKey(rule, run))).size;
 
 /**
+ * The number of distinct *apparatus* settings in `runs` — the critical controls alone.
+ *
+ * Deliberately not {@link countSignificantMeasures}. A configuration spans every dimension the rule
+ * names, including `criticalModelInputIds`; Young's rule names the wavelength, so two observations at
+ * one knob position and two wavelengths are two configurations and **one** apparatus setting. The
+ * neutral auto-summary states both, because calling the configuration count "apparatus settings" told
+ * the player their bench had moved when it had not (review decision 2c, 2026-08-19).
+ *
+ * Not a gate input: the significance gate is about configurations, and this exists only so the record
+ * can describe what the player did without over-claiming.
+ */
+export const countApparatusSettings = (rule: SignificanceRule, runs: readonly RunRecord[]): number =>
+    new Set(runs.map((run) => rule.criticalControlIds.map((controlId) => `${controlId}=${run.controls[controlId]}`).join('|'))).size;
+
+/**
  * Whether the recorded evidence clears the authored bar for unlocking the conclusion.
  *
  * The bar is read from `requirements.minimumSignificantRuns` rather than written as a literal, so

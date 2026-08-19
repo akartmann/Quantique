@@ -566,7 +566,13 @@ describe('portable case records', () => {
     it.each([
         ['a control value off its authored step', { slitSpacingMm: 0.27, screenDistanceM: 2 }],
         ['a control value outside its authored range', { slitSpacingMm: 0.25, screenDistanceM: 9 }],
-        ['a control the case does not author', { slitSpacingMm: 0.25, wanderingControl: 2 }],
+        // Two rows, because one row proved one thing. The original test carried the *authored* control set
+        // minus `screenDistanceM` plus a stray key, so it was caught by the missing-control path and would
+        // have stayed green with extra-key handling deleted entirely — which is exactly what happened
+        // (review 2026-08-19). The second row keeps the authored set **complete** and adds the stray, so
+        // only the key sweep can reject it.
+        ['a control the case does not author, beside a missing one', { slitSpacingMm: 0.25, wanderingControl: 2 }],
+        ['a control the case does not author, beside a complete authored set', { slitSpacingMm: 0.25, screenDistanceM: 2, wanderingControl: 2 }],
         ['a missing authored control', { slitSpacingMm: 0.25 }]
     ])('still rejects %s, now against the case’s own control set', (_description, activeControlValues) => {
         // The exact-key and in-bounds guarantees the `.strict()` two-key object held. They did not move

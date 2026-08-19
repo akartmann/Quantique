@@ -1,15 +1,15 @@
 ---
 project_name: 'Quantique'
 user_name: 'Alexis'
-date: '2026-08-06'
-revision: '2.4 — the case contract is shared, not Young-shaped'
-supersedes: '2.1 (2026-08-06, playable Phaser surface); 2.0 (2026-08-05, Phaser guided adventure); 1.0 (2026-08-04, dual-surface accessibility-first)'
+date: '2026-08-19'
+revision: '2.5 — the case contract is shared, and the guarantees the shapes were holding are re-stated'
+supersedes: '2.4 (2026-08-19, shared case contract); 2.3 (2026-08-07, DOM panels retired); 2.2 (2026-08-07, canvas intent completeness); 2.1 (2026-08-06, playable Phaser surface); 2.0 (2026-08-05, Phaser guided adventure); 1.0 (2026-08-04, dual-surface accessibility-first)'
 pivot_reference: 'planning-artifacts/sprint-change-proposal-2026-08-05.md'
 correction_reference: 'planning-artifacts/sprint-change-proposal-2026-08-06.md'
 sections_completed: ['technology_stack', 'engine_specific_rules', 'guided_adventure_rules', 'i18n_rules', 'performance_rules', 'organization_rules', 'testing_rules', 'platform_build_rules', 'critical_dont_miss_rules']
 existing_patterns_found: 14
 status: 'complete'
-rule_count: 73
+rule_count: 86  # counted, not estimated: `- ` rule bullets above §Usage Guidelines, plus 17 Don't-Miss rows
 optimized_for_llm: true
 ---
 
@@ -63,9 +63,11 @@ _Critical rules and patterns AI agents must follow when implementing game code h
 
 - **Everything is authored; nothing is freeform.** Scene order, dialogue beats, apparatus bounds, valid values, confounds, and outcomes all come from case data.
 - **The shared contract holds only what every case shares; per-case invariants live in a refinement branched on `id`** (Story 3.1). Young's exact FR7 bounds, its fixed 550 nm, its 2/2/2 requirement counts and its 2-to-4 cycle range are all enforced inside `if (definition.id === YOUNG_CASE_ID)` in `CaseDefinitionSchema`'s top-level `superRefine` — not as `z.literal`s in the shape, which would drag every later case into Young's specifics. At two cases a branch is the whole mechanism; **do not build a plugin or registry layer** for case-specific rules.
+- **Apply the re-statement rule to *every* shape you relax, not to the one you thought hardest about.** Story 3.1 re-stated the `primaryControls` tuple's guarantees exemplarily — `MAX_PRIMARY_CONTROLS` asserted against real bench geometry so the bound and its justification fail together — and then relaxed five more shapes and re-stated nothing for four of them: `contextualArtifacts` against a 2-row case file, the three `requirements` counts against what the case can supply, `criticalModelInputIds` against the model's own input names, and `activeControlValues` against the authored control set. Its review found all four. Make the list of relaxed shapes explicit in the story, and tick each one off.
+- **A comment claiming a guarantee is not a guarantee.** Three of those four shipped with a comment asserting the check existed — `activeControlValues`' said the validation loop rejected an unauthored key, and the loop iterates the definition, so such a key is structurally invisible to it. The test named for that case passed for a different reason. When you write "still rejected" in a comment, break the guard and watch the named test go red.
 - **When you relax a schema shape, find out what it was silently holding and re-state it.** The removed `z.tuple([PC, PC])` on `primaryControls` was the only thing keeping a third control off the wavelength chooser and duplicate control ids out of `activeControlValues`; both are now explicit (`MAX_PRIMARY_CONTROLS`, a uniqueness rule), and `MAX_PRIMARY_CONTROLS` is asserted against the real bench geometry so the bound and its justification fail together. What cannot be re-stated goes in `deferred-work.md` as newly reachable, with an owner.
 - **No authored content may leave a gate unsatisfiable.** Ask of every new field: *can an author fill this in a way that makes the case unfinishable?* If yes, refine it — at load, with the offending path named. The `colleagueHints` floor/order rules, the `reviewed`-needs-a-rendition rule and the "context readiness must be able to become ready" rule are all this one question, asked three times.
-- **The neutral auto-summary states what the player did and never evaluates it** (FR23). Counts, configurations, sources read — no "correct", no defensibility, no proposal ranking (ADR-006, UX-DR5). Its placeholder vocabulary is closed and validated at load, because `interpolate` leaves an unknown `{token}` verbatim and would print it into the player's record.
+- **The neutral auto-summary states what the player did and never evaluates it** (FR23). Counts, configurations, sources read — no "correct", no defensibility, no proposal ranking (ADR-006, UX-DR5). Its placeholder vocabulary is closed and validated at load, because `interpolate` leaves an unknown `{token}` verbatim and would print it into the player's record. **Validate on braces, not on `\w+`:** the first version of that check shared the composer's token regex, so `{run-count}`, `{ runCount }`, an unclosed `{runCount` and a doubled `{{runCount}}` were enumerated by neither validation nor substitution and each printed itself into the record (Story 3.1 review). Validation and substitution want opposite breadth — the composer fills only well-formed known tokens; validation must see everything an author might have meant as one.
 - Prediction **and** conclusion are each a choice of **1 of 4 colleague proposals**. Schemas use `.length(4)`, not `.min(4)` — the count is the design.
 - Choices are revisable: re-choosing must never fail on "already chosen".
 - Choosing a proposal sets **both** the proposal ID and the canonical text; any free-text path must **clear** the ID. Record validation enforces that a present ID matches its proposal's text.
@@ -145,6 +147,7 @@ _Quick index of the highest-cost mistakes. Each is stated in full in the section
 | Author a case field that nothing reads | Shipped-and-dead content, the same defect class as an unreachable intent | Guided-Adventure |
 | Relax a schema shape without asking what it was holding | The guarantee moves to nowhere and a renderer crash becomes reachable in silence | Guided-Adventure |
 | Write a case constant (`550`, a control id, a count) into code twice | Two copies of one rule drift, and the surface then paints a state the reducer refuses | Guided-Adventure |
+| Assume this rule is already satisfied — it is not | ~10 `550` literals survive in `AppState.ts`, `CaseRecordSchema.ts` and `ApparatusRenderer.ts`, plus the persisted `450\|550\|650` unions. The **gate** and the **refusal copy** are parameterised; the optical model is not. Do not add an eleventh | Guided-Adventure |
 | Register an animation loop for the experiment's light in `create()` | The light runs unattended and costs NFR1 budget for nothing | Engine |
 | Leave a transition reachable only from outside the canvas | The player reaches a phase they cannot leave | Guided-Adventure |
 | Add semantic HTML to reach parity with a Phaser control | Rebuilds the contract retired 2026-08-05 | Engine |
@@ -167,6 +170,8 @@ _Quick index of the highest-cost mistakes. Each is stated in full in the section
 
 **For Humans:** Keep this focused on project-specific agent guidance. Update it when the stack or architectural rules change; remove rules that become obvious or obsolete.
 
-**Last Updated:** 2026-08-19 (revision 2.4 — Story 3.1: the case contract is shared rather than Young-shaped. `id`, the control set, the wavelength, the artifact count and the requirement counts are no longer pinned in the shape; Young's own numbers are enforced in a refinement branched on its `id`. `case.json` is 1.17.0 and adds the neutral auto-summary, read in the printable record. `CaseRecordSchema`'s `caseId` and both control shapes are relaxed — record `schemaVersion` stays 3 and `migrateCaseRecord.ts` is untouched)
+**Last Updated:** 2026-08-19 (revision 2.5 — Story 3.1 **code review**: the four un-re-stated guarantees above are now enforced — an artifact ceiling, `minimumSources` against authored sources, `minimumSignificantRuns` against the reachable configuration space, Young's model-input names, and the unauthored-key sweep on `activeControlValues`. The auto-summary validates on braces rather than `\w+`, states apparatus settings and configurations separately, and the wavelength refusal interpolates the case's own numbers. `case.json` is **1.18.0**. `selectPrimaryControl` gained a fallible `findPrimaryControl` seam and the three Young-control-id render paths are guarded. `tsconfig.test.json` puts `tests/` in a compiler program for the first time — `npm run typecheck:tests` is red with 106 pre-existing errors and is deliberately not gated in CI; see `deferred-work.md`.)
+
+**Previous:** 2026-08-19 (revision 2.4 — Story 3.1: the case contract is shared rather than Young-shaped. `id`, the control set, the wavelength, the artifact count and the requirement counts are no longer pinned in the shape; Young's own numbers are enforced in a refinement branched on its `id`. `case.json` is 1.17.0 and adds the neutral auto-summary, read in the printable record. `CaseRecordSchema`'s `caseId` and both control shapes are relaxed — record `schemaVersion` stays 3 and `migrateCaseRecord.ts` is untouched)
 
 **Previous:** 2026-08-07 (revision 2.3 — Story 2.12: the DOM presentation panels are deleted, three non-Phaser modules remain, the sub-768px suppression is gone, and the canvas is the whole page behind an entry gate that disables Phaser input as well as covering it)

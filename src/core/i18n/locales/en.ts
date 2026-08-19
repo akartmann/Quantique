@@ -447,7 +447,7 @@ export const en = {
     'error.mismatched-experiment-record': 'The observation does not match the current validated experiment setup.',
     'error.uninspected-linked-evidence': 'Linked evidence must be inspected before recording an observation.',
     'error.unavailable-wavelength': 'That authored wavelength comparison is unavailable.',
-    'error.advanced-wavelength-locked': 'Record two fixed 550 nm observations before using the optional wavelength comparison.',
+    'error.advanced-wavelength-locked': 'Record {count} fixed {baseline} nm observations before using the optional wavelength comparison.',
     'error.unknown-run-id': 'That observation is unavailable for comparison.',
     'error.duplicate-comparison-run': 'Choose two different observations to compare.',
     'error.too-many-comparison-runs': 'Choose only two observations to compare at once.',

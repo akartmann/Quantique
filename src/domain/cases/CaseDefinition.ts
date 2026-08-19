@@ -98,7 +98,10 @@ export type PrimaryControl = Readonly<{
 export type WavelengthMode = 'minimum' | 'advanced';
 
 export type WavelengthComparison = Readonly<{
-    fixedMinimumPathNm: 550;
+    // Authored, not pinned (Story 3.1 review): a second case comparing path lengths has its own
+    // baseline. `advancedChoicesNm` stays a literal pair because it feeds the persisted
+    // `450 | 550 | 650` union, which cannot widen without a record migration.
+    fixedMinimumPathNm: number;
     advancedChoicesNm: readonly [450, 650];
 }>;
 

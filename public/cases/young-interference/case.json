@@ -1,6 +1,6 @@
 {
   "id": "young-interference",
-  "version": "1.17.0",
+  "version": "1.18.0",
   "openingDispute": {
     "en": "Does light travel as particles, waves, or something more subtle?",
     "fr": "La lumière se propage-t-elle comme des particules, comme des ondes, ou d’une manière plus subtile ?"
@@ -1502,8 +1502,8 @@
     "optionalReplay": true
   },
   "autoSummary": {
-    "en": "Observations recorded: {runCount}. Distinct apparatus settings among them: {configurationCount}. Sources read: {sourceCount}. Sources named in this record: {sourceNames}. Revisions of the conclusion recorded: {revisionCount}.",
-    "fr": "Observations enregistrées : {runCount}. Réglages distincts de l’appareil parmi elles : {configurationCount}. Sources consultées : {sourceCount}. Sources citées dans ce dossier : {sourceNames}. Révisions de la conclusion enregistrées : {revisionCount}."
+    "en": "Observations recorded: {runCount}. Distinct apparatus settings among them: {apparatusSettingCount}. Distinct recorded configurations, counting the light used: {configurationCount}. Sources read: {sourceCount}. Sources named in this record: {sourceNames}. Conclusion versions recorded: {revisionCount}.",
+    "fr": "Observations enregistrées : {runCount}. Réglages distincts de l’appareil parmi elles : {apparatusSettingCount}. Configurations distinctes enregistrées, lumière comprise : {configurationCount}. Sources consultées : {sourceCount}. Sources citées dans ce dossier : {sourceNames}. Versions de la conclusion enregistrées : {revisionCount}."
   },
   "scenarioScript": {
     "scenes": [
