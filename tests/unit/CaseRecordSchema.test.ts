@@ -543,7 +543,7 @@ describe('portable case records', () => {
             ...definition,
             id: 'morley-drift-bench',
             apparatus: { primaryControls: [
-                { id: 'rotationDeg', label: { en: 'Bench rotation', fr: 'Rotation du banc' }, unit: '°', min: 0, max: 90, step: 15, defaultValue: 45 }
+                { id: 'rotationDeg', label: { en: 'Bench rotation', fr: 'Rotation du banc' }, inlineLabel: { en: 'bench rotation', fr: 'de rotation du banc' }, unit: '°', min: 0, max: 90, step: 15, defaultValue: 45 }
             ] },
             significanceRule: { criticalControlIds: ['rotationDeg'] }
         } as CaseDefinition;

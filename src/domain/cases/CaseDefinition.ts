@@ -44,10 +44,13 @@ export type TextualRenditionSection = Readonly<{
 export type LocalizedTextualRendition = Readonly<{
     locale: RenditionLocale;
     /**
-     * `transcription` reproduces the printed source as published. `translation` is a modern rendering
-     * of that transcription — useful to read, but not the source of record, and never presented as it.
+     * `transcription` reproduces the printed source as published. `reconstruction` stands in for a
+     * source rather than reproducing one — prose written for the investigation, which must say so
+     * rather than borrowing a transcription's authority (review 2026-08-19). Exactly one of those two
+     * is the rendition *of record*. `translation` is a modern rendering of it — useful to read, but not
+     * the source of record, and never presented as it.
      */
-    kind: 'transcription' | 'translation';
+    kind: 'transcription' | 'translation' | 'reconstruction';
     sections: readonly TextualRenditionSection[];
 }>;
 
@@ -87,6 +90,11 @@ export type PrimaryControl = Readonly<{
      */
     id: string;
     label: LocalizedText;
+    /**
+     * The control's name as it reads inside running prose, carrying its own preposition and case —
+     * `"d'écartement des fentes"`, not `"Écartement des fentes"`. See `CaseDefinitionSchema`.
+     */
+    inlineLabel: LocalizedText;
     /** Canonical: SI unit symbols are identical in French. */
     unit: string;
     min: number;

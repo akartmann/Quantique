@@ -74,25 +74,43 @@ describe('the bench states the case\'s own apparatus', () => {
         // `formatMeasurement` puts its locale separator before every unit, which is right for `°C` and
         // wrong for an arc degree. Shared with Young's rendering, so it is asserted as it is and
         // recorded as a typography gap for the bench work of Story 4.2 rather than changed here.
-        expect(idle).toBe('The bench is dark at 0 ° Bench rotation, 22.0 °C Bath temperature. Start the light to record an observation.');
+        // The **inline** forms — lowercase, and in French carrying their own preposition and elision.
+        // This asserted the capitalised *display* labels spliced mid-sentence until the review of 3.2,
+        // which is what the sentence actually rendered and what made the French ungrammatical; the row
+        // pinned the defect rather than the intent (review 2026-08-19).
+        //
+        // `formatMeasurement` puts its locale separator before every unit, which is right for `°C` and
+        // wrong for an arc degree. Shared with Young's rendering, so it is asserted as it is and
+        // recorded as a typography gap for the bench work of Story 4.2 rather than changed here.
+        expect(idle).toBe('The bench is dark at 0 ° bench rotation, 22.0 °C bath temperature. Start the light to record an observation.');
         expect(idle).not.toContain('slit spacing');
         expect(idle).not.toContain('screen distance');
+        // No capital reaches the middle of the sentence.
+        expect(idle).not.toContain('Bench rotation');
+        expect(idle).not.toContain('Bath temperature');
     });
 
     it('still names Young\'s two quantities for Young', () => {
         const ui = mount(storeAtTheBench(young));
         const idle = ui.texts().find((text) => text.includes('The bench is dark'));
 
-        expect(idle).toContain('Slit spacing');
-        expect(idle).toContain('Screen distance');
+        // Young's own inline forms, on content that had already shipped: the composed sentence is the
+        // one surface where the display labels were wrong, and this is the regression that caught it.
+        expect(idle).toBe('The bench is dark at 0.25 mm slit spacing, 2.00 m screen distance. Start the light to record an observation.');
     });
 
     it('states the prototype\'s controls in French', () => {
         const ui = mount(storeAtTheBench(prototype, 'fr'));
         const idle = ui.texts().find((text) => text.includes('La paillasse est éteinte'));
 
-        expect(idle).toContain('Rotation du banc');
-        expect(idle).toContain('Température du bain');
+        // The whole composed sentence, in French, asserted exactly — not two `toContain`s that a
+        // capital and a missing elision both slipped through. "de Écartement des fentes" was the shipped
+        // output for Young; correct French needs the preposition authored with the label.
+        // `\u202f` is the narrow no-break space `formatMeasurement` puts before a unit in French. Written
+        // as an escape so the expectation cannot be silently "fixed" by pasting an ordinary space.
+        expect(idle).toBe('La paillasse est éteinte : 0\u202f° de rotation du banc, 22,0\u202f°C de température du bain. Allumez la source pour enregistrer une observation.');
+        expect(idle).not.toContain('de Rotation');
+        expect(idle).not.toContain('de Température');
     });
 
     it('shows the investigation\'s own authored title in both languages', () => {
@@ -112,6 +130,53 @@ describe('the bench reports a run it has no Young model inputs for', () => {
     };
 
     /**
+     * **The screen, not the sentence.** (Review 2026-08-19.)
+     *
+     * `paintFringes()` has one call site, inside `renderApparatusGeometry`, which returned at its
+     * `!Number.isFinite(slitSpacing)` guard before reaching it — while `paintLight`'s `dark` flag had
+     * already decided the bench was lit. A prototype run therefore played a full 2.4 s ignition, beam
+     * and wavefronts included, and resolved onto a `fringeGraphics` nothing had filled. 1334 tests were
+     * green: every bench test in this file asserts `texts()`, and the e2e walk states in its own header
+     * that it asserts no rendered string.
+     *
+     * `commands` counts fill/stroke calls issued since the last `clear()`, so "the screen is blank" is
+     * an assertion here rather than a screenshot.
+     */
+    it('paints the prototype\'s screen after a run, not just its readout', () => {
+        const ui = mount(recordOneRun(prototype));
+        const fringes = ui.ofKind('graphics')[0]!;
+
+        expect(fringes.state.commands).toBeGreaterThan(0);
+        expect(fringes.state.visible).toBe(true);
+    });
+
+    it('leaves the prototype\'s screen blank until a run is recorded', () => {
+        const ui = mount(storeAtTheBench(prototype));
+        const fringes = ui.ofKind('graphics')[0]!;
+
+        expect(fringes.state.commands).toBe(0);
+    });
+
+    it('still paints Young\'s screen from its own recorded spacing', () => {
+        const ui = mount(recordOneRun(young));
+        const fringes = ui.ofKind('graphics')[0]!;
+
+        expect(fringes.state.commands).toBeGreaterThan(0);
+    });
+
+    /**
+     * `ExperimentResult.unit` is canonical English and persisted, exactly like `label` — which Story 3.2
+     * localized by a model-declared key while leaving the unit beside it untranslated, so the French
+     * bench read "0,1100 fringe widths" (review 2026-08-19).
+     */
+    it('localizes the result unit, not only the result label', () => {
+        const texts = mount(recordOneRun(prototype, 'fr')).texts();
+
+        expect(texts.some((text) => text.includes('largeurs de frange'))).toBe(true);
+        expect(texts.some((text) => text.includes('fringe widths'))).toBe(false);
+    });
+
+    /**
      * The readout was gated on `latest?.modelInputs`, so a recorded run without them fell through to
      * `lab.result.emptyHint`: the bench said nothing had been recorded over an observation that was
      * already in the notebook.
@@ -121,7 +186,9 @@ describe('the bench reports a run it has no Young model inputs for', () => {
         const texts = ui.texts();
 
         expect(texts).toContain('Recorded Fringe displacement: 0.11 fringe widths.');
-        expect(texts.some((text) => text.includes('No fringe spacing recorded yet'))).toBe(false);
+        // The empty-state hint itself is no longer Young-worded (review 2026-08-19), so this asserts the
+        // string that actually ships — a stale literal here would pass whatever the bench said.
+        expect(texts.some((text) => text.includes('No measurement recorded yet'))).toBe(false);
     });
 
     it('localizes that result label rather than printing the canonical English', () => {

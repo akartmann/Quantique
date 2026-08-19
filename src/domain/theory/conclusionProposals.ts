@@ -33,6 +33,17 @@ export const evaluateSupportPredicate = (
             // Distinct *recorded* values, so two runs at the same setting read as a replication
             // rather than a variation — which is the distinction the claim depends on.
             return new Set(evidence.runs.map((run) => run.controls[predicate.controlId])).size >= 2;
+        case 'unvaried-control-pinned': {
+            // **Fails closed on an absent pinned set.** A caller that did not say which runs were pinned
+            // cannot have this claim defended for it; passing would be a silent degradation.
+            const selected = evidence.selectedRunIds;
+            if (!selected) return false;
+            const pinned = evidence.runs.filter((run) => selected.includes(run.id));
+            // `pinned.length > 0` for the same reason the colleague hint checks it: with nothing pinned
+            // every control is trivially unvaried, and a claim must not be defensible on no evidence.
+            return pinned.length > 0
+                && new Set(pinned.map((run) => run.controls[predicate.controlId])).size === 1;
+        }
         case 'inspected-source':
             return evidence.inspectedSourceIds.includes(predicate.sourceId);
         case 'all-of':

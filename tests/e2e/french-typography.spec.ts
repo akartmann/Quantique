@@ -278,7 +278,6 @@ const ADVANCE_CONTROLS = [
  * than its bound is the overflow that actually clips.
  */
 const WRAPPED_SURFACES = [
-    { key: 'lab.title', font: UI_FONT_STACK, fontSize: 24, wrapWidth: 900 },
     ...ADVANCE_CONTROLS.map(({ key, bound }) => ({
         key, font: UI_FONT_STACK, fontSize: ADVANCE_CONTROL_FONT_SIZE, wrapWidth: bound
     })),
@@ -311,6 +310,9 @@ const WRAPPED_SURFACES = [
     { key: 'notebook.guide', font: UI_FONT_STACK, fontSize: NOTEBOOK_GUIDE_FONT_SIZE, wrapWidth: NOTEBOOK_PANEL_WIDTH - (2 * NOTEBOOK_PADDING) },
     { key: 'notebook.empty', font: UI_FONT_STACK, fontSize: NOTEBOOK_GUIDE_FONT_SIZE, wrapWidth: NOTEBOOK_PANEL_WIDTH - (2 * NOTEBOOK_PADDING) },
     { key: 'notebook.observation', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_FONT_SIZE, wrapWidth: NOTEBOOK_ROW_TEXT_WRAP },
+    // The separator alone is three characters; measuring it was not coverage of the row it joins. The
+    // composed row is swept as a literal below, because it is built from `case.json` rather than from a
+    // single bundle key (review 2026-08-19).
     { key: 'notebook.row.settingsSeparator', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_FONT_SIZE, wrapWidth: NOTEBOOK_ROW_TEXT_WRAP },
     { key: 'notebook.row.result', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_META_FONT_SIZE, wrapWidth: NOTEBOOK_ROW_TEXT_WRAP },
     { key: 'notebook.row.meta', font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_META_FONT_SIZE, wrapWidth: NOTEBOOK_ROW_TEXT_WRAP },
@@ -396,7 +398,7 @@ const caseDefinition = JSON.parse(
 ) as {
     contextualArtifacts: { id: string; displayName: { en: string; fr: string }; caseRelationship: { en: string; fr: string } }[];
     readingGateHints: { id: string; line: { en: string; fr: string } }[];
-    apparatus: { primaryControls: { label: { fr: string } }[] };
+    apparatus: { primaryControls: { label: { fr: string }; inlineLabel: { fr: string } }[] };
     // The bench's authored wavelengths and its model version, both of which reach a fixed-height
     // label or a fixed row on the notebook (Story 2.10).
     experiment: {
@@ -422,6 +424,31 @@ const longestFrench = (values: readonly string[]): string =>
 
 const SOURCE_NAME = longestFrench(caseDefinition.contextualArtifacts.map(({ displayName }) => displayName.fr));
 const CONTROL_LABEL = longestFrench(caseDefinition.apparatus.primaryControls.map(({ label }) => label.fr));
+/**
+ * The widest authored *inline* label, and the whole composed settings clause.
+ *
+ * `lab.idle` was sampled as `` `${CONTROL_LABEL} : 0,25 mm` `` with a comment claiming it was "the same
+ * shape `ApparatusRenderer` builds from `apparatus.primaryControls`". It was not: that is
+ * `lab.control.readout`'s shape, reversed, and it carried **one** control where the renderer joins one
+ * fragment per authored control. The sampled string was roughly half the length of the sentence that
+ * actually renders, so the 620px bound was never exercised against it (review 2026-08-19).
+ */
+const CONTROL_INLINE_LABEL = longestFrench(caseDefinition.apparatus.primaryControls.map(({ inlineLabel }) => inlineLabel.fr));
+const IDLE_SETTINGS_CLAUSE = caseDefinition.apparatus.primaryControls
+    .map(({ inlineLabel }) => `0,25 mm ${inlineLabel.fr}`)
+    .join(fr['list.separator']);
+/** Every shipped case's authored title, in both locales — the surface that replaced `lab.title`. */
+const CASE_TITLES = ['young-interference', 'morley-miller'].flatMap((caseId) => {
+    const definition = JSON.parse(
+        readFileSync(new URL(`../../public/cases/${caseId}/case.json`, import.meta.url), 'utf-8')
+    ) as { title: { en: string; fr: string } };
+    return (['en', 'fr'] as const).map((locale) => ({ caseId, locale, text: definition.title[locale] }));
+});
+
+/** The notebook's settings row: one readout per authored control, at the row's own size and wrap. */
+const NOTEBOOK_SETTINGS_ROW = caseDefinition.apparatus.primaryControls
+    .map(({ label }) => `${label.fr} : 0,25 mm`)
+    .join(fr['notebook.row.settingsSeparator']);
 const SPACING = '0,2200 mm';
 
 const COLLEAGUE_NAME = longestFrench(caseDefinition.colleagues.map(({ name }) => name));
@@ -543,10 +570,15 @@ const WAVELENGTH_SAMPLE = Math.max(
 const SAMPLE_PARAMS: Readonly<Record<string, Readonly<Record<string, string | number>>>> = {
     'lab.result.recorded': { value: SPACING, wavelength: 550, mode: fr['lab.wavelengthMode.minimum'] },
     'lab.result.stale': { value: SPACING },
-    // The composed settings clause, at the widest authored control this case carries — the same shape
-    // `ApparatusRenderer` builds from `apparatus.primaryControls`.
-    'lab.idle': { settings: `${CONTROL_LABEL} : 0,25 mm` },
-    'lab.idle.setting': { value: '0,25 mm', label: CONTROL_LABEL },
+    // The composed settings clause: one `lab.idle.setting` per authored control, joined with
+    // `list.separator` — the shape `ApparatusRenderer` actually builds. This was
+    // `` `${CONTROL_LABEL} : 0,25 mm` ``, which is `lab.control.readout`'s shape reversed and carried
+    // one control where the renderer joins all of them, so the 620px bound was never exercised against
+    // the sentence that renders (review 2026-08-19).
+    'lab.idle': { settings: IDLE_SETTINGS_CLAUSE },
+    // `inlineLabel`, not `label`: the template takes the authored inline form now, and a stale `label`
+    // key here would leave `{inlineLabel}` unsubstituted and measure the placeholder.
+    'lab.idle.setting': { value: '0,25 mm', inlineLabel: CONTROL_INLINE_LABEL },
     'lab.pattern.recorded': { label: fr['experiment.result.fringeSpacing'], value: SPACING },
     'lab.control.readout': { label: CONTROL_LABEL, value: '0,25 mm' },
     'lab.wavelength.fixed': { value: WAVELENGTH_SAMPLE },
@@ -682,6 +714,43 @@ test('keeps every French string inside the wrap bound of the surface that holds 
  * the role, so a label that wraps to two is drawn over the figure below it or over the guide. The
  * roles are swept as interface copy in the fixed-height table; these are the authored proper nouns.
  */
+/**
+ * The two surfaces whose bounds this sweep lost when their key changed.
+ *
+ * `lab.title` was removed from the bundle in the review of 3.2 — the laboratory shows the case's own
+ * authored `title` — so the entry measuring it was measuring a string nothing draws, which is the exact
+ * failure this file's own comment warns about ("One string measured at a size nothing draws it in is a
+ * bound that does not describe the surface"). The authored titles that replaced it were unmeasured, in
+ * **both** cases, and a second case is precisely where a longer title arrives.
+ *
+ * The notebook's settings row is composed from `case.json` rather than from one bundle key, so it is
+ * swept here as a literal: `notebook.row.settingsSeparator` had replaced a composed two-readout sample
+ * with the three-character separator, and the row it joins had no width coverage at all.
+ */
+test('keeps the authored case titles and the composed notebook settings row inside their bounds', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
+
+    const titles = CASE_TITLES.flatMap(({ caseId, locale, text }) =>
+        text.split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({
+            label: `${caseId}.title.${locale}`, bound: 900,
+            sample: { font: UI_FONT_STACK, fontSize: 24, text: token }
+        })));
+    const settingsRow = NOTEBOOK_SETTINGS_ROW.split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({
+        label: 'notebook settings row', bound: NOTEBOOK_ROW_TEXT_WRAP,
+        sample: { font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_FONT_SIZE, text: token }
+    }));
+    const cases = [...titles, ...settingsRow];
+    const widths = await measure(page, cases.map(({ sample }) => sample));
+
+    const overflowing = cases
+        .map((entry, index) => ({ ...entry, width: widths[index] }))
+        .filter(({ width, bound }) => width > bound)
+        .map(({ label, sample, width }) => `${label}: "${sample.text}" (${Math.round(width)}px)`);
+
+    expect(overflowing).toEqual([]);
+});
+
 test('keeps every colleague name on one line of its figure plaque', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();

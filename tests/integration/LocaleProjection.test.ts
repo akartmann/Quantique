@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { resolveBrowserLocale } from '../../src/core/i18n/resolveBrowserLocale';
 import { createTranslator } from '../../src/core/i18n/translate';
+import { resolveLocalizedText } from '../../src/core/i18n/resolveLocalizedText';
 import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore, type AppStore } from '../../src/core/store/createStore';
 import {
@@ -30,20 +31,29 @@ const definition = {
         { id: 'young-lecture-1801', displayName: { en: 'Young lecture record', fr: 'Compte rendu de la conférence de Young' }, creatorOrOrigin: 'Archive', sourceType: 'lecture-record', provenance: { category: 'primary-material', reference: 'young' }, rightsStatus: 'reviewed', caseRelationship: { en: 'Evidence.', fr: 'Preuve.' } },
         { id: 'newton-opticks', displayName: { en: 'Opticks reference', fr: 'Référence à l’Opticks' }, creatorOrOrigin: 'Archive', sourceType: 'published-book', provenance: { category: 'primary-material', reference: 'opticks' }, rightsStatus: 'reviewed', caseRelationship: { en: 'Evidence.', fr: 'Preuve.' } }
     ],
-    experiment: { modelId: 'young-double-slit', modelVersion: 'young-double-slit-v1' }
+    experiment: { modelId: 'young-double-slit', modelVersion: 'young-double-slit-v1' },
+    // The investigation's own authored name. The renderer reads *this*, not `lab.title` — which is why
+    // the fixture has to carry it (review 2026-08-19).
+    title: { en: 'Young interference — the optical bench', fr: 'Interférences de Young — la paillasse optique' }
 } as unknown as CaseDefinition;
 
 /**
  * A minimal stand-in for a renderer: it re-reads its text from the store on every notification,
  * exactly as `ApparatusRenderer.render` does. Keeping the fake at that contract lets the test assert
  * the rendering path without a real `Phaser.Game`, which has no canvas under Vitest.
+ *
+ * **The heading is the case's authored `title`, resolved for the active locale.** It read
+ * `t('lab.title')` until the review of 3.2 — an interface key `ApparatusRenderer` stopped reading in
+ * that story, so this stub's docstring claim ("exactly as `ApparatusRenderer.render` does") had become
+ * false and the assertion below was pinning a value the fixture never supplied. That is the failure mode
+ * this project keeps finding: a test asserting on a stub rather than the path it names.
  */
 const mountFakeSceneRenderer = (store: AppStore) => {
     const painted: string[] = [];
     const render = (): void => {
         const state = store.getState();
         const t = createTranslator(selectLocale(state));
-        painted.push(`${t('lab.title')} | ${t('lab.control.readout', {
+        painted.push(`${resolveLocalizedText(state.caseDefinition.title, selectLocale(state))} | ${t('lab.control.readout', {
             label: selectControlLabel(state, 'slitSpacingMm'),
             value: selectFormattedControlValue(state, 'slitSpacingMm')
         })}`);

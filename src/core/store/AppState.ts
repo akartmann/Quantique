@@ -717,7 +717,10 @@ const reduceTheoryConclusionSubmit = (state: AppState, timestamp: string): Resul
     const defensible = selectDefensibleConclusionIds(state.caseDefinition, {
         runs: state.runs,
         inspectedSourceIds: state.inspectedSourceIds,
-        comparisonNotes: state.comparison.notes
+        comparisonNotes: state.comparison.notes,
+        // What the player pinned to this conclusion, for the predicates that judge a claim on its own
+        // supporting evidence rather than on the whole notebook (code review 2026-08-19).
+        selectedRunIds: state.theory.selectedRunIds
     });
     if (defensible.includes(state.selectedConclusionProposalId)) {
         return { ok: true, value: freezeState({ ...state, rivalLabCritique: undefined }) };

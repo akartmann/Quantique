@@ -6,6 +6,7 @@ import {
     ORIENTATION_AMPLITUDE, STABLE_WINDOW_C, THERMAL_COEFFICIENT, calculateInterferometerDrift
 } from '../../src/domain/apparatus/calculateInterferometerDrift';
 import { calculateYoungFringeSpacing } from '../../src/domain/apparatus/calculateYoungFringeSpacing';
+import { decimalPlaces } from '../../src/core/i18n/formatNumber';
 import {
     EXPERIMENT_MODEL_IDS, isExperimentModelId, resolveExperimentModel
 } from '../../src/domain/apparatus/experimentModels';
@@ -112,7 +113,24 @@ describe('the interferometer drift model', () => {
 
     it('rounds for storage exactly as the Young calculator does', () => {
         // Four decimals, the shared precision — two would be two ways to render one observation.
-        expect(drift(37, 21.3)).toBe(Number(drift(37, 21.3).toFixed(4)));
+        //
+        // Asserted against the **literal** stored value. This compared the function's output to itself
+        // re-rounded until the review of 3.2, which is green for any rounding coarser than the one it
+        // names: at three, two, one or zero decimals `0.1` still equals `Number((0.1).toFixed(4))`, so
+        // the row detected only the total absence of rounding. The raw term is 0.06775637355817003.
+        expect(drift(37, 21.3)).toBe(0.0678);
+        // And the claim in the title: the same precision the Young calculator stores at, which this row
+        // never actually referenced.
+        const young = calculateYoungFringeSpacing({ slitSpacingMm: 0.25, screenDistanceM: 2, wavelengthNm: 550 });
+        expect(young.ok).toBe(true);
+        if (young.ok) {
+            expect(decimalPlaces(young.value.value)).toBeLessThanOrEqual(4);
+            expect(young.value.value).toBe(Number(young.value.value.toFixed(4)));
+        }
+        // -0 never reaches storage: `cos(270°)` is -1.84e-16, and `(-0).toString()` is "0", so the
+        // formatter would print "-0" at zero decimals beside every other run's four (review 2026-08-19).
+        expect(Object.is(drift(135, STABLE_WINDOW_C), -0)).toBe(false);
+        expect(drift(135, STABLE_WINDOW_C)).toBe(0);
     });
 
     it('refuses inputs it cannot compute from', () => {

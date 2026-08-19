@@ -1,6 +1,6 @@
 import { calculateInterferometerDrift, INTERFEROMETER_CONTROL_IDS } from './calculateInterferometerDrift';
 import { calculateYoungFringeSpacing, YOUNG_CONTROL_IDS } from './calculateYoungFringeSpacing';
-import type { TranslationKey } from '../../core/i18n/translate';
+import type { TranslationKey, Translator } from '../../core/i18n/translate';
 import type { WavelengthMode } from '../cases/CaseDefinition';
 import type { CalculateExperimentResult, RunRecord } from '../evidence/RunRecord';
 
@@ -62,6 +62,16 @@ export type ExperimentModel = Readonly<{
      * string exists in one language only").
      */
     resultLabelKey: TranslationKey;
+    /**
+     * The interface key for this model's result *unit*, when that unit is prose rather than a symbol.
+     *
+     * Same split as {@link ExperimentModel.resultLabelKey}, for the half that was missed: the label was
+     * localized by key while `ExperimentResult.unit` — equally canonical, equally persisted — was
+     * rendered straight from the record, so the French bench read "0,1100 fringe widths" (review
+     * 2026-08-19). Omitted where the unit is an SI symbol (`mm`, `m`, `°C`), which every locale writes
+     * the same way and which `formatMeasurement` is already licensed to pass through untranslated.
+     */
+    resultUnitKey?: TranslationKey;
     /** Binds whatever the model needs beyond the bench, yielding the pure controls→result seam. */
     bind: (session: ExperimentModelSession) => CalculateExperimentResult;
     /**
@@ -97,6 +107,8 @@ const MORLEY_MILLER_INTERFEROMETER: ExperimentModel = Object.freeze({
     id: 'morley-miller-interferometer',
     requiredControlIds: INTERFEROMETER_CONTROL_IDS,
     resultLabelKey: 'experiment.result.fringeDisplacement',
+    // 'fringe widths' is English prose, not an SI symbol, so unlike Young's `mm` it needs a key.
+    resultUnitKey: 'experiment.unit.fringeWidths',
     // The session is ignored on purpose: this apparatus has no wavelength to select, which is the whole
     // reason `experiment.wavelengthNm` had to become optional in the shared contract.
     bind: () => calculateInterferometerDrift
@@ -119,3 +131,15 @@ export const isExperimentModelId = (modelId: string): modelId is ExperimentModel
  */
 export const resolveExperimentModel = (modelId: string): ExperimentModel | undefined =>
     isExperimentModelId(modelId) ? MODELS[modelId] : undefined;
+
+
+/**
+ * The unit to *show* for a recorded result: the model's declared key where it has one, else the
+ * canonical unit the run persisted.
+ *
+ * Takes the already-version-matched model so every surface applies one rule. Pass `undefined` when the
+ * run's `experimentModelVersion` does not match the case's — a run from another model keeps its own
+ * canonical unit rather than borrowing this build's word for it.
+ */
+export const resolveResultUnit = (model: ExperimentModel | undefined, canonicalUnit: string, t: Translator): string =>
+    model?.resultUnitKey ? t(model.resultUnitKey) : canonicalUnit;

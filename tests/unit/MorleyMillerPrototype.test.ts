@@ -3,8 +3,10 @@ import { readdir, readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 
 import { createInitialAppState, reduceAppState, type AppState } from '../../src/core/store/AppState';
+import { createCaseRecordProjection } from '../../src/core/store/CaseRecordProjection';
+import { validateCaseRecordForDefinition } from '../../src/schemas/CaseRecordSchema';
 import { createStore } from '../../src/core/store/createStore';
-import { selectConclusionReadiness } from '../../src/core/store/selectors';
+import { selectConclusionReadiness, selectDefensibleConclusionProposalIds } from '../../src/core/store/selectors';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 import { CaseDefinitionSchema, KNOWN_CASE_IDS, MORLEY_MILLER_CASE_ID, YOUNG_CASE_ID } from '../../src/schemas/CaseDefinitionSchema';
 import { resolveCaseId } from '../../src/adapters/content/resolveCaseId';
@@ -61,8 +63,13 @@ describe('the shipped Morley–Miller prototype', () => {
             expect(rendition).toBeDefined();
             expect(rendition!.citation.citationText.trim().length).toBeGreaterThan(0);
             expect(new URL(rendition!.citation.archiveUrl).protocol).toBe('https:');
-            // Exactly one transcription of record, and it is the English one.
-            expect(rendition!.renditions.filter(({ kind }) => kind === 'transcription').map(({ locale }) => locale)).toEqual(['en']);
+            // Exactly one rendition *of record*, and it is the English one. Not "one transcription":
+            // the 1905 artifact is a reconstruction — its own `reuseStatement` says the prose was written
+            // for this investigation — and it declared `kind: 'transcription'` with printed page
+            // attributions because the enum offered nothing else. A reconstruction that borrows a
+            // transcription's authority is the provenance claim AC7 exists to prevent (review
+            // 2026-08-19).
+            expect(rendition!.renditions.filter(({ kind }) => kind !== 'translation').map(({ locale }) => locale)).toEqual(['en']);
         });
     });
 
@@ -94,7 +101,7 @@ describe('the prototype played through the shared framework', () => {
         const definition = await loadPrototype();
         const state = advanceTo(createInitialAppState(definition, 'en'), [
             { type: 'source.inspected', sourceId: 'michelson-morley-1887' },
-            { type: 'source.inspected', sourceId: 'morley-miller-1907-reconstruction' },
+            { type: 'source.inspected', sourceId: 'morley-miller-1905-reconstruction' },
             { type: 'case.phaseAdvance', nextPhase: 'prediction' },
             { type: 'prediction.proposalChosen', proposalId: 'predict-small-shift' },
             { type: 'case.phaseAdvance', nextPhase: 'experiment' },
@@ -119,7 +126,7 @@ describe('the prototype played through the shared framework', () => {
         };
 
         dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
-        dispatch({ type: 'source.inspected', sourceId: 'morley-miller-1907-reconstruction' });
+        dispatch({ type: 'source.inspected', sourceId: 'morley-miller-1905-reconstruction' });
         dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
         dispatch({ type: 'prediction.proposalChosen', proposalId: 'predict-small-shift' });
         dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
@@ -139,7 +146,7 @@ describe('the prototype played through the shared framework', () => {
         dispatch({ type: 'theory.supportRunSelected', runId: 'run-1' });
         dispatch({ type: 'theory.supportRunSelected', runId: 'run-2' });
         dispatch({ type: 'theory.supportSourceSelected', sourceId: 'michelson-morley-1887' });
-        dispatch({ type: 'theory.supportSourceSelected', sourceId: 'morley-miller-1907-reconstruction' });
+        dispatch({ type: 'theory.supportSourceSelected', sourceId: 'morley-miller-1905-reconstruction' });
         dispatch({ type: 'theory.conclusionProposalChosen', proposalId: 'conclude-bounded-null' });
 
         const readiness = selectConclusionReadiness(store.getState());
@@ -149,6 +156,119 @@ describe('the prototype played through the shared framework', () => {
         // And the review the readiness gate guards actually opens.
         dispatch({ type: 'case.phaseAdvance', nextPhase: 'review' });
         expect(store.getState().phase).toBe('review');
+    });
+
+    /**
+     * **The bounded-null claim is honest *and* reachable by the route the case teaches.**
+     * (Code review 2026-08-19.)
+     *
+     * The claim reads "Held at a steady bath temperature" and no predicate enforced it, so the game
+     * endorsed it over evidence taken at two temperatures whose thermal term (0.05/°C) dwarfs the whole
+     * ±0.01 orientation signal being bounded. The obvious fix — an all-runs `unvaried-control` — would
+     * have made it unreachable instead, because `experiment.resetPath` instructs the player to *move* the
+     * bath and come back: "Bring the bath back to its steady window and take the reading again."
+     *
+     * So this walks the taught route in full — vary the bath, discover the confound, return to the window,
+     * take two orientations there, pin those two — and asserts the claim is defensible. The sibling row
+     * asserts the pair that should *not* defend it.
+     */
+    it('defends the bounded-null claim after the taught confound detour, and refuses a pair taken at two temperatures', async () => {
+        const definition = await loadPrototype();
+
+        const walk = (pinned: readonly [string, string], warmRun: boolean): readonly string[] => {
+            const store = createStore(createInitialAppState(definition, 'en'));
+            const dispatch = (action: Parameters<typeof reduceAppState>[1]): void => {
+                const result = store.dispatch(action);
+                if (!result.ok) throw new Error(`Refused ${action.type}: ${result.error.code} — ${result.error.message}`);
+            };
+            dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
+            dispatch({ type: 'source.inspected', sourceId: 'morley-miller-1905-reconstruction' });
+            dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
+            dispatch({ type: 'prediction.proposalChosen', proposalId: 'predict-small-shift' });
+            dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
+
+            // The confound detour the case teaches: a reading taken warm, which stays in the notebook.
+            if (warmRun) {
+                dispatch({ type: 'apparatus.controlSet', controlId: 'bathTempC', value: 24, origin: 'phaser' });
+                dispatch({ type: 'experiment.run', id: 'run-warm', timestamp: '2026-08-19T09:50:00.000Z' });
+            }
+            // Back to the steady window, then two orientations there.
+            dispatch({ type: 'apparatus.controlSet', controlId: 'bathTempC', value: 20, origin: 'phaser' });
+            dispatch({ type: 'experiment.run', id: 'run-1', timestamp: '2026-08-19T10:00:00.000Z' });
+            dispatch({ type: 'apparatus.controlSet', controlId: 'rotationDeg', value: 90, origin: 'phaser' });
+            dispatch({ type: 'experiment.run', id: 'run-2', timestamp: '2026-08-19T10:05:00.000Z' });
+
+            dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' });
+            pinned.forEach((runId) => dispatch({ type: 'theory.supportRunSelected', runId }));
+            dispatch({ type: 'theory.supportSourceSelected', sourceId: 'michelson-morley-1887' });
+            dispatch({ type: 'theory.supportSourceSelected', sourceId: 'morley-miller-1905-reconstruction' });
+            return selectDefensibleConclusionProposalIds(store.getState());
+        };
+
+        // The taught route, warm detour included: the pinned pair was held at the window, so it defends.
+        expect(walk(['run-1', 'run-2'], true)).toContain('conclude-bounded-null');
+        // And without the detour at all, which must not have become a requirement.
+        expect(walk(['run-1', 'run-2'], false)).toContain('conclude-bounded-null');
+        // Pinning the warm reading against a cold one is the evidence the claim must not survive.
+        expect(walk(['run-warm', 'run-2'], true)).not.toContain('conclude-bounded-null');
+    });
+
+    /**
+     * **A finished second case survives a reload.** (Review 2026-08-19.)
+     *
+     * `validateCaseRecordForDefinition`'s completion walk required `modelInputs` of every completion run
+     * and then called `calculateYoungFringeSpacing` on it unconditionally — so a *completed* prototype
+     * record failed, `createAppStateFromCaseRecord` returned failure, and the whole saved investigation
+     * was discarded on the next boot with "Your current work is unchanged". The pre-completion walk 90
+     * lines earlier was already guarded, which is what made the two walks disagree about whether a second
+     * case may finish at all.
+     *
+     * Driven to completion through the real reducers and validated through the real projection, because
+     * the defect lives in the disagreement between two code paths and a hand-built record would only
+     * exercise one.
+     */
+    it('restores a completed prototype investigation instead of discarding it', async () => {
+        const definition = await loadPrototype();
+        const store = createStore(createInitialAppState(definition, 'en'));
+        const dispatch = (action: Parameters<typeof reduceAppState>[1]): void => {
+            const result = store.dispatch(action);
+            if (!result.ok) throw new Error(`Refused ${action.type}: ${result.error.code} — ${result.error.message}`);
+        };
+
+        dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
+        dispatch({ type: 'source.inspected', sourceId: 'morley-miller-1905-reconstruction' });
+        dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
+        dispatch({ type: 'prediction.proposalChosen', proposalId: 'predict-small-shift' });
+        dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
+        dispatch({ type: 'apparatus.controlSet', controlId: 'bathTempC', value: 20, origin: 'phaser' });
+        dispatch({ type: 'experiment.run', id: 'run-1', timestamp: '2026-08-19T10:00:00.000Z' });
+        dispatch({ type: 'apparatus.controlSet', controlId: 'rotationDeg', value: 90, origin: 'phaser' });
+        dispatch({ type: 'experiment.run', id: 'run-2', timestamp: '2026-08-19T10:05:00.000Z' });
+        dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' });
+        dispatch({ type: 'comparison.runSelected', runId: 'run-1' });
+        dispatch({ type: 'comparison.runSelected', runId: 'run-2' });
+        dispatch({ type: 'comparison.noteSaved', note: 'Reversing the orientation reverses the sign of a very small displacement.' });
+        dispatch({ type: 'theory.supportRunSelected', runId: 'run-1' });
+        dispatch({ type: 'theory.supportRunSelected', runId: 'run-2' });
+        dispatch({ type: 'theory.supportSourceSelected', sourceId: 'michelson-morley-1887' });
+        dispatch({ type: 'theory.supportSourceSelected', sourceId: 'morley-miller-1905-reconstruction' });
+        dispatch({ type: 'theory.conclusionProposalChosen', proposalId: 'conclude-bounded-null' });
+        dispatch({ type: 'theory.reviewRequested' });
+        dispatch({ type: 'peerReview.requested' });
+        dispatch({ type: 'revision.saved', timestamp: '2026-08-19T10:10:00.000Z' });
+        dispatch({ type: 'case.debriefCompleted', timestamp: '2026-08-19T10:15:00.000Z' });
+
+        const projected = createCaseRecordProjection(store.getState());
+        expect(projected.ok).toBe(true);
+        if (!projected.ok) return;
+        // The record carries a completion, and none of its runs carries Young's optical inputs.
+        expect(projected.value.completion).toBeDefined();
+        expect(projected.value.completion!.runs.every((run) => run.modelInputs === undefined)).toBe(true);
+
+        expect(validateCaseRecordForDefinition(projected.value, definition)).toMatchObject({ ok: true });
+        // And the state actually rebuilds, which is the boot path the player meets.
+        const reloaded = createStore(createInitialAppState(definition, 'en'));
+        expect(reloaded.replaceWithValidatedRecord(projected.value)).toEqual({ ok: true, value: undefined });
     });
 });
 
@@ -206,7 +326,7 @@ describe('what reduceRecordRun now checks for every run', () => {
         const state = createInitialAppState(definition, 'en');
         const advanced = [
             { type: 'source.inspected', sourceId: 'michelson-morley-1887' },
-            { type: 'source.inspected', sourceId: 'morley-miller-1907-reconstruction' },
+            { type: 'source.inspected', sourceId: 'morley-miller-1905-reconstruction' },
             { type: 'case.phaseAdvance', nextPhase: 'prediction' },
             { type: 'prediction.proposalChosen', proposalId: 'predict-small-shift' },
             { type: 'case.phaseAdvance', nextPhase: 'experiment' }

@@ -14,7 +14,12 @@
 // instead of the pre-1.12 `textKey`, so a cached v5-era case.json fails the strict parse and boots a
 // returning offline player into "content unavailable" with no recovery.
 // v7: the 1.16 case/manifest image bundle must not mix with cached 1.15/manifest 1.0 responses.
-const CACHE_NAME = 'quantique-bootstrap-v7';
+// v8 — code review of 3.2. `CaseDefinitionSchema` now *requires* `title` and `experiment.modelId` of
+// every case, and one `inlineLabel` per primary control. A cached 1.18.0/1.19.0 `case.json` carries
+// none of them, `contentPath` builds a stable URL with no version query, so the stale response matches
+// the new request exactly and the new bundle strict-parses it into "content unavailable" with no
+// recovery. Exactly the change class v3, v5 and v6 were bumped for.
+const CACHE_NAME = 'quantique-bootstrap-v8';
 
 self.addEventListener('install', (event) => {
     event.waitUntil(self.skipWaiting());

@@ -29,7 +29,7 @@ Wall 2 is the deepest: `evaluateConclusionReadiness` is the sole completion auth
 second case could reach synthesis, pin two runs, save a comparison — and read two English sentences
 about Young in front of a conclusion list that would never open.
 
-All three are now covered by tests that go red when the guard is broken. Six mutation proofs were run,
+All three are now covered by tests that go red when the guard is broken. Seven mutation proofs were run,
 each broken and restored (§5).
 
 ---
@@ -67,7 +67,7 @@ start — which is what makes two orientations at the stable window a genuinely 
 and what remains is the near-null signal the historical result actually was.
 
 > **These constants are invented, not sourced.** They are a defensible *shape* for the FR19 teaching
-> loop. Calibrating them against the 1907 report's published numbers, and having that agreement
+> loop. Calibrating them against the 1905 report's published numbers, and having that agreement
 > reviewed, is **Story 4.2's** work. The docstring on `calculateInterferometerDrift.ts` says so too, so
 > nobody later reads them as historical. Raised as story Open Question 4.
 
@@ -130,11 +130,11 @@ and the reason the two are not the same kind of thing.
 | Artifact | Type / provenance | Citation | Archive |
 |---|---|---|---|
 | `michelson-morley-1887` | `published-book` / `primary-material` | Michelson & Morley (1887), *American Journal of Science* 34(203), 333–345 | Wikisource (public domain, published 1887) |
-| `morley-miller-1907-reconstruction` | `reconstruction` / `reconstruction` | Morley & Miller (1905), *Proc. Amer. Acad. Arts & Sci.* 41(12), 321–328 | Wikisource (public domain) |
+| `morley-miller-1905-reconstruction` | `reconstruction` / `reconstruction` | Morley & Miller (1905), *Proc. Amer. Acad. Arts & Sci.* 41(12), 321–328 | Wikisource (public domain) |
 
 **Why the second is a reconstruction, and why that matters.** The schema requires the English rendition
 to be the single `transcription` of record. For the 1887 paper the excerpts are genuine passages of the
-published text. For the 1907 report they are **not**: the prose was written for this investigation, and
+published text. For the 1905 report they are **not**: the prose was written for this investigation, and
 labelling it a transcription of the original would be a provenance claim nobody has reviewed — exactly
 what AC7 forbids. So the artifact declares itself a reconstruction, its `creatorOrOrigin` says so, its
 `reuseStatement` tells the reader in both languages, and the citation points at the original it
@@ -186,14 +186,16 @@ carried the prototype with **no change at all**.
 The `550 nm` baseline the store initialises for **every** case was confirmed inert here, as the story
 asked rather than assumed: the chooser is not drawn, `reduceWavelengthSet` refuses every advanced value
 against an empty `advancedChoicesNm`, and no `550` reaches the prototype's run records, its printable
-record or its auto-summary — asserted in the e2e walk.
+record or its auto-summary. **Only the auto-summary half is asserted in the e2e walk**
+(`expect(recordedAutoSummary(page)).not.toContainText('550')`); the run-record and printable-record
+halves are not asserted anywhere. (Corrected in review 2026-08-19 — the sentence claimed all three.)
 
 ### Verification
 
 - `npm run typecheck` — clean.
 - `npm test` — **1334 tests / 74 files** (baseline 1293 / 71).
 - `npm run test:e2e` (chromium) — green on an idle machine.
-- **Six mutation proofs**, each broken and restored: the `foreign-model-run` guard, the
+- **Seven mutation proofs**, each broken and restored: the `foreign-model-run` guard, the
   `distinct-run-configurations` guard, the `reduceRecordRun` hoist, the model seam, the `modelId`
   load-time refusal, and the required-control pairing. A seventh was run against the **e2e walk**
   itself — reverting the readiness rule to its Young-shaped form makes the walk fail, so it is not
@@ -240,11 +242,17 @@ been part of.
 
 Every one of these is mirrored into `deferred-work.md` with a named owner.
 
-1. **The bench artwork is Young's** — light source, slits, screen, fringe painting, the run animation.
+1. **The bench artwork is Young's** — light source, slits, barrier, the run animation. **The screen is
+   not part of this gap any more:** the code review of 2026-08-19 (decision D1) found that the prototype
+   ignited for the full 2.4 s and resolved onto a screen nothing had painted — `renderApparatusGeometry`
+   returned at its Young-geometry guard before reaching its own `paintFringes()` call — and delivered
+   `paintDisplacedFringes`, a fringe field shifted by the recorded drift. The shift is deliberately not
+   exaggerated: a reading at the stable window is a fraction of a fringe width, and the readout carries
+   the precision. What remains for 4.2 is the apparatus around the screen.
    A reviewer opening the prototype sees an optical bench with rotation and temperature knobs on it.
    That is honest for a framework prototype and would be dishonest for a case review; re-skinning it is
-   **Story 4.2** (D8). The `recordedResultValue → bandSpacingPx` mapping (`× 4.6`, clamped 8–31 px) is
-   Young's millimetres, so the prototype's screen paints at the clamp floor.
+   **Story 4.2** (D8). Young's `recordedResultValue → bandSpacingPx` mapping (`× 4.6`, clamped 8–31 px)
+   is its millimetres and is no longer applied to the prototype, which paints on its own path.
 2. **Transcription fidelity and page attribution** of the 1887 excerpts — **Story 4.1**, before any
    scholarly sign-off.
 3. **`formatMeasurement` puts its locale separator before every unit**, which is right for `°C` and
@@ -262,3 +270,36 @@ Every one of these is mirrored into `deferred-work.md` with a named owner.
    `selectedWavelengthMode` through the model session rather than deriving it from `=== 550`.
 8. **`CaseRecordPrintView` still has no unit coverage** — the unit suite has no DOM and adding one is a
    new dependency. Its new settings line is covered end-to-end instead.
+
+
+## Code review, 2026-08-19
+
+Three parallel review layers over `efaf9802..08c0977`. Six decisions resolved by Alexis, twenty-one
+patches applied, one item deferred, three findings dismissed as false. What the review changed in this
+prototype's own content and contract:
+
+- **The screen paints.** `paintDisplacedFringes` — see gap 1 above. The bench previously ignited for the
+  full 2.4 s onto an empty `fringeGraphics`.
+- **A completed investigation survives a reload.** The completion walk in `validateCaseRecordForDefinition`
+  hard-required Young's `modelInputs` and then recomputed against Young's calculator unconditionally, so
+  finishing the prototype discarded the whole saved case on the next boot.
+- **`rotationDeg` 0–180 against a `cos(2θ)` model makes the travel endpoints one reading.** 0° and 180°
+  both read 0.11 at 22 °C. The e2e walk dragged exactly that pair while asserting two *distinguishing*
+  runs; it now varies to 90° (0.11 vs 0.09). `bathTempC` joined `significanceRule.criticalControlIds`, so
+  the same-rotation/different-temperature pair the `resetPath` teaches stops being refused as one setup.
+- **The 1905 artifact declares what it is.** Its rendition of record was `kind: 'transcription'` over prose
+  its own `reuseStatement` says was written for this investigation. A `reconstruction` rendition kind now
+  exists and it uses it. The artifact was also named **1907** throughout against a genuine **1905**
+  citation (Morley & Miller, *Proc. Amer. Acad. Arts & Sci.* 41(12), 321–328, with a matching Wikisource
+  URL); the naming was aligned to the citation, because that is the verifiable anchor. `rightsStatus`
+  is unchanged and left to the scholarly reviewer.
+- **`conclude-bounded-null` now enforces the steady bath it claims** — through
+  `unvaried-control-pinned bathTempC`, scoped to the runs the player pinned. Scoping matters: asking it of
+  every recorded run would have made the claim unreachable for anyone following the `resetPath`.
+- **Localized copy.** `unit: 'fringe widths'` reached French readers unchanged (now keyed on the model);
+  the case-file observation row showed *no apparatus settings at all* for the prototype; `rotationDeg 135`
+  at the stable window rendered **"-0"**; and each control now authors an `inlineLabel` so the composed
+  bench sentence reads correctly in both languages.
+
+Still open, and still needing a person rather than a patch: the 1887 excerpts' transcription fidelity and
+page attribution, and the scholarly sign-off. AC7 is PARTIAL until those are done.

@@ -28,19 +28,20 @@ export const fr: Record<TranslationKey, string> = {
 
     // --- Laboratory surface ---------------------------------------------------------------------
     // Voir `en.ts` : trois de ces chaînes désignaient les commandes sémantiques retirées.
-    'lab.title': 'Interférences de Young — la paillasse optique',
     'lab.guide': 'Réglez chaque instrument, puis allumez la source pour enregistrer ce que montre l’écran.',
     'lab.source': 'source',
     'lab.screen': 'écran',
     'lab.control.readout': '{label} : {value}',
     'lab.control.decrease': '−',
     'lab.control.increase': '+',
-    'lab.result.emptyHint': 'Aucun interfrange enregistré. Allumez la source pour en enregistrer un.',
+    'lab.result.emptyHint': 'Aucune mesure enregistrée. Allumez la source pour en enregistrer une.',
     'lab.result.recorded': 'Figure enregistrée : {value} à {wavelength} nm (parcours {mode}).',
     'lab.result.stale': 'Dernier résultat enregistré : {value}. Le montage modifié n’a pas été lancé.',
     'lab.result.recordedPlain': '{label} enregistré : {value}.',
+    'experiment.unit.fringeWidths': 'largeurs de frange',
     'lab.idle': 'La paillasse est éteinte : {settings}. Allumez la source pour enregistrer une observation.',
-    'lab.idle.setting': '{value} de {label}',
+    // Voir `en.ts` : la forme *en ligne* porte sa propre préposition, élision comprise.
+    'lab.idle.setting': '{value} {inlineLabel}',
     'list.separator': ', ',
     'lab.running': 'La lumière traverse le montage…',
     'lab.start.running': 'Source allumée…',
@@ -200,7 +201,8 @@ export const fr: Record<TranslationKey, string> = {
     'caseFile.observations.heading': 'Observations enregistrées',
     'caseFile.observations.empty': 'Aucune observation enregistrée.',
     'caseFile.observation': 'Observation {order}',
-    'caseFile.observation.detail': '{slitSpacing} · {screenDistance} · {result}',
+    // One list of authored readouts, then the result — not two Young-named slots (review 2026-08-19).
+    'caseFile.observation.detail': '{settings} · {result}',
     'caseFile.sources.heading': 'Références que vous avez lues',
     'caseFile.sources.empty': 'Aucune référence lue.',
     'caseFile.source.detail': '{type} · {provenance}',
@@ -373,7 +375,7 @@ export const fr: Record<TranslationKey, string> = {
     'error.invalid-case-transition': 'Cette étape n’est pas accessible depuis l’état actuel de cette enquête.',
     'error.invalid-run-controls': 'Une observation exige des relevés finis des deux commandes de l’appareil.',
     'error.invalid-run-result': 'Une observation exige un résultat fini et intitulé.',
-    'error.invalid-run-model-inputs': 'Une observation physique de Young exige des entrées de modèle complètes et valides.',
+    'error.invalid-run-model-inputs': 'Une observation enregistrée exige des entrées de modèle complètes et valides.',
     'error.invalid-linked-evidence': 'Les identifiants des preuves liées doivent être uniques et non vides.',
     'error.invalid-run-record': 'Une observation exige un enregistrement de preuve complet.',
     'error.invalid-run-id': 'Une observation exige un identifiant stable.',

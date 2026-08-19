@@ -37,9 +37,6 @@ export const en = {
     // Three of these named "the semantic laboratory controls" until Story 2.10. That surface is the
     // canvas now: the bench is turned with its own instruments and started with its own control, so a
     // line pointing at a retired DOM panel was telling the player to use something that is not there.
-    // `lab.title` lost "visual laboratory surface" for the same reason it gained a place instead — the
-    // player is standing at a bench, not looking at a surface.
-    'lab.title': 'Young interference — the optical bench',
     'lab.guide': 'Turn each instrument to set the bench up, then start the light to record what the screen shows.',
     'lab.source': 'source',
     'lab.screen': 'screen',
@@ -48,19 +45,35 @@ export const en = {
     // They survive the retirement of the old text buttons because the affordance still carries them.
     'lab.control.decrease': '−',
     'lab.control.increase': '+',
-    'lab.result.emptyHint': 'No fringe spacing recorded yet. Start the light to record one.',
+    // Generic across cases: this is the *empty* state, so there is no run whose label could name the
+    // quantity, and naming Young's told an interferometer's player their bench measures a fringe
+    // spacing (review 2026-08-19). The other two branches of this ternary were de-Younged by 3.2.
+    'lab.result.emptyHint': 'No measurement recorded yet. Start the light to record one.',
     'lab.result.recorded': 'Recorded pattern: {value} at {wavelength} nm ({mode} path).',
     'lab.result.stale': 'Last recorded result: {value}. The changed setup has not been run.',
     // The wavelength-free readout, for a case whose model records no optical inputs (Story 3.2).
     'lab.result.recordedPlain': 'Recorded {label}: {value}.',
+    // A result unit that is prose rather than an SI symbol, so it needs a key on both sides. Declared by
+    // the interferometer model as `resultUnitKey`; `mm` and `°C` need no such key.
+    'experiment.unit.fringeWidths': 'fringe widths',
     // AC4's in-scene invitation, and what replaced `lab.preview`. The painted fringe preview went with
     // it: a screen pattern with no run behind it is exactly what "dark until the player starts it"
     // forbids, and the sentence had to stop promising one.
     // Composed from the case's own `apparatus.primaryControls` (Story 3.2), one `lab.idle.setting` per
     // authored control, joined with `list.separator`. It used to name Young's two quantities as literals.
     'lab.idle': 'The bench is dark at {settings}. Start the light to record an observation.',
-    'lab.idle.setting': '{value} {label}',
-    /** The locale's own list separator. French sets a thin space before its semicolons and commas alike. */
+    // Takes the control's authored *inline* form, which carries its own preposition and case. The
+    // display label was interpolated here until review 2026-08-19 and produced a capital mid-sentence.
+    'lab.idle.setting': '{value} {inlineLabel}',
+    /**
+     * The locale's own list separator.
+     *
+     * Identical in both bundles today, and kept as a key rather than a literal because the join sits in
+     * shared code that must not assume it. An earlier docstring claimed French "sets a thin space before
+     * its semicolons and commas alike"; French takes a thin space before `;` `:` `!` `?` and **none**
+     * before a comma, so the rule as stated was wrong and the two values were already identical
+     * (review 2026-08-19).
+     */
     'list.separator': ', ',
     'lab.running': 'The light is crossing the bench…',
     // The **control's** in-flight label, which is a different string from the guidance line above it
@@ -287,7 +300,8 @@ export const en = {
     'caseFile.observations.heading': 'Recorded observations',
     'caseFile.observations.empty': 'No observation recorded yet.',
     'caseFile.observation': 'Observation {order}',
-    'caseFile.observation.detail': '{slitSpacing} · {screenDistance} · {result}',
+    // One list of authored readouts, then the result — not two Young-named slots (review 2026-08-19).
+    'caseFile.observation.detail': '{settings} · {result}',
     'caseFile.sources.heading': 'References you have read',
     'caseFile.sources.empty': 'No reference read yet.',
     'caseFile.source.detail': '{type} · {provenance}',
@@ -509,7 +523,11 @@ export const en = {
     'error.invalid-case-transition': 'That step is not available from the current stage of this investigation.',
     'error.invalid-run-controls': 'An observation needs finite snapshots of both apparatus controls.',
     'error.invalid-run-result': 'An observation needs a finite, labelled result.',
-    'error.invalid-run-model-inputs': 'A physical Young observation needs complete, valid model inputs.',
+    // Emitted from `RunRecord.ts`, which validates *any* case's run — so it must not name Young. The
+    // sibling `error.invalid-young-model-input` is genuinely Young's (it names a fringe spacing, and the
+    // Young calculator is its only emitter) and stays as it is; both were swept by Task 6 of Story 3.2
+    // and neither was decided, which the review of that story recorded (2026-08-19).
+    'error.invalid-run-model-inputs': 'A recorded observation needs complete, valid model inputs.',
     'error.invalid-linked-evidence': 'Linked evidence identifiers must be unique and non-empty.',
     'error.invalid-run-record': 'An observation needs a complete evidence record.',
     'error.invalid-run-id': 'An observation needs a stable identifier.',

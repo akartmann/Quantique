@@ -112,6 +112,21 @@ export type ConclusionSupportPredicate =
     | Readonly<{ kind: 'minimum-runs'; count: number }>
     /** At least two distinct recorded values for that control. */
     | Readonly<{ kind: 'varied-control'; controlId: PrimaryControl['id'] }>
+    /**
+     * Exactly one distinct value for that control **across the runs the player pinned to this
+     * conclusion** — a claim that depends on a quantity having been *held*, not varied.
+     *
+     * Scoped to the pinned runs, unlike every other predicate here, and that scope is the whole point.
+     * The prototype's bounded-null claim reads "Held at a steady bath temperature" and its predicate
+     * could not say so, so the game endorsed that sentence over evidence taken at two temperatures whose
+     * thermal term dwarfed the orientation signal it was bounding. Asking it of *every* recorded run
+     * instead would have been worse than the defect: the case's own `resetPath` tells the player to move
+     * the bath and come back, so the claim would have been unreachable for anyone following the case's
+     * teaching. A claim is defended by the evidence pinned to it (code review 2026-08-19).
+     *
+     * **Fails closed** when `AuthoritativeEvidence.selectedRunIds` is absent.
+     */
+    | Readonly<{ kind: 'unvaried-control-pinned'; controlId: PrimaryControl['id'] }>
     | Readonly<{ kind: 'inspected-source'; sourceId: string }>
     | Readonly<{ kind: 'all-of'; predicates: readonly ConclusionSupportPredicate[] }>;
 

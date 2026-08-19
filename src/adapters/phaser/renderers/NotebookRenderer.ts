@@ -56,7 +56,7 @@ import {
 } from './apparatusGeometry';
 import { SingleKeyDelivery } from './singleKeyDelivery';
 import { TransientMessageSlot } from './transientMessage';
-import { resolveExperimentModel } from '../../../domain/apparatus/experimentModels';
+import { resolveExperimentModel, resolveResultUnit } from '../../../domain/apparatus/experimentModels';
 
 /**
  * The bench notebook (Story 2.10, AC8): every saved observation, readable in-scene, with any two
@@ -480,11 +480,13 @@ export class NotebookRenderer {
         // reading `record.result.label` there put canonical English on a French row — the split this
         // docstring already describes, applied to the second case it was written before.
         const model = resolveExperimentModel(state.caseDefinition.experiment.modelId);
+        const matchedModel = model && record.experimentModelVersion === state.caseDefinition.experiment.modelVersion
+            ? model
+            : undefined;
         const result = t('notebook.row.result', {
-            label: model && record.experimentModelVersion === state.caseDefinition.experiment.modelVersion
-                ? t(model.resultLabelKey)
-                : record.result.label,
-            value: formatRecordedValue(locale, record.result.value, record.result.unit)
+            label: matchedModel ? t(matchedModel.resultLabelKey) : record.result.label,
+            // The unit is canonical English on the record too, so it takes the same route as the label.
+            value: formatRecordedValue(locale, record.result.value, resolveResultUnit(matchedModel, record.result.unit, t))
         });
         if (!record.modelInputs) return result;
         return `${result}\n${t('notebook.row.meta', {

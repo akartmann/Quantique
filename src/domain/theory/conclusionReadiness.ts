@@ -1,6 +1,7 @@
 import type { CaseDefinition } from '../cases/CaseDefinition';
 import type { RunRecord } from '../evidence/RunRecord';
 import { configurationKey } from '../evidence/significantMeasures';
+import { resolveExperimentModel } from '../apparatus/experimentModels';
 
 export type TheoryBoardDraft = Readonly<{
     selectedRunIds: readonly string[];
@@ -13,6 +14,21 @@ export type AuthoritativeEvidence = Readonly<{
     runs: readonly RunRecord[];
     inspectedSourceIds: readonly string[];
     comparisonNotes?: readonly Readonly<{ runIds: readonly [string, string] }> [];
+    /**
+     * The runs the player has pinned as conclusion support, for predicates that must judge a claim on
+     * *that* evidence rather than on everything in the notebook.
+     *
+     * Every other support predicate reads {@link AuthoritativeEvidence.runs} — every run ever recorded —
+     * which is right for "did you ever vary this?" and wrong for "was this held?". The prototype's
+     * bounded-null claim reads "Held at a steady bath temperature", and the case's own `resetPath`
+     * instructs the player to move the bath and come back, so an all-runs reading of "held" is
+     * unsatisfiable for anyone who follows the case's teaching (code review 2026-08-19).
+     *
+     * Optional, and predicates that need it **fail closed** when it is absent: a claim whose defence
+     * depends on which runs were pinned cannot be defended by a caller that never said. Fail-open here
+     * would be the silent degradation this project keeps finding.
+     */
+    selectedRunIds?: readonly string[];
 }>;
 
 export type MissingConclusionRequirementCode =
@@ -91,9 +107,26 @@ export const evaluateConclusionReadiness = (
     // walls, and the only one not already in the backlog.
     //
     // `experimentModelVersion` is the right question because it is exactly the provenance stamp every
-    // run carries: it says which deterministic model produced this reading, for any case. A hand-built
-    // fixture run — the thing this rule was written to keep out of a conclusion — still fails it.
-    if (evidence.comparisonNotes && selectedRuns.some((run) => run.experimentModelVersion !== definition.experiment.modelVersion)) {
+    // run carries: it says which deterministic model produced this reading, for any case.
+    //
+    // **The version stamp alone is not enough (review 2026-08-19).** An earlier comment here claimed "a
+    // hand-built fixture run — the thing this rule was written to keep out of a conclusion — still fails
+    // it". It did not: the predicate this replaced was `!run.modelInputs`, so a run stamping the case's
+    // own `modelVersion` while carrying no inputs and an arbitrary `result.value` was refused before and
+    // passed after — one copied string away, and nothing recomputes such a run's result on either the
+    // restore path or the reducer. So where the case's model *declares* persisted inputs, they are
+    // required as well; where it declares none, the stamp is the whole of the provenance available and
+    // is all that is asked. That keeps Young exactly as strict as it was before Story 3.2 without making
+    // the rule unsatisfiable for a model that records nothing.
+    //
+    // Resolved *inside* the predicate, not above it: `definition.experiment` is only reached once a
+    // selected run exists, which is the evaluation order this rule has always had and which fixtures
+    // authoring no `experiment` at all depend on.
+    if (evidence.comparisonNotes && selectedRuns.some((run) => {
+        if (run.experimentModelVersion !== definition.experiment.modelVersion) return true;
+        const caseModel = resolveExperimentModel(definition.experiment.modelId);
+        return caseModel?.recordInputs !== undefined && !run.modelInputs;
+    })) {
         requirements.push(missing('foreign-model-run', 'Use observations recorded on this investigation’s own apparatus as conclusion support.'));
     }
     if (evidence.comparisonNotes && selectedRuns.length >= definition.requirements.minimumRuns) {

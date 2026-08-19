@@ -45,7 +45,7 @@ import {
     proposalDetailPanelProbe
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { dialogueAdvanceControlCentre } from '../../src/adapters/phaser/ui/DialogueBox';
-import { KNOB_ARC_END_RAD } from '../../src/adapters/phaser/renderers/instrumentView';
+import { knobAngleForFraction } from '../../src/adapters/phaser/renderers/instrumentView';
 import { UI_FONT_STACK } from '../../src/adapters/phaser/textStyles';
 import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
 import { libraryAdvanceControlCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
@@ -72,7 +72,7 @@ export { DESIGN_HEIGHT, DESIGN_WIDTH };
  */
 type WalkableCase = Readonly<{
     contextualArtifacts: readonly unknown[];
-    apparatus: { primaryControls: { id: string; max: number; step: number; unit: string; label: { en: string; fr: string } }[] };
+    apparatus: { primaryControls: { id: string; min: number; max: number; step: number; unit: string; label: { en: string; fr: string } }[] };
 }>;
 
 /**
@@ -599,11 +599,28 @@ export const clickUntilScene = async (
  * would still record, and the walk would still reach the theory board, and the spec would pass having
  * varied the wrong thing. Deriving is what makes that impossible for *both* cases rather than for one.
  */
-export const varyingInstrument = (caseId: string, controlId: string) => {
+export const varyingInstrument = (caseId: string, controlId: string, targetValue?: number) => {
     const controls = caseContent(caseId).apparatus.primaryControls;
     const slot = controls.findIndex(({ id }) => id === controlId);
     if (slot < 0) throw new Error(`The authored case ${caseId} must carry a ${controlId} control.`);
     const control = controls[slot]!;
+    /**
+     * Where the drag lands, and what the readout must then say.
+     *
+     * Defaults to the control's maximum, which is the end of the knob's travel and the cheapest place to
+     * drag to. **A caller must pass `targetValue` when the maximum is not a distinguishing setting.**
+     * The prototype's `rotationDeg` runs 0–180 and its model is `cos(2θ)`, period 180°, so the default
+     * dragged from 0° to 180° and recorded *the same displacement twice* — two runs the significance
+     * gate counted as two configurations (it keys on the control value) while the readings were
+     * identical to the last decimal. AC10 asks the walk to record two **distinguishing** runs; it
+     * recorded two identical ones, and the unit test that picks a real pair uses 0°/90°
+     * (review 2026-08-19).
+     */
+    const destination = targetValue ?? control.max;
+    if (destination < control.min || destination > control.max) {
+        throw new Error(`${controlId} cannot travel to ${destination}: authored range is ${control.min}–${control.max}.`);
+    }
+    const destinationAngle = knobAngleForFraction((destination - control.min) / (control.max - control.min));
     /**
      * Both locales, because these walks run under a French browser too. The authored label and the
      * formatted value both differ — a comma decimal, a translated name — so a walk pinned to the English
@@ -618,10 +635,11 @@ export const varyingInstrument = (caseId: string, controlId: string) => {
         control,
         centre: knobCentre(slot),
         travelEnd: {
-            x: knobCentre(slot).x + (Math.cos(KNOB_ARC_END_RAD) * (KNOB_TRAVEL_RADIUS - 6)),
-            y: knobCentre(slot).y + (Math.sin(KNOB_ARC_END_RAD) * (KNOB_TRAVEL_RADIUS - 6))
+            x: knobCentre(slot).x + (Math.cos(destinationAngle) * (KNOB_TRAVEL_RADIUS - 6)),
+            y: knobCentre(slot).y + (Math.sin(destinationAngle) * (KNOB_TRAVEL_RADIUS - 6))
         },
-        maxReadout: new RegExp(`^(${escapeForRegExp(readout('en', control.max))}|${escapeForRegExp(readout('fr', control.max))})$`),
+        /** The reading at {@link destination} — the control's maximum unless the caller named a value. */
+        maxReadout: new RegExp(`^(${escapeForRegExp(readout('en', destination))}|${escapeForRegExp(readout('fr', destination))})$`),
         label: new RegExp(`^(${escapeForRegExp(control.label.en)}|${escapeForRegExp(control.label.fr)})$`)
     };
 };

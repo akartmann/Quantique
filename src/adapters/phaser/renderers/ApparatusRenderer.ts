@@ -18,7 +18,7 @@ import {
     selectWavelengthChoices
 } from '../../../core/store/selectors';
 import { resolveLocalizedText } from '../../../core/i18n/resolveLocalizedText';
-import { resolveExperimentModel } from '../../../domain/apparatus/experimentModels';
+import { resolveExperimentModel, resolveResultUnit } from '../../../domain/apparatus/experimentModels';
 import { isSourceEligibleForInspection, type ContextualArtifact, type PrimaryControl } from '../../../domain/cases/CaseDefinition';
 import { interferenceIntensity, rgbToInt, wavelengthToRgb } from '../../../domain/apparatus/opticalVisualModel';
 import { AdvanceControl } from '../ui/AdvanceControl';
@@ -71,6 +71,14 @@ const SOURCE_X = 92;
 const BARRIER_X = 260;
 const FRINGE_STRIP_HALF_WIDTH = 9;
 const FRINGE_ROW_STEP = 2;
+/**
+ * Fringe spacing for a case whose screen pattern is a *displacement*, not a spacing.
+ *
+ * Young's bands are spaced by the reading itself, so `bandSpacingPx` is derived from the result. An
+ * interferometer's reading is how far an otherwise-fixed fringe field has walked, so the spacing is a
+ * constant of the picture and the result is an offset within it.
+ */
+const INTERFEROMETER_BAND_SPACING_PX = 18;
 const WAVEFRONT_RINGS = 6;
 const WAVEFRONT_PERIOD_MS = 2600;
 
@@ -417,9 +425,15 @@ export class ApparatusRenderer {
         // The `modelInputs !== undefined` clause is gone (Story 3.2). It existed because
         // `recordedResultValue` below also required them, so a run without them animated a full ignition
         // that resolved onto a `fringeGraphics` nothing had filled — an empty screen at the end of a
-        // locked 2.4 s. The two facts still derive from one condition; that condition is now "the run
-        // was taken at this bench" rather than "the run carries Young's optical inputs", so the
-        // prototype's bench ignites and paints instead of staying permanently dark.
+        // locked 2.4 s.
+        //
+        // Removing the clause did not by itself make the prototype's bench paint, and this comment
+        // claimed it did until the review of 3.2 caught it: `renderApparatusGeometry` still returned
+        // before its own paint step for a case with no slit geometry, so ignition and paint had come
+        // apart again in the other direction — lit, animated, and blank. `paintDisplacedFringes` is the
+        // second half of the fix. **The two facts are one condition only because both are now reachable
+        // for every case**: ignition asks "was this run taken at this bench", and the screen has a
+        // pattern to show either way.
         //
         const isNewRun = latest !== undefined && latest.id !== this.lastRunId;
         this.lastRunId = latest?.id;
@@ -814,10 +828,20 @@ export class ApparatusRenderer {
      * reading whose provenance is something else.
      */
     private resultLabel(state: AppState, run: AppState['runs'][number], t: Translator): string {
+        const model = this.matchedModel(state, run);
+        return model ? t(model.resultLabelKey) : run.result.label;
+    }
+
+    /**
+     * The case's model, but only for a run that model actually produced.
+     *
+     * One condition shared by the label and the unit, because both are canonical English persisted on
+     * the record and both are wrong to show a French reader — the label was localized in 3.2 and the
+     * unit beside it was not (review 2026-08-19).
+     */
+    private matchedModel(state: AppState, run: AppState['runs'][number]) {
         const model = resolveExperimentModel(state.caseDefinition.experiment.modelId);
-        return model && run.experimentModelVersion === state.caseDefinition.experiment.modelVersion
-            ? t(model.resultLabelKey)
-            : run.result.label;
+        return model && run.experimentModelVersion === state.caseDefinition.experiment.modelVersion ? model : undefined;
     }
 
     private renderReadouts(
@@ -838,7 +862,9 @@ export class ApparatusRenderer {
         // wavelength sentence is the part that genuinely needs them, and is the only part still gated
         // on them; every case reports its own labelled, unit-carrying result.
         this.resultReadout?.setVisible(!this.runInFlight);
-        const recordedValue = latest ? formatRecordedValue(locale, latest.result.value, latest.result.unit) : '';
+        const recordedValue = latest
+            ? formatRecordedValue(locale, latest.result.value, resolveResultUnit(this.matchedModel(state, latest), latest.result.unit, t))
+            : '';
         this.resultReadout?.setText(!latest
             ? t('lab.result.emptyHint')
             : !latestMatchesActiveSetup
@@ -864,7 +890,9 @@ export class ApparatusRenderer {
         const settings = state.caseDefinition.apparatus.primaryControls
             .map((control) => t('lab.idle.setting', {
                 value: selectFormattedControlValue(state, control.id),
-                label: resolveLocalizedText(control.label, locale)
+                // The *inline* form, not the display label: authored lowercase and pre-elided, because
+                // this is running prose rather than an instrument slot (review 2026-08-19).
+                inlineLabel: resolveLocalizedText(control.inlineLabel, locale)
             }))
             .join(t('list.separator'));
         this.visualGuidance?.setText(this.runInFlight
@@ -873,7 +901,7 @@ export class ApparatusRenderer {
                 ? t('lab.idle', { settings })
                 : t('lab.pattern.recorded', {
                     label: this.resultLabel(state, latest, t),
-                    value: formatRecordedValue(locale, this.recordedResultValue, latest.result.unit)
+                    value: formatRecordedValue(locale, this.recordedResultValue, resolveResultUnit(this.matchedModel(state, latest), latest.result.unit, t))
                 }));
 
         // Measured, floor-anchored stacking: the refusal grows up out of the gap above the control row,
@@ -916,26 +944,72 @@ export class ApparatusRenderer {
         // Young's two control ids, written down. Until Story 3.1 the schema guaranteed they exist; the
         // control set is now authored, so a case without them reads `undefined` here — and unlike the
         // readouts this path does not throw, it computes `NaN` and calls `setY(NaN)` on the slits and the
-        // screen, which paints nothing and reports nothing. Leave the last good geometry standing instead;
-        // a bench for a second case is Story 3.2's work, and a silently blank apparatus would be a worse
-        // way to discover that than an unmoved one.
-        if (!Number.isFinite(slitSpacing) || !Number.isFinite(screenDistance)) return;
-        const slitGapPx = 28 + ((slitSpacing - 0.1) / 0.4) * 92;
-        this.screenX = screenXForDistance(screenDistance);
-        this.slitTopY = CENTRE_Y - (slitGapPx / 2);
-        this.slitBottomY = CENTRE_Y + (slitGapPx / 2);
-        this.slitTop?.setY(this.slitTopY);
-        this.slitBottom?.setY(this.slitBottomY);
-        this.screen?.setX(this.screenX);
-        this.screenLabel?.setPosition(this.screenX - 31, SCREEN_LABEL_Y);
+        // screen. So the *slit and screen placement* stays behind this guard: a case with no slit spacing
+        // leaves the last good geometry standing rather than moving it to `NaN`.
+        //
+        // **The paint step must not sit behind it (review 2026-08-19).** It did, and `paintFringes()` has
+        // exactly one call site — inside this method — so an interferometer run returned here before
+        // anything filled `fringeGraphics`, while `paintLight`'s `dark` flag (which no longer consults
+        // `modelInputs`) had already decided the bench was lit. The result was a full 2.4 s ignition,
+        // beam and wavefronts included, resolving onto an empty screen: the exact defect the removed
+        // `modelInputs !== undefined` clause used to prevent, re-opened for the one case it was removed
+        // for. Nothing in 1334 tests could see it, because the bench's tests assert text.
+        const hasOpticalGeometry = Number.isFinite(slitSpacing) && Number.isFinite(screenDistance);
+        if (hasOpticalGeometry) {
+            const slitGapPx = 28 + ((slitSpacing - 0.1) / 0.4) * 92;
+            this.screenX = screenXForDistance(screenDistance);
+            this.slitTopY = CENTRE_Y - (slitGapPx / 2);
+            this.slitBottomY = CENTRE_Y + (slitGapPx / 2);
+            this.slitTop?.setY(this.slitTopY);
+            this.slitBottom?.setY(this.slitBottomY);
+            this.screen?.setX(this.screenX);
+            this.screenLabel?.setPosition(this.screenX - 31, SCREEN_LABEL_Y);
+        }
+        // Safe for every case: `AppState` initialises `selectedWavelengthNm` unconditionally, and a
+        // model whose apparatus has no wavelength simply never reads it.
         this.currentWavelengthNm = state.selectedWavelengthNm;
         this.wavelengthColor = rgbToInt(wavelengthToRgb(state.selectedWavelengthNm));
         this.sourceGlow?.setFillStyle(this.wavelengthColor, 0.35);
         // **The pattern is painted from the recorded value and from nothing else.** There is no preview
-        // branch here any more: an unrecorded setup has no spacing, and the screen stays unlit.
-        if (this.recordedResultValue !== undefined) {
+        // branch here any more: an unrecorded setup has no reading, and the screen stays unlit.
+        if (this.recordedResultValue === undefined) return;
+        if (hasOpticalGeometry) {
             this.bandSpacingPx = Math.max(8, Math.min(31, this.recordedResultValue * 4.6));
             this.paintFringes();
+            return;
+        }
+        this.paintDisplacedFringes(this.recordedResultValue);
+    }
+
+    /**
+     * The screen for a case whose reading is a fringe *displacement* rather than a fringe spacing.
+     *
+     * A regular fringe field at a constant spacing, shifted bodily by the recorded drift. The shift is
+     * deliberately **not** exaggerated: a Morley–Miller reading at the stable window is a fraction of a
+     * fringe width, so the honest picture is a field that barely moves, and the number in the readout is
+     * what carries the precision. Amplifying it for legibility would be a physics lie painted onto the
+     * one observation the case is about.
+     *
+     * No diffraction envelope, unlike {@link paintFringes}: an interferometer's field is even across the
+     * aperture. Bench *artwork* — a rotating apparatus rather than Young's source, barrier and slits — is
+     * still Young's and remains gap #1, owned by Story 4.2.
+     */
+    private paintDisplacedFringes(displacementFringeWidths: number): void {
+        const offsetPx = displacementFringeWidths * INTERFEROMETER_BAND_SPACING_PX;
+        const signature = `displaced|${this.screenX.toFixed(1)}|${offsetPx.toFixed(3)}|${this.wavelengthColor}`;
+        if (signature === this.fringeSignature || !this.fringeGraphics) return;
+        this.fringeSignature = signature;
+        this.bandSpacingPx = INTERFEROMETER_BAND_SPACING_PX;
+        const { r, g, b } = wavelengthToRgb(this.currentWavelengthNm);
+        const g0 = this.fringeGraphics;
+        g0.clear();
+        for (let offset = -SCREEN_HALF_HEIGHT; offset <= SCREEN_HALF_HEIGHT; offset += FRINGE_ROW_STEP) {
+            const phase = ((offset - offsetPx) / INTERFEROMETER_BAND_SPACING_PX) * Math.PI;
+            const intensity = Math.cos(phase) ** 2;
+            if (intensity <= 0.01) continue;
+            const color = (Math.round(r * intensity) << 16) | (Math.round(g * intensity) << 8) | Math.round(b * intensity);
+            g0.fillStyle(color, Math.min(1, 0.25 + intensity));
+            g0.fillRect(this.screenX - FRINGE_STRIP_HALF_WIDTH, CENTRE_Y + offset - FRINGE_ROW_STEP / 2, FRINGE_STRIP_HALF_WIDTH * 2, FRINGE_ROW_STEP);
         }
     }
 

@@ -46,8 +46,15 @@ import {
  * renderer and the structural scene slice.
  */
 
-/** The prototype's own distinguishing control, per its `significanceRule`. */
-const ROTATION = varyingInstrument('morley-miller', 'rotationDeg');
+/**
+ * The prototype's own distinguishing control, per its `significanceRule`.
+ *
+ * **90°, not the knob's maximum.** The model is `cos(2θ)` and the authored travel is 0–180°, so the
+ * default drag-to-maximum returned to the *same* displacement it started from: 0° and 180° both read
+ * 0,11 at 22 °C, and this walk asserted it had recorded two distinguishing runs while recording one
+ * reading twice (review 2026-08-19). 90° is the sign reversal — the pair the unit tests use.
+ */
+const ROTATION = varyingInstrument('morley-miller', 'rotationDeg', 90);
 
 test('carries the Morley–Miller prototype from the review route to the conclusion choice', async ({ page }) => {
     test.slow();

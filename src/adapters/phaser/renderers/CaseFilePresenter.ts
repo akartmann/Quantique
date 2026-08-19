@@ -3,6 +3,7 @@ import type { Scene } from 'phaser';
 import { decimalPlaces, formatMeasurement, formatRecordedValue } from '../../../core/i18n/formatNumber';
 import { createTranslator, type TranslationKey, type Translator } from '../../../core/i18n/translate';
 import { resolveLocalizedText } from '../../../core/i18n/resolveLocalizedText';
+import { resolveExperimentModel, resolveResultUnit } from '../../../domain/apparatus/experimentModels';
 import type { AppState } from '../../../core/store/AppState';
 import type { Result } from '../../../core/errors/Result';
 import {
@@ -15,7 +16,7 @@ import {
     selectLocalizedError,
     selectLocalizedPeerReview,
     selectNotebookObservations,
-    selectPrimaryControl
+    findPrimaryControl
 } from '../../../core/store/selectors';
 import type { ContextualArtifact } from '../../../domain/cases/CaseDefinition';
 import type { RunRecord } from '../../../domain/evidence/RunRecord';
@@ -483,46 +484,47 @@ export class CaseFilePresenter {
      */
     private observationDetail(state: AppState, t: Translator, record: RunRecord): string {
         const locale = selectLocale(state);
-        // `selectPrimaryControl` **throws** on an id the case does not author, and this runs inside
-        // `render()`, which runs inside `dispatch() → notify()` — where a throw advances the phase, skips
-        // every later subscriber and strands the router with no visible error (the 1.10 failure mode).
-        // The schema pins both ids for `young-interference` specifically, so this guard is unreachable
-        // through *Young's* authored content — but no longer through authored content in general: Story
-        // 3.1 made the control set authored, so any other case reaches it. It is also reachable through a
-        // **restored record against a degraded cached `case.json`**, the same door `DebriefRenderer`
-        // already guards for a stale `critiqueId`. A row that cannot describe its settings falls back to
-        // its result rather than taking the room down. (The earlier wording claimed the guard was dead
-        // code; review 2026-08-19.)
-        const readout = (controlId: 'slitSpacingMm' | 'screenDistanceM'): string | undefined => {
-            const control = selectPrimaryControl(state, controlId);
+        // **Composed from the case's own authored controls (review 2026-08-19).** The two ids were
+        // Young's, written down, and `caseFile.observation.detail` had two Young-named slots — so a
+        // prototype observation pinned to the case file showed *no apparatus settings at all*: both
+        // readouts resolved to `undefined`, `settings` fell to `undefined`, and the row degraded to its
+        // result line on every render. The same fix `NotebookRenderer`, `ApparatusRenderer` and
+        // `CaseRecordPrintView` all received in 3.2; this fourth surface making the same two reads was
+        // missed because it is the only one not in that story's file list.
+        //
+        // `findPrimaryControl`, not `selectPrimaryControl`: the latter **throws** on an id the case does
+        // not author, and this runs inside `render()` — inside `dispatch() → notify()`, where a throw
+        // advances the phase, skips every later subscriber and strands the router with no visible error
+        // (the 1.10 failure mode).
+        const readout = (controlId: string): string => {
+            const control = findPrimaryControl(state, controlId);
             const recorded = record.controls[controlId];
-            if (recorded === undefined) return undefined;
+            if (!control || !Number.isFinite(recorded)) {
+                return t('lab.control.readout', {
+                    label: controlId,
+                    value: Number.isFinite(recorded) ? String(recorded) : '—'
+                });
+            }
             return t('lab.control.readout', {
                 label: resolveLocalizedText(control.label, locale),
                 value: formatMeasurement(locale, recorded, decimalPlaces(control.step), control.unit)
             });
         };
-        const settings = ((): { slitSpacing: string; screenDistance: string } | undefined => {
-            try {
-                const slitSpacing = readout('slitSpacingMm');
-                const screenDistance = readout('screenDistanceM');
-                return slitSpacing !== undefined && screenDistance !== undefined
-                    ? { slitSpacing, screenDistance }
-                    : undefined;
-            } catch {
-                return undefined;
-            }
-        })();
+        const settings = state.caseDefinition.apparatus.primaryControls
+            .map(({ id }) => readout(id))
+            .join(t('notebook.row.settingsSeparator'));
+        // Label *and unit* from the model's declared keys where the run came from this case's model:
+        // `result.unit` is canonical English too, and 'fringe widths' was reaching French readers.
+        const runModel = resolveExperimentModel(state.caseDefinition.experiment.modelId);
+        const matchedModel = runModel && record.experimentModelVersion === state.caseDefinition.experiment.modelVersion
+            ? runModel
+            : undefined;
         const result = t('notebook.row.result', {
-            label: record.modelInputs ? t('experiment.result.fringeSpacing') : record.result.label,
-            value: formatRecordedValue(locale, record.result.value, record.result.unit)
+            label: matchedModel ? t(matchedModel.resultLabelKey) : record.result.label,
+            value: formatRecordedValue(locale, record.result.value, resolveResultUnit(matchedModel, record.result.unit, t))
         });
         if (!settings) return result;
-        return t('caseFile.observation.detail', {
-            slitSpacing: settings.slitSpacing,
-            screenDistance: settings.screenDistance,
-            result
-        });
+        return t('caseFile.observation.detail', { settings, result });
     }
 
     /** Only inspected artifacts are offered, so `uninspected-theory-source` is unreachable from here. */

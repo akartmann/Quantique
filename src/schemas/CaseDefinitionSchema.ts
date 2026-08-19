@@ -129,6 +129,18 @@ const PrimaryControlSchema = z.object({
     // `screenDistanceM` even for a case that authored no such control.
     id: stableId,
     label: LocalizedTextSchema,
+    /**
+     * The control's name as it reads *inside a sentence*, carrying its own preposition and case.
+     *
+     * `label` is a display name for an instrument slot — capitalised, standalone ("Slit spacing",
+     * "Écartement des fentes"). `lab.idle` and `print.observations.settings` splice a control name into
+     * running prose, and interpolating the display name there produced "0,25 mm **de Écartement des
+     * fentes**": no elision, wrong article, capital mid-sentence (review 2026-08-19). French elision
+     * depends on the following word, so no generic transform can derive this — it is authored, per
+     * control, per locale. Required rather than optional-with-fallback: falling back to `label` is
+     * precisely the silent degradation that shipped the broken sentence in the first place.
+     */
+    inlineLabel: LocalizedTextSchema,
     unit: z.string().trim().min(1),
     min: z.number().finite(),
     max: z.number().finite(),
@@ -164,7 +176,17 @@ const TextualRenditionSectionSchema = z.object({
 
 const LocalizedTextualRenditionSchema = z.object({
     locale: z.enum(LOCALES),
-    kind: z.enum(['transcription', 'translation']),
+    /**
+     * What this rendition *is*, which is a provenance claim and not a formatting one.
+     *
+     * `reconstruction` was added in the review of 3.2. The prototype's 1905 artifact is prose written
+     * for this investigation — its own `reuseStatement` says so — and it was nonetheless declared a
+     * `transcription` with printed page attributions, because the enum offered nothing else and the
+     * refinement below *required* one rendition to be a transcription. The rendition of record may now
+     * say it is a reconstruction, which is what `sourceType: 'reconstruction'` was already claiming one
+     * layer up.
+     */
+    kind: z.enum(['transcription', 'translation', 'reconstruction']),
     sections: z.array(TextualRenditionSectionSchema).min(1)
 }).strict().superRefine((rendition, context) => {
     const ids = rendition.sections.map(({ id }) => id);
@@ -188,19 +210,19 @@ const TextualRenditionSchema = z.object({
     if (new Set([first.locale, second.locale]).size !== LOCALES.length) {
         context.addIssue({ code: 'custom', message: 'A readable source must provide exactly one rendition per shipped locale.', path: ['renditions'] });
     }
-    // Exactly one rendition may claim to reproduce the printed source; the rest are translations of
-    // it. Two transcriptions of the same pages in different languages is a provenance claim nobody
-    // has reviewed, which is precisely what this rule exists to stop.
+    // Exactly one rendition may claim to *be* the source — a transcription of the printed pages, or a
+    // reconstruction standing in for them; the rest are translations of it. Two renditions of record in
+    // different languages is a provenance claim nobody has reviewed, which is what this rule stops.
     //
-    // The transcription must be `en`. The reader-facing notice (`book.translatedRendition`) names
-    // English as the original in both locales, so a French transcription with an English translation
-    // would state the provenance backwards on the page. Pinning it here keeps that string true by
-    // construction; generalising the notice is the prerequisite for relaxing this rule.
-    const transcriptions = rendition.renditions.filter(({ kind }) => kind === 'transcription');
-    if (transcriptions.length !== 1) {
-        context.addIssue({ code: 'custom', message: 'Exactly one rendition may be the transcription of record; any others are translations.', path: ['renditions'] });
-    } else if (transcriptions[0].locale !== DEFAULT_LOCALE) {
-        context.addIssue({ code: 'custom', message: 'The transcription of record must be the English rendition; the reader-facing notice names English as the original.', path: ['renditions'] });
+    // The rendition of record must be `en`. The reader-facing notice (`book.translatedRendition`) names
+    // English as the original in both locales, so a French rendition of record with an English
+    // translation would state the provenance backwards on the page. Pinning it here keeps that string
+    // true by construction; generalising the notice is the prerequisite for relaxing this rule.
+    const ofRecord = rendition.renditions.filter(({ kind }) => kind !== 'translation');
+    if (ofRecord.length !== 1) {
+        context.addIssue({ code: 'custom', message: 'Exactly one rendition may be the rendition of record — a transcription or a reconstruction; any others are translations.', path: ['renditions'] });
+    } else if (ofRecord[0].locale !== DEFAULT_LOCALE) {
+        context.addIssue({ code: 'custom', message: 'The rendition of record must be the English rendition; the reader-facing notice names English as the original.', path: ['renditions'] });
     }
     // Page-for-page alignment keeps the spread count and the printed page numbers identical in
     // either language, so "spread 3 of 19" means the same thing to every reader.
@@ -381,6 +403,8 @@ const leafSupportPredicates = [
     z.object({ kind: z.literal('never') }).strict(),
     z.object({ kind: z.literal('minimum-runs'), count: z.number().int().positive() }).strict(),
     z.object({ kind: z.literal('varied-control'), controlId: stableId }).strict(),
+    // Scoped to the runs pinned to the conclusion, not to every recorded run — see the union.
+    z.object({ kind: z.literal('unvaried-control-pinned'), controlId: stableId }).strict(),
     z.object({ kind: z.literal('inspected-source'), sourceId: stableId }).strict()
 ] as const;
 
@@ -1060,7 +1084,7 @@ export const CaseDefinitionSchema = z.object({
             if (leaf.kind === 'inspected-source' && !sourceIds.has(leaf.sourceId)) {
                 context.addIssue({ code: 'custom', message: 'Conclusion proposals may only reference authored sources.', path: ['conclusionProposals', index, 'supportPredicate'] });
             }
-            if (leaf.kind === 'varied-control' && !controlIds.has(leaf.controlId)) {
+            if ((leaf.kind === 'varied-control' || leaf.kind === 'unvaried-control-pinned') && !controlIds.has(leaf.controlId)) {
                 context.addIssue({ code: 'custom', message: 'Conclusion proposals may only reference authored controls.', path: ['conclusionProposals', index, 'supportPredicate'] });
             }
         });

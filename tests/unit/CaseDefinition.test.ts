@@ -66,8 +66,8 @@ const validYoungCase: CaseDefinition = {
     prediction: { required: true },
     apparatus: {
         primaryControls: [
-            { id: 'slitSpacingMm', label: bilingual('Slit spacing', 'Écartement des fentes'), unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
-            { id: 'screenDistanceM', label: bilingual('Screen distance', 'Distance à l’écran'), unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
+            { id: 'slitSpacingMm', label: bilingual('Slit spacing', 'Écartement des fentes'), inlineLabel: bilingual('slit spacing', 'd’écartement des fentes'), unit: 'mm', min: 0.1, max: 0.5, step: 0.05, defaultValue: 0.25 },
+            { id: 'screenDistanceM', label: bilingual('Screen distance', 'Distance à l’écran'), inlineLabel: bilingual('screen distance', 'de distance à l’écran'), unit: 'm', min: 1, max: 4, step: 0.25, defaultValue: 2 }
         ]
     },
     experiment: {
@@ -231,8 +231,8 @@ const cloneSecondCase = (): CaseDefinition => {
     // A rotating bench with one temperature control: a genuinely different apparatus, and one of the
     // two IDs is a *single* control so the `.min(1)` end of the range is exercised too.
     (definition.apparatus as { primaryControls: unknown }).primaryControls = [
-        { id: 'rotationDeg', label: { en: 'Bench rotation', fr: 'Rotation du banc' }, unit: '°', min: 0, max: 90, step: 15, defaultValue: 45 },
-        { id: 'bathTempC', label: { en: 'Bath temperature', fr: 'Température du bain' }, unit: '°C', min: 10, max: 30, step: 2, defaultValue: 20 }
+        { id: 'rotationDeg', label: { en: 'Bench rotation', fr: 'Rotation du banc' }, inlineLabel: { en: 'bench rotation', fr: 'de rotation du banc' }, unit: '°', min: 0, max: 90, step: 15, defaultValue: 45 },
+        { id: 'bathTempC', label: { en: 'Bath temperature', fr: 'Température du bain' }, inlineLabel: { en: 'bath temperature', fr: 'de température du bain' }, unit: '°C', min: 10, max: 30, step: 2, defaultValue: 20 }
     ];
 
     // No wavelength, and no wavelength comparison: this apparatus has neither.

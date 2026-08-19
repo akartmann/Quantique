@@ -44,6 +44,56 @@ const loadAuthoredYoungCase = async (): Promise<CaseDefinition> => {
     return parsed.data as CaseDefinition;
 };
 
+describe('unvaried-control-pinned — scoped to the runs the player pinned', () => {
+    /**
+     * The one predicate that reads {@link AuthoritativeEvidence.selectedRunIds} rather than every
+     * recorded run, and the reason it has to (code review 2026-08-19).
+     *
+     * The prototype's bounded-null claim reads "Held at a steady bath temperature" and nothing checked
+     * it, so the game endorsed that sentence over evidence taken at two temperatures. Asking it of every
+     * recorded run instead would have been *worse*: the case's own `resetPath` tells the player to move
+     * the bath and come back, so the claim would have become unreachable by following the case's own
+     * teaching. These rows pin that distinction down in both directions.
+     */
+    const held = (id: string, screenDistanceM: number): RunRecord => createRun(id, 0.25, screenDistanceM);
+
+    it('defends a claim when the pinned runs all share the value, whatever else was recorded', () => {
+        const runs = [held('run-1', 2), held('run-2', 2), held('run-3', 4)];
+
+        // run-3 varies it — the confound-removal detour the case teaches — but it is not pinned.
+        expect(evaluateSupportPredicate(
+            { kind: 'unvaried-control-pinned', controlId: 'screenDistanceM' },
+            evidence({ runs, selectedRunIds: ['run-1', 'run-2'] })
+        )).toBe(true);
+    });
+
+    it('refuses a claim when the pinned runs disagree', () => {
+        const runs = [held('run-1', 2), held('run-2', 4)];
+
+        expect(evaluateSupportPredicate(
+            { kind: 'unvaried-control-pinned', controlId: 'screenDistanceM' },
+            evidence({ runs, selectedRunIds: ['run-1', 'run-2'] })
+        )).toBe(false);
+    });
+
+    it('fails closed when the caller never said which runs were pinned', () => {
+        // Not "passes because it cannot tell" — a claim whose defence depends on the pinned set cannot be
+        // defended by a caller that omitted it. Fail-open here is the silent degradation this project
+        // keeps finding.
+        expect(evaluateSupportPredicate(
+            { kind: 'unvaried-control-pinned', controlId: 'screenDistanceM' },
+            evidence({ runs: [held('run-1', 2), held('run-2', 2)] })
+        )).toBe(false);
+    });
+
+    it('refuses a claim with nothing pinned, rather than calling one value zero values', () => {
+        expect(evaluateSupportPredicate(
+            { kind: 'unvaried-control-pinned', controlId: 'screenDistanceM' },
+            evidence({ runs: [held('run-1', 2)], selectedRunIds: [] })
+        )).toBe(false);
+    });
+});
+
 describe('evaluateSupportPredicate', () => {
     it('never defends a `never` predicate, whatever the evidence', () => {
         expect(evaluateSupportPredicate({ kind: 'never' }, minimumYoungEvidence())).toBe(false);

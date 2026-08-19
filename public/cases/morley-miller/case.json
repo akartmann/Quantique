@@ -111,16 +111,16 @@
       }
     },
     {
-      "id": "morley-miller-1907-reconstruction",
+      "id": "morley-miller-1905-reconstruction",
       "displayName": {
-        "en": "A reconstruction of the 1907 Morley–Miller report",
-        "fr": "Une reconstitution du rapport Morley–Miller de 1907"
+        "en": "A reconstruction of the 1905 Morley–Miller report",
+        "fr": "Une reconstitution du rapport Morley–Miller de 1905"
       },
       "creatorOrOrigin": "Quantique editorial reconstruction, after Morley and Miller",
       "sourceType": "reconstruction",
       "provenance": {
         "category": "reconstruction",
-        "reference": "morley-miller-1907-report"
+        "reference": "morley-miller-1905-report"
       },
       "rightsStatus": "reviewed",
       "caseRelationship": {
@@ -155,10 +155,10 @@
         "renditions": [
           {
             "locale": "en",
-            "kind": "transcription",
+            "kind": "reconstruction",
             "sections": [
               {
-                "id": "mmr-1907-s1",
+                "id": "mmr-1905-s1",
                 "heading": "The instrument",
                 "paragraphs": [
                   "The optical path was lengthened by repeated reflection, so that a given motion through the ether would produce a larger displacement of the fringes than the 1887 arrangement could show.",
@@ -169,7 +169,7 @@
                 ]
               },
               {
-                "id": "mmr-1907-s2",
+                "id": "mmr-1905-s2",
                 "heading": "What was watched, and what interfered",
                 "paragraphs": [
                   "Temperature was the dominant nuisance. A difference of a fraction of a degree across the arms bent the light path enough to imitate the effect being looked for, and the observers took considerable trouble to hold the room and the apparatus steady.",
@@ -187,7 +187,7 @@
             "kind": "translation",
             "sections": [
               {
-                "id": "mmr-1907-s1",
+                "id": "mmr-1905-s1",
                 "heading": "L’instrument",
                 "paragraphs": [
                   "Le trajet optique fut allongé par réflexions répétées, afin qu’un mouvement donné dans l’éther produise un déplacement des franges plus grand que ne pouvait le montrer le montage de 1887.",
@@ -198,7 +198,7 @@
                 ]
               },
               {
-                "id": "mmr-1907-s2",
+                "id": "mmr-1905-s2",
                 "heading": "Ce qui fut surveillé, et ce qui interférait",
                 "paragraphs": [
                   "La température fut la gêne dominante. Une différence d’une fraction de degré entre les bras courbait le trajet lumineux assez pour imiter l’effet recherché, et les observateurs se donnèrent beaucoup de mal pour maintenir la salle et l’appareil stables.",
@@ -226,6 +226,10 @@
           "en": "Bench rotation",
           "fr": "Rotation du banc"
         },
+        "inlineLabel": {
+          "en": "bench rotation",
+          "fr": "de rotation du banc"
+        },
         "unit": "°",
         "min": 0,
         "max": 180,
@@ -237,6 +241,10 @@
         "label": {
           "en": "Bath temperature",
           "fr": "Température du bain"
+        },
+        "inlineLabel": {
+          "en": "bath temperature",
+          "fr": "de température du bain"
         },
         "unit": "°C",
         "min": 18,
@@ -284,7 +292,8 @@
   },
   "significanceRule": {
     "criticalControlIds": [
-      "rotationDeg"
+      "rotationDeg",
+      "bathTempC"
     ]
   },
   "colleagueHints": [
@@ -348,11 +357,11 @@
       }
     },
     {
-      "id": "reading-1907",
+      "id": "reading-1905",
       "colleagueId": "tomas-reyes",
       "predicate": {
         "kind": "missing-artifact",
-        "artifactId": "morley-miller-1907-reconstruction"
+        "artifactId": "morley-miller-1905-reconstruction"
       },
       "line": {
         "en": "Read the later report too. It tells you what went wrong before you repeat it.",
@@ -496,12 +505,16 @@
             "controlId": "rotationDeg"
           },
           {
+            "kind": "unvaried-control-pinned",
+            "controlId": "bathTempC"
+          },
+          {
             "kind": "inspected-source",
             "sourceId": "michelson-morley-1887"
           },
           {
             "kind": "inspected-source",
-            "sourceId": "morley-miller-1907-reconstruction"
+            "sourceId": "morley-miller-1905-reconstruction"
           }
         ]
       }
@@ -530,7 +543,7 @@
           },
           {
             "kind": "inspected-source",
-            "sourceId": "morley-miller-1907-reconstruction"
+            "sourceId": "morley-miller-1905-reconstruction"
           }
         ]
       }
@@ -641,7 +654,7 @@
       "id": "consult-unread-report",
       "predicate": {
         "kind": "missing-source",
-        "sourceId": "morley-miller-1907-reconstruction"
+        "sourceId": "morley-miller-1905-reconstruction"
       },
       "layers": {
         "observation": {
@@ -889,12 +902,12 @@
     },
     "sourceRefs": [
       "michelson-morley-1887-ajs",
-      "morley-miller-1907-report"
+      "morley-miller-1905-report"
     ],
     "historicalComparison": {
       "title": {
-        "en": "1887 and 1907, side by side",
-        "fr": "1887 et 1907, côte à côte"
+        "en": "1887 and 1905, side by side",
+        "fr": "1887 et 1905, côte à côte"
       },
       "text": {
         "en": "The later repetition was longer, more careful and far more numerous, and it moved the bound down rather than overturning it. That is what a null result looks like when it is being taken seriously.",
@@ -902,7 +915,7 @@
       },
       "sourceIds": [
         "michelson-morley-1887",
-        "morley-miller-1907-reconstruction"
+        "morley-miller-1905-reconstruction"
       ]
     },
     "deeperTheory": {

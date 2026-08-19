@@ -9,9 +9,8 @@ import { createRunRecord, runControlContract } from '../domain/evidence/RunRecor
 import { countFixedMinimumPathRuns } from '../domain/evidence/wavelengthComparison';
 import { evaluateConclusionReadiness } from '../domain/theory/conclusionReadiness';
 import { evaluatePeerReview } from '../domain/review/peerReviewRules';
-import { YOUNG_CASE_ID } from './CaseDefinitionSchema';
 import { deriveRecognition, RECOGNITION_IDS, recognitionDefinitions } from '../domain/recognition/recognitionRules';
-import { CaseIdSchema } from './CaseDefinitionSchema';
+import { CaseIdSchema, YOUNG_CASE_ID } from './CaseDefinitionSchema';
 import { migrateCaseRecord } from './migrations/migrateCaseRecord';
 import { evaluateContextReadiness, evaluatePredictionReadiness } from '../domain/cases/contextPredictionReadiness';
 
@@ -400,6 +399,20 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // `experiment.modelId` compares equal. `schemaVersion` stays 3 and `migrateCaseRecord.ts` is
         // untouched.
         || (definition.version === '1.19.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0', '1.16.0', '1.17.0', '1.18.0'].includes(record.caseDefinitionVersion))
+        // 1.20.0 — code review of 3.2. One additive authored field per primary control:
+        // **`inlineLabel`**, the control's name as it reads inside running prose, carrying its own
+        // preposition and elision. `lab.idle` and the printable record spliced the *display* label into
+        // a sentence and produced "0,25 mm de Écartement des fentes" in French — a grammar regression on
+        // content that had already shipped, on the ordinary path, which no test could see because the
+        // composed sentence was asserted in English only.
+        //
+        // Display copy and nothing else: nothing records `inlineLabel`, nothing gates on it, and no
+        // run, decision or recognition value moved. The recomputed canonical set is byte-identical to
+        // 1.19.0 — `peerReviewRules`' `feedback` and `revisionPath`, and the proposal claims and
+        // limitations — verified by diffing the two files: the whole document apart from `version` and
+        // the four inserted `inlineLabel` blocks compares equal. `schemaVersion` stays 3 and
+        // `migrateCaseRecord.ts` is untouched.
+        || (definition.version === '1.20.0' && ['1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0', '1.8.0', '1.9.0', '1.10.0', '1.11.0', '1.12.0', '1.13.0', '1.14.0', '1.15.0', '1.16.0', '1.17.0', '1.18.0', '1.19.0'].includes(record.caseDefinitionVersion))
         ));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
@@ -570,30 +583,44 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         let fixedMinimumRunCount = 0;
         const validCompletionRuns = completion.runs.every((run) => {
             const parsedRun = createRunRecord(run, runControlContract(definition));
-            if (!parsedRun.ok || !parsedRun.value.modelInputs
+            // **`modelInputs` is not a completion requirement (review 2026-08-19).** It sat in this reject
+            // list, and `calculateYoungFringeSpacing` was then called on it unconditionally — so a
+            // *completed* investigation whose model records no optical inputs failed here, and
+            // `createAppStateFromCaseRecord` threw the whole saved case away on the next boot. A player
+            // who finished the interferometer lost it, and was told their work was unchanged. The
+            // pre-completion walk 90 lines above was already written defensively
+            // (`modelInputs && calculateYoungFringeSpacing(...)`), which is what makes this an oversight
+            // rather than a policy: the two walks disagreed about whether a second case may complete.
+            // Every check that is *not* Young's still applies to every run.
+            if (!parsedRun.ok
                 || parsedRun.value.caseId !== definition.id
                 || parsedRun.value.experimentModelVersion !== definition.experiment.modelVersion
                 || !parsedRun.value.linkedEvidenceIds.every((sourceId) => completion.inspectedSourceIds.includes(sourceId))
-                || parsedRun.value.modelInputs.slitSpacingMm !== parsedRun.value.controls.slitSpacingMm
-                || parsedRun.value.modelInputs.screenDistanceM !== parsedRun.value.controls.screenDistanceM
-                || (parsedRun.value.modelInputs.wavelengthMode === 'advanced'
-                    && (!definition.experiment.wavelengthComparison?.advancedChoicesNm.includes(parsedRun.value.modelInputs.wavelengthNm as 450 | 650)
-                        || fixedMinimumRunCount < definition.requirements.minimumRuns))
                 || definition.apparatus.primaryControls.some((control) => {
                     const normalized = normalizeControlValue(control, parsedRun.value.controls[control.id]);
                     return !normalized.ok || normalized.value !== parsedRun.value.controls[control.id];
                 })) return false;
-            const calculated = calculateYoungFringeSpacing(parsedRun.value.modelInputs);
-            const validResult = calculated.ok && calculated.value.label === parsedRun.value.result.label
-                && calculated.value.value === parsedRun.value.result.value && calculated.value.unit === parsedRun.value.result.unit;
+            const completionInputs = parsedRun.value.modelInputs;
+            if (completionInputs && (completionInputs.slitSpacingMm !== parsedRun.value.controls.slitSpacingMm
+                || completionInputs.screenDistanceM !== parsedRun.value.controls.screenDistanceM
+                || (completionInputs.wavelengthMode === 'advanced'
+                    && (!definition.experiment.wavelengthComparison?.advancedChoicesNm.includes(completionInputs.wavelengthNm as 450 | 650)
+                        || fixedMinimumRunCount < definition.requirements.minimumRuns)))) return false;
+            // Recomputed only where the model persisted the inputs to recompute from. Re-deriving a
+            // result for a run that records none needs the session values the model binds over, which is
+            // the deferred Epic 4 item; until then such a run keeps the bench-match and model-version
+            // checks above, which is what every run gets.
+            const calculated = completionInputs && calculateYoungFringeSpacing(completionInputs);
+            const validResult = !calculated || (calculated.ok && calculated.value.label === parsedRun.value.result.label
+                && calculated.value.value === parsedRun.value.result.value && calculated.value.unit === parsedRun.value.result.unit);
             const chronological = !priorRunTimestamp || parsedRun.value.timestamp >= priorRunTimestamp;
             priorRunTimestamp = parsedRun.value.timestamp;
             // The fourth copy of the baseline. Incremental rather than `countFixedMinimumPathRuns`, and
             // deliberately so: this walk is chronological and the count must reflect only the runs
             // recorded *before* the one being checked, which a whole-set count cannot express. The
             // number itself still comes from the case (`deferred-work.md:99`).
-            if (parsedRun.value.modelInputs.wavelengthMode === 'minimum'
-                && parsedRun.value.modelInputs.wavelengthNm === definition.experiment.wavelengthComparison?.fixedMinimumPathNm) fixedMinimumRunCount += 1;
+            if (completionInputs?.wavelengthMode === 'minimum'
+                && completionInputs.wavelengthNm === definition.experiment.wavelengthComparison?.fixedMinimumPathNm) fixedMinimumRunCount += 1;
             return validResult && chronological;
         });
         const validCompletionHistory = completion.decisionHistory.every((entry, index) => {
