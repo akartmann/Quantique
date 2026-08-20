@@ -201,6 +201,29 @@ const failure = (code: 'invalid-import' | 'invalid-case-record' | 'incompatible-
 const validIds = (values: readonly string[], available: ReadonlySet<string>): boolean => unique(values) && values.every((value) => available.has(value));
 
 /**
+ * The artifact ID Story 4.1 retired, and every record collection that can still be holding it.
+ *
+ * Restated as a literal because it names content that no longer exists: there is no constant left to
+ * import, and inventing one in `CaseDefinitionSchema` would put a retired id back into the authored
+ * vocabulary. It is history, and history is what this function is for.
+ *
+ * Every collection is swept rather than only `inspectedSourceIds`, because a record can name a source
+ * in its theory selection, in a revision-history entry, or in its completion snapshot without that id
+ * still being in the live inspected set — and accepting such a record would carry a dangling reference
+ * into `AppState`, which is the failure the 1.4.0 clause's condition exists to prevent.
+ */
+const RETIRED_MORLEY_MILLER_ARTIFACT_ID = 'morley-miller-1905-reconstruction';
+
+export const recordNamesRetiredArtifact = (record: CaseRecord): boolean => {
+    const names = (sourceIds: readonly string[]): boolean => sourceIds.includes(RETIRED_MORLEY_MILLER_ARTIFACT_ID);
+    return names(record.inspectedSourceIds)
+        || names(record.theory.selectedSourceIds)
+        || record.decisionHistory.some((entry) => names(entry.selectedSourceIds))
+        || (record.completion !== undefined && (names(record.completion.inspectedSourceIds)
+            || record.completion.decisionHistory.some((entry) => names(entry.selectedSourceIds))));
+};
+
+/**
  * Checks a persisted challenge log by **lookup only**: the proposal is authored, the critique is
  * authored *and answers that proposal*, and the log is in order.
  *
@@ -475,28 +498,30 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // the third time on this case that a content edit changing nothing recorded would have discarded
         // a player's investigation, and the reason the 1.1.0 clause above exists at all. **Bumping
         // `CaseDefinition.version` and extending this allowlist are one action, not two.**
-        || (isPrototype && definition.version === '1.3.0' && ['1.0.0', '1.1.0', '1.2.0'].includes(record.caseDefinitionVersion));
-    // 1.4.0 — Story 4.1. **This clause deliberately lists no prior version, and the omission is the
-    // decision rather than the repeat of 3.4's finding.**
-    //
-    // 1.4.0 replaces the artifact `morley-miller-1905-reconstruction` with
-    // `morley-miller-1907-final-report`. Unlike every bump above it, that moves an id a saved record
-    // *holds*: `inspectedSourceIds`, `theory.selectedSourceIds`, each `revisionHistory` entry's
-    // `selectedSourceIds`, and `completion.inspectedSourceIds`. A record naming the retired id cannot be
-    // honestly accepted, and the checks below would not accept it either — line ~499 cross-checks
-    // `inspectedSourceIds` against the authored artifacts and fails the whole record, and
-    // `evaluateContextReadiness` counts *every* authored artifact, so any record past the `context`
-    // phase necessarily carries both ids and necessarily names the retired one.
-    //
-    // So listing 1.0.0–1.3.0 here would not preserve those investigations; it would only downgrade the
-    // refusal they already get from `incompatible-case-record` ("this record is for a different version
-    // of this investigation") to `invalid-case-record` ("this record could not be used") — a worse
-    // message for the same outcome, and a claim of compatibility the next check contradicts. Widening
-    // the allowlist is what `project-context.md` §Organization forbids: *keep it honest rather than
-    // widening it*.
-    //
-    // The exclusion is asserted by name in `tests/unit/MorleyMillerPrototype.test.ts`, so it is a
-    // decision under test rather than an absence nobody notices.
+        || (isPrototype && definition.version === '1.3.0' && ['1.0.0', '1.1.0', '1.2.0'].includes(record.caseDefinitionVersion))
+        // 1.4.0 — Story 4.1, as corrected by its code review. **Conditional on the record, not on the
+        // version alone, and it is the only clause here that has to be.**
+        //
+        // 1.4.0 replaces the artifact `morley-miller-1905-reconstruction` with
+        // `morley-miller-1907-final-report`. Unlike every bump above it, that moves an id a saved record
+        // *holds*, so version equality is not sufficient on its own — hence `recordNamesRetiredArtifact`.
+        //
+        // The story shipped this clause absent, reasoning that a record naming the retired id would be
+        // refused downstream anyway so listing prior versions would only downgrade an honest
+        // `incompatible-case-record` into `invalid-case-record`. That reasoning is sound **for records
+        // past the `context` phase** — the readiness check at line ~576 is guarded by
+        // `record.phase !== 'context'`, so it says nothing about records inside it. A record autosaved in
+        // the context phase having inspected only `michelson-morley-1887`, or nothing at all, names no
+        // retired id, satisfies every check below, and was still refused — and because `attachAutosave`
+        // saves on the first dispatch of the recovered session, that refusal *overwrote* it. Discarding
+        // restorable work is exactly what NFR12 and the 1.1.0 and 1.3.0 clauses above exist to prevent.
+        //
+        // So the honest rule is neither "list the versions" nor "list none": it is to accept a prior
+        // version precisely when the record cannot be naming content that no longer exists. Both
+        // directions are asserted by name in `tests/unit/MorleyMillerPrototype.test.ts`.
+        || (isPrototype && definition.version === '1.4.0'
+            && ['1.0.0', '1.1.0', '1.2.0', '1.3.0'].includes(record.caseDefinitionVersion)
+            && !recordNamesRetiredArtifact(record));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }

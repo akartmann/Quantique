@@ -33,9 +33,13 @@ import {
     caseFileRightTextWrap
 } from '../../src/adapters/phaser/renderers/caseFileGeometry';
 import {
+    DEBRIEF_BODY_FONT_SIZE,
     DEBRIEF_META_FONT_SIZE,
     DEBRIEF_PAGE_CONTROL_FONT_SIZE,
+    DEBRIEF_SECTION_TITLE_FONT_SIZE,
+    DEBRIEF_SUMMARY_FONT_SIZE,
     DEBRIEF_TOGGLE_FONT_SIZE,
+    debriefLeftTextWrap,
     debriefPageControlLabelWrap,
     debriefRecognitionStatusWrap,
     debriefToggleStateWrap
@@ -53,7 +57,13 @@ import { advanceControlLabelWrap } from '../../src/adapters/phaser/ui/AdvanceCon
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../../src/adapters/phaser/designSurface';
 import { bookCloseControlCentre } from '../../src/adapters/phaser/renderers/LectureBookRenderer';
 import {
-    artifactAt, clickDesign, enterTheLaboratory, gotoCase, waitForBookToClose, waitForBookToOpen
+    artifactAt,
+    clickDesign,
+    enterTheLaboratory,
+    gotoCase,
+    waitForBookToClose,
+    waitForBookToOpen,
+    YOUNG_CASE
 } from './canvasHelpers';
 // The room's own type sizes, read from the renderer that draws them rather than restated. The 2.8
 // review found six of them copied into this table as literals — the same shape of defect that
@@ -253,15 +263,20 @@ const DIALOGUE_SPEAKER_WRAP_WIDTH = dialogueSpeakerWrapWidth(DIALOGUE_PANEL_WIDT
 const RIVAL_LAB_TEXT_WRAP_WIDTH = rivalLabTextWrapWidth();
 
 /**
- * How many references the shipped case puts on the shelf.
+ * How many references a shipped case puts on the shelf — the **most** any of them does.
  *
- * Read from the content, because every bound below that depends on it narrows as it grows. The full
- * `SHIPPED_CASES` parse further down carries the authored strings; this is only the count, and it is
- * needed before the bounds table.
+ * Read from the content, because every bound below that depends on it narrows as it grows. This was a
+ * Young-only parse whose docstring was edited in Story 4.1 to read as if the count came from the
+ * cross-case sweep; it did not (code review of 4.1). Harmless while both cases author two artifacts and
+ * `MAX_CONTEXTUAL_ARTIFACTS` pins that at two — but it feeds `LIBRARY_ARTIFACT_LABEL_WRAP`, the
+ * narrowest band in the room and the one the story's single mutation proof depends on, so it should not
+ * be the one number here that is measured against a single case.
+ *
+ * Its own parse rather than `SHIPPED_CASES`, only because it is needed above the bounds table.
  */
-const LIBRARY_ARTIFACT_COUNT = (JSON.parse(
-    readFileSync(new URL('../../public/cases/young-interference/case.json', import.meta.url), 'utf-8')
-) as { contextualArtifacts: unknown[] }).contextualArtifacts.length;
+const LIBRARY_ARTIFACT_COUNT = Math.max(...SHIPPED_CASE_IDS.map((caseId) => (JSON.parse(
+    readFileSync(new URL(`../../public/cases/${caseId}/case.json`, import.meta.url), 'utf-8')
+) as { contextualArtifacts: unknown[] }).contextualArtifacts.length));
 
 /**
  * The reading room's bounds (Story 2.8), derived from `libraryGeometry` at the shipped canvas size.
@@ -460,6 +475,22 @@ type ShippedCase = {
     predictionProposals: { text: { en: string; fr: string } }[];
     conclusionProposals: { claim: { en: string; fr: string }; limitation: { en: string; fr: string } }[];
     scenarioScript: { scenes: { phase: string; dialogueBeats?: { id: string; text: { en: string; fr: string } }[] }[] };
+    // The three blocks Story 4.1 rewrote and no sweep read (code review of 4.1). AC7 names "the debrief
+    // prose" explicitly, and the debrief's comparison and summary are the two surfaces the story's own
+    // Debug Log records as having overrun their bands — found by eye, because nothing measured them.
+    debrief: {
+        summary: { en: string; fr: string };
+        historicalComparison: { title: { en: string; fr: string }; text: { en: string; fr: string } };
+        deeperTheory: { title: { en: string; fr: string }; text: { en: string; fr: string } };
+    };
+    consultationRules: {
+        id: string;
+        layers: {
+            observation: { en: string; fr: string };
+            plainLanguage: { en: string; fr: string };
+            technicalDetail: { en: string; fr: string };
+        };
+    }[];
 };
 
 /**
@@ -505,11 +536,15 @@ const allAcrossCases = (select: (definition: ShippedCase) => readonly string[]):
  */
 const bilingualAcrossCases = <T>(
     select: (definition: ShippedCase) => readonly T[],
-    describe: (item: T) => string,
+    // The index is passed as well as the item, and it is not decoration: dropping it was how the
+    // cross-case conversion left two overflowing proposals of the same case printing the *same* label
+    // (code review of 4.1), which defeats the reason the case id was threaded through in the first
+    // place — a reviewer is back to grepping for the string inside the case.
+    describe: (item: T, index: number) => string,
     line: (item: T) => { en: string; fr: string }
 ): readonly { label: string; text: string }[] => SHIPPED_CASES.flatMap(({ caseId, definition }) =>
-    select(definition).flatMap((item) => (['fr', 'en'] as const).map((locale) => ({
-        label: `${caseId} ${describe(item)} [${locale}]`,
+    select(definition).flatMap((item, index) => (['fr', 'en'] as const).map((locale) => ({
+        label: `${caseId} ${describe(item, index)} [${locale}]`,
         text: line(item)[locale]
     }))));
 
@@ -523,8 +558,25 @@ const BREAKABLE_WHITESPACE = /[^\S\u00A0\u202F]+/;
 const longestFrench = (values: readonly string[]): string =>
     values.reduce((longest, value) => (value.length > longest.length ? value : longest), '');
 
-const SOURCE_NAME = longestFrench(allAcrossCases(({ contextualArtifacts }) => contextualArtifacts.map(({ displayName }) => displayName.fr)));
-const CONTROL_LABEL = longestFrench(allAcrossCases(({ apparatus }) => apparatus.primaryControls.map(({ label }) => label.fr)));
+/**
+ * **Every case's string, not the longest one across cases (code review of 4.1).**
+ *
+ * Story 4.1 converted these from a Young-only parse to `longestFrench(allAcrossCases(...))`, which
+ * reads as cross-case coverage and is not: `longestFrench` reduces to **one** string by character
+ * count, and Young wins every one of these six — control label 21 characters against 19, inline label
+ * 23 against 22, the composed idle clause 63 against 60, the notebook row 62 against 58, source name
+ * 56 against 43, limitations 143 against 125. The extension was therefore a byte-for-byte no-op for
+ * the prototype, whose widest single token (`Température`, 11) is *wider* than Young's (`Écartement`,
+ * 10) and was measured by nothing at all. That is why the extended sweep reported no overflow on the
+ * case it had just been extended to cover (code review of 4.1).
+ *
+ * This is the defect this file already records twice — "`longestFrench` by character count is not
+ * enough where the pass condition is per-token pixel width" — so the fix is the rule the file already
+ * states: keep every string and let the per-token split measure them all. `SAMPLE_PARAMS` therefore
+ * holds an **array** of parameter sets per key and `fillParams` returns one filled string per set.
+ */
+const SOURCE_NAMES = allAcrossCases(({ contextualArtifacts }) => contextualArtifacts.map(({ displayName }) => displayName.fr));
+const CONTROL_LABELS = allAcrossCases(({ apparatus }) => apparatus.primaryControls.map(({ label }) => label.fr));
 /**
  * The widest authored *inline* label, and the whole composed settings clause.
  *
@@ -534,10 +586,11 @@ const CONTROL_LABEL = longestFrench(allAcrossCases(({ apparatus }) => apparatus.
  * fragment per authored control. The sampled string was roughly half the length of the sentence that
  * actually renders, so the 620px bound was never exercised against it (review 2026-08-19).
  */
-const CONTROL_INLINE_LABEL = longestFrench(allAcrossCases(({ apparatus }) => apparatus.primaryControls.map(({ inlineLabel }) => inlineLabel.fr)));
-const IDLE_SETTINGS_CLAUSE = longestFrench(SHIPPED_CASES.map(({ definition }) => definition.apparatus.primaryControls
+const CONTROL_INLINE_LABELS = allAcrossCases(({ apparatus }) => apparatus.primaryControls.map(({ inlineLabel }) => inlineLabel.fr));
+/** One composed clause **per case** — the sentence `ApparatusRenderer` builds from that case's own controls. */
+const IDLE_SETTINGS_CLAUSES = SHIPPED_CASES.map(({ definition }) => definition.apparatus.primaryControls
     .map(({ inlineLabel }) => `0,25 mm ${inlineLabel.fr}`)
-    .join(fr['list.separator'])));
+    .join(fr['list.separator']));
 /** Every shipped case's authored title, in both locales — the surface that replaced `lab.title`. */
 const CASE_TITLES = SHIPPED_CASE_IDS.flatMap((caseId) => {
     const definition = JSON.parse(
@@ -547,12 +600,15 @@ const CASE_TITLES = SHIPPED_CASE_IDS.flatMap((caseId) => {
 });
 
 /** The notebook's settings row: one readout per authored control, at the row's own size and wrap. */
-const NOTEBOOK_SETTINGS_ROW = longestFrench(SHIPPED_CASES.map(({ definition }) => definition.apparatus.primaryControls
-    .map(({ label }) => `${label.fr} : 0,25 mm`)
-    .join(fr['notebook.row.settingsSeparator'])));
+const NOTEBOOK_SETTINGS_ROWS = SHIPPED_CASES.map(({ caseId, definition }) => ({
+    caseId,
+    row: definition.apparatus.primaryControls
+        .map(({ label }) => `${label.fr} : 0,25 mm`)
+        .join(fr['notebook.row.settingsSeparator'])
+}));
 const SPACING = '0,2200 mm';
 
-const COLLEAGUE_NAME = longestFrench(allAcrossCases(({ colleagues }) => colleagues.map(({ name }) => name)));
+const COLLEAGUE_NAMES = allAcrossCases(({ colleagues }) => colleagues.map(({ name }) => name));
 /**
  * Every colleague's name at the size and slot the **figure plaque** draws it (Story 2.9).
  *
@@ -575,10 +631,10 @@ const ROLE_LABEL = longestFrench([
  * widest unbreakable token has no reason to live in the longest string. Sampling by character count
  * let a short proposal carrying one long token through unmeasured.
  */
-const PROPOSAL_TEXTS = bilingualAcrossCases(({ predictionProposals }) => predictionProposals, (_, ) => 'prediction text', ({ text }) => text);
-const CONCLUSION_CLAIMS = bilingualAcrossCases(({ conclusionProposals }) => conclusionProposals, () => 'conclusion claim', ({ claim }) => claim);
-const CONCLUSION_LIMITATIONS = bilingualAcrossCases(({ conclusionProposals }) => conclusionProposals, () => 'conclusion limitation', ({ limitation }) => limitation);
-/** French only, for the one place a *single* representative string is wanted (see `SAMPLE_PARAMS`). */
+const PROPOSAL_TEXTS = bilingualAcrossCases(({ predictionProposals }) => predictionProposals, (_, index) => `prediction text ${index + 1}`, ({ text }) => text);
+const CONCLUSION_CLAIMS = bilingualAcrossCases(({ conclusionProposals }) => conclusionProposals, (_, index) => `conclusion claim ${index + 1}`, ({ claim }) => claim);
+const CONCLUSION_LIMITATIONS = bilingualAcrossCases(({ conclusionProposals }) => conclusionProposals, (_, index) => `conclusion limitation ${index + 1}`, ({ limitation }) => limitation);
+/** French only, for the `proposal.limitation` template — every one of them, not a representative. */
 const FRENCH_LIMITATIONS = allAcrossCases(({ conclusionProposals }) => conclusionProposals.map(({ limitation }) => limitation.fr));
 
 /**
@@ -593,6 +649,44 @@ const FRENCH_LIMITATIONS = allAcrossCases(({ conclusionProposals }) => conclusio
  * `text.fr` left every English beat unchecked by the entire suite, since no other spec measures text at
  * all. Width measurement does not depend on the page locale, so both fit in this one pass.
  */
+/**
+ * The debrief's authored prose, and the case file's consultation layers — every case, both locales.
+ *
+ * AC7 enumerates "the debrief prose" and the sweep read none of it, for either case (code review of
+ * 4.1). That is the surface the story's own Debug Log records as having overrun: the French historical
+ * comparison and the summary were both authored down after being caught **by eye**, which is the check
+ * this file exists to replace for everything a width bound can decide.
+ *
+ * Width only, and the distinction matters. A per-token width bound is what this sweep can prove; how
+ * many *lines* the wrapped prose then occupies inside `DEBRIEF_COMPARISON_BAND_HEIGHT` is a height
+ * claim, and this file's own rule is that a height claim proven in the structural harness is an
+ * assertion about arithmetic rather than about what is painted. So the reserve stays the guarantee and
+ * the eye stays the check for it; what is automated here is that no single token can overflow.
+ */
+const DEBRIEF_PROSE = SHIPPED_CASES.flatMap(({ caseId, definition: { debrief } }) =>
+    (['fr', 'en'] as const).flatMap((locale) => [
+        { label: `${caseId} debrief summary [${locale}]`, fontSize: DEBRIEF_SUMMARY_FONT_SIZE, text: debrief.summary[locale] },
+        { label: `${caseId} debrief comparison title [${locale}]`, fontSize: DEBRIEF_SECTION_TITLE_FONT_SIZE, text: debrief.historicalComparison.title[locale] },
+        { label: `${caseId} debrief comparison text [${locale}]`, fontSize: DEBRIEF_BODY_FONT_SIZE, text: debrief.historicalComparison.text[locale] },
+        { label: `${caseId} debrief deeper-theory title [${locale}]`, fontSize: DEBRIEF_SECTION_TITLE_FONT_SIZE, text: debrief.deeperTheory.title[locale] },
+        { label: `${caseId} debrief deeper-theory text [${locale}]`, fontSize: DEBRIEF_BODY_FONT_SIZE, text: debrief.deeperTheory.text[locale] }
+    ]));
+
+/**
+ * The consultation layers, which render as three joined lines in the case file's right column.
+ *
+ * Added with the debrief prose and for the same reason: Story 4.1 rewrote a `layers.observation` in
+ * both locales and nothing measured it. The review of 4.1 also found a stale `plainLanguage` here that
+ * still described a retired artifact — a content defect a width sweep cannot catch, which is precisely
+ * why the sweep should at least be measuring the field.
+ */
+const CONSULTATION_LAYERS = SHIPPED_CASES.flatMap(({ caseId, definition }) =>
+    definition.consultationRules.flatMap(({ id, layers }) =>
+        (['observation', 'plainLanguage', 'technicalDetail'] as const).flatMap((layer) =>
+            (['fr', 'en'] as const).map((locale) => ({
+                label: `${caseId} ${id} ${layer} [${locale}]`, text: layers[layer][locale]
+            })))));
+
 const DIALOGUE_BEATS = SHIPPED_CASES.flatMap(({ caseId, definition }) =>
     definition.scenarioScript.scenes.flatMap(({ phase, dialogueBeats }) =>
         (dialogueBeats ?? []).flatMap(({ id, text }) => [
@@ -677,54 +771,62 @@ const WAVELENGTH_SAMPLE = Math.max(
 // both of those are swept above at this surface's own size — so the composed row's widest token is
 // already measured, by the entry that owns it.
 
-const SAMPLE_PARAMS: Readonly<Record<string, Readonly<Record<string, string | number>>>> = {
-    'lab.result.recorded': { value: SPACING, wavelength: 550, mode: fr['lab.wavelengthMode.minimum'] },
-    'lab.result.stale': { value: SPACING },
+/**
+ * The parameter sets each interpolated key is measured with — **an array per key, not one set**.
+ *
+ * One set per key measured one string, which is why six cross-case samples above collapsed to Young
+ * (code review of 4.1). A key whose content varies by case now carries one set per case, and
+ * `fillParams` returns one filled string per set so the existing per-token split measures every one.
+ */
+const SAMPLE_PARAMS: Readonly<Record<string, readonly Readonly<Record<string, string | number>>[]>> = {
+    'lab.result.recorded': [{ value: SPACING, wavelength: 550, mode: fr['lab.wavelengthMode.minimum'] }],
+    'lab.result.stale': [{ value: SPACING }],
     // The composed settings clause: one `lab.idle.setting` per authored control, joined with
     // `list.separator` — the shape `ApparatusRenderer` actually builds. This was
     // `` `${CONTROL_LABEL} : 0,25 mm` ``, which is `lab.control.readout`'s shape reversed and carried
     // one control where the renderer joins all of them, so the 620px bound was never exercised against
     // the sentence that renders (review 2026-08-19).
-    'lab.idle': { settings: IDLE_SETTINGS_CLAUSE },
+    'lab.idle': IDLE_SETTINGS_CLAUSES.map((settings) => ({ settings })),
     // `inlineLabel`, not `label`: the template takes the authored inline form now, and a stale `label`
     // key here would leave `{inlineLabel}` unsubstituted and measure the placeholder.
-    'lab.idle.setting': { value: '0,25 mm', inlineLabel: CONTROL_INLINE_LABEL },
-    'lab.pattern.recorded': { label: fr['experiment.result.fringeSpacing'], value: SPACING },
-    'lab.control.readout': { label: CONTROL_LABEL, value: '0,25 mm' },
-    'lab.wavelength.fixed': { value: WAVELENGTH_SAMPLE },
-    'lab.wavelength.comparison': { value: WAVELENGTH_SAMPLE },
-    'lab.wavelength.comparisonLocked': { value: WAVELENGTH_SAMPLE },
-    'notebook.observation': { order: 12 },
+    'lab.idle.setting': CONTROL_INLINE_LABELS.map((inlineLabel) => ({ value: '0,25 mm', inlineLabel })),
+    'lab.pattern.recorded': [{ label: fr['experiment.result.fringeSpacing'], value: SPACING }],
+    'lab.control.readout': CONTROL_LABELS.map((label) => ({ label, value: '0,25 mm' })),
+    'lab.wavelength.fixed': [{ value: WAVELENGTH_SAMPLE }],
+    'lab.wavelength.comparison': [{ value: WAVELENGTH_SAMPLE }],
+    'lab.wavelength.comparisonLocked': [{ value: WAVELENGTH_SAMPLE }],
+    'notebook.observation': [{ order: 12 }],
     // AC7's two counted readiness lines. Measuring the bare `{count}` token would be a guaranteed pass
     // that says nothing — the same trap the wavelength choices are filled for above.
-    'conclusion.missing.minimum-runs': { count: 2 },
-    'conclusion.missing.minimum-sources': { count: 2 },
-    'lab.result.recordedPlain': { label: fr['experiment.result.fringeDisplacement'], value: SPACING },
+    'conclusion.missing.minimum-runs': [{ count: 2 }],
+    'conclusion.missing.minimum-sources': [{ count: 2 }],
+    'lab.result.recordedPlain': [{ label: fr['experiment.result.fringeDisplacement'], value: SPACING }],
     // The localized label, because a model-derived run gets one — `CaseRecordPrintView` makes the
     // same substitution, and it is the string a French player actually reads on this row.
-    'notebook.row.result': { label: fr['experiment.result.fringeSpacing'], value: SPACING },
-    'notebook.row.meta': {
+    'notebook.row.result': [{ label: fr['experiment.result.fringeSpacing'], value: SPACING }],
+    'notebook.row.meta': allAcrossCases(({ experiment }) => [experiment.modelVersion]).map((version) => ({
         timestamp: '2026-08-07T10:20:30.000Z',
         wavelength: WAVELENGTH_SAMPLE,
         mode: fr['lab.wavelengthMode.advanced'],
-        version: longestFrench(allAcrossCases(({ experiment }) => [experiment.modelVersion]))
-    },
-    'notebook.page.counter': { from: 1, to: 4, total: 12 },
-    'book.caption.spread': { source: SOURCE_NAME, index: 19, total: 19 },
-    'book.caption.summary': { source: SOURCE_NAME },
-    'book.sourcePage.many': { pages: '138, 139' },
-    'book.printedPage': { pages: '138, 139' },
-    'colleague.attribution': { name: COLLEAGUE_NAME, role: ROLE_LABEL },
+        version
+    })),
+    'notebook.page.counter': [{ from: 1, to: 4, total: 12 }],
+    'book.caption.spread': SOURCE_NAMES.map((source) => ({ source, index: 19, total: 19 })),
+    'book.caption.summary': SOURCE_NAMES.map((source) => ({ source })),
+    'book.sourcePage.many': [{ pages: '138, 139' }],
+    'book.printedPage': [{ pages: '138, 139' }],
+    'colleague.attribution': COLLEAGUE_NAMES.map((name) => ({ name, role: ROLE_LABEL })),
     // The widest the counter ever gets in the authored content: the last beat of the longest conversation.
-    'dialogue.counter': { index: LONGEST_CONVERSATION, total: LONGEST_CONVERSATION },
-    // One representative is right here: this sample only fills the interface key's own template, and
-    // the per-proposal sweep over every limitation lives in the colleague-card test below.
-    'proposal.limitation': { limitation: longestFrench(FRENCH_LIMITATIONS) }
+    'dialogue.counter': [{ index: LONGEST_CONVERSATION, total: LONGEST_CONVERSATION }],
+    // Every limitation, not the longest: the template's own wrap is measured per token, and the widest
+    // token has no reason to live in the longest string — the rule this file states at the proposals.
+    'proposal.limitation': FRENCH_LIMITATIONS.map((limitation) => ({ limitation }))
 };
 
-const fillParams = (key: string): string =>
-    Object.entries(SAMPLE_PARAMS[key] ?? {})
-        .reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), fr[key as keyof typeof fr]);
+/** One filled string per parameter set — `[fr[key]]` when the key takes no interpolation. */
+const fillParams = (key: string): readonly string[] =>
+    (SAMPLE_PARAMS[key] ?? [{}]).map((params) => Object.entries(params)
+        .reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), fr[key as keyof typeof fr]));
 
 /**
  * AC7's readiness lines, **derived from the bundle** rather than transcribed.
@@ -738,9 +840,9 @@ const MISSING_REQUIREMENT_KEYS = (Object.keys(fr) as (keyof typeof fr)[])
     .filter((key) => key.startsWith('conclusion.missing.'));
 
 /** {@link fillParams}'s English twin — same substitutions, the other bundle. */
-const fillEnglishParams = (key: string): string =>
-    Object.entries(SAMPLE_PARAMS[key] ?? {})
-        .reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), en[key as keyof typeof en]);
+const fillEnglishParams = (key: string): readonly string[] =>
+    (SAMPLE_PARAMS[key] ?? [{}]).map((params) => Object.entries(params)
+        .reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), en[key as keyof typeof en]));
 
 type Measurement = Readonly<{ font: string; fontSize: number; text: string }>;
 
@@ -803,7 +905,8 @@ test('keeps every French string inside the wrap bound of the surface that holds 
     // Phaser word-wrap cannot break inside a token and the widest token is usually an interpolated
     // one — a formatted measurement or an authored French source name, never `{value}`.
     const samples = WRAPPED_SURFACES.flatMap(({ key, font, fontSize }) =>
-        fillParams(key).split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({ key, font, fontSize, text: token })));
+        fillParams(key).flatMap((filled) =>
+            filled.split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({ key, font, fontSize, text: token }))));
     const widths = await measure(page, samples);
 
     const overflowing = samples
@@ -846,10 +949,13 @@ test('keeps the authored case titles and the composed notebook settings row insi
             label: `${caseId}.title.${locale}`, bound: 900,
             sample: { font: UI_FONT_STACK, fontSize: 24, text: token }
         })));
-    const settingsRow = NOTEBOOK_SETTINGS_ROW.split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({
-        label: 'widest composed notebook settings row', bound: NOTEBOOK_ROW_TEXT_WRAP,
-        sample: { font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_FONT_SIZE, text: token }
-    }));
+    // Every case's composed row, not the longest across cases: the row Morley–Miller composes is shorter
+    // in characters than Young's and carries a wider token (code review of 4.1).
+    const settingsRow = NOTEBOOK_SETTINGS_ROWS.flatMap(({ caseId, row }) =>
+        row.split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({
+            label: `${caseId} composed notebook settings row`, bound: NOTEBOOK_ROW_TEXT_WRAP,
+            sample: { font: UI_FONT_STACK, fontSize: NOTEBOOK_ROW_FONT_SIZE, text: token }
+        })));
     const cases = [...titles, ...settingsRow];
     const widths = await measure(page, cases.map(({ sample }) => sample));
 
@@ -859,6 +965,71 @@ test('keeps the authored case titles and the composed notebook settings row insi
         .map(({ label, sample, width }) => `${label}: "${sample.text}" (${Math.round(width)}px)`);
 
     expect(overflowing).toEqual([]);
+});
+
+/**
+ * **The non-vacuity floor: every cross-case list must actually contain every case.**
+ *
+ * A sweep whose per-case iteration yields nothing for one case still passes, and the run still reads as
+ * "measured across every case" — the shape the code review of 4.1 found in a different guise, where six
+ * samples reduced to one case by character count. Only `FIGURE_PLAQUE_NAMES` carried a floor before
+ * this, and that floor was global (`length > 0`) rather than per case, so it could not have caught it.
+ *
+ * This is the one place the *coverage* is asserted rather than the widths, so a case authoring an empty
+ * `colleagueHints`, `readingGateHints`, `predictionProposals` or `rivalLab.critiques` fails here with
+ * the list named, instead of quietly contributing zero samples to a green run.
+ */
+test('samples every shipped case in every cross-case sweep', () => {
+    const sweeps: Readonly<Record<string, readonly { label: string }[]>> = {
+        PROPOSAL_TEXTS, CONCLUSION_CLAIMS, CONCLUSION_LIMITATIONS, DIALOGUE_BEATS,
+        FIGURE_PLAQUE_NAMES, DEBRIEF_PROSE, CONSULTATION_LAYERS
+    };
+
+    const missing = Object.entries(sweeps).flatMap(([name, samples]) =>
+        SHIPPED_CASES
+            .filter(({ caseId }) => !samples.some(({ label }) => label.startsWith(caseId)))
+            .map(({ caseId }) => `${name} has no sample for ${caseId}`));
+
+    expect(missing).toEqual([]);
+});
+
+/**
+ * The debrief's authored prose and the consultation layers, at the sizes and wraps that hold them.
+ *
+ * AC7 named the debrief prose and nothing swept it (code review of 4.1). Both surfaces shrink-then-crop
+ * rather than clipping visibly — `DebriefRenderer` clamps toward `DEBRIEF_MIN_FONT_SIZE` and then
+ * `setCrop`s, `CaseFilePresenter` clamps the consultation block the same way — so an over-wide token
+ * costs the player the end of a sentence with nothing failing anywhere. Both locales, for this file's
+ * standing reason: the pass condition is per-token pixel width and an unbreakable token overflows in
+ * whatever language it was written.
+ */
+test('keeps the debrief prose and the consultation layers inside their bands, in both locales', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
+
+    const authored = [
+        ...DEBRIEF_PROSE.map(({ label, fontSize, text }) => ({
+            label, fontSize, wrapWidth: debriefLeftTextWrap(DESIGN_WIDTH), text
+        })),
+        ...CONSULTATION_LAYERS.map(({ label, text }) => ({
+            label, fontSize: CASE_FILE_META_FONT_SIZE, wrapWidth: caseFileRightTextWrap(), text
+        }))
+    ];
+    const samples = authored.flatMap(({ label, fontSize, wrapWidth, text }) =>
+        text.split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({
+            label, font: UI_FONT_STACK, fontSize, wrapWidth, text: token
+        })));
+    const widths = await measure(page, samples);
+
+    const overflowing = samples
+        .map((sample, index) => ({ ...sample, width: widths[index]! }))
+        .filter(({ width, wrapWidth }) => width > wrapWidth)
+        .map(({ label, text, width, wrapWidth }) =>
+            `${label}: "${text}" (${Math.round(width)}px > ${Math.round(wrapWidth)}px)`);
+
+    expect(overflowing).toEqual([]);
+    // The floor, for the same reason the dialogue sweep carries one.
+    expect(authored.length).toBeGreaterThan(0);
 });
 
 test('keeps every colleague name on one line of its figure plaque', async ({ page }) => {
@@ -994,12 +1165,14 @@ test('keeps the authored dialogue inside the panel that holds it, in both locale
         ...DIALOGUE_BEATS.map(({ label, text }) => ({
             label, fontSize: DIALOGUE_BODY_FONT_SIZE, wrapWidth: DIALOGUE_BODY_WRAP_WIDTH, text
         })),
-        {
-            label: 'dialogue speaker',
+        // One per authored colleague across every case, not one representative: `fillParams` returns a
+        // filled string per parameter set now, and the widest name is not necessarily the longest.
+        ...fillParams('colleague.attribution').map((text, index) => ({
+            label: `dialogue speaker ${index + 1}`,
             fontSize: DIALOGUE_SPEAKER_FONT_SIZE,
             wrapWidth: DIALOGUE_SPEAKER_WRAP_WIDTH,
-            text: fillParams('colleague.attribution')
-        }
+            text
+        }))
     ];
     const samples = authored.flatMap(({ label, fontSize, wrapWidth, text }) =>
         text.split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({ label, font: UI_FONT_STACK, fontSize, wrapWidth, text: token })));
@@ -1223,14 +1396,15 @@ test('fits every fixed-height control label on one line, in French and in Englis
 
     // Interpolated where the drawn label is: the three wavelength choices each carry a number, and
     // measuring the bare `{value}` token would be a guaranteed pass that says nothing.
-    const widths = await measure(page, FIXED_HEIGHT_CONTROLS.map(({ key, fontSize }) => ({
-        font: UI_FONT_STACK, fontSize, text: fillParams(key)
-    })));
+    // One sample per filled variant, so a key whose content varies by case is measured once per case.
+    const frenchSamples = FIXED_HEIGHT_CONTROLS.flatMap(({ key, fontSize, bound }) =>
+        fillParams(key).map((text) => ({ key, fontSize, bound, text })));
+    const widths = await measure(page, frenchSamples.map(({ fontSize, text }) => ({ font: UI_FONT_STACK, fontSize, text })));
 
-    const wrapping = FIXED_HEIGHT_CONTROLS
-        .map((control, index) => ({ ...control, width: widths[index]! }))
+    const wrapping = frenchSamples
+        .map((sample, index) => ({ ...sample, width: widths[index]! }))
         .filter(({ width, bound }) => width > bound)
-        .map(({ key, width, bound }) => `${key}: "${fillParams(key)}" (${Math.round(width)}px > ${Math.round(bound)}px)`);
+        .map(({ key, text, width, bound }) => `${key}: "${text}" (${Math.round(width)}px > ${Math.round(bound)}px)`);
 
     expect(wrapping).toEqual([]);
 
@@ -1244,15 +1418,15 @@ test('fits every fixed-height control label on one line, in French and in Englis
      * (2.11 review). The bound is the same rectangle either way, so whichever locale is longer is the
      * one that has to fit.
      */
-    const englishWidths = await measure(page, FIXED_HEIGHT_CONTROLS.map(({ key, fontSize }) => ({
-        font: UI_FONT_STACK, fontSize, text: fillEnglishParams(key)
-    })));
+    const englishSamples = FIXED_HEIGHT_CONTROLS.flatMap(({ key, fontSize, bound }) =>
+        fillEnglishParams(key).map((text) => ({ key, fontSize, bound, text })));
+    const englishWidths = await measure(page, englishSamples.map(({ fontSize, text }) => ({ font: UI_FONT_STACK, fontSize, text })));
 
-    const englishWrapping = FIXED_HEIGHT_CONTROLS
-        .map((control, index) => ({ ...control, width: englishWidths[index]! }))
+    const englishWrapping = englishSamples
+        .map((sample, index) => ({ ...sample, width: englishWidths[index]! }))
         .filter(({ width, bound }) => width > bound)
-        .map(({ key, width, bound }) =>
-            `${key}: "${fillEnglishParams(key)}" (${Math.round(width)}px > ${Math.round(bound)}px)`);
+        .map(({ key, text, width, bound }) =>
+            `${key}: "${text}" (${Math.round(width)}px > ${Math.round(bound)}px)`);
 
     expect(englishWrapping).toEqual([]);
 });
@@ -1314,7 +1488,7 @@ test('lays the French boot frame and printable record out without horizontal ove
 test('opens the reference book in the French reading room and records the reading', async ({ page }) => {
     // Named, not `/`: this walk reads Young's reference book and asserts Young's Opticks. Every other
     // test in this file measures font metrics, which no case owns, so those stay at the root.
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     await enterTheLaboratory(page);
     await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', 'Library');
 

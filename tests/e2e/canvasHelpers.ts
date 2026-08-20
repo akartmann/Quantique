@@ -15,6 +15,7 @@ import { BOOK_CLOSE_FADE_MS, BOOK_OPEN_MS, BOOK_TURN_MS } from '../../src/adapte
 // like a dead one.
 import { RUN_ANIMATION_MS } from '../../src/adapters/phaser/renderers/ApparatusRenderer';
 import { controlAffordance, type PrimaryControl } from '../../src/domain/cases/CaseDefinition';
+import { YOUNG_CASE_ID } from '../../src/schemas/CaseDefinitionSchema';
 import {
     advanceToSynthesisControlCentre,
     DIAL_RING_RADIUS,
@@ -102,9 +103,15 @@ export const caseContent = (caseId: string): WalkableCase => JSON.parse(
     readFileSync(new URL(`../../public/cases/${caseId}/case.json`, import.meta.url), 'utf-8')
 ) as WalkableCase;
 
-export const YOUNG_CASE = 'young-interference';
-
-export const MORLEY_MILLER_CASE = 'morley-miller';
+/**
+ * Young's case ID, aliased from the exported constant rather than restated.
+ *
+ * The literal it used to hold was the same "never restate a case constant" shape the code review of 4.1
+ * deleted `MORLEY_MILLER_CASE` for — a rename in `CaseDefinitionSchema` would have left this compiling
+ * and producing a `?case=` value `resolveCaseId` rejects, so the spec would have asserted Young's
+ * content against whatever booted instead.
+ */
+export const YOUNG_CASE: string = YOUNG_CASE_ID;
 
 /**
  * The URL that opens a named case — **always naming it**, since Story 4.1 flipped the boot default.
@@ -122,8 +129,17 @@ export const MORLEY_MILLER_CASE = 'morley-miller';
  */
 export const caseRoute = (caseId: string): string => `/?case=${caseId}`;
 
-/** Opens a named case and waits for nothing — callers assert their own first frame. */
-export const gotoCase = async (page: Page, caseId: string = YOUNG_CASE): Promise<void> => {
+/**
+ * Opens a named case and waits for nothing — callers assert their own first frame.
+ *
+ * **`caseId` is required, and that is the point.** Story 4.1 gave it `= YOUNG_CASE`, and all seventeen
+ * converted call sites then passed nothing — so the docstring above claiming "every spec that asserts a
+ * case's content now names the case" was false at every one of them, and the implicit-Young binding the
+ * flip was meant to remove had simply moved from `goto('/')` into a default argument (code review of
+ * 4.1). A new spec copying the surrounding idiom would have silently asserted a second case's
+ * expectations against Young. Naming the case costs one argument and removes the whole class.
+ */
+export const gotoCase = async (page: Page, caseId: string): Promise<void> => {
     await page.goto(caseRoute(caseId));
 };
 

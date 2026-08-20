@@ -14,16 +14,17 @@ import { en } from '../../src/core/i18n/locales/en';
 import { BOOT_NOTICE_MS } from '../../src/ui/BootShell';
 import {
     ARTIFACT_COUNT,
-    DESIGN_HEIGHT,
-    DESIGN_WIDTH,
     artifactAt,
     canvas,
     clickDesign,
     clickUntilScene,
+    DESIGN_HEIGHT,
+    DESIGN_WIDTH,
     enterTheLaboratory,
     gotoCase,
     waitForBookToClose,
-    waitForBookToOpen
+    waitForBookToOpen,
+    YOUNG_CASE
 } from './canvasHelpers';
 
 /**
@@ -103,7 +104,7 @@ const panelShot = async (page: import('@playwright/test').Page): Promise<Buffer>
 };
 
 test('advances the authored conversation on the canvas without touching the investigation', async ({ page }) => {
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     await enterTheLaboratory(page);
 
     await reachTheColleagues(page);
@@ -143,7 +144,7 @@ test('advances the authored conversation on the canvas without touching the inve
 });
 
 test('opens one colleague proposal after the conversation completes, then chooses it', async ({ page }) => {
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     await enterTheLaboratory(page);
 
     await reachTheColleagues(page);

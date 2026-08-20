@@ -3,18 +3,20 @@ import { expect, test, type Page } from '@playwright/test';
 import { stepAffordanceCentre } from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import { debriefAdvanceControlCentre } from '../../src/adapters/phaser/scenes/debriefGeometry';
 import { en } from '../../src/core/i18n/locales/en';
+import { resolveCampaignEntryCaseId } from '../../src/domain/cases/campaignOrder';
 import {
+    clickDesign,
     DESIGN_HEIGHT,
     DESIGN_WIDTH,
-    WALK_TO_DEBRIEF_COST_MS,
-    clickDesign,
     expectActiveScene,
     gotoCase,
     recordedObservations,
     recordedSetting,
+    waitForInputToSettle,
+    WALK_TO_DEBRIEF_COST_MS,
     walkToDebrief,
     walkToTheBoard,
-    waitForInputToSettle
+    YOUNG_CASE
 } from './canvasHelpers';
 
 /**
@@ -87,7 +89,7 @@ test('stops responding to a scene the router has torn down', async ({ page }) =>
 });
 
 test('restores a reloaded session into the scene matching the persisted phase', async ({ page }) => {
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     await expectActiveScene(page, 'Library');
     await expect(page.getByRole('heading', { name: en['boot.title'] })).toBeVisible();
 
@@ -101,4 +103,45 @@ test('restores a reloaded session into the scene matching the persisted phase', 
 
     await expectActiveScene(page, 'TheoryBoard');
     await expect(recordedObservations(page)).toHaveCount(2);
+});
+
+/**
+ * **The origin root reaches a playable case — the one path Story 4.1 built and no e2e walked.**
+ *
+ * The flip moved about forty `goto('/')` sites onto `?case=`, and every one of them takes
+ * `resolveCaseId`'s *first* precedence branch. So a regression in the campaign default at the origin
+ * root — in `readCompletedCampaignCaseIds`, in the argument ordering in `main.ts`, or in the precedence
+ * inside `resolveCaseId` — left the whole migrated suite green (code review of 4.1). The only root-boot
+ * coverage was `subpath-hosting.spec.ts`, which asserts a request and no 4xx under the *subpath* origin
+ * and never reaches a scene.
+ *
+ * Named against `resolveCampaignEntryCaseId([])` rather than a literal, following the subpath spec, so
+ * this states "the campaign entry becomes playable at `/`" and moves with the campaign.
+ *
+ * The other direction — completing the entry case and having `/` advance to the next — is proved in
+ * `CampaignOrder.test.ts` and `MorleyMillerPrototype.test.ts` against the real repository contract, and
+ * is **not** walked end to end here: seeding a completed record into IndexedDB from a spec means
+ * building a valid `CaseRecord` in the browser context. That residual is recorded in `deferred-work.md`.
+ */
+test('boots the campaign entry into a playable scene at the origin root', async ({ page }) => {
+    const entryCaseId = resolveCampaignEntryCaseId([]);
+    const failures: string[] = [];
+    page.on('response', (response) => {
+        if (response.status() >= 400) failures.push(`${response.status()} ${new URL(response.url()).pathname}`);
+    });
+
+    await page.goto('/');
+
+    // A scene, not a request: `content-unavailable` also fetches, and the boot shell it leaves behind is
+    // exactly the dead end the review found reachable offline. Reaching `Library` — the entry case's
+    // `context` phase — is what says the case loaded, validated and routed.
+    //
+    // No `boot.enter` click, following this file's other tests: the shell hands off on its own and
+    // clicking it dismisses the heading, which is what made the first version of this test fail.
+    await expectActiveScene(page, 'Library');
+
+    const requested = await page.evaluate(() => performance.getEntriesByType('resource')
+        .map((entry) => new URL(entry.name).pathname));
+    expect(requested).toContain(`/cases/${entryCaseId}/case.json`);
+    expect(failures, 'no request may fail on the campaign default route').toEqual([]);
 });

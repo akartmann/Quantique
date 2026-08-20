@@ -6,20 +6,21 @@ import { advanceControlCentreOnBoard } from '../../src/adapters/phaser/renderers
 import { en } from '../../src/core/i18n/locales/en';
 import {
     ARTIFACT_COUNT,
-    DESIGN_HEIGHT,
-    DESIGN_WIDTH,
     artifactAt,
+    chooseProposalThroughColleague,
     clickDesign,
     clickUntilScene,
-    chooseProposalThroughColleague,
+    DESIGN_HEIGHT,
+    DESIGN_WIDTH,
     enterTheLaboratory,
     expectActiveScene,
     gotoCase,
     recordedSources,
     waitForBookToClose,
-    waitForInputToSettle,
     waitForBookToOpen,
-    waitForPageTurn
+    waitForInputToSettle,
+    waitForPageTurn,
+    YOUNG_CASE
 } from './canvasHelpers';
 
 /**
@@ -67,7 +68,7 @@ const readReference = async (page: Parameters<typeof clickDesign>[0], index: num
 };
 
 test('reads both references and leaves the room, without touching a DOM control', async ({ page }) => {
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     // Subsumes the boot-title assertion this line used to carry: `enterTheLaboratory` waits on the same
     // hydrated heading before it clicks, and the heading is gone once the frame is dismissed.
     await enterTheLaboratory(page);
@@ -91,7 +92,7 @@ test('re-opens a reference already on the record, without refusing it', async ({
     // GitHub's serialized Chromium walk completes legitimately just over the default 30-second budget.
     // The assertions still require the book's suppression and a real scene transition.
     test.setTimeout(45_000);
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
@@ -144,7 +145,7 @@ test('reveals and dismisses the reference summary from the book itself', async (
     page.on('pageerror', (error) => errors.push(error.message));
     page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
 
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
@@ -184,7 +185,7 @@ test('opens and closes the reference book under reduced motion', async ({ page }
     // immediately — so no animation wait is needed, and *that* is the thing being checked: the same
     // walk with none of the timing the animated path needs.
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
@@ -236,7 +237,7 @@ test('opens and closes the reference book under reduced motion', async ({ page }
 });
 
 test('refuses to leave the room with nothing read, and stays where it was', async ({ page }) => {
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
@@ -250,7 +251,7 @@ test('refuses to leave the room with nothing read, and stays where it was', asyn
 });
 
 test('does not let a click meant for the reference book leave the room underneath it', async ({ page }) => {
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 

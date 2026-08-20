@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest';
 
 import { createInitialAppState, reduceAppState, type AppState } from '../../src/core/store/AppState';
 import { createCaseRecordProjection } from '../../src/core/store/CaseRecordProjection';
-import { validateCaseRecordForDefinition } from '../../src/schemas/CaseRecordSchema';
+import { validateCaseRecordForDefinition, type CaseRecord } from '../../src/schemas/CaseRecordSchema';
+import { readCompletedCampaignCaseIds } from '../../src/adapters/persistence/completedCampaignCases';
+import { CaseRecordRepository, type CaseRecordStorage } from '../../src/adapters/persistence/caseRecordRepository';
 import { createStore } from '../../src/core/store/createStore';
 import { selectConclusionReadiness, selectDefensibleConclusionProposalIds } from '../../src/core/store/selectors';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
@@ -28,6 +30,57 @@ const loadPrototype = async (): Promise<CaseDefinition> => {
         throw new Error(`The shipped prototype does not parse: ${JSON.stringify(parsed.error.issues, null, 2)}`);
     }
     return parsed.data as unknown as CaseDefinition;
+};
+
+/**
+ * The prototype driven to a completed record through the real reducers.
+ *
+ * Extracted by the code review of 4.1 so the record-compatibility and campaign-routing tests below can
+ * share one genuinely completed investigation. A hand-built `completion` would be shape-valid and prove
+ * nothing about the walk that produces it, which is the whole reason the original test drove the
+ * reducers rather than assembling a fixture.
+ */
+/** A repository over a fake storage, for the campaign-routing probe tests. */
+const repositoryReturning = (records: Readonly<Record<string, unknown>>): CaseRecordRepository =>
+    new CaseRecordRepository({
+        read: async (caseId) => ({ ok: true, value: records[caseId] }),
+        write: async () => ({ ok: true, value: undefined })
+    } satisfies CaseRecordStorage);
+
+const playPrototypeToCompletion = (definition: CaseDefinition): CaseRecord => {
+    const store = createStore(createInitialAppState(definition, 'en'));
+    const dispatch = (action: Parameters<typeof reduceAppState>[1]): void => {
+        const result = store.dispatch(action);
+        if (!result.ok) throw new Error(`Refused ${action.type}: ${result.error.code} — ${result.error.message}`);
+    };
+
+        dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
+        dispatch({ type: 'source.inspected', sourceId: 'morley-miller-1907-final-report' });
+        dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
+        dispatch({ type: 'prediction.proposalChosen', proposalId: 'predict-small-shift' });
+        dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
+        dispatch({ type: 'apparatus.controlSet', controlId: 'bathTempC', value: 20, origin: 'phaser' });
+        dispatch({ type: 'experiment.run', id: 'run-1', timestamp: '2026-08-19T10:00:00.000Z' });
+        dispatch({ type: 'apparatus.controlSet', controlId: 'rotationDeg', value: 90, origin: 'phaser' });
+        dispatch({ type: 'experiment.run', id: 'run-2', timestamp: '2026-08-19T10:05:00.000Z' });
+        dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' });
+        dispatch({ type: 'comparison.runSelected', runId: 'run-1' });
+        dispatch({ type: 'comparison.runSelected', runId: 'run-2' });
+        dispatch({ type: 'comparison.noteSaved', note: 'Reversing the orientation reverses the sign of a very small displacement.' });
+        dispatch({ type: 'theory.supportRunSelected', runId: 'run-1' });
+        dispatch({ type: 'theory.supportRunSelected', runId: 'run-2' });
+        dispatch({ type: 'theory.supportSourceSelected', sourceId: 'michelson-morley-1887' });
+        dispatch({ type: 'theory.supportSourceSelected', sourceId: 'morley-miller-1907-final-report' });
+        dispatch({ type: 'theory.conclusionProposalChosen', proposalId: 'conclude-bounded-null' });
+        dispatch({ type: 'theory.reviewRequested' });
+        dispatch({ type: 'peerReview.requested' });
+        dispatch({ type: 'revision.saved', timestamp: '2026-08-19T10:10:00.000Z' });
+        dispatch({ type: 'case.debriefCompleted', timestamp: '2026-08-19T10:15:00.000Z' });
+
+
+    const projected = createCaseRecordProjection(store.getState());
+    if (!projected.ok) throw new Error('The completion walk did not produce a valid record.');
+    return projected.value;
 };
 
 describe('the shipped Morley–Miller prototype', () => {
@@ -232,63 +285,90 @@ describe('the prototype played through the shared framework', () => {
      */
     it('restores a completed prototype investigation instead of discarding it', async () => {
         const definition = await loadPrototype();
-        const store = createStore(createInitialAppState(definition, 'en'));
-        const dispatch = (action: Parameters<typeof reduceAppState>[1]): void => {
-            const result = store.dispatch(action);
-            if (!result.ok) throw new Error(`Refused ${action.type}: ${result.error.code} — ${result.error.message}`);
-        };
+        const record = playPrototypeToCompletion(definition);
 
-        dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
-        dispatch({ type: 'source.inspected', sourceId: 'morley-miller-1907-final-report' });
-        dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
-        dispatch({ type: 'prediction.proposalChosen', proposalId: 'predict-small-shift' });
-        dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
-        dispatch({ type: 'apparatus.controlSet', controlId: 'bathTempC', value: 20, origin: 'phaser' });
-        dispatch({ type: 'experiment.run', id: 'run-1', timestamp: '2026-08-19T10:00:00.000Z' });
-        dispatch({ type: 'apparatus.controlSet', controlId: 'rotationDeg', value: 90, origin: 'phaser' });
-        dispatch({ type: 'experiment.run', id: 'run-2', timestamp: '2026-08-19T10:05:00.000Z' });
-        dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' });
-        dispatch({ type: 'comparison.runSelected', runId: 'run-1' });
-        dispatch({ type: 'comparison.runSelected', runId: 'run-2' });
-        dispatch({ type: 'comparison.noteSaved', note: 'Reversing the orientation reverses the sign of a very small displacement.' });
-        dispatch({ type: 'theory.supportRunSelected', runId: 'run-1' });
-        dispatch({ type: 'theory.supportRunSelected', runId: 'run-2' });
-        dispatch({ type: 'theory.supportSourceSelected', sourceId: 'michelson-morley-1887' });
-        dispatch({ type: 'theory.supportSourceSelected', sourceId: 'morley-miller-1907-final-report' });
-        dispatch({ type: 'theory.conclusionProposalChosen', proposalId: 'conclude-bounded-null' });
-        dispatch({ type: 'theory.reviewRequested' });
-        dispatch({ type: 'peerReview.requested' });
-        dispatch({ type: 'revision.saved', timestamp: '2026-08-19T10:10:00.000Z' });
-        dispatch({ type: 'case.debriefCompleted', timestamp: '2026-08-19T10:15:00.000Z' });
-
-        const projected = createCaseRecordProjection(store.getState());
-        expect(projected.ok).toBe(true);
-        if (!projected.ok) return;
         // The record carries a completion, and none of its runs carries Young's optical inputs.
-        expect(projected.value.completion).toBeDefined();
-        expect(projected.value.completion!.runs.every((run) => run.modelInputs === undefined)).toBe(true);
+        expect(record.completion).toBeDefined();
+        expect(record.completion!.runs.every((run) => run.modelInputs === undefined)).toBe(true);
 
-        expect(validateCaseRecordForDefinition(projected.value, definition)).toMatchObject({ ok: true });
+        expect(validateCaseRecordForDefinition(record, definition)).toMatchObject({ ok: true });
         // And the state actually rebuilds, which is the boot path the player meets.
         const reloaded = createStore(createInitialAppState(definition, 'en'));
-        expect(reloaded.replaceWithValidatedRecord(projected.value)).toEqual({ ok: true, value: undefined });
+        expect(reloaded.replaceWithValidatedRecord(record)).toEqual({ ok: true, value: undefined });
     });
 
     /**
-     * The 1.4.0 record-compatibility decision, asserted rather than left as an absence (Story 4.1, AC9).
+     * The campaign-routing probe, against records this case can actually produce (code review of 4.1).
+     *
+     * These live here rather than in `CampaignOrder.test.ts` because they need a *genuinely* completed
+     * prototype record, and the walk that produces one is in this file. `CampaignOrder.test.ts` owns the
+     * order and the pure predicates; this owns what the prototype's own records do to the routing.
+     *
+     * **The gap these close.** The story's probe was `loaded.ok && loaded.value?.completion !== undefined`,
+     * and the only fixture testing it seeded an unparseable object and an absent record — so both halves
+     * failed at `loaded.ok` and mutating the guard to "a record exists" left the suite green. The
+     * regression that hides behind that: a player mid-investigation counted as finished and routed past
+     * the case. And `CaseRecordRepository.load` applies no definition-version check, so a record
+     * completed at 1.3.0 loaded cleanly and routed the player to Young past an investigation the app
+     * would then refuse.
+     *
+     * **Named changes that break these:** loosening the probe's `completion !== undefined` test to
+     * `loaded.value !== undefined` breaks the first; dropping its `recordNamesRetiredArtifact` conjunct
+     * breaks the second.
+     */
+    it('does not count an in-progress prototype record as a campaign completion', async () => {
+        const definition = await loadPrototype();
+        const store = createStore(createInitialAppState(definition, 'en'));
+        store.dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
+        const projected = createCaseRecordProjection(store.getState());
+        expect(projected.ok).toBe(true);
+        if (!projected.ok) return;
+        // A readable, schema-valid record that simply has not finished — the fixture the story lacked.
+        expect(projected.value.completion).toBeUndefined();
+
+        expect(await readCompletedCampaignCaseIds(repositoryReturning({ [MORLEY_MILLER_CASE_ID]: projected.value })))
+            .toEqual([]);
+    });
+
+    it('counts a completed prototype record, unless it still names the retired artifact', async () => {
+        const definition = await loadPrototype();
+        const record = playPrototypeToCompletion(definition);
+
+        expect(await readCompletedCampaignCaseIds(repositoryReturning({ [MORLEY_MILLER_CASE_ID]: record })))
+            .toEqual([MORLEY_MILLER_CASE_ID]);
+
+        // The same completed investigation, saved before the re-anchor. `validateCaseRecordForDefinition`
+        // refuses it, so counting it would route the player to Young past a case they cannot reopen.
+        const namesRetired = {
+            ...record,
+            caseDefinitionVersion: '1.3.0',
+            inspectedSourceIds: [...record.inspectedSourceIds, 'morley-miller-1905-reconstruction']
+        };
+        expect(validateCaseRecordForDefinition(namesRetired, definition)).toMatchObject({ ok: false });
+        expect(await readCompletedCampaignCaseIds(repositoryReturning({ [MORLEY_MILLER_CASE_ID]: namesRetired })))
+            .toEqual([]);
+    });
+
+    /**
+     * The 1.4.0 record-compatibility decision, both directions (Story 4.1 AC9, as corrected by its
+     * code review).
      *
      * Every bump on this case before 1.4.0 was additive and its allowlist listed the prior versions.
      * 1.4.0 is the first that moves an id a saved record *holds* — the retired
-     * `morley-miller-1905-reconstruction` — so it deliberately lists none, and the refusal a returning
-     * player meets must be `incompatible-case-record` ("a different version of this investigation"),
-     * not `invalid-case-record` ("could not be used").
+     * `morley-miller-1905-reconstruction` — so the clause is conditional on the record rather than on
+     * the version alone. The story shipped it as a flat exclusion, and the review found the cost: a
+     * record autosaved in the `context` phase names no retired id, satisfies every check below the
+     * version gate, and was refused and then overwritten by `attachAutosave` anyway.
      *
-     * **Named change that breaks this:** adding `|| (isPrototype && definition.version === '1.4.0' && [...]
-     * .includes(record.caseDefinitionVersion))` to `CaseRecordSchema` — the very edit 3.4's review
-     * asked for at 1.3.0 and which is the wrong move here. Without this test that edit looks like
-     * consistency with every clause above it.
+     * Both tests are needed and neither implies the other. Without the first, the flat exclusion looks
+     * correct; without the second, listing the versions unconditionally looks correct.
+     *
+     * **Named change that breaks the first:** dropping `&& !recordNamesRetiredArtifact(record)`'s clause
+     * entirely, back to no 1.4.0 branch. **Named change that breaks the second:** dropping the
+     * `!recordNamesRetiredArtifact(record)` conjunct, so the allowlist accepts a record naming content
+     * that no longer exists.
      */
-    it('refuses a record saved before the artifact was re-anchored, as incompatible rather than invalid', async () => {
+    it('restores a context-phase record saved before the artifact was re-anchored, which names no retired content', async () => {
         const definition = await loadPrototype();
         expect(definition.version).toBe('1.4.0');
         const store = createStore(createInitialAppState(definition, 'en'));
@@ -296,17 +376,47 @@ describe('the prototype played through the shared framework', () => {
         const projected = createCaseRecordProjection(store.getState());
         expect(projected.ok).toBe(true);
         if (!projected.ok) return;
+        // The shape the whole decision turns on: still in `context`, so the readiness gate that would
+        // have forced both artifact ids into the record has not fired.
+        expect(projected.value.phase).toBe('context');
+        expect(projected.value.inspectedSourceIds).toEqual(['michelson-morley-1887']);
 
         (['1.0.0', '1.1.0', '1.2.0', '1.3.0'] as const).forEach((caseDefinitionVersion) => {
             const stale = { ...projected.value, caseDefinitionVersion };
-            expect(validateCaseRecordForDefinition(stale, definition)).toMatchObject({
+            expect(validateCaseRecordForDefinition(stale, definition)).toMatchObject({ ok: true });
+        });
+
+        expect(validateCaseRecordForDefinition(projected.value, definition)).toMatchObject({ ok: true });
+    });
+
+    it('refuses a record that still names the retired artifact, as incompatible rather than invalid', async () => {
+        const definition = await loadPrototype();
+        const store = createStore(createInitialAppState(definition, 'en'));
+        store.dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
+        const projected = createCaseRecordProjection(store.getState());
+        expect(projected.ok).toBe(true);
+        if (!projected.ok) return;
+
+        // Built by hand rather than dispatched: the store refuses an unknown `sourceId` outright, which
+        // is why no projection can produce this record and why it has to be constructed to be tested.
+        const namesRetired = {
+            ...projected.value,
+            inspectedSourceIds: ['michelson-morley-1887', 'morley-miller-1905-reconstruction']
+        };
+
+        (['1.0.0', '1.1.0', '1.2.0', '1.3.0'] as const).forEach((caseDefinitionVersion) => {
+            expect(validateCaseRecordForDefinition({ ...namesRetired, caseDefinitionVersion }, definition)).toMatchObject({
                 ok: false,
                 error: { code: 'incompatible-case-record' }
             });
         });
 
-        // The exact version still restores, so the clause refuses old records without refusing all of them.
-        expect(validateCaseRecordForDefinition(projected.value, definition)).toMatchObject({ ok: true });
+        // At the *current* version the version gate passes and the artifact cross-check is what refuses
+        // it — `invalid-case-record`, and the distinction between the two codes is the point of both.
+        expect(validateCaseRecordForDefinition(namesRetired, definition)).toMatchObject({
+            ok: false,
+            error: { code: 'invalid-case-record' }
+        });
     });
 });
 

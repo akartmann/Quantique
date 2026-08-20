@@ -6,8 +6,8 @@ import type { CaseDefinition, LocalizedText, LocalizedTextList, TextualRendition
 import { CASE_PHASES, createInitialCaseProgress } from '../../src/domain/cases/CaseProgress';
 import { FIGURE_STAGING_SCENE_KEYS } from '../../src/domain/cases/ScenarioScript';
 import { advanceCasePhase, resetCaseProgress, retreatCasePhase } from '../../src/domain/cases/caseReducer';
-import { CaseDefinitionSchema, MAX_PRIMARY_CONTROLS, MORLEY_MILLER_CASE_ID } from '../../src/schemas/CaseDefinitionSchema';
-import { readShippedCaseFile } from '../shippedCases';
+import { CaseDefinitionSchema, KNOWN_CASE_IDS, MAX_PRIMARY_CONTROLS, MORLEY_MILLER_CASE_ID } from '../../src/schemas/CaseDefinitionSchema';
+import { readRepoFile, readShippedCaseFile } from '../shippedCases';
 
 /** Fixture helpers: every localizable authored string must carry both shipped locales. */
 const bilingual = (english: string, french = `${english} [fr]`): LocalizedText => ({ en: english, fr: french });
@@ -1576,6 +1576,13 @@ describe('a second case', () => {
             .not.toContain('The Morley–Miller case runs two to four experiment cycles.');
     });
 
+    /**
+     * `parsed.success` rather than only the absence of the one message, and the distinction is the
+     * finding that put this comment here (code review of 4.1). Asserting `.not.toContain(<message>)`
+     * cannot tell "accepted at 2/4" from "rejected for four other reasons": any other id-scoped
+     * refinement added to `superRefine` later would fail this fixture, and a test whose whole job is
+     * the *positive* case for the new branch would stay green through it.
+     */
     it('accepts Morley–Miller at the range FR25 requires', () => {
         const definition = cloneSecondCase() as unknown as Record<string, unknown>;
         definition.id = MORLEY_MILLER_CASE_ID;
@@ -1583,8 +1590,31 @@ describe('a second case', () => {
 
         const parsed = CaseDefinitionSchema.safeParse(definition);
 
-        expect(parsed.success ? [] : parsed.error.issues.map(({ message }) => message))
-            .not.toContain('The Morley–Miller case runs two to four experiment cycles.');
+        expect(parsed.success ? [] : parsed.error.issues.map(({ message }) => message)).toEqual([]);
+        expect(parsed.success).toBe(true);
+    });
+
+    /**
+     * The service worker's precache list against `KNOWN_CASE_IDS` — a restated constant made into a
+     * checked one.
+     *
+     * `public/sw.js` is a static worker outside the TypeScript graph, so it cannot import
+     * `KNOWN_CASE_IDS`; it restates the ids as `PRECACHED_CASE_IDS`. Story 4.1 made the boot target
+     * progress-dependent, so a case missing from that list is a case the player cannot reach offline
+     * once the target advances past it — the dead end the code review of 4.1 found. This test is what
+     * makes adding a case without adding it there a red test rather than a silent offline hole.
+     *
+     * Reading the worker's text is the only way to assert it: parsing `sw.js` as a module would need a
+     * `ServiceWorkerGlobalScope`, and the value being checked is a literal, not behaviour.
+     */
+    it('precaches exactly the known case IDs in the service worker', async () => {
+        const worker = await readRepoFile('public/sw.js');
+        const declaration = /const PRECACHED_CASE_IDS = \[([^\]]*)\];/.exec(worker);
+
+        expect(declaration).not.toBeNull();
+        const precached = [...declaration![1]!.matchAll(/'([^']+)'/g)].map(([, id]) => id);
+
+        expect(precached).toEqual([...KNOWN_CASE_IDS]);
     });
 
     it('holds Young to its own bounds when a foreign control ID appears in Young content', () => {

@@ -18,7 +18,8 @@
   // this file exists to *measure*, not to have caused. The count is the point: it can now be watched
   // going down. See `deferred-work.md` for the breakdown and the owner.
   //
-  // **Measured at 114 errors across 60 files** (2026-08-19, Story 3.4, against a clean tree). This
+  // **Measured at 106 errors across 60 files** (2026-08-20, Story 4.1 and its code review, against a
+  // clean tree; 114/60 before Story 4.1 brought it down). This
   // comment previously claimed 106 across 56, which was already stale when it was written — the figure
   // is only useful if it is reproduced rather than carried, so reproduce it before quoting it:
   //   npm run typecheck:tests 2>&1 | grep -cE '^tests/.*: error TS'

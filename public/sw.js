@@ -59,10 +59,56 @@
 //
 // Note this is a *content and refinement* change rather than a newly-required field, so it is neither
 // v9's class nor v10's: it is the rule v11 stated, applied to a case where the content itself moved.
-const CACHE_NAME = 'quantique-bootstrap-v12';
+// v13 — code review of 4.1. Not a schema or content change at all: the *worker's own behaviour*
+// changed, which is its own bump class. Story 4.1 made the boot target progress-dependent
+// (`resolveCampaignEntryCaseId`), and this worker had no install-time precache — it cached per
+// response as it fetched, so only the case the player had actually booted was ever in the cache.
+// Completing the first campaign case therefore advanced the boot target to a case whose `case.json`
+// had never been fetched: offline, that missed the cache, this worker returned 503, and
+// `loadCaseDefinition` boots "content unavailable" with no picker and no `?case=` UI to escape with.
+// A dead end reachable by ordinary play rather than by a mid-deploy race. The fix is the precache
+// below, and a new name is what stops a v12 cache — populated under the old fetch-through-only rule
+// and therefore holding at most one case — from being treated as complete.
+const CACHE_NAME = 'quantique-bootstrap-v13';
+
+/**
+ * The case directories to precache at install, so the boot target can advance offline.
+ *
+ * Restated rather than imported because this file is a static worker outside the TypeScript graph —
+ * it cannot import `KNOWN_CASE_IDS`. `CaseDefinition.test.ts` reads this array out of this file's
+ * text and asserts it equals `KNOWN_CASE_IDS`, so adding a case without adding it here is a red test
+ * rather than a case that is unreachable offline.
+ */
+const PRECACHED_CASE_IDS = ['young-interference', 'morley-miller'];
+
+/** Every case's two content files, resolved against this worker's own scope so a subpath deploy works. */
+const precachedContentUrls = () => PRECACHED_CASE_IDS.flatMap((caseId) =>
+    ['case.json', 'asset-manifest.json'].map((fileName) =>
+        new URL(`cases/${caseId}/${fileName}`, self.location.href).href));
 
 self.addEventListener('install', (event) => {
-    event.waitUntil(self.skipWaiting());
+    event.waitUntil((async () => {
+        // Precaching is an offline enhancement: one unreachable file must not fail the install and
+        // leave the player with no worker at all, so each URL is fetched on its own and its failure
+        // is swallowed. `cache.addAll` would reject the whole batch on a single miss.
+        try {
+            const cache = await caches.open(CACHE_NAME);
+            await Promise.all(precachedContentUrls().map(async (url) => {
+                try {
+                    const response = await fetch(url, { cache: 'reload' });
+                    if (response.ok) {
+                        await cache.put(url, response);
+                    }
+                } catch {
+                    // Offline or blocked at install time; the fetch handler still caches on first use.
+                }
+            }));
+        } catch {
+            // Cache Storage is unavailable; the worker must still install.
+        }
+
+        await self.skipWaiting();
+    })());
 });
 
 self.addEventListener('activate', (event) => {

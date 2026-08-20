@@ -62,8 +62,8 @@
                 "id": "mm-1887-p333",
                 "heading": "Printed pages 333–334 — the question",
                 "paragraphs": [
-                  "The discovery of the aberration of light was soon followed by an explanation according to the emission theory.",
-                  "If the earth were a transparent body, it might perhaps be conceded, in view of the experiments just cited, that the inter-molecular ether was at rest in space, notwithstanding the motion of the earth in its orbit; but we have no right to extend the conclusion from these experiments to opaque bodies."
+                  "The discovery of the aberration of light was soon followed by an explanation according to the emission theory. […]",
+                  "[…] If the earth were a transparent body, it might perhaps be conceded, in view of the experiments just cited, that the inter-molecular ether was at rest in space, notwithstanding the motion of the earth in its orbit; but we have no right to extend the conclusion from these experiments to opaque bodies."
                 ],
                 "sourcePages": [
                   333,
@@ -90,8 +90,8 @@
                 "id": "mm-1887-p333",
                 "heading": "Pages imprimées 333–334 — la question",
                 "paragraphs": [
-                  "La découverte de l’aberration de la lumière fut bientôt suivie d’une explication conforme à la théorie de l’émission.",
-                  "Si la Terre était un corps transparent, on pourrait peut-être admettre, au vu des expériences qui viennent d’être citées, que l’éther intermoléculaire était au repos dans l’espace, malgré le mouvement de la Terre sur son orbite ; mais nous n’avons pas le droit d’étendre la conclusion de ces expériences aux corps opaques."
+                  "La découverte de l’aberration de la lumière fut bientôt suivie d’une explication conforme à la théorie de l’émission. […]",
+                  "[…] Si la Terre était un corps transparent, on pourrait peut-être admettre, au vu des expériences qui viennent d’être citées, que l’éther intermoléculaire était au repos dans l’espace, malgré le mouvement de la Terre sur son orbite ; mais nous n’avons pas le droit d’étendre la conclusion de ces expériences aux corps opaques."
                 ],
                 "sourcePages": [
                   333,
@@ -642,8 +642,8 @@
           "fr": "Le rapport final de 1907 n’a pas été lu."
         },
         "plainLanguage": {
-          "en": "It describes what went wrong the first time, which is worth knowing before repeating it.",
-          "fr": "Il décrit ce qui a mal tourné la première fois, ce qu’il vaut mieux savoir avant de recommencer."
+          "en": "The authors say plainly how small a shift they could still rule out.",
+          "fr": "Les auteurs disent clairement quel décalage ils pouvaient exclure."
         },
         "technicalDetail": {
           "en": "It names the temperature difference across the arms as the dominant nuisance.",

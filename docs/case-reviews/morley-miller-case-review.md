@@ -201,9 +201,14 @@ was the first production slice *and* the validated one. The two ids are imported
 decision (`resolveCaseId.ts`, `KNOWN_CASE_IDS`, `MorleyMillerPrototype.test.ts`); all now state what it
 was.
 
-**The module is read by `src/`, not only by tests** — a `CAMPAIGN_ORDER` that only tests consume would be
-the same shipped-and-dead shape as an unread case field. `resolveCaseId` resolves the campaign entry, and
-`main.ts` builds the repository before resolving the case id so the completed set is available. Three
+**The campaign *order* is read by `src/`, not only by tests** — a `CAMPAIGN_ORDER` that only tests consume
+would be the same shipped-and-dead shape as an unread case field. `resolveCaseId` resolves the campaign
+entry, and `main.ts` builds the repository before resolving the case id so the completed set is
+available. *Two of the module's five exports are **not** read by `src/`, and this section claimed
+otherwise until the code review of 4.1: `isCampaignCase` and `isCampaignCaseUnlocked` are called only
+from `CampaignOrder.test.ts`, so nothing gates **entry** to a locked case — `?case=` opens Young on a
+fresh profile by design. Kept deliberately rather than gated inside a review, and recorded in §6 with
+Story 4.3 as owner.* Three
 routes, in precedence order:
 
 1. **`?case=` — the reviewer route.** Allowlisted, and it outranks the campaign: a reviewer opening a
@@ -226,7 +231,11 @@ each was mutation-proved (reversing the order, and flipping the unlock predicate
 **The boot default flipped, and that is a behavioural change.** `/` no longer means Young. About forty
 e2e sites said `page.goto('/')` while asserting Young's content, and they were the Young-shaped
 assumption the project's top Don't-Miss rule warns about; they now name the case through a
-`gotoCase`/`caseRoute` helper. The sites that assert *boot* behaviour — the boot frame, the three
+`gotoCase`/`caseRoute` helper. *(As shipped, `gotoCase` took `caseId: string = YOUNG_CASE` and all
+seventeen converted sites passed nothing, so this sentence was false at every one of them and the
+implicit-Young binding had merely moved into a default argument. The code review of 4.1 made the
+parameter required and named Young at each site, and `canvasHelpers`' `YOUNG_CASE` now aliases the
+exported `YOUNG_CASE_ID` instead of restating the literal.)* The sites that assert *boot* behaviour — the boot frame, the three
 locale-resolution tests, subpath hosting, the moderated route — deliberately stay at the root, because
 the root is what they are about.
 
@@ -254,10 +263,12 @@ window is inside this epic, and the case is ledger-BLOCKED so it cannot reach a 
 | `flow.minimumExperimentCycles` / `maximumExperimentCycles` are read by nothing (§3) | **Story 4.2** (candidate) |
 | The bounded conclusion, the overclaim refusal, the debrief's revision feedback | **Story 4.3** |
 | The thermal-drift teaching loop, stable-window replication, feedback directing to replication | **Story 4.2** |
-| `citation.reuseStatement` is authored in both locales for every artifact and rendered nowhere | unassigned |
-| `debrief.sourceRefs` is validated only as non-empty strings and read by nothing | unassigned |
-| No shipped case exercises the `reconstruction` rendition kind any more | unassigned |
+| `citation.reuseStatement` is authored in both locales for every artifact and rendered nowhere — and §2.1 below offers it as the record of the 1887 verification, so that record reaches no surface | **Story 4.3** |
+| `debrief.sourceRefs` is validated only as non-empty strings and read by nothing; its `provenance.reference` vocabulary now collides with the 1907 artifact's own id, so an author confusing the two vocabularies gets silence from both | **Epic 5's first story** |
+| No shipped case exercises the `reconstruction` rendition kind any more | **Epic 5's first story** |
 | The unit harness cannot see text height, so no "the text fits" claim can be automated | unassigned |
+| **`isCampaignCase` and `isCampaignCaseUnlocked` are exported, unit-tested, and called by nothing in `src/`** — the campaign *order* is read (`resolveCaseId.ts:42`) and the boot default resolves through it, so AC6's three `Then` clauses hold, but nothing gates entry: `?case=` opens a locked case by design, and that bypass is deliberate. Kept by review decision rather than gated inside a review | **Story 4.3** |
+| **A completed campaign case becomes unreachable once the boot target advances** — no picker, and `?case=` has no in-game surface, so the finished case's debrief, optional replay and record export cannot be reached | **Story 4.3** |
 | The 1907 citation's issue number (archive says "No. 2"; commonly cited as 641) | the scholarly reviewer |
 | **The scholarly reviewer is unassigned** | **Alexis** |
 | **The educator context sheet is unassigned** | **Alexis** |
@@ -265,6 +276,12 @@ window is inside this epic, and the case is ledger-BLOCKED so it cannot reach a 
 The last two are why the ledger says **BLOCKED**, and this story deliberately authored no name to clear
 a row: a name nobody supplied is exactly the defect the ledger exists to prevent. Scholarly sign-off is
 a person, not a patch.
+
+**Owners assigned by the code review of 4.1** (2026-08-20), replacing four `unassigned` rows: AC10 and
+§SS12 require a named owner story and reject "unassigned" and "Epic 4". They are split by nature —
+navigation and rendering residuals to **Story 4.3**, which closes the epic; contract traps to **Epic 5's
+first story**, where the next case's author is who the trap actually catches. The two new rows are that
+review's own findings.
 
 ---
 

@@ -20,14 +20,13 @@ import { en } from '../../src/core/i18n/locales/en';
 import { fr } from '../../src/core/i18n/locales/fr';
 import {
     ARTIFACT_COUNT,
-    DESIGN_HEIGHT,
-    DESIGN_WIDTH,
-    WALK_TO_DEBRIEF_COST_MS,
     artifactAt,
     canvas,
+    chooseProposalThroughColleague,
     clickDesign,
     clickUntilScene,
-    chooseProposalThroughColleague,
+    DESIGN_HEIGHT,
+    DESIGN_WIDTH,
     enterTheLaboratory,
     expectActiveScene,
     gotoCase,
@@ -36,7 +35,9 @@ import {
     startTheLightUntilRecorded,
     waitForBookToClose,
     waitForBookToOpen,
-    waitForInputToSettle
+    waitForInputToSettle,
+    WALK_TO_DEBRIEF_COST_MS,
+    YOUNG_CASE
 } from './canvasHelpers';
 
 test.setTimeout(30_000 + WALK_TO_DEBRIEF_COST_MS);
@@ -92,7 +93,7 @@ const walkToTheoryBoardWithThinEvidence = async (
     locale: 'en' | 'fr'
 ): Promise<void> => {
     const labels = locale === 'fr' ? fr : en;
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     // Proves the browser really resolved the locale under test before anything downstream depends on
     // it — the canvas resolves every string through the same store-held locale. Asserted **before**
     // entry, because the frame that carries this heading is dismissed by it; `enterTheLaboratory`'s own

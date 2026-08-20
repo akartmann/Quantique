@@ -6,15 +6,16 @@ import { revisitToPredictionControlCentre } from '../../src/adapters/phaser/rend
 import { revisitControlCentreOnBoard } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import { en } from '../../src/core/i18n/locales/en';
 import {
+    clickDesign,
     DESIGN_HEIGHT,
     DESIGN_WIDTH,
-    WALK_TO_DEBRIEF_COST_MS,
-    clickDesign,
     expectActiveScene,
     gotoCase,
     recordedObservations,
+    WALK_TO_DEBRIEF_COST_MS,
     walkToDebrief,
-    walkToTheBoard
+    walkToTheBoard,
+    YOUNG_CASE
 } from './canvasHelpers';
 
 /**
@@ -123,7 +124,7 @@ test('takes every forward transition of the Young case from the canvas', async (
 });
 
 test('refuses a transition the evidence has not earned, and stays where it was', async ({ page }) => {
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     await expectActiveScene(page, 'Library');
 
     // Nothing read, so `missing-contextual-sources` refuses. What is observable *here* is that the

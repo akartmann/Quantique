@@ -23,24 +23,25 @@ import {
 import { KNOB_ARC_END_RAD } from '../../src/adapters/phaser/renderers/instrumentView';
 import { libraryAdvanceControlCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
 import {
-    DESIGN_HEIGHT,
-    DESIGN_WIDTH,
     artifactAt,
+    chooseProposalThroughColleague,
     clickDesign,
     clickUntilScene,
-    chooseProposalThroughColleague,
+    DESIGN_HEIGHT,
+    DESIGN_WIDTH,
     dragDesignUntil,
     enterTheLaboratory,
     expectActiveScene,
     gotoCase,
+    recordedAutoSummary,
+    recordedComparisonNotes,
+    recordedObservations,
+    recordedSetting,
+    startTheLightUntilRecorded,
     waitForBookToClose,
     waitForBookToOpen,
     waitForInputToSettle,
-    recordedComparisonNotes,
-    recordedAutoSummary,
-    recordedObservations,
-    recordedSetting,
-    startTheLightUntilRecorded
+    YOUNG_CASE
 } from './canvasHelpers';
 import { en } from '../../src/core/i18n/locales/en';
 import { decimalPlaces, formatMeasurement, formatRecordedValue } from '../../src/core/i18n/formatNumber';
@@ -153,7 +154,7 @@ const walkToTheBench = async (
     page: import('@playwright/test').Page,
     sceneTimeoutMs?: number
 ): Promise<void> => {
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     // The boot frame covers the canvas until it is dismissed (Story 2.12), so every coordinate mapped
     // before this lands on the frame instead of the surface.
     await enterTheLaboratory(page);

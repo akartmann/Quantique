@@ -14,7 +14,8 @@ import {
     enterTheLaboratory,
     gotoCase,
     waitForBookToClose,
-    waitForBookToOpen
+    waitForBookToOpen,
+    YOUNG_CASE
 } from './canvasHelpers';
 
 /**
@@ -107,7 +108,7 @@ const readStoredYoungRecord = (page: Page): Promise<string | undefined> =>
  * below has already proved the relocation works.
  */
 const seedSavedProgressOnNormalRoute = async (page: Page): Promise<string> => {
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     await enterTheLaboratory(page);
     await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', 'Library');
 
@@ -193,7 +194,7 @@ test('runs an isolated Young validation session that leaves the saved learner re
 
     // And the normal route still restores exactly what it saved — the second read also catches a late
     // write that the first one would have raced.
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     await expectActiveScene(page, 'Library');
     expect(await readStoredYoungRecord(page)).toBe(seeded);
 

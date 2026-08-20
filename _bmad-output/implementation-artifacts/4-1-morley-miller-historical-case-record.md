@@ -2,7 +2,7 @@
 epic: 4
 story: 1
 key: 4-1-morley-miller-historical-case-record
-status: review
+status: done
 created: 2026-08-20
 baseline: 62b65b2
 baseline_commit: d657713fbe2d641c961746f779667962efa0860e
@@ -18,7 +18,7 @@ inputs:
 
 # Story 4.1: Morley–Miller historical case record
 
-Status: review
+Status: done
 
 ## Story
 
@@ -163,7 +163,7 @@ _`flow.maximumExperimentCycles` ships at **6** and the epic AC and FR25 both say
 
 - [x] **Task 8 — Versions, cache, ledger** (AC9)
   - [x] Bump `public/cases/morley-miller/case.json` `version` to `1.4.0`.
-  - [x] Add `|| (isPrototype && definition.version === '1.4.0' && ['1.0.0', '1.1.0', '1.2.0', '1.3.0'].includes(record.caseDefinitionVersion))` to `CaseRecordSchema`, with a comment stating what changed. **This is the finding 3.4's review rated severest** — the 1.3.0 bump shipped without its clause and every saved prototype investigation was refused.
+  - [x] Add a 1.4.0 clause to `CaseRecordSchema` with a comment stating what changed. **This is the finding 3.4's review rated severest** — the 1.3.0 bump shipped without its clause and every saved prototype investigation was refused. *(Task text corrected by the code review of 4.1: it originally spelled out `|| (isPrototype && definition.version === '1.4.0' && ['1.0.0', '1.1.0', '1.2.0', '1.3.0'].includes(...))` and stood checked beside code that deliberately omitted it, so a later reader reconciling the two would have re-added the very expression mutation proof C records as turning a named test red. The shipped clause is that allowlist **conjoined with `!recordNamesRetiredArtifact(record)`** — see the sub-bullet below and the review's decision.)*
   - [x] Consider whether a saved record can survive the artifact id change at all: `inspectedSourceIds`, `theory.selectedSourceIds` and the record's source references may hold `morley-miller-1905-reconstruction`. If a saved record cannot be honestly accepted, the clause must **exclude** the older versions rather than list them — say which, and why, in the comment.
   - [x] Bump `public/sw.js` `CACHE_NAME` to `quantique-bootstrap-v12` and append the reason. The v11 header states the rule: **an additive optional field is still a bump, because `.strict()` makes every schema change breaking in the old-bundle direction.** This story changes content *and* adds a refinement, so it is unambiguously a bump.
   - [x] Run `npm run audit:ledger` and commit both regenerated `docs/source-rights/morley-miller-ledger.{en,fr}.md`.
@@ -177,6 +177,125 @@ _`flow.maximumExperimentCycles` ships at **6** and the epic AC and FR25 both say
   - [x] Record every mutation proof: what was broken, which named test went red, that it was restored.
   - [x] Strike closed `deferred-work.md` items; record new ones with a named owner story (not "Epic 4" — 3.2's review rejected that).
   - [x] Fill the Dev Agent Record, File List and Change Log.
+
+### Review Findings
+
+_Code review 2026-08-20. Three layers: Blind Hunter (diff only), Edge Case Hunter (diff + project), Acceptance Auditor (diff + spec + 7 context docs). 35 raised → 25 after dedup; 2 dismissed._
+
+**Decisions needed**
+
+- [ ] [Review][Decision] **Completing the first campaign case creates an offline dead-end** — The boot target is now progress-dependent, but `public/sw.js` has no install-time precache (install only calls `skipWaiting()`; caching is per-response in `fetch`). Fresh profile boots `/` → Morley–Miller, so only `cases/morley-miller/*` is ever cached. Complete it, go offline, reload `/`: `resolveCampaignEntryCaseId` returns `young-interference`, the fetch misses cache → `503` → `loadCaseDefinition` returns `content-unavailable` → `main.ts:102-105` sets the boot shell and returns. The player is stuck on "content unavailable" with no picker and no `?case=` UI to escape. Before the flip the boot target was constant, so the offline warm-up always matched the boot fetch. `tests/e2e/offline-reload.spec.ts:135-139` was moved *off* `/` to `gotoCase(page)`, so nothing exercises bare-root offline with a non-empty completed set. Options: (a) precache every shipped case at SW install (needs another `CACHE_NAME` bump), (b) fall back to a cached completed case when the entry's content is unavailable, (c) revert the boot flip to Story 4.3. [src/main.ts:99-105, public/sw.js:78-113]
+- [ ] [Review][Decision] **The 1.4.0 record policy discards salvageable progress, and the completion probe counts records the app will refuse** — Two coupled defects. (i) `CaseRecordSchema.ts:479-503` adds 21 lines of comment and no clause, so `compatibleDefinitionVersion` still terminates at 1.3.0. The stated justification — "any record past the `context` phase necessarily carries both ids" — is scoped to post-`context` records; the readiness gate at `:555` is guarded by `record.phase !== 'context'`. A record autosaved *inside* `context` with zero or one inspected source is valid under 1.4.0 in every field, yet is refused, and `attachAutosave` (`caseRecordOperations.ts:100-118`) then overwrites it on the player's first action — the loss the 1.1.0 and 1.3.0 clauses exist to prevent, and the shape the story's own test builds (`MorleyMillerPrototype.test.ts:291-306`). AC9's letter ("gains a clause … listing every prior version it accepts") is unmet. (ii) `completedCampaignCases.ts:22-27` counts any `load`-able record with a `completion` as complete, but `CaseRecordRepository.load` runs `migrateAndValidateCaseRecord` only — it has no `CaseDefinition` and never applies the version allowlist. So a Morley–Miller record completed at 1.3.0 routes the player *past* the case, which its own docstring (`:12-17`) claims it prevents — a comment asserting a guarantee the code does not make. Together: the finished investigation is both unreachable from `/` and destroyed if reached via `?case=`. Options: widen the allowlist for `context`-phase records (fixes both), or keep the exclusion and correct the docstring + the review artifact's claim. [src/schemas/CaseRecordSchema.ts:479-503, src/adapters/persistence/completedCampaignCases.ts:22-27]
+- [ ] [Review][Decision] **AC6's "enforced" is not true: the unlock predicate is dead in `src/`** — `resolveCampaignEntryCaseId` has exactly one production call site (`resolveCaseId.ts:42`), so the *order* is genuinely declared and read and AC6's three `Then` clauses hold. But `isCampaignCase` (`campaignOrder.ts:28`) and `isCampaignCaseUnlocked` (`:45`) are called only from `tests/unit/CampaignOrder.test.ts` — verified by grep over `src/` and `tests/`. Nothing gates entry: `?case=young-interference` on a fresh profile with zero completions loads Young and no code asks the predicate. Three of the module's five exports are the shipped-and-dead shape Task 6 and §SS8 explicitly forbid, and neither `docs/case-reviews/morley-miller-case-review.md` §6 nor `deferred-work.md` records the residual — so the pass over it is untraceable. Options: (a) wire an entry gate into `resolveCaseId` (note `?case=` is deliberately a reviewer bypass, so this changes that contract), (b) record the residual with a named owner story, (c) drop the two unused exports and let `CAMPAIGN_ORDER` + the entry resolver carry AC6. [src/domain/cases/campaignOrder.ts:28,45]
+- [ ] [Review][Decision] **The 1887 opening excerpt is an unmarked elision of non-contiguous paragraphs under a verified-transcription claim** — The Acceptance Auditor independently pulled the IA facsimile (`sim_american-journal-of-science_1887-11_34_203`) and confirmed the story's corrections are genuine: the running heads establish `[333, 334]` and `[341]`, and both authored paragraphs match the source verbatim including punctuation. The residue: the p.333 paragraph continues *"The effect was attributed to a simple composition of the velocity of light…"* and the authored text stops after the first sentence with no elision mark, and a full intervening paragraph (*"On the undulatory theory, according to Fresnel…"*) sits between the two authored paragraphs, which the rendition presents adjacently. Declared only by the artifact-level *"Excerpted, not complete."* AC2 says "verbatim, punctuation included" — the words present are verbatim, so this is a completeness-of-declaration judgement, not a fidelity failure. Options: (a) add elision marks (…) at both seams, (b) name the omitted paragraph in the section prose, (c) accept the artifact-level declaration as sufficient. [public/cases/morley-miller/case.json — `mm-1887-p333` sections]
+- [ ] [Review][Decision] **Owner stories needed for four residuals this review and the story opened** — AC10 and §SS12 require a *named owner story* and explicitly reject "unassigned" and "Epic 4". Four items need one: (i) **a finished campaign case becomes unreachable** — `resolveCampaignEntryCaseId` returns the first not-completed case, so once Morley–Miller is complete `/` resolves to Young forever and the completed case's debrief, its `flow.optionalReplay: true`, and its record export/print are unreachable (no picker, `?case=` is reviewer-only). Its docstring covers the all-complete case but not the ordinary one-complete/one-in-progress path. (ii) `citation.reuseStatement` — this story newly authored the bilingual verification sentence into it (`case.json:37-38`), while the same diff's `deferred-work.md` records that the field "is authored in both locales for every artifact and rendered nowhere", and `morley-miller-case-review.md` §2.1 nonetheless offers it as the record of the verification. Newly authored content in a dead field, against the project's "never author a case field nothing reads" rule. (iii) `provenance.reference` now equals the artifact id for the 1907 report, erasing the vocabulary distinction §SS4's table drew (the retired artifact and the 1887 one both keep them distinct); only `sourceIds` is cross-checked at load, so an author confusing the two now gets silence from both. (iv) Three of the four items the story opened shipped as "Owner: unassigned", two saying in as many words that they still need one. [_bmad-output/implementation-artifacts/deferred-work.md]
+- [ ] [Review][Decision] **AC3 and AC4 rest entirely on an uncommitted by-eye check** — AC4 is a verification AC and the Auditor confirmed the code path holds (`LibraryRenderer`, `CaseFilePresenter` and `DebriefRenderer` all read `source.provenanceName.*`, and the re-anchored artifact validates and resolves). But every "confirmed by eye at 1280×720 in both locales" claim — AC3's reachability, AC4's three surfaces, and the two layout defects the Debug Log says were found and fixed by eye — has no committed screenshot or record; the only evidence is prose in the story and the review artifact. The project's standing rule is to screenshot the running app before calling rendering or new-surface work done. Options: (a) run the app and capture 1280×720 EN+FR shots of the reading room, case file and debrief before marking the story done, (b) accept the story's by-eye record as sufficient.
+
+**Patches**
+
+- [x] [Review][Patch] Four typography constants collapse to Young by character count, so AC7's extension is a no-op for the prototype [tests/e2e/french-typography.spec.ts:527,537,538,550]
+- [x] [Review][Patch] `SOURCE_NAME` and `FRENCH_LIMITATIONS` reduce cross-case by `longestFrench` too — Young wins both [tests/e2e/french-typography.spec.ts:526,722]
+- [x] [Review][Patch] AC7 names "the debrief prose" and no sweep reads `debrief.*` for any case; `ShippedCase` omits `debrief`, `consultationRules` and `textualRendition` — every block this story rewrote [tests/e2e/french-typography.spec.ts:447-459]
+- [x] [Review][Patch] `debriefGeometry.ts`'s fit comment is now false and the reserve's margin is gone: it asserts "The shipped French comparison is 236 characters — three lines … the reserve holds it with a line spare", but `historicalComparison.text` (FR) went 181 → 289 chars against a four-line reserve (~320 at the 560px wrap) [src/adapters/phaser/scenes/debriefGeometry.ts:177-179]
+- [x] [Review][Patch] `consult-unread-report`'s `plainLanguage` still describes the retired 1905 reconstruction — "It describes what went wrong the first time" / "Il décrit ce qui a mal tourné la première fois", in both locales. Contradicts the 1907 artifact's own framing and the `reading-1907` gate hint, where the same sentence *was* rewritten. `grep 1905` structurally cannot catch it [public/cases/morley-miller/case.json:645-646]
+- [x] [Review][Patch] `gotoCase`'s `caseId: string = YOUNG_CASE` default reinstates the implicit-Young binding the helper exists to remove — 17 of 17 converted call sites pass no case id, while the helper's docstring and `morley-miller-case-review.md` §5 both claim "every spec … now names the case" [tests/e2e/canvasHelpers.ts:126]
+- [x] [Review][Patch] No e2e exercises `/` reaching a playable case on the normal origin, nor the progression flip in either direction — all ~40 sites moved to `?case=`, and the only root-boot coverage asserts a request and no 4xx under the subpath origin [tests/e2e/canvasHelpers.ts:126]
+- [x] [Review][Patch] Dead restated case-id literal `MORLEY_MILLER_CASE = 'morley-miller'` — zero consumers tree-wide, while `MORLEY_MILLER_CASE_ID` is already exported; same story deleted a literal in `subpath-hosting.spec.ts` for being this shape [tests/e2e/canvasHelpers.ts:107]
+- [x] [Review][Patch] `LIBRARY_ARTIFACT_COUNT` still parses `young-interference/case.json` alone, and its docstring was edited to read as if the count came from the sweep. It feeds `LIBRARY_ARTIFACT_LABEL_WRAP` — the band the one mutation proof depends on [tests/e2e/french-typography.spec.ts:262]
+- [x] [Review][Patch] Cross-case sweeps have no per-case non-vacuity floor, so a case authoring an empty `colleagueHints` / `readingGateHints` / `predictionProposals` / `rivalLab.critiques` contributes zero samples and still reads as measured [tests/e2e/french-typography.spec.ts:496,506]
+- [x] [Review][Patch] Sample labels lost their per-item index, so two overflowing proposals print identical labels — defeating the stated reason the case id was threaded through. Note the residual `(_, )` parameter list [tests/e2e/french-typography.spec.ts:578-580]
+- [x] [Review][Patch] `accepts Morley–Miller at the range FR25 requires` asserts only `.not.toContain(<one message>)`, so it cannot distinguish acceptance from rejection for other reasons — strictly weaker than its name and than its own sibling, which asserts `parsed.success` [tests/unit/CaseDefinition.test.ts:1579]
+- [x] [Review][Patch] `does not count an unreadable or incomplete record as a completion` has no readable-record-without-`completion` fixture, so mutating the guard to `loaded.ok && loaded.value !== undefined` leaves it green — the regression being a mid-investigation player counted as finished and skipped past the case [tests/unit/CampaignOrder.test.ts:138]
+- [x] [Review][Patch] `refuses a record saved before the artifact was re-anchored` never builds a record holding `morley-miller-1905-reconstruction`, so it proves only the version allowlist and not the cross-check the new comment's whole argument rests on [tests/unit/MorleyMillerPrototype.test.ts:291]
+- [x] [Review][Patch] `typecheck:tests` is now 106/60 (re-measured independently, matching the story exactly) but two files still quote 114 — the same staleness `tsconfig.test.json`'s header was rewritten in 3.4 to fix [tsconfig.test.json:21, _bmad-output/implementation-artifacts/deferred-work.md:87]
+- [x] [Review][Patch] Task 8's checked box instructs adding the `['1.0.0'…'1.3.0']` clause that the code deliberately omits and that mutation proof C records as the mutation turning a named test red — a later reader reconciling code against the task list would re-add it [this story, Task 8]
+- [x] [Review][Patch] `resolveLocalizedText.ts`'s new comment says "the test below is what still exercises this path" in a source file containing no test (it is `tests/unit/ResolveRendition.test.ts:44-62`), three paragraphs above the same docstring's own "Unreachable with valid content"; the edit also leaves a ~200-char line where the file wraps at ~110 [src/core/i18n/resolveLocalizedText.ts:42-45]
+
+**Decisions resolved (Alexis, 2026-08-20)**
+
+- [x] **Offline dead-end → precache all shipped cases.** Add an install-time precache over `KNOWN_CASE_IDS` in `public/sw.js`, bump `CACHE_NAME` to `quantique-bootstrap-v13` with its reason appended to the header list. Keeps the boot flip; accepts a larger first-visit fetch.
+- [x] **1.4.0 record policy → widen for context-phase records.** Add the 1.4.0 clause accepting 1.0.0–1.3.0 only for records that cannot name the retired artifact, and fix the routing defect in `completedCampaignCases` in the same pass. Meets AC9's letter and salvages in-context progress. Mutation-prove both directions.
+- [x] **AC6 "enforced" → record the residual.** `?case=` stays the deliberate reviewer bypass. Keep the exports, record the dead-predicate residual in `docs/case-reviews/morley-miller-case-review.md` §6 and in `deferred-work.md` with **Story 4.3** as owner (an entry gate is navigation work).
+- [x] **1887 elision → add elision marks.** Insert … at both seams in EN and FR so the omission is visible on the surface the player reads.
+- [x] **Residual owners → split by nature.** Campaign-navigation and rendering residuals — the unreachable completed case, and `citation.reuseStatement` rendered nowhere — to **Story 4.3**. Contract traps — `provenance.reference` colliding with the artifact id, and the three items shipped unassigned — to **Epic 5's first story**, where a third case's author is who the trap actually catches.
+- [x] **AC3/AC4 by-eye claims → verify now by screenshot.** Capture 1280×720 EN+FR shots of the reading room, case file and debrief before the story is marked done.
+
+**Patches arising from those decisions**
+
+- [x] [Review][Patch] Add an install-time precache over `KNOWN_CASE_IDS`; bump `CACHE_NAME` to `quantique-bootstrap-v13` with its reason appended [public/sw.js]
+- [x] [Review][Patch] Add the 1.4.0 clause for records that cannot name the retired artifact, and stop `readCompletedCampaignCaseIds` counting a definition-incompatible record as complete; correct its docstring to match what the code does [src/schemas/CaseRecordSchema.ts:479-503, src/adapters/persistence/completedCampaignCases.ts:22-27]
+- [x] [Review][Patch] Record the dead-predicate residual with Story 4.3 as owner [docs/case-reviews/morley-miller-case-review.md §6, _bmad-output/implementation-artifacts/deferred-work.md]
+- [x] [Review][Patch] Add elision marks at both seams of the 1887 excerpts, EN and FR [public/cases/morley-miller/case.json]
+- [x] [Review][Patch] Assign the four residual owners per the split above [_bmad-output/implementation-artifacts/deferred-work.md]
+- [x] [Review][Verify] Capture 1280×720 EN+FR screenshots of the reading room, case file and debrief
+
+**Deferred**
+
+- [x] [Review][Defer] `resolveCaseId`'s completed-set argument is evaluated eagerly, so the `?case=` reviewer route pays two IndexedDB reads it discards on the first precedence branch, the entry case's record is loaded twice per boot, and two awaits are serialised ahead of the content fetch that used to start immediately [src/main.ts:99-105] — deferred, minor. The dangerous variant was checked and cleared: `IndexedDbRepository.read` never throws, so no rejected promise escapes ahead of the localized error frame.
+
+**Review patches applied — verification (2026-08-20)**
+
+All 22 patches and the screenshot verification applied. Gates re-run after the last edit:
+
+| Gate | Result |
+|---|---|
+| `npm run typecheck` | clean |
+| `npm test` | **1527 passed / 80 files** (1523 before; +4 tests) |
+| `npm run build` and `build:subpath` | both succeed |
+| `npm run test:e2e` | **67 passed** (64 before; +3 tests) |
+| `npm run typecheck:tests` | **106 errors / 60 files** — unchanged, measured against a stashed baseline both before and after |
+
+**Mutation proofs for every guard these patches added or changed.** Each broken, the named test observed
+red, then restored.
+
+| Mutation | Named test that went red |
+|---|---|
+| Dropped the 1.4.0 record clause entirely | `restores a context-phase record saved before the artifact was re-anchored, which names no retired content` |
+| Dropped the clause's `!recordNamesRetiredArtifact(record)` conjunct | `refuses a record that still names the retired artifact, as incompatible rather than invalid` |
+| Loosened the completion probe to `loaded.value !== undefined` | `does not count an in-progress prototype record as a campaign completion` |
+| Dropped the probe's `recordNamesRetiredArtifact` conjunct | `counts a completed prototype record, unless it still names the retired artifact` |
+| `resolveCaseId` returns `YOUNG_CASE_ID` instead of the campaign entry | `boots the campaign entry into a playable scene at the origin root` (e2e) |
+| One 160-char unbreakable token in the FR debrief comparison | `keeps the debrief prose and the consultation layers inside their bands, in both locales` — named the case and field: `morley-miller debrief comparison text [fr] … (1212px > 560px)` |
+| One 90-char unbreakable token in a Morley–Miller consultation layer | same test — `morley-miller consult-unread-report plainLanguage [fr] … (663px > 372px)` |
+
+**Two mutations that did *not* fail, recorded because they are information.** Lengthening
+`Température du bain` into a longer *phrase* left the wrap sweep green, correctly — the pass condition
+is per-token width and every token in the phrase still fits. And a 55-character unbreakable token in the
+debrief comparison also passed, because 560px at 14px genuinely holds it. Both proofs were redone with
+tokens wide enough to overflow the band actually being measured. This is the same lesson the story's own
+proof F recorded about `LIBRARY_GATE_WRAP`.
+
+**AC3 / AC4 verified by screenshot at 1280×720, EN and FR**, on the patched content — the check the
+review decision asked for, and the one AC4 rests on entirely. What was observed:
+
+- **Curated record (AC3).** The 1907 leaf renders in full with no clipping and a single-line heading
+  (`Page imprimée 525 — le rapport final` over `Page source 525.`, no collision), and the authors' own
+  numbers reach the player in French: *"un déplacement des franges d'interférence de 1,53 longueur
+  d'onde ; le résultat ci-dessus est probablement certain à un quatre-vingtième près de l'ensemble."*
+- **Reading room (AC4).** The re-anchored artifact's detail panel shows
+  `Ouvrage publié · Source primaire` and `Statut des droits : Vérifié` as localized prose. Both shelf
+  labels fit their plaques.
+- **Case file (AC4).** Both pinned source rows carry `Ouvrage publié · Source primaire`.
+- **Not verified: the debrief.** `walkToDebrief` hard-codes Young and `pinTheSupport` / `closeTheCase`
+  are module-private, so no spec can reach Morley–Miller's debrief at all. Recorded in
+  `deferred-work.md` with Story 4.3 as owner. The debrief prose now has the per-token width sweep this
+  review added; its height margin is a separate recorded residual.
+- **Incidentally confirmed:** `0,11largeurs de frange` renders on the case file exactly as the review
+  artifact's §6 describes it, so that Story 4.2 residual is real and correctly owned.
+
+Screenshots were taken with a throwaway spec that was deleted afterwards; they are not committed, since
+the repository carries no docs images and adding binaries was not part of this review.
+
+**Version hygiene for the patches themselves, stated rather than assumed.** These patches edit authored
+content in `case.json` (the stale `consult-unread-report` prose in both locales, and the 1887 elision
+marks) and **do not** bump the case past `1.4.0`. The reason: 1.4.0 has never shipped — it is introduced
+by this same unreleased story, `main` is not a release, and the case is ledger-**BLOCKED** so it cannot
+be publicly released either way, so no saved record anywhere can be at 1.4.0 with the pre-patch content.
+Bumping to 1.5.0 would demand a further `CaseRecordSchema` clause for a version that never existed in a
+player's hands. `public/sw.js` **is** bumped, to `quantique-bootstrap-v13`, because that change is to the
+worker's own behaviour — it gains an install-time precache — and a v12 cache populated under the old
+fetch-through-only rule holds at most one case and must not be treated as complete. Its reason is
+appended to the header list, as the file's own convention requires.
 
 ## Dev Notes
 

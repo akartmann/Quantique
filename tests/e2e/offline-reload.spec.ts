@@ -8,11 +8,12 @@ import {
     PROGRESS_STORE_NAME
 } from '../../src/adapters/persistence/IndexedDbRepository';
 import {
-    WALK_TO_DEBRIEF_COST_MS,
     gotoCase,
     recordedComparisonNotes,
     recordedObservations,
-    walkToTheBoard
+    WALK_TO_DEBRIEF_COST_MS,
+    walkToTheBoard,
+    YOUNG_CASE
 } from './canvasHelpers';
 
 /** What the record says the prediction is, read from ADR-007's retained print view. */
@@ -138,7 +139,7 @@ test('restores canvas-recorded progress after an offline reload, with no manual 
     // Named, not `/`: the warm-up has to load the case this test then walks, because it waits on
     // *Thea's* portrait — a Young asset a Morley–Miller boot never fetches (Story 4.1 flipped the
     // campaign default). The three locale assertions above deliberately stay at the root.
-    await gotoCase(page);
+    await gotoCase(page, YOUNG_CASE);
     await expect(page.getByRole('button', { name: en['boot.enter'] })).toBeVisible();
     await page.waitForFunction(async () => {
         await navigator.serviceWorker.ready;

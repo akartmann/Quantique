@@ -174,9 +174,21 @@ export const DEBRIEF_SUMMARY_BAND_HEIGHT = 68;
  * A two-line French title at {@link DEBRIEF_SECTION_TITLE_FONT_SIZE} over four lines of prose at
  * {@link DEBRIEF_BODY_FONT_SIZE}, plus {@link DEBRIEF_TITLE_GAP} and both paddings.
  *
- * The shipped French comparison is 236 characters — three lines at {@link debriefLeftTextWrap} on the
- * shipped surface — so the reserve holds it with a line spare. Past four the clamp shrinks and then
- * crops; the schema authorises any length, so the reserve is the guarantee and not the content.
+ * The longest shipped French comparison is **289** characters (Morley–Miller, Story 4.1) against
+ * {@link debriefLeftTextWrap}'s **560px** on the shipped 1024×768 surface.
+ *
+ * This said "236 characters — three lines … so the reserve holds it with a line spare" until the code
+ * review of 4.1. Story 4.1 authored the comparison up from Young's 222 to 289 and left the number
+ * behind, which is the stale-figure shape this project keeps being bitten by, and at 289 the spare line
+ * the sentence promised is **gone** — the prose now needs the full four-line reserve rather than three
+ * of it. A concrete line count is deliberately not written down here any more: how many lines wrapped
+ * prose occupies is a height claim, the structural harness reports a constant `height: 18` for every
+ * text object, and a number stated here would be arithmetic dressed as a measurement — which is how
+ * the last one came to be wrong. Past four lines the clamp shrinks toward
+ * {@link DEBRIEF_MIN_FONT_SIZE} and then crops, silently. The schema authorises any length, so **the
+ * reserve is the guarantee and not the content**, `french-typography.spec.ts` now measures this prose
+ * per token so no single word can overflow the wrap, and the remaining height margin is recorded in
+ * `deferred-work.md` as a residual for Story 4.3.
  */
 export const DEBRIEF_COMPARISON_BAND_HEIGHT = 152;
 /** A source's name at {@link DEBRIEF_BODY_FONT_SIZE} over its provenance line at the meta size. */

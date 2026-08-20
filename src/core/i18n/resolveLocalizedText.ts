@@ -42,7 +42,9 @@ export const resolveLocalizedTextList = (list: LocalizedTextList, locale: Locale
  * The review of 3.2 made `reconstruction` a legal rendition of record — the prototype's **1905** artifact
  * was prose written for this investigation, and calling it a transcription was a provenance claim nobody
  * had reviewed. (Story 4.1 replaced that artifact with a genuine 1907 transcription, so no shipped case
- * selects a `reconstruction` today; the test below is what still exercises this path.) A `transcription`-only test skips a reconstruction and lands on `renditions[0]` by array
+ * selects a `reconstruction` today; `tests/unit/ResolveRendition.test.ts` is what still exercises this
+ * branch, and `deferred-work.md` records that no shipped content does.) A `transcription`-only test
+ * skips a reconstruction and lands on `renditions[0]` by array
  * order, which can be the *translation*: the reader would then be shown a French translation under a
  * notice naming English as the original. Asking for "not a translation" selects the rendition of record
  * whichever of the two kinds it is, which is what the notice actually claims.
