@@ -94,8 +94,20 @@ import {
     REFERENCE_CONTROL_FONT_SIZE,
     REFERENCE_CONTROL_LABEL_WRAP,
     REFERENCE_HEADING_FONT_SIZE,
-    SIDE_COLUMN_WIDTH
+    SIDE_COLUMN_WIDTH,
+    // The apparatus-notes overlay (Story 4.2). Its panel is the notebook's, so its action-row bounds are
+    // the notebook's too — imported further down with the rest of the bench, read rather than restated.
+    NOTES_BODY_FONT_SIZE,
+    NOTES_HEADING_FONT_SIZE,
+    NOTES_SECTION_FONT_SIZE,
+    NOTES_TEXT_WRAP
 } from '../../src/adapters/phaser/renderers/apparatusGeometry';
+import {
+    BATH_LABEL_WRAP,
+    LABEL_FONT_SIZE,
+    SCREEN_LABEL_WRAP,
+    STONE_LABEL_WRAP
+} from '../../src/adapters/phaser/renderers/interferometerGeometry';
 // The bench itself (Story 2.10). Every one of these is a *fixed* rectangle — an instrument's readout
 // slot, a wavelength choice, the start control, the notebook's own chrome — so each belongs in the
 // whole-string sweep below as well as in the per-token one, and each reads its bound from the module
@@ -446,7 +458,23 @@ const WRAPPED_SURFACES = [
     // The read marker on an object's corner. It is created with **no** `wordWrap` and anchored to the
     // fore-edge, so the plaque's wrap bound was never its constraint — it is measured against the clear
     // board between the spine and the corner it sits in, which is the bound it actually has.
-    { key: 'library.artifact.read', font: UI_FONT_STACK, fontSize: ARTIFACT_READ_FONT_SIZE, wrapWidth: LIBRARY_READ_MARKER_BOUND }
+    { key: 'library.artifact.read', font: UI_FONT_STACK, fontSize: ARTIFACT_READ_FONT_SIZE, wrapWidth: LIBRARY_READ_MARKER_BOUND },
+    // --- Story 4.2 ------------------------------------------------------------------------------
+    //
+    // The interferometer's three part labels, which are centred under the objects they name and get a
+    // reserve each in `interferometerObjectBands`. A label wider than its reserve runs into its
+    // neighbour on a row that holds three of them, in a band the non-overlap sweep measures but cannot
+    // *fill* — the harness reports `height: 18` for every text object and approximates width, so this is
+    // where their width is actually checked.
+    { key: 'lab.interferometer.bench', font: UI_FONT_STACK, fontSize: LABEL_FONT_SIZE, wrapWidth: STONE_LABEL_WRAP },
+    { key: 'lab.interferometer.bath', font: UI_FONT_STACK, fontSize: LABEL_FONT_SIZE, wrapWidth: BATH_LABEL_WRAP },
+    { key: 'lab.interferometer.screen', font: UI_FONT_STACK, fontSize: LABEL_FONT_SIZE, wrapWidth: SCREEN_LABEL_WRAP },
+    // The apparatus notes: the control that opens them, the panel's own title, and the three section
+    // headings above the authored prose the panel exists to show.
+    { key: 'lab.notes.heading', font: UI_FONT_STACK, fontSize: NOTES_HEADING_FONT_SIZE, wrapWidth: NOTES_TEXT_WRAP },
+    { key: 'lab.notes.assumptions', font: UI_FONT_STACK, fontSize: NOTES_SECTION_FONT_SIZE, wrapWidth: NOTES_TEXT_WRAP },
+    { key: 'lab.notes.confound', font: UI_FONT_STACK, fontSize: NOTES_SECTION_FONT_SIZE, wrapWidth: NOTES_TEXT_WRAP },
+    { key: 'lab.notes.resetPath', font: UI_FONT_STACK, fontSize: NOTES_SECTION_FONT_SIZE, wrapWidth: NOTES_TEXT_WRAP }
 ] as const;
 
 /** Book controls are a fixed hit-test width and shrink to fit down to 10px before they would clip. */
@@ -469,6 +497,13 @@ type ShippedCase = {
     experiment: {
         modelVersion: string;
         wavelengthComparison?: { fixedMinimumPathNm: number; advancedChoicesNm: number[] };
+        // The three fields the apparatus notes render (Story 4.2, AC2 / AC7). Authored bilingually on
+        // both cases and, before that surface existed, drawn by nothing — so measured by nothing either.
+        // AC7 requires the new prose to be swept, and this is prose the story made visible rather than
+        // prose it wrote, which is the same obligation.
+        assumptions: { en: string[]; fr: string[] };
+        confound: { description: { en: string; fr: string } };
+        resetPath: { description: { en: string; fr: string } };
     };
     colleagues: { id: string; name: string; role: 'lead' | 'builder' | 'analyst' | 'communicator' }[];
     rivalLab: { name: string; critiques: { id: string; line: { en: string; fr: string } }[] };
@@ -1189,6 +1224,45 @@ test('keeps the authored dialogue inside the panel that holds it, in both locale
     expect(DIALOGUE_BEATS.length).toBeGreaterThan(0);
 });
 
+/**
+ * Everything the apparatus notes draw, across both cases and both locales (Story 4.2, AC2 / AC7).
+ *
+ * All three fields were authored, schema-validated and rendered by **nothing** before this story, which
+ * means they were also measured by nothing. Surfacing them puts roughly five hundred characters of French
+ * prose onto a panel for the first time, and `fitBodyText`-style shrinking does not apply here: these are
+ * plain wrapped `Text` objects, so an unbreakable token wider than the bound clips, exactly as it does on
+ * every other authored surface this file sweeps.
+ */
+const APPARATUS_NOTE_LINES: readonly { label: string; text: string }[] = SHIPPED_CASES.flatMap(({ caseId, definition }) =>
+    (['fr', 'en'] as const).flatMap((locale) => [
+        ...definition.experiment.assumptions[locale].map((text, index) => ({
+            label: `${caseId} assumption ${index + 1} [${locale}]`, text
+        })),
+        { label: `${caseId} confound [${locale}]`, text: definition.experiment.confound.description[locale] },
+        { label: `${caseId} reset path [${locale}]`, text: definition.experiment.resetPath.description[locale] }
+    ]));
+
+test('keeps the apparatus notes inside the panel that holds them, in both locales', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
+
+    const samples = APPARATUS_NOTE_LINES.flatMap(({ label, text }) =>
+        text.split(BREAKABLE_WHITESPACE).filter(Boolean).map((token) => ({
+            label, font: UI_FONT_STACK, fontSize: NOTES_BODY_FONT_SIZE, text: token
+        })));
+    const widths = await measure(page, samples);
+
+    const overflowing = samples
+        .map((sample, index) => ({ ...sample, width: widths[index] }))
+        .filter(({ width }) => width > NOTES_TEXT_WRAP)
+        .map(({ label, text, width }) => `${label}: "${text}" (${Math.round(width)}px > ${NOTES_TEXT_WRAP}px)`);
+
+    expect(overflowing).toEqual([]);
+    // A guard on the sweep: an empty list would make the assertion vacuous, and this one has a floor worth
+    // stating — both cases author three assumptions, a confound and a reset path, in two locales.
+    expect(APPARATUS_NOTE_LINES.length).toBeGreaterThanOrEqual(SHIPPED_CASES.length * 2 * 3);
+});
+
 test('keeps the authored rival-lab critiques inside the surface that holds them, in both locales', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
@@ -1328,6 +1402,12 @@ test('fits every fixed-height control label on one line, in French and in Englis
         { key: 'lab.start.running', fontSize: BENCH_CONTROL_FONT_SIZE, bound: BENCH_CONTROL_LABEL_WRAP },
         { key: 'lab.notebook.open', fontSize: BENCH_CONTROL_FONT_SIZE, bound: BENCH_CONTROL_LABEL_WRAP },
         { key: 'lab.reset', fontSize: BENCH_CONTROL_FONT_SIZE, bound: BENCH_CONTROL_LABEL_WRAP },
+        // The apparatus-notes control (Story 4.2). A fixed-height `AdvanceControl` in the side column, so
+        // it belongs in the **whole-string** sweep and not the per-token one: a two-word French label that
+        // wraps to two lines inside a 40px rectangle is cropped, and a per-token sweep provably cannot see
+        // it. That is recorded in three previous reviews and it is why this table exists.
+        { key: 'lab.notes.open', fontSize: ADVANCE_CONTROL_FONT_SIZE, bound: ADVANCE_CONTROL_LABEL_WRAP },
+        { key: 'lab.notes.close', fontSize: NOTEBOOK_ACTION_FONT_SIZE, bound: NOTEBOOK_ACTION_LABEL_WRAP },
         { key: 'lab.wavelength.fixed', fontSize: WAVELENGTH_CHOICE_FONT_SIZE, bound: WAVELENGTH_CHOICE_LABEL_WRAP },
         { key: 'lab.wavelength.comparison', fontSize: WAVELENGTH_CHOICE_FONT_SIZE, bound: WAVELENGTH_CHOICE_LABEL_WRAP },
         { key: 'lab.wavelength.comparisonLocked', fontSize: WAVELENGTH_CHOICE_FONT_SIZE, bound: WAVELENGTH_CHOICE_LABEL_WRAP },

@@ -1,5 +1,5 @@
 import { decimalPlaces, formatMeasurement, formatNumber } from '../i18n/formatNumber';
-import { DEFAULT_LOCALE, type Locale } from '../i18n/Locale';
+import type { Locale } from '../i18n/Locale';
 import { resolveLocalizedText } from '../i18n/resolveLocalizedText';
 import { formatAttribution, type Attribution } from '../i18n/formatAttribution';
 import { createTranslator, translate, translateError } from '../i18n/translate';
@@ -149,23 +149,21 @@ export const selectSourceLabel = (state: AppState, sourceId: string): string => 
     return source ? resolveLocalizedText(source.displayName, locale) : translate(locale, 'source.unavailable');
 };
 
-/**
- * Canonical English counterparts of {@link selectSourceLabel} and {@link selectFormattedControlValue},
- * for the retiring pre-pivot DOM panels.
- *
- * Those panels are deliberately not localized (see `docs/i18n-authoring.md`), and they read authored
- * text as `.en` directly. Calling the locale-aware selectors from inside them produced *mixed*
- * output — the same source named in French on one line and English on the next, and
- * `"Slit spacing set to 0,25 mm."` with a French decimal inside an English sentence. A panel picks
- * one language for everything it renders; these are how it picks English.
- */
-export const selectCanonicalSourceLabel = (state: AppState, sourceId: string): string =>
-    selectSourceById(state, sourceId)?.displayName.en ?? translate(DEFAULT_LOCALE, 'source.unavailable');
-
-export const selectCanonicalControlValue = (state: AppState, controlId: PrimaryControl['id']): string => {
-    const control = selectPrimaryControl(state, controlId);
-    return formatMeasurement(DEFAULT_LOCALE, selectControlValue(state, controlId), decimalPlaces(control.step), control.unit);
-};
+// `selectCanonicalSourceLabel` and `selectCanonicalControlValue` stood here, exported, called by
+// nothing in `src/`, and consumed only by `tests/integration/LocaleProjection.test.ts`. **Deleted by
+// Story 4.2 (§SS11).** Their docstring justified them by "the retiring pre-pivot DOM panels", which
+// "are deliberately not localized and read authored text as `.en` directly" — and Story 2.12 deleted
+// all eleven of those panels. So the justification named a surface that no longer exists, and the pair
+// was a canonical-English projection with no consumer that renders canonical English: `src/ui/` holds
+// three modules, and the one that shows a source label and a control value is
+// `CaseRecordPrintView`, which is localized. `selectCanonicalControlValue` was met while tracing
+// `formatMeasurement`'s callers for AC5 — it is the one caller of that function nothing renders — and
+// deleting is the honest option of the two §SS11 offers, so the two `LocaleProjection.test.ts` rows
+// that were their only readers went with them rather than a test disappearing quietly.
+//
+// The living pair is {@link selectSourceLabel} and {@link selectFormattedControlValue}, which take the
+// locale from the store; the `DEFAULT_LOCALE`-fallback shape these had is the one §i18n forbids
+// outright for any *new* call site.
 
 export const selectRunObservation = (state: AppState, runId: string): Readonly<{ order: number; record: RunRecord }> | undefined => {
     const order = state.runs.findIndex(({ id }) => id === runId);
@@ -408,10 +406,14 @@ export const selectDialogueBeats = (state: AppState): readonly DialogueBeatProje
  * persist. It is one `Set` build over `runs`, and it is not on a render path.
  *
  * An earlier version of this comment justified the cost with "`flow.maximumExperimentCycles` caps the
- * notebook at four". It does not: that field is declared in the type, the schema, and `case.json`, and
- * no reducer reads it — `reduceExperimentRun` applies no cap (review, 2026-08-06). The absence of a
- * cap is what keeps the gate honest, so this is not a bug to fix here: a player below the bar can
- * always record another run, which is precisely why a refusal is a nudge rather than a dead end.
+ * notebook at four". It does not, and Story 4.2 (AC6, decision D1) settled that it never will: the field
+ * is authored session-shape metadata, read at load by a refinement and by nothing at runtime.
+ *
+ * The absence of a cap is what keeps the gate honest, which is why this is not a bug awaiting a fix but
+ * the design: a player below the bar can always record another run, so a refusal is a nudge rather than a
+ * dead end. A real quota would invert that — four observations at one arrangement would leave the gate
+ * unsatisfiable with nothing able to clear `runs`. `CaseDefinitionSchema`'s `flow` shape carries the full
+ * reasoning.
  */
 export const selectSignificantMeasureCount = (state: AppState): number =>
     countSignificantMeasures(state.caseDefinition.significanceRule, state.runs);

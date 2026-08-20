@@ -639,7 +639,11 @@ const reduceTheoryReviewRequest = (state: AppState): Result<AppState> => {
 const reviewEvidence = (state: AppState) => ({ runs: state.runs, inspectedSourceIds: state.inspectedSourceIds });
 
 const reduceConsultationRequest = (state: AppState): Result<AppState> => {
-    const consultation = selectConsultation(state.caseDefinition.consultationRules, { ...reviewEvidence(state), theory: state.theory });
+    const consultation = selectConsultation(state.caseDefinition.consultationRules, {
+        ...reviewEvidence(state),
+        theory: state.theory,
+        significanceRule: state.caseDefinition.significanceRule
+    });
     return consultation
         ? { ok: true, value: freezeState({ ...state, consultation }) }
         : failure('consultation-unavailable', 'No additional authored consultation applies to the current evidence.');

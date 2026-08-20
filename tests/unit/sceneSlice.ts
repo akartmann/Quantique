@@ -38,6 +38,13 @@ export type DrawnObject = Readonly<{
         interactive: boolean;
         blendMode?: string;
         /**
+         * What the renderer called this object, when it called it anything.
+         *
+         * Empty for the objects that do not name themselves, which is most of them: a name is worth
+         * setting for a layer a test needs to single out, and clutter everywhere else.
+         */
+        name: string;
+        /**
          * Drawing commands issued since the last `clear()`, which is how "nothing is painted here" is
          * asserted (review 2026-08-07).
          *
@@ -125,25 +132,60 @@ const DRAWING_COMMANDS = new Set([
 const makeObject = (kind: string, log: DrawnObject[]) => {
     // `interactive` starts false: nothing Phaser creates is interactive until `setInteractive` is called,
     // and starting it true would make a renderer that never armed a control look armed.
-    const state = { alpha: 1, visible: true, destroyed: false, text: '', interactive: false, commands: 0, commandNames: [] as string[], clears: 0, x: 0, y: 0, rotation: 0 };
+    const state = { alpha: 1, visible: true, destroyed: false, text: '', interactive: false, name: '', commands: 0, commandNames: [] as string[], clears: 0, x: 0, y: 0, rotation: 0 };
     const handlers = new Map<string, (...args: unknown[]) => void>();
     log.push({ kind, state, handlers });
-    const self: Chainable & { context: { measureText: (value: string) => { width: number } }; height: number; x: number; y: number; rotation?: number } = {
+    const self: Chainable & { context: { measureText: (value: string) => { width: number } }; height: number; x: number; y: number; text: string; rotation?: number } = {
         // Enough of a text metrics API for a caret to be placed. Seven pixels a character is not real,
         // and nothing here asserts a pixel — what matters is that the call does not throw.
         context: { measureText: (value: string) => ({ width: value.length * 7 }) },
         height: 18,
         x: 0,
         y: 0,
+        /**
+         * The object's **own** `text`, readable, not only recorded (Story 4.2).
+         *
+         * `state.text` has always been written by `setText`, but the property itself was not — so a read of
+         * `label.text` fell through the permissive proxy and returned a **function**. Production code that
+         * compares its previous text against its next one therefore saw a function where a string should be,
+         * and took the "this changed" branch every time.
+         *
+         * That is not cosmetic. `AdvanceControl.render` uses exactly that comparison to decide whether its
+         * label changed *under the player's cursor*, and arms a lockout when it did — *"a click aimed at the
+         * label that was on screen a moment ago is not a click on this one"*. Under the fake the lockout
+         * armed on the **first** render, when the real rule is explicitly that it must not
+         * (`previous !== ''` is written for exactly that case). So every press of any `AdvanceControl` was
+         * silently refused in this harness, and a test pressing one could only ever assert that nothing
+         * happened — which reads identically to a dead control. Found while wiring the apparatus-notes
+         * control, whose whole job is to respond to a press.
+         */
+        text: '',
         // Every recorded setter returns the **proxy**, not this object: Phaser's setters are chainable
         // and the renderers chain them freely, so returning the bare target would break the chain at
         // the first observed call and fail with a missing method rather than an assertion.
         setAlpha: (value) => { state.alpha = value as number; return chain; },
         setVisible: (value) => { state.visible = value as boolean; return chain; },
-        setText: (value) => { state.text = String(value); return chain; },
+        // Written to the object as well as recorded, for the reason `setRotation` already is: production code
+        // reads this back, and a read that misses the target returns a function from the proxy.
+        setText: (value) => { self.text = String(value); state.text = self.text; return chain; },
         setInteractive: () => { state.interactive = true; return chain; },
         disableInteractive: () => { state.interactive = false; return chain; },
         setBlendMode: (value) => { (state as { blendMode?: string }).blendMode = String(value); return chain; },
+        /**
+         * The object's own name, recorded rather than swallowed (Story 4.2).
+         *
+         * The permissive proxy absorbed `setName`, so the only way for a test to reach a particular
+         * `Graphics` was its **index** in creation order — and `ofKind('graphics')[0]` was written down
+         * in three places as "the fringe graphics". That held only while the laboratory drew exactly one
+         * apparatus. Splitting the tableau out for a second case moved index 0 on the prototype's bench
+         * from the fringe field to the temperature bath, and the "the screen is blank until a run is
+         * recorded" assertion started reading a bath that is painted whether or not a run exists — a test
+         * measuring the wrong object while staying green for the wrong reason, which is the fabricated-index
+         * form of the defect this file's own docstrings record four times over.
+         *
+         * So the load-bearing layers name themselves in `src/`, and a test asks for the one it means.
+         */
+        setName: (value) => { state.name = String(value); return chain; },
         /**
          * Where the object is and how it is turned, recorded rather than swallowed (Story 3.4).
          *
@@ -226,6 +268,14 @@ export type SceneSlice = Readonly<{
     pressable: () => DrawnObject[];
     /** Every drawn object of one kind, in creation order. */
     ofKind: (kind: string) => DrawnObject[];
+    /**
+     * The one object the renderer gave this name, or `undefined`.
+     *
+     * The alternative to indexing into {@link ofKind}, and the reason `setName` is recorded at all — see
+     * that setter's own header. Deliberately singular: it asserts the name is unique, so two layers
+     * claiming one name is a failure here rather than a test silently reading whichever came first.
+     */
+    named: (name: string) => DrawnObject | undefined;
 }>;
 
 export const makeSceneSlice = (): SceneSlice => {
@@ -327,7 +377,12 @@ export const makeSceneSlice = (): SceneSlice => {
         },
         texts: () => drawn.map(({ state }) => state.text).filter((text) => text.length > 0),
         pressable: () => drawn.filter(({ handlers }) => handlers.has('pointerup')),
-        ofKind: (kind: string) => drawn.filter((object) => object.kind === kind)
+        ofKind: (kind: string) => drawn.filter((object) => object.kind === kind),
+        named: (name: string) => {
+            const matches = drawn.filter((object) => object.state.name === name);
+            if (matches.length > 1) throw new Error(`More than one drawn object is named "${name}"`);
+            return matches[0];
+        }
     };
 };
 

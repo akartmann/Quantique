@@ -1,13 +1,19 @@
 import { expect, test } from '@playwright/test';
 
 import {
+    apparatusNotesControlCentre,
+    notesCloseControlCentre,
+    resetControlCentre,
+    startTheLightControlCentre
+} from '../../src/adapters/phaser/renderers/apparatusGeometry';
+import {
     caseFileObservationPinCentre,
     caseFileRequestControlCentre,
     caseFileSaveControlCentre,
     caseFileSourcePinCentre
 } from '../../src/adapters/phaser/renderers/caseFileGeometry';
 import { en } from '../../src/core/i18n/locales/en';
-import { advanceControlCentreOnBoard } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import { advanceControlCentreOnBoard, revisitControlCentreOnBoard } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import {
     DESIGN_WIDTH,
     WALK_TO_DEBRIEF_COST_MS,
@@ -18,8 +24,12 @@ import {
     expectActiveScene,
     inTheCaseFile,
     recordedAutoSummary,
+    RUN_STEP_COST_MS,
+    caseContent,
     recordedObservations,
+    recordedSetting,
     recordedSources,
+    startTheLightUntilRecorded,
     varyingInstrument,
     waitForInputToSettle,
     walkToTheBoard
@@ -146,5 +156,70 @@ test('records a prototype observation by dragging the bath-temperature slider', 
     await walkToTheBoard(page, 'morley-miller', BATH);
 
     await expectActiveScene(page, 'TheoryBoard');
+    await expect(recordedObservations(page)).toHaveCount(2);
+});
+
+/**
+ * The bench's shared affordances, exercised on **this** case (Story 4.2, AC2 last clause).
+ *
+ * AC2 ends with a verification clause — *"reset, notebook, reference shelf, advance and revisit all work on
+ * this case exactly as they do on Young, through the shared framework and with no second
+ * implementation"* — and it is a verification clause on purpose. *"The framework is shared so it must
+ * work"* is precisely the assumption Story 3.2's three walls each falsified: a completed record discarded
+ * on every reload, a 2.4 s ignition onto a blank screen, and a theory board that could never unlock, all
+ * green in 1293 tests because no second case had ever been walked through them.
+ *
+ * **Advance** is proven by the two walks above reaching `TheoryBoard`. What is left is the rest of the row,
+ * and the new overlay this story adds — which is the one that could break the others, because it
+ * suppresses the bench while it is up.
+ *
+ * Canvas text is unreadable from a spec, so nothing here asserts a rendered string. What it asserts are
+ * **recorded consequences**: the printable record for the reset, `data-active-scene` for the revisit, and
+ * for the notes overlay the only honest proof that it really suppressed the bench — that a click landing
+ * where the start control is records **no** observation while it is open, and does once it is closed. A
+ * screenshot could not tell a covered bench from a disabled one, and `project-context.md` says so in as
+ * many words: covering the canvas does not disable it.
+ */
+test('opens the apparatus notes over the bench, suppresses it, and gives it back', async ({ page }) => {
+    test.slow();
+
+    await walkToTheBoard(page, 'morley-miller', ROTATION);
+    await expectActiveScene(page, 'TheoryBoard');
+    // Back to the bench, which is the revisit half of AC2's row: `synthesis → experiment` from the board.
+    await clickUntilScene(page, revisitControlCentreOnBoard(), 'Laboratory');
+    await expect(recordedObservations(page)).toHaveCount(2);
+
+    // With the notes open, the bench is covered *and* disabled. A click at the start control must record
+    // nothing — which is the recorded consequence, not the pixels.
+    await clickDesign(page, apparatusNotesControlCentre());
+    await waitForInputToSettle(page);
+    await clickDesign(page, startTheLightControlCentre());
+    await page.waitForTimeout(RUN_STEP_COST_MS);
+    await expect(recordedObservations(page)).toHaveCount(2);
+
+    // Closed, and the bench answers again. This is the half that fails if the overlay forgets to hand
+    // input back — the "bench left permanently locked" shape the 2.10 review found twice.
+    await clickDesign(page, notesCloseControlCentre());
+    await waitForInputToSettle(page);
+    await startTheLightUntilRecorded(page, startTheLightControlCentre(), 3);
+    await expect(recordedObservations(page)).toHaveCount(3);
+});
+
+test('resets this case\'s bench to its authored setup without erasing the observations', async ({ page }) => {
+    test.slow();
+
+    await walkToTheBoard(page, 'morley-miller', ROTATION);
+    await clickUntilScene(page, revisitControlCentreOnBoard(), 'Laboratory');
+
+    await clickDesign(page, resetControlCentre());
+    await waitForInputToSettle(page);
+
+    // Story 2.2's shipped criterion, on the second case: *"reset is immediate and does not erase saved
+    // observations."* Both halves, because a reset that cleared the notebook would satisfy the first.
+    // The control's own authored English display label, read from `case.json` rather than written down —
+    // the printable record lists `selectControlLabel` against `selectFormattedControlValue`, and a literal
+    // here would drift from the content the day the label is re-worded.
+    const rotation = caseContent('morley-miller').apparatus.primaryControls.find(({ id }) => id === 'rotationDeg')!;
+    await expect(recordedSetting(page, rotation.label.en)).toHaveText(new RegExp(`^${rotation.defaultValue}\\u00b0`));
     await expect(recordedObservations(page)).toHaveCount(2);
 });

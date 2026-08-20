@@ -8,7 +8,7 @@ import { createStore, type AppStore } from '../../src/core/store/createStore';
 import {
     selectControlLabel, selectFormattedControlValue, selectLocale, selectMissingContextArtifactLabels,
     selectMissingContextArtifactNames, selectSourceLabel,
-    selectCanonicalSourceLabel, selectCanonicalControlValue, selectLocalizedError
+    selectLocalizedError
 } from '../../src/core/store/selectors';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 
@@ -92,17 +92,15 @@ describe('browser-resolved locale across the whole projection', () => {
         expect(selectSourceLabel(bootWith(['fr-CA']).getState(), 'newton-opticks')).toBe('Référence à l’Opticks');
     });
 
-    // The retiring pre-pivot DOM panels are English-only by scope. Reading a locale-aware selector
-    // from inside one produced mixed output — the same source named in French on one line and
-    // English on the next, and a French decimal inside an English sentence.
-    it('offers canonical English counterparts for the panels that are not localized', () => {
+    // `selectCanonicalSourceLabel` / `selectCanonicalControlValue` were asserted here and are **deleted**
+    // (Story 4.2, §SS11): they existed for the pre-pivot DOM panels, and Story 2.12 deleted all eleven.
+    // What is worth keeping from that row is the half that is still live — that the locale-aware
+    // selectors really do resolve French for a French reader — so it stays, without the canonical pair.
+    it('resolves a source label and a control value in the reader\'s own language', () => {
         const state = bootWith(['fr-FR']).getState();
 
         expect(selectSourceLabel(state, 'newton-opticks')).toBe('Référence à l’Opticks');
-        expect(selectCanonicalSourceLabel(state, 'newton-opticks')).toBe('Opticks reference');
-
         expect(selectFormattedControlValue(state, 'slitSpacingMm')).toBe(`0,25${NARROW_NO_BREAK_SPACE}mm`);
-        expect(selectCanonicalControlValue(state, 'slitSpacingMm')).toBe('0.25 mm');
     });
 
     // The `{label}` parameter is supplied at this boundary, not by each surface — a surface that

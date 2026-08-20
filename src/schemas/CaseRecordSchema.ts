@@ -521,6 +521,36 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // directions are asserted by name in `tests/unit/MorleyMillerPrototype.test.ts`.
         || (isPrototype && definition.version === '1.4.0'
             && ['1.0.0', '1.1.0', '1.2.0', '1.3.0'].includes(record.caseDefinitionVersion)
+            && !recordNamesRetiredArtifact(record))
+        // 1.5.0 — Story 4.2. Three changes to `case.json`, and what each means for an older record:
+        //
+        // - **`experiment.resetPath.description` names the stable window** in both locales, so the
+        //   instruction *"bring the bath back to its steady window"* is one a player can follow. Authored
+        //   prose, read by the apparatus-notes surface. Nothing records it.
+        // - **`consultationRules` is restructured**: two rules that could never fire are repurposed, one
+        //   new `missing-replication` rule is added, and one `technicalDetail` is re-worded. **Consultation
+        //   copy is display copy and is *not* in the recomputed canonical set below** — this function
+        //   recomputes `peerReviewRules`' `feedback` and `revisionPath` and the proposal claims and
+        //   limitations, and consultation copy is none of those. The 1.17.0 clause above says the same
+        //   thing about the same field for Young, and it is repeated here rather than cross-referenced
+        //   because the whole point of that clause was that the exclusion should be stated where it applies.
+        // - **`version` itself.**
+        //
+        // No field became required and **no id a record holds has moved**: a `ConsultationProjection` is
+        // transient by design and is never written into the portable record, so repurposing a rule id costs
+        // no record compatibility. The recomputed canonical strings are byte-identical to 1.4.0.
+        //
+        // `recordNamesRetiredArtifact` is carried forward rather than dropped. It is a no-op for a record
+        // saved *at* 1.4.0 — the artifact it names was already gone by then — and load-bearing for the four
+        // older versions this clause also accepts, which is exactly why listing them without it would
+        // re-open the hole the 1.4.0 clause was written to close.
+        //
+        // **Bumping `CaseDefinition.version` and extending this allowlist are one action, not two.** Story
+        // 3.4's severest finding was a 1.3.0 bump shipped without its clause, which refused every saved
+        // prototype investigation; `MorleyMillerPrototype.test.ts` caught this one before it left the
+        // working tree, which is what that test is for.
+        || (isPrototype && definition.version === '1.5.0'
+            && ['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0'].includes(record.caseDefinitionVersion)
             && !recordNamesRetiredArtifact(record));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');

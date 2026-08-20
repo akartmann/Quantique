@@ -274,7 +274,8 @@ export type WavelengthComparison = Readonly<{
     advancedChoicesNm: readonly [450, 650];
 }>;
 
-export type ConsultationPredicateKind = 'missing-run' | 'missing-source' | 'alternative-test' | 'missing-limitation';
+export type ConsultationPredicateKind = 'missing-run' | 'missing-source' | 'alternative-test'
+    | 'missing-replication' | 'missing-limitation';
 export type PeerReviewPredicateKind = 'missing-evidence' | 'unsupported-support' | 'overreach';
 
 export type ProgressiveHelpLayers = Readonly<{
@@ -287,6 +288,20 @@ export type ConsultationPredicate =
     | Readonly<{ kind: 'missing-run' }>
     | Readonly<{ kind: 'missing-source'; sourceId: string }>
     | Readonly<{ kind: 'alternative-test'; controlId: PrimaryControl['id'] }>
+    /**
+     * Nothing has been *confirmed* — no two recorded observations share a configuration (Story 4.2, AC4).
+     *
+     * The converse of `alternative-test`, which asks whether the player ever *varied* something. This asks
+     * whether they ever repeated something, and no existing kind could express it: the nearest authored
+     * content, the `repeated-configuration` colleague hint, says the **opposite** — it warns a player off a
+     * repeated arrangement, which is right about *distinguishing* and wrong about *confirming*.
+     *
+     * It exists because a case may author `confound.discoverableBy: 'replication'` and
+     * `resetPath.recoveryRoute: 'replication'` — as the Morley–Miller case does — and then have no way to
+     * say so. A recovery route the content teaches and never mentions is the same defect class as an
+     * authored field nothing reads.
+     */
+    | Readonly<{ kind: 'missing-replication' }>
     | Readonly<{ kind: 'missing-limitation' }>;
 
 export type ConsultationRule = Readonly<{

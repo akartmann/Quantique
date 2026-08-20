@@ -2,7 +2,7 @@
 epic: 4
 story: 2
 key: 4-2-thermal-drift-investigation-tutorial
-status: ready-for-dev
+status: review
 created: 2026-08-20
 baseline: 771adca
 baseline_commit: 771adca
@@ -20,7 +20,7 @@ inputs:
 
 # Story 4.2: Thermal-drift investigation tutorial
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -189,81 +189,81 @@ named test observed red, restored, and the proof recorded (§SS10 names the mini
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Read the governing rules and the code you are about to change** (blocks everything)
-  - [ ] Read `_bmad-output/project-context.md` in full. Revision 2.6, governing. §Project Context Rules below is a pointer, not a substitute.
-  - [ ] Read `src/adapters/phaser/renderers/ApparatusRenderer.ts` **completely** (1452 lines). You are going to change its tableau; you must know what else it owns — the instruments, the wavelength chooser, the start/notebook/reset row, the side column, the reference shelf, the hint panel, the readouts, the key handling, the reduced-motion contract and the run animation. §SS2 is a map, not a substitute.
-  - [ ] Read `src/adapters/phaser/renderers/apparatusGeometry.ts` completely (686 lines) — the bench is an absolute layout on a fixed 1024×768 design surface and every number in it is spent out of a measured budget.
-  - [ ] Read `src/domain/apparatus/calculateInterferometerDrift.ts`, `experimentModels.ts`, `src/core/i18n/formatNumber.ts`, `src/core/store/selectors.ts:60-90` and `:155-175`.
-  - [ ] Read `docs/case-reviews/morley-miller-case-review.md` §3 and §6, and `docs/case-prototypes/morley-miller-prototype.md` §8.
-  - [ ] Read the five `deferred-work.md` entries naming this story: lines 216, 224, 269, 277, 278.
-  - [ ] Confirm the baseline numbers before you change anything: `npm test` (1527 passing), `npm run typecheck:tests` (106 errors / 60 files), `case.json` at `1.4.0`, `sw.js` at `v13`.
+- [x] **Task 1 — Read the governing rules and the code you are about to change** (blocks everything)
+  - [x] Read `_bmad-output/project-context.md` in full. Revision 2.6, governing. §Project Context Rules below is a pointer, not a substitute.
+  - [x] Read `src/adapters/phaser/renderers/ApparatusRenderer.ts` **completely** (1452 lines). You are going to change its tableau; you must know what else it owns — the instruments, the wavelength chooser, the start/notebook/reset row, the side column, the reference shelf, the hint panel, the readouts, the key handling, the reduced-motion contract and the run animation. §SS2 is a map, not a substitute.
+  - [x] Read `src/adapters/phaser/renderers/apparatusGeometry.ts` completely (686 lines) — the bench is an absolute layout on a fixed 1024×768 design surface and every number in it is spent out of a measured budget.
+  - [x] Read `src/domain/apparatus/calculateInterferometerDrift.ts`, `experimentModels.ts`, `src/core/i18n/formatNumber.ts`, `src/core/store/selectors.ts:60-90` and `:155-175`.
+  - [x] Read `docs/case-reviews/morley-miller-case-review.md` §3 and §6, and `docs/case-prototypes/morley-miller-prototype.md` §8.
+  - [x] Read the five `deferred-work.md` entries naming this story: lines 216, 224, 269, 277, 278.
+  - [x] Confirm the baseline numbers before you change anything: `npm test` (1527 passing), `npm run typecheck:tests` (106 errors / 60 files), `case.json` at `1.4.0`, `sw.js` at `v13`.
 
-- [ ] **Task 2 — Decide the two open decisions, and record them** (AC3, AC6)
-  - [ ] Read §SS4 and §SS8. Each carries a recommendation you may proceed on if Alexis has not answered.
-  - [ ] Write the decision, its reasoning and its consequence into the story's Dev Agent Record **before** implementing it, so the review can check the reasoning rather than reverse-engineer it.
+- [x] **Task 2 — Decide the two open decisions, and record them** (AC3, AC6)
+  - [x] Read §SS4 and §SS8. Each carries a recommendation you may proceed on if Alexis has not answered.
+  - [x] Write the decision, its reasoning and its consequence into the story's Dev Agent Record **before** implementing it, so the review can check the reasoning rather than reverse-engineer it.
 
-- [ ] **Task 3 — Introduce the bench-artwork seam** (AC1)
-  - [ ] Add a pure geometry module for the interferometer tableau beside `apparatusGeometry.ts`, following the geometry/painting split every other surface here draws (`libraryGeometry.ts`, `characterStageView.ts`, `debriefGeometry.ts`). No Phaser import as a value.
-  - [ ] Select the artwork from `experiment.modelId` through an **exhaustive** `Record<ExperimentModelId, …>` so that adding a third model without artwork is a `tsc` error, not a blank screen. Mirror `experimentModels.ts`'s shape and its docstring's reasoning. **Two entries; no registry, no factory, no plugin layer.**
-  - [ ] Delete the `hasOpticalGeometry` duck-type guard (`ApparatusRenderer.ts:957`) and everything that branches on it. It is the "case-shape guard diverging from the lit/dark decision" defect the 3.2 review found, kept alive one more story. Its two consumers — the slit/screen placement and the choice between `paintFringes` and `paintDisplacedFringes` — both become artwork-owned.
-  - [ ] Young's path must be **behaviourally identical** afterwards. Prove it with the existing Young specs and unit tests passing untouched, and by eye.
+- [x] **Task 3 — Introduce the bench-artwork seam** (AC1)
+  - [x] Add a pure geometry module for the interferometer tableau beside `apparatusGeometry.ts`, following the geometry/painting split every other surface here draws (`libraryGeometry.ts`, `characterStageView.ts`, `debriefGeometry.ts`). No Phaser import as a value.
+  - [x] Select the artwork from `experiment.modelId` through an **exhaustive** `Record<ExperimentModelId, …>` so that adding a third model without artwork is a `tsc` error, not a blank screen. Mirror `experimentModels.ts`'s shape and its docstring's reasoning. **Two entries; no registry, no factory, no plugin layer.**
+  - [x] Delete the `hasOpticalGeometry` duck-type guard (`ApparatusRenderer.ts:957`) and everything that branches on it. It is the "case-shape guard diverging from the lit/dark decision" defect the 3.2 review found, kept alive one more story. Its two consumers — the slit/screen placement and the choice between `paintFringes` and `paintDisplacedFringes` — both become artwork-owned.
+  - [x] Young's path must be **behaviourally identical** afterwards. Prove it with the existing Young specs and unit tests passing untouched, and by eye.
 
-- [ ] **Task 4 — Draw the rotating interferometer** (AC1, AC8, AC9)
-  - [ ] Graphics fill commands only, generated once in the create pass. No texture, no asset entry, no ledger row.
-  - [ ] The parts the case's fiction names: a turning bench/stone carrying a beam splitter, two perpendicular arms with their end mirrors, the recombined path to the observing screen, and the temperature bath. `paintDisplacedFringes` already paints the screen correctly and is **not** part of this gap — do not rewrite it.
-  - [ ] Bind the visible rotation to `activeControlValues.rotationDeg` and the bath's visual state to `bathTempC`. Both come from the store; neither is inferred.
-  - [ ] The run animation is the same three acts (`RUN_IGNITION_MS` / `RUN_PROPAGATION_MS` / `RUN_RESOLVE_MS`, 2.4 s total) driven by elapsed time. The light is **dark until the player starts it** and no loop registers from `create()`.
-  - [ ] Reduced motion paints the resolved frame directly and registers no loop, exactly as Young's path does. `ApparatusRun.test.ts` is the pattern.
-  - [ ] Extend `benchObjectBands` (or its interferometer counterpart) so the all-pairs non-overlap sweep measures what is **actually drawn**. A sweep that keeps measuring Young's slits on this case is the 2.9 fabricated-band defect committed inside the function written to prevent it — and `instrumentBand` already carries that lesson in its docstring.
-  - [ ] Part labels are interface strings in `en.ts`/`fr.ts` (chrome, not case content). `lab.source` (`'source'`) and `lab.screen` (`'screen'`) exist and are Young's tableau labels — decide per model rather than reusing them by default.
+- [x] **Task 4 — Draw the rotating interferometer** (AC1, AC8, AC9)
+  - [x] Graphics fill commands only, generated once in the create pass. No texture, no asset entry, no ledger row.
+  - [x] The parts the case's fiction names: a turning bench/stone carrying a beam splitter, two perpendicular arms with their end mirrors, the recombined path to the observing screen, and the temperature bath. `paintDisplacedFringes` already paints the screen correctly and is **not** part of this gap — do not rewrite it.
+  - [x] Bind the visible rotation to `activeControlValues.rotationDeg` and the bath's visual state to `bathTempC`. Both come from the store; neither is inferred.
+  - [x] The run animation is the same three acts (`RUN_IGNITION_MS` / `RUN_PROPAGATION_MS` / `RUN_RESOLVE_MS`, 2.4 s total) driven by elapsed time. The light is **dark until the player starts it** and no loop registers from `create()`.
+  - [x] Reduced motion paints the resolved frame directly and registers no loop, exactly as Young's path does. `ApparatusRun.test.ts` is the pattern.
+  - [x] Extend `benchObjectBands` (or its interferometer counterpart) so the all-pairs non-overlap sweep measures what is **actually drawn**. A sweep that keeps measuring Young's slits on this case is the 2.9 fabricated-band defect committed inside the function written to prevent it — and `instrumentBand` already carries that lesson in its docstring.
+  - [x] Part labels are interface strings in `en.ts`/`fr.ts` (chrome, not case content). `lab.source` (`'source'`) and `lab.screen` (`'screen'`) exist and are Young's tableau labels — decide per model rather than reusing them by default.
 
-- [ ] **Task 5 — Make the two contributions separable and inspectable** (AC2)
-  - [ ] Verify from a test, not by reading the formula, that holding `rotationDeg` and varying `bathTempC` isolates the thermal term, and that holding `bathTempC` at the stable window and varying `rotationDeg` isolates the orientation term. Assert the recorded results, not the arithmetic.
-  - [ ] The stable window must be **legible in-fiction**. `STABLE_WINDOW_C` is 20 and `bathTempC` defaults to 22 with a 18–24 range; a player told to "bring the bath back to its steady window" has no way to know which value that is. Prefer authored case content over a new interface string, and prefer an existing surface over a new one.
-  - [ ] Surface `experiment.assumptions`, `experiment.confound.description` and `experiment.resetPath.description` in-scene (§SS6). The cheapest honest home is the bench's existing reference shelf opening the existing `ReferenceBookPresenter` shape — reuse before you build.
-  - [ ] Walk reset, notebook, reference shelf, advance and revisit on **this** case and record what you saw. AC2's last clause is a verification clause; "the framework is shared so it must work" is precisely the assumption Story 3.2's three walls each falsified.
+- [x] **Task 5 — Make the two contributions separable and inspectable** (AC2)
+  - [x] Verify from a test, not by reading the formula, that holding `rotationDeg` and varying `bathTempC` isolates the thermal term, and that holding `bathTempC` at the stable window and varying `rotationDeg` isolates the orientation term. Assert the recorded results, not the arithmetic.
+  - [x] The stable window must be **legible in-fiction**. `STABLE_WINDOW_C` is 20 and `bathTempC` defaults to 22 with a 18–24 range; a player told to "bring the bath back to its steady window" has no way to know which value that is. Prefer authored case content over a new interface string, and prefer an existing surface over a new one.
+  - [x] Surface `experiment.assumptions`, `experiment.confound.description` and `experiment.resetPath.description` in-scene (§SS6). The cheapest honest home is the bench's existing reference shelf opening the existing `ReferenceBookPresenter` shape — reuse before you build.
+  - [x] Walk reset, notebook, reference shelf, advance and revisit on **this** case and record what you saw. AC2's last clause is a verification clause; "the framework is shared so it must work" is precisely the assumption Story 3.2's three walls each falsified.
 
-- [ ] **Task 6 — Close and prove the synthesis feedback** (AC4)
-  - [ ] Read §SS5. Confirm by test which of the four `consultationRules` fires in which state, and which of the four `colleagueHints` fires in which state — for a player who actually reaches that state, not for a hand-built projection.
-  - [ ] Close the **replication** gap: the case's confound is `discoverableBy: 'replication'` and its `resetPath.recoveryRoute` is `'replication'`, and no consultation rule and no hint tells the player to repeat a stable-window reading. `hint-repeated` says the opposite. Prefer authored content over a new predicate kind; if a new kind is needed, it lands in `ConsultationRule.ts` + `CaseDefinitionSchema` + a unit test, bilingual, and Young must remain unaffected.
-  - [ ] Confirm none of the authored `layers`/`nextStep` blocks names a proposal, ranks the proposals, or asserts a conclusion. Assert it, do not eyeball it.
-  - [ ] Prove reachability for every branch, including `consult-no-runs`' `< 2` threshold against `requirements.minimumRuns: 2`.
+- [x] **Task 6 — Close and prove the synthesis feedback** (AC4)
+  - [x] Read §SS5. Confirm by test which of the four `consultationRules` fires in which state, and which of the four `colleagueHints` fires in which state — for a player who actually reaches that state, not for a hand-built projection.
+  - [x] Close the **replication** gap: the case's confound is `discoverableBy: 'replication'` and its `resetPath.recoveryRoute` is `'replication'`, and no consultation rule and no hint tells the player to repeat a stable-window reading. `hint-repeated` says the opposite. Prefer authored content over a new predicate kind; if a new kind is needed, it lands in `ConsultationRule.ts` + `CaseDefinitionSchema` + a unit test, bilingual, and Young must remain unaffected.
+  - [x] Confirm none of the authored `layers`/`nextStep` blocks names a proposal, ranks the proposals, or asserts a conclusion. Assert it, do not eyeball it.
+  - [x] Prove reachability for every branch, including `consult-no-runs`' `< 2` threshold against `requirements.minimumRuns: 2`.
 
-- [ ] **Task 7 — Anchor or honestly document the model constants** (AC3)
-  - [ ] Apply the §SS4 decision. Rewrite the docstring so it states what is true after this story, and delete the forward reference to this story from it.
-  - [ ] If any recorded value changes, bump `experiment.modelVersion` and handle §SS7. If nothing changes numerically, say so explicitly in the Dev Agent Record — a "no change" that is not stated reads as an omission.
-  - [ ] Update `docs/case-reviews/morley-miller-case-review.md` §6.
+- [x] **Task 7 — Anchor or honestly document the model constants** (AC3)
+  - [x] Apply the §SS4 decision. Rewrite the docstring so it states what is true after this story, and delete the forward reference to this story from it.
+  - [x] If any recorded value changes, bump `experiment.modelVersion` and handle §SS7. If nothing changes numerically, say so explicitly in the Dev Agent Record — a "no change" that is not stated reads as an omission.
+  - [x] Update `docs/case-reviews/morley-miller-case-review.md` §6.
 
-- [ ] **Task 8 — Fix the unit separator** (AC5)
-  - [ ] Change `formatMeasurement` so the separator is a function of `(locale, unit)`. Keep it pure, keep it in `src/core/i18n/formatNumber.ts`, and keep `Intl` the only platform dependency.
-  - [ ] Young's four units must be byte-identical. `I18n.test.ts:425-447` is the regression fence — it must pass **unchanged**.
-  - [ ] Update `ApparatusCaseVoice.test.ts:74-88` and `:104-113` and their explanatory comments. Two of those comments are duplicated verbatim in the same test; collapse them while you are there.
-  - [ ] Check every caller before you claim it is fixed: `selectors.ts:79` (the composed idle sentence), `selectors.ts:167` (`selectCanonicalControlValue` — see §SS11), `NotebookRenderer.ts:455`, `CaseFilePresenter.ts:510`, `CaseRecordPrintView.ts:95`, `ApparatusRenderer.ts:866` and `:904`, and `tests/e2e/canvasHelpers.ts:7`. The e2e helper imports the real function, so a change here moves what the walks assert.
-  - [ ] Mutation-prove it: revert the degree branch and watch the named test go red.
+- [x] **Task 8 — Fix the unit separator** (AC5)
+  - [x] Change `formatMeasurement` so the separator is a function of `(locale, unit)`. Keep it pure, keep it in `src/core/i18n/formatNumber.ts`, and keep `Intl` the only platform dependency.
+  - [x] Young's four units must be byte-identical. `I18n.test.ts:425-447` is the regression fence — it must pass **unchanged**.
+  - [x] Update `ApparatusCaseVoice.test.ts:74-88` and `:104-113` and their explanatory comments. Two of those comments are duplicated verbatim in the same test; collapse them while you are there.
+  - [x] Check every caller before you claim it is fixed: `selectors.ts:79` (the composed idle sentence), `selectors.ts:167` (`selectCanonicalControlValue` — see §SS11), `NotebookRenderer.ts:455`, `CaseFilePresenter.ts:510`, `CaseRecordPrintView.ts:95`, `ApparatusRenderer.ts:866` and `:904`, and `tests/e2e/canvasHelpers.ts:7`. The e2e helper imports the real function, so a change here moves what the walks assert.
+  - [x] Mutation-prove it: revert the degree branch and watch the named test go red.
 
-- [ ] **Task 9 — Resolve the cycle fields** (AC6)
-  - [ ] Apply the §SS8 decision.
-  - [ ] Whichever branch: reconcile `caseFileGeometry.ts:40` and `selectors.ts:410`, the schema docstrings at `CaseDefinitionSchema.ts:906-907` / `:985` / `:1042` / `:1093`, and `docs/case-reviews/morley-miller-case-review.md` §3, so no comment contradicts the decision.
-  - [ ] Do **not** touch the `morley-drift-bench` fixture's `2/6` in `tests/unit/CaseDefinition.test.ts:342` / `:1419`. It exists to prove the shared shape is not one case's literal, and breaking it undoes Story 3.1.
+- [x] **Task 9 — Resolve the cycle fields** (AC6)
+  - [x] Apply the §SS8 decision.
+  - [x] Whichever branch: reconcile `caseFileGeometry.ts:40` and `selectors.ts:410`, the schema docstrings at `CaseDefinitionSchema.ts:906-907` / `:985` / `:1042` / `:1093`, and `docs/case-reviews/morley-miller-case-review.md` §3, so no comment contradicts the decision.
+  - [x] Do **not** touch the `morley-drift-bench` fixture's `2/6` in `tests/unit/CaseDefinition.test.ts:342` / `:1419`. It exists to prove the shared shape is not one case's literal, and breaking it undoes Story 3.1.
 
-- [ ] **Task 10 — Localize, then prove the localization** (AC7)
-  - [ ] Build the surface list by grepping for the *read* of each string you add.
-  - [ ] Extend the French typography sweep to cover the new prose. It already sweeps `SHIPPED_CASE_IDS`; add samples, do not add a second Young-only parse.
-  - [ ] Mutation-prove the extension: author a deliberately over-long French string and watch the sweep fail.
+- [x] **Task 10 — Localize, then prove the localization** (AC7)
+  - [x] Build the surface list by grepping for the *read* of each string you add.
+  - [x] Extend the French typography sweep to cover the new prose. It already sweeps `SHIPPED_CASE_IDS`; add samples, do not add a second Young-only parse.
+  - [x] Mutation-prove the extension: author a deliberately over-long French string and watch the sweep fail.
 
-- [ ] **Task 11 — Tests, mutation proofs, and the visual pass** (AC9, AC11)
-  - [ ] Unit: the artwork lookup's exhaustiveness, the geometry constants, the separator rule at every unit class, the two-contribution separability, the reduced-motion frame, the non-overlap sweep on the new bands.
-  - [ ] E2E: extend `morley-miller-prototype.spec.ts` rather than adding a parallel walk. Take control values from the **model's behaviour**, never from the authored range's ends — `rotationDeg` spans 0–180 against `cos(2θ)`, so 0° and 180° are one reading, and the walk already carries that correction at `ROTATION = varyingInstrument('morley-miller', 'rotationDeg', 90)`.
-  - [ ] Wait on the thing the gesture was supposed to achieve (`startTheLightUntilRecorded`, `dragDesignUntil`, `clickUntilScene`), never on a fixed sleep.
-  - [ ] Screenshot the running app at 1280×720 in EN and FR, on **both** cases, and record the paths. The memory of this project is explicit: depth-order, split-scale and fixed-layer occlusion defects pass every test.
-  - [ ] Record the mutation proofs individually — what was broken, which named test went red, that it was restored.
+- [x] **Task 11 — Tests, mutation proofs, and the visual pass** (AC9, AC11)
+  - [x] Unit: the artwork lookup's exhaustiveness, the geometry constants, the separator rule at every unit class, the two-contribution separability, the reduced-motion frame, the non-overlap sweep on the new bands.
+  - [x] E2E: extend `morley-miller-prototype.spec.ts` rather than adding a parallel walk. Take control values from the **model's behaviour**, never from the authored range's ends — `rotationDeg` spans 0–180 against `cos(2θ)`, so 0° and 180° are one reading, and the walk already carries that correction at `ROTATION = varyingInstrument('morley-miller', 'rotationDeg', 90)`.
+  - [x] Wait on the thing the gesture was supposed to achieve (`startTheLightUntilRecorded`, `dragDesignUntil`, `clickUntilScene`), never on a fixed sleep.
+  - [x] Screenshot the running app at 1280×720 in EN and FR, on **both** cases, and record the paths. The memory of this project is explicit: depth-order, split-scale and fixed-layer occlusion defects pass every test.
+  - [x] Record the mutation proofs individually — what was broken, which named test went red, that it was restored.
 
-- [ ] **Task 12 — Close the books** (AC10, AC11)
-  - [ ] `case.json` version bump + `CaseRecordSchema` clause + `sw.js` `CACHE_NAME` bump **in the same commit**, with the reason appended to the worker's header list.
-  - [ ] `npm run audit:ledger` if any ledger-bearing field moved.
-  - [ ] Strike the five closed `deferred-work.md` entries; record what you open with a named owner story.
-  - [ ] Update `sprint-status.yaml` in the same commit as the work, not afterwards.
-  - [ ] Run the full gate set and record the numbers.
+- [x] **Task 12 — Close the books** (AC10, AC11)
+  - [x] `case.json` version bump + `CaseRecordSchema` clause + `sw.js` `CACHE_NAME` bump **in the same commit**, with the reason appended to the worker's header list.
+  - [x] `npm run audit:ledger` if any ledger-bearing field moved.
+  - [x] Strike the five closed `deferred-work.md` entries; record what you open with a named owner story.
+  - [x] Update `sprint-status.yaml` in the same commit as the work, not afterwards.
+  - [x] Run the full gate set and record the numbers.
 
 ---
 
@@ -839,13 +839,303 @@ file is governing; this is a pointer to the parts you will cross.
 
 ### Agent Model Used
 
-_To be filled by the dev agent._
+`claude-opus-5[1m]` (Opus 5, 1M context), via the `gds-dev-story` workflow.
+
+### Decisions taken before implementation (Task 2)
+
+#### D1 — AC6, the cycle fields: **Branch B, advisory design metadata.** (§SS8's recommendation, unchanged.)
+
+`flow.minimumExperimentCycles` / `maximumExperimentCycles` are re-documented as the authored *session
+shape* FR25 and NFR14 describe, not a runtime quota, with the sentence *"nothing caps the player's runs,
+and nothing should"* stated at the authoring site, in the schema, and in the case review artifact. The
+load-time refinement stays: it is a real read that refuses content FR25 forbids, with the offending path
+named.
+
+**Reasoning, and why Branch A is not merely worse but unavailable.** §SS8's strand-the-player argument
+reproduces against source: `reduceApparatusReset` resets control values and the wavelength and touches
+`runs` deliberately (Story 2.2's shipped criterion), nothing else clears `runs`, and
+`requirements.minimumSignificantRuns` is 2 over `significanceRule.criticalControlIds`. So a player who
+spends four observations at one arrangement — which this case's confound, `discoverableBy: 'replication'`,
+actively invites — would hit a hard cap holding **zero** distinct configurations with no way to record a
+third. That is a gate made unsatisfiable *by code*, plus NFR8 (no hard fail) and FR23 (unlimited reset
+and comparison). Reversible in a way Branch A is not.
+
+**Consequence:** no behavioural change; four documentation sites reconciled so no comment contradicts the
+decision (`caseFileGeometry.ts:40`, `selectors.ts:410`, the schema field docs, the case review §3), and
+`docs/content-authoring/` gains the sentence an author will actually meet.
+
+#### D2 — AC3, the model constants: **document the design reason; change no value; do not bump `experiment.modelVersion`.**
+
+This is AC3's second branch, and it is taken **against** §SS4's recommendation, on a finding §SS7 does not
+carry. Recorded here in full because the recommendation was to derive.
+
+**What §SS4 recommends, and what it would cost.** Deriving `ORIENTATION_AMPLITUDE` from the case's own
+1907 transcription means `1.53 / 80 = 0.019125` — the published bound. That is a genuinely better number
+than today's invented `0.01`: it is derived, its arithmetic is checkable, and it would make the bench's
+near-null reading at the stable window *equal* the bound the case's own record quotes, which today it does
+not (the bench reads `0.01`, the record quotes ≈`0.019`, and nothing relates them). It changes every
+recorded value, so §SS7's `experiment.modelVersion` bump applies.
+
+**Why the bump is not available to this story.** §SS7 lists three consequences of a bump and the severest
+is not among them. `validateCaseRecordForDefinition` compares `experimentModelVersion` against the
+definition's with unconditional equality, at `src/schemas/CaseRecordSchema.ts:592` (the restore walk) and
+`:705` (the completion walk), and **returns `invalid-case-record` for the whole record** — not a foreign
+run, not a locked conclusion, the entire saved investigation. There is no allowlist mechanism for
+`experimentModelVersion` the way there is for `caseDefinitionVersion`; the only way to accept a pre-bump
+record is a record migration, which §SS1 names as a **HALT condition**. And per the 4.1 review's own
+finding on the `1.4.0` clause, `attachAutosave` saves on the first dispatch of the recovered session, so
+the refusal *overwrites* the record it refused. So a bump here discards every returning player's
+Morley–Miller investigation and tells them their work is unchanged — the exact defect the `1.1.0`,
+`1.3.0` and `1.4.0` record clauses exist to prevent, and the class the 3.4 review called its severest
+finding.
+
+§SS7's own closing instruction settles it: *"bump only if a number the player sees actually changes."* So
+no number changes.
+
+**What is done instead, so this is anchoring and not a shrug.** AC3's requirement is that each constant be
+*either* derived from a published number *or* documented with the design reason it is not, and that the
+docstring stop promising a future calibration. All three are documented, and the two published numbers
+become named constants that are **read**, so the justification fails with the number rather than beside it:
+
+- `ETHER_DEMANDED_DISPLACEMENT_FRINGE_WIDTHS = 1.53` and `PUBLISHED_CERTAINTY_FRACTION = 1 / 80`, with
+  `PUBLISHED_RESIDUAL_BOUND_FRINGE_WIDTHS` derived from them, quoting the transcription verbatim at the
+  site. `ORIENTATION_AMPLITUDE` stays `0.01` and is now **bounded by** the published residual, asserted by
+  a named unit test — so the historical-honesty property (the case's orientation signal is inside what
+  1907 could exclude) is executable rather than a coincidence a comment claims. A constant read only by a
+  guard test is not the shipped-and-dead shape AC6 closes: it is the project's own "never assert a magic
+  number a test shares with source unless both read one exported constant" rule, applied.
+- `THERMAL_COEFFICIENT` and `STABLE_WINDOW_C` stay **teaching-chosen and say so**. The 1907 report
+  publishes no coefficient — it says only that *"the temperature effects could never be entirely
+  eliminated"* — so a derivation would be a fabrication dressed as a citation. What the docstring now owes
+  and states is the design requirement they satisfy: the thermal term must swamp the orientation term at
+  the authored default (22 °C → 0.10 against ±0.01) and vanish at the window, because that gap **is** FR19's
+  teaching loop. Asserted, not asserted-in-prose.
+
+**Consequence:** no recorded value moves, `experiment.modelVersion` stays
+`morley-miller-interferometer-v1`, and §SS7 does not apply. The gap this opens — that a `modelVersion`
+bump has no record-compatibility path at all, so the project cannot currently change a shipped model
+without discarding player work — is recorded in `deferred-work.md` with a named owner.
 
 ### Debug Log References
 
+#### The three things a green suite could not see, and how each was found
+
+1. **The apparatus notes opened with every string blank** — found by **screenshot**, nothing else.
+   Opening the notes is not a dispatch (reading there changes nothing, which is the design), so the
+   scene's store subscription never fired, so `render` was never called: a backdrop covering the bench
+   with no title, no headings, no authored prose and an unlabelled way out. Every unit assertion passed,
+   because the test called `render` by hand after `openNotes()` — **a test asserting a sequence the app
+   never performs.** `openNotes()` now publishes from the store adapter, the manual renders are deleted
+   from the test, and mutation proof 11 breaks the publish and watches five named rows go red. This is
+   the project's own recorded memory holding exactly: *screenshot before you claim a rendering surface
+   is done.*
+
+2. **`AdvanceControl` presses were silently refused in the entire unit harness.** While wiring the notes
+   control, a test pressing it recorded nothing. The cause was in `tests/unit/sceneSlice.ts`: `setText`
+   wrote `state.text` but not the object's own `text`, so a read of `label.text` fell through the
+   permissive proxy and returned a **function**. `AdvanceControl.render` compares its previous label
+   against its next one to decide whether the label changed *under the cursor* and arms a lockout when it
+   did — and `previous !== ''` is written precisely so the **first** render does not. Against a function,
+   that branch was always taken, so the lockout armed immediately and every press of every advance
+   control in the harness was refused. A test pressing one could only ever assert that nothing happened,
+   which reads identically to a dead control.
+
+3. **`ofKind('graphics')[0]` was written down in three places as "the fringe graphics".** True while the
+   laboratory drew one apparatus. The interferometer's tableau creates its temperature bath first, and
+   the bath is painted with or without a run — so *"leaves the prototype's screen blank until a run is
+   recorded"* began measuring an object that is never blank. It failed rather than passing quietly, which
+   is the only reason it was caught. `setName` is now recorded by the harness, the load-bearing layers
+   name themselves in `src/`, and a row asserts that the named layer is at a *different* index on each
+   case — the fact that made one written-down index wrong for one of them.
+
+#### Corrections to my own work, made before the story landed
+
+- **Two unfalsifiable assertions I wrote and then removed.** An `expect(x).toBe(x)` on the reference
+  shelf's gap, and a `.filter(({ state }) => state.text === '' || true)` whose `|| true` made it
+  unconditional. Both are the shape two previous reviews found here; both are replaced by assertions
+  that name the change to `src/` that breaks them.
+- **A false physics claim.** A test asserted the arms *return to where they started* at 180°. They do
+  not — each mirror ends up on the opposite side of the stone, and a real interferometer turned half a
+  revolution genuinely looks different. What is invariant, and what `cos(2θ)`'s period is actually about,
+  is the pair of arm **axes** taken as unoriented directions. The row now asserts that, and asserts that
+  the drawing *has* turned.
+- **A false claim about the AC9 fix.** I first asserted the two apparatus floors *differ*, on the
+  assumption that the old Young-for-both sweep must have had a wrong number. It did not: the shared label
+  row is the deepest thing in both tableaux, so both floors are 342 and the old sweep reached the right
+  answer. What was wrong was its **subject** — it would have gone on reaching Young's answer however deep
+  the interferometer grew. The test now records the coincidence explicitly and the two source docstrings
+  were corrected to stop implying otherwise.
+- **A guard fired on my own comment, correctly.** `ScenarioAuthoringContract.test.ts` refuses a case id in
+  a domain module, and my new docstring in `calculateInterferometerDrift.ts` cited the case file by path.
+  The docstring was re-worded; the guard was not touched.
+
+#### Gate measurement notes
+
+`typecheck:tests` was measured by **`git stash -u`**, not `git stash`. A plain stash leaves untracked
+files in place, so the new test files remained while the source they import was reverted — reporting 153
+errors, which is noise. With untracked files stashed the baseline reproduces at exactly 106/60.
+
 ### Completion Notes List
 
+**Status: all eleven acceptance criteria met.** Two decisions were taken under §SS4/§SS8's standing
+authority and both are recorded above with their reasoning; one of them (D2) goes **against** the story's
+own recommendation, on a finding the story does not carry.
+
+- **AC1 — the bench is this case's apparatus.** `InterferometerTableau` draws a stone floating in a
+  temperature bath carrying a beam splitter, two perpendicular arms with their end mirrors, and the
+  recombined path to the observing screen. Rotation bound to `activeControlValues.rotationDeg`, bath
+  colour to `bathTempC`; both from the store, neither inferred. `hasOpticalGeometry` is **deleted** and
+  artwork is selected from `experiment.modelId` through an exhaustive `Record<ExperimentModelId, …>` —
+  never a case id, never a `modelVersion`, never a control value, and **never a fallback to Young**. The
+  three things the guard was silently holding are each re-stated: the slit/screen placement (now behind a
+  last-good-geometry guard that is no longer standing in for "is this Young?"), the choice between the two
+  fringe painters (now simply which class you are in), and the geometry test's apparatus floor (now
+  per case). Young's tableau moved **verbatim** — no arithmetic changed — which is what makes AC1's
+  "unchanged for Young" claimable.
+- **AC2 — the two contributions are separable and inspectable.** Separability asserted on **recorded
+  results**, not the formula: holding the stone and moving the bath isolates a linear thermal slope; at
+  the stable window a quarter turn is a clean sign reversal. The stable window is legible two ways — the
+  authored `resetPath` prose names *20 °C* in both locales (asserted against `STABLE_WINDOW_C` so the two
+  cannot drift), and the bath is **rung** in-fiction when it is actually at the window, with no invented
+  tolerance because the thermal term vanishes at one temperature and not near it. FR18's three authored
+  fields reach a player for the first time (see AC7). Reset, notebook, advance and revisit walked on this
+  case in `morley-miller-prototype.spec.ts`, asserted on recorded consequences rather than pixels.
+- **AC3 — the constants (decision D2).** No value moved, `experiment.modelVersion` is unchanged, and
+  §SS7 does not apply. The two published figures are now constants the model reads, and
+  `ORIENTATION_AMPLITUDE` is asserted **inside** the published residual bound — the historical-honesty
+  property, executable rather than coincidental. `THERMAL_COEFFICIENT` and `STABLE_WINDOW_C` are stated
+  as teaching-chosen with the design requirement they satisfy asserted (a factor of ten at the authored
+  default; vanishing at the window; the window reachable on an authored step). The docstring's forward
+  reference to this story is gone. **Why not derived:** a bump refuses the *whole* saved record at
+  `CaseRecordSchema.ts:592`/`:705` with no allowlist and no migration, and `attachAutosave` then
+  overwrites it — recorded as a new deferred item with Story 4.3 as owner.
+- **AC4 — feedback directs and never concludes.** The replication gap is closed by a new
+  `missing-replication` predicate reusing `configurationKey` rather than re-deriving it. **Two of the
+  four shipped rules could never fire** — `consult-no-runs` behind a gate requiring two significant
+  measures, `consult-unread-report` behind `minimumSources` equalling the authored artifact count — and
+  both were repurposed rather than deleted, so the authored count holds and every branch says something a
+  reachable player can act on. Reachability is proven by driving the **real store**, and the two
+  unreachable states are proven unreachable by name. Non-conclusion is asserted, not eyeballed: no
+  proposal id, no conclusion claim, and no verdict vocabulary in any layer in either language.
+- **AC5 — the separator (both `deferred-work.md` items).** A function of `(locale, unit)` over three
+  classes. Young's four units are **byte-identical** and `I18n.test.ts`'s original expectations pass
+  unchanged. Every caller checked; §SS11's two dead selectors **deleted** with their two test rows, since
+  their justification named panels Story 2.12 removed.
+- **AC6 — the cycle fields (decision D1).** Advisory design metadata, reconciled at four source sites,
+  the schema, the authoring guide and the case review, with the strand-the-player reasoning stated where
+  the next author meets it. The `morley-drift-bench` fixture's `2/6` untouched.
+- **AC7 — bilingual from the start.** Surface list built by **grepping the read**, not the file list.
+  Nine new interface keys in EN and FR together; every string on the new surfaces asserted in both
+  locales; the typography sweep extended to the three tableau labels, the notes chrome and the authored
+  notes prose across both cases, mutation-proved with a deliberately over-long French assumption.
+- **AC8 — no asset, no ledger row.** `Graphics` fills generated in the create pass, signature-guarded so
+  a repaint with nothing changed issues no fills. No texture, no `assets.entries`, no ledger row —
+  necessary rather than merely cheap, since this case is ledger-**BLOCKED**. Reduced motion registers no
+  loop and paints the resolved frame; nothing registers from `create()`.
+- **AC9 — measured, in both locales, at the real size.** New geometry constants both the renderer and the
+  tests read; a new all-pairs non-overlap sweep over the tableau's five bands; the bench's apparatus floor
+  now derived **per case**. Confirmed by eye at 1280×720 in EN and FR — which is how the blank-panel
+  defect was found. Screenshot paths below.
+- **AC10 — contract, version, cache.** `case.json` **1.4.0 → 1.5.0**, `CaseRecordSchema`'s prototype
+  clause for 1.5.0 accepting `1.0.0`–`1.4.0` (carrying `recordNamesRetiredArtifact` forward, which is a
+  no-op at 1.4.0 and load-bearing below it), and `sw.js` **v13 → v14** with its reason appended — all in
+  the same change. `npm run audit:ledger` re-run: only the version line moved, both reports still
+  **BLOCKED** on the same two unassigned roles.
+- **AC11 — verification.** Gates below. `typecheck:tests` **105 errors / 59 files**, down from 106/60.
+  Twelve mutation proofs, each broken, observed red by name, and restored.
+
+#### Mutation proofs
+
+| # | Guard broken | Named test that went red | Restored |
+|---|---|---|---|
+| 1 | Arc degree given the symbol separator | `writes no separator before an arc degree, in either locale` (+5 more) | ✅ |
+| 2 | U+202F put back before a spelled-out unit | `separates a spelled-out unit with a space wide enough to read as one in French` | ✅ |
+| 3 | Unit classified on a prefix instead of equality | `still separates the degree Celsius, which is a symbol and not an arc degree` | ✅ |
+| 4 | Interferometer entry points at Young's tableau | `draws Young's optical bench for Young and the interferometer for the prototype` (+3) | ✅ |
+| 5 | `hasOpticalGeometry` early return re-introduced | `paints the fringe field once a run is recorded` (+2) | ✅ |
+| 6 | `ORIENTATION_AMPLITUDE` raised above the 1907 bound | `keeps the orientation signal inside the bound the 1907 observations could exclude` | ✅ |
+| 7 | `THERMAL_COEFFICIENT` dropped to the signal's scale | `keeps the thermal confound an order of magnitude above the signal at the authored default` | ✅ |
+| 8 | Replication predicate inverted | `asks for a reading to be repeated once both controls have moved but nothing is confirmed` (+2) | ✅ |
+| 9 | Single-run guard removed from the predicate | `says nothing to a notebook that could not have repeated anything yet` | ✅ |
+| 10 | `configurationKey` replaced by a re-derived key | `asks once two observations stand and neither confirms the other` (+2) | ✅ |
+| 11 | `openNotes()` stops publishing | `shows every assumption, the confound and the reset path…` (+4) | ✅ |
+| 12 | Over-long French assumption authored | `keeps the apparatus notes inside the panel that holds them, in both locales` | ✅ |
+
+Proof 9 is worth noting: it **survived** the first attempt. The single-run branch is structurally
+unreachable from a store-driven test, so it was proven at the layer that can reach it — which is the
+whole point of running the mutation rather than assuming the assertion covers it.
+
+#### AC9's by-eye pass — screenshots at 1280×720
+
+Captured through a temporary Playwright spec (since deleted) into the session scratchpad, and read:
+
+| What | Path | What I saw |
+|---|---|---|
+| Interferometer bench, EN | `shots/morley-miller-bench-en.png` | Stone in its bath, both arms perpendicular at 90°, splitter at the crossing, lamp on the stone, recombined path to the screen, fringe field on it. Three labels clear of each other. `90°`, no separator. |
+| Interferometer bench, FR | `shots/morley-miller-bench-fr.png` | Same geometry. `90°`, `22,0 °C` with U+202F, `0,09 largeurs de frange` with a readable space — both AC5 classes visible on one screen. |
+| Interferometer, steady bath | `shots/morley-miller-steady-en.png` | The steady ring drawn round the bath at 20 °C, and the readout at `0.01 fringe widths` — the near-null with the confound removed, which is FR19's loop on screen. |
+| Young bench, EN + FR | `shots/young-interference-bench-{en,fr}.png` | Source, barrier, both slits, sliding screen, fringes, wavelength chooser: unchanged. `0,25 mm` / `3,00 m` / `6,6 mm` byte-identical. Both reference controls still fit beside the new notes control. |
+| Apparatus notes, both cases, EN + FR | `shots/{case}-notes-{en,fr}.png` | Title, three section headings, every authored line, and the way out. The prototype's reset path reads *"…sa fenêtre stable — 20 °C…"*. Nothing crops. **This is the pair that was blank on the first capture.** |
+
 ### File List
+
+**New — source**
+
+- `src/adapters/phaser/renderers/benchTableau.ts` — the `BenchTableau` contract, `BenchLightPhase`, and the exhaustive `Record<ExperimentModelId, …>` that selects the artwork
+- `src/adapters/phaser/renderers/YoungOpticalTableau.ts` — Young's tableau, moved verbatim out of `ApparatusRenderer`
+- `src/adapters/phaser/renderers/InterferometerTableau.ts` — the rotating interferometer
+- `src/adapters/phaser/renderers/interferometerGeometry.ts` — its pure geometry, bands and floor (no Phaser)
+- `src/adapters/phaser/renderers/ApparatusNotesRenderer.ts` — the apparatus-notes overlay
+
+**New — tests**
+
+- `tests/unit/InterferometerTableau.test.ts`
+- `tests/unit/ApparatusNotes.test.ts`
+- `tests/unit/MorleyMillerFeedback.test.ts`
+- `tests/unit/shippedCases.ts` — one shipped-case loader, so `node:fs` is imported once
+
+**Modified — source**
+
+- `src/adapters/phaser/renderers/ApparatusRenderer.ts` — delegates the tableau; `hasOpticalGeometry`, both fringe painters, the beam and wavefront painters and six Young geometry fields removed; the notes control added
+- `src/adapters/phaser/renderers/apparatusGeometry.ts` — the notes control's placement, the notes panel's geometry, `REFERENCE_HEADING_Y` re-derived
+- `src/adapters/phaser/renderers/caseFileGeometry.ts` — the paging rationale reconciled with D1
+- `src/adapters/phaser/scenes/LaboratoryScene.ts` — hosts the notes overlay; the suppression rule generalised
+- `src/core/i18n/formatNumber.ts` — `unitSeparatorClass` and the three-class separator table
+- `src/core/i18n/locales/en.ts`, `src/core/i18n/locales/fr.ts` — nine new keys
+- `src/core/store/AppState.ts` — threads `significanceRule` into the consultation evidence
+- `src/core/store/selectors.ts` — §SS11's two dead selectors deleted; the cycle-field comment reconciled
+- `src/domain/apparatus/calculateInterferometerDrift.ts` — the published figures, the bound, and the constants' account
+- `src/domain/cases/CaseDefinition.ts` — the `missing-replication` predicate
+- `src/domain/review/ConsultationRule.ts` — the predicate's implementation, reusing `configurationKey`
+- `src/schemas/CaseDefinitionSchema.ts` — the new predicate member; the `flow` shape's decision documented
+- `src/schemas/CaseRecordSchema.ts` — the 1.5.0 prototype clause
+
+**Modified — content**
+
+- `public/cases/morley-miller/case.json` — 1.4.0 → 1.5.0: the reset path names the window, two rules repurposed, one added, one `technicalDetail` re-worded
+- `public/sw.js` — `CACHE_NAME` v13 → v14, reason appended
+
+**Modified — tests**
+
+- `tests/e2e/french-typography.spec.ts` — the tableau labels, the notes chrome and the notes prose
+- `tests/e2e/morley-miller-prototype.spec.ts` — the notes overlay's suppression, and reset on this case
+- `tests/unit/sceneSlice.ts` — records `setName`, adds `named()`, and makes a text object's own `.text` readable
+- `tests/unit/I18n.test.ts`, `tests/unit/ApparatusCaseVoice.test.ts`, `tests/unit/CaseFileRenderer.test.ts` — the separator, and the fourth settings surface
+- `tests/unit/ApparatusGeometry.test.ts` — the apparatus floor per case
+- `tests/unit/ApparatusAffordances.test.ts` — the tableau graphics count per model
+- `tests/unit/ExperimentModels.test.ts` — the constants' anchoring and design requirement
+- `tests/unit/MorleyMillerPrototype.test.ts` — the 1.5.0 version pin and prior-version list
+- `tests/unit/ReviewRules.test.ts` — the threaded significance rule, and the predicate's own unit rows
+- `tests/integration/LocaleProjection.test.ts` — the two deleted selectors' rows
+
+**Modified — documentation and tracking**
+
+- `docs/case-reviews/morley-miller-case-review.md` — §3 resolved, §6 re-worked
+- `docs/case-prototypes/morley-miller-prototype.md` — §8 gaps 1 and 3 closed, the constants recorded
+- `docs/content-authoring/README.md` — the cycle-range decision, where an author meets it
+- `docs/source-rights/morley-miller-ledger.{en,fr}.md` — regenerated (version line only; still BLOCKED)
+- `_bmad-output/implementation-artifacts/deferred-work.md` — five items struck, four opened with named owners, three checked and left
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — 4.2 → review
 
 ---
 
@@ -854,6 +1144,7 @@ _To be filled by the dev agent._
 | Date | Change | By |
 |---|---|---|
 | 2026-08-20 | Story created — context engine analysis over epics, GDD, UX, architecture, project-context 2.6, Story 4.1 and its review, `deferred-work.md`, the case review artifact, and the bench/model/formatter source. | Create-story workflow |
+| 2026-08-20 | **Development complete; status → review.** The rotating interferometer is drawn, and the artwork is selected from `experiment.modelId` through an exhaustive record — `hasOpticalGeometry`, the last Young-shaped duck-type guard in the bench, is deleted, and Young's tableau moved verbatim so "unchanged for Young" is claimable rather than hoped. `formatMeasurement`'s separator is a function of `(locale, unit)`, closing both recorded manifestations with Young's four units byte-identical. FR18's three authored-and-unrendered fields reach a player through a new apparatus-notes surface — a find in no previous story or review, and one that applies to Young equally. Two decisions taken and recorded: the cycle fields are advisory metadata (D1), and the model constants are documented and *bounded* rather than derived (D2), because a `modelVersion` bump refuses the whole saved record and §SS7 does not carry that. Two of the four shipped consultation rules were found unreachable and repurposed; a new `missing-replication` predicate closes the gap where the case taught a recovery route it never mentioned. `case.json` 1.5.0 with its record clause, `sw.js` v14, both in the same change. 1604 unit tests / 83 files, 70 e2e, `typecheck:tests` 105/59 (from 106/60), twelve mutation proofs — one of which survived its first attempt and one of which exists because a **screenshot** found a panel that opened completely blank. | Dev (Opus 5) |
 
 ---
 

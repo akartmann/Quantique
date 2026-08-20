@@ -66,14 +66,30 @@ const run = (id: string, screenDistanceM = 2) => {
     return result.value;
 };
 
+/**
+ * The case's own significance rule, threaded into every consultation call (Story 4.2).
+ *
+ * `ConsultationEvidence` gained it when `missing-replication` was added: that predicate asks *"is this the
+ * same configuration?"*, and the one answer to that question is `configurationKey`, which reads the
+ * significance rule. Required rather than optional on purpose — an optional field with a fallback would
+ * turn a forgotten call site into a predicate quietly comparing against the wrong rule, and these three
+ * call sites are exactly the ones the compiler found when it was made required.
+ */
+const evidence = (runs: Parameters<typeof chooseConsultation>[1]['runs'], inspectedSourceIds: readonly string[]) => ({
+    runs,
+    inspectedSourceIds,
+    theory: createTheoryBoardDraft(),
+    significanceRule: definition.significanceRule
+});
+
 describe('authored consultation and peer-review rules', () => {
     it('chooses the first eligible authored consultation and freezes its bounded projection', () => {
-        const first = chooseConsultation(definition.consultationRules, { runs: [], inspectedSourceIds: [], theory: createTheoryBoardDraft() });
+        const first = chooseConsultation(definition.consultationRules, evidence([], []));
         expect(first).toMatchObject({ ruleId: 'run', nextStep: { en: 'Record a run.', fr: 'Record a run. [fr]' } });
         expect(Object.isFrozen(first)).toBe(true);
-        const next = chooseConsultation(definition.consultationRules, { runs: [run('one'), run('two')], inspectedSourceIds: [], theory: createTheoryBoardDraft() });
+        const next = chooseConsultation(definition.consultationRules, evidence([run('one'), run('two')], []));
         expect(next).toMatchObject({ ruleId: 'source' });
-        const alternative = chooseConsultation(definition.consultationRules, { runs: [run('one'), run('two')], inspectedSourceIds: ['source-1'], theory: createTheoryBoardDraft() });
+        const alternative = chooseConsultation(definition.consultationRules, evidence([run('one'), run('two')], ['source-1']));
         expect(alternative).toMatchObject({ ruleId: 'test' });
     });
 
@@ -277,5 +293,67 @@ describe('the localized peer-review projection', () => {
     it('returns nothing at all when no feedback has been asked for', () => {
         const store = createStore(createInitialAppState(definition, 'fr'));
         expect(selectLocalizedPeerReview(store.getState())).toBeUndefined();
+    });
+});
+
+/**
+ * The `missing-replication` predicate, at the layer that can reach every one of its branches (Story 4.2).
+ *
+ * `MorleyMillerFeedback.test.ts` drives this predicate through the **shipped** case and the real store, and
+ * that is the right place to prove it says something a player can act on. But a store-driven test cannot
+ * reach the fewer-than-two-runs branch at all: the case file is hosted only in `synthesis` and `review`, and
+ * `experiment → synthesis` is refused below two significant measures. So the guard was **mutation-green** —
+ * deleting `if (evidence.runs.length < 2) return false` left every test in this repository passing.
+ *
+ * That is exactly the shape §Testing names: a guard whose failure is silent, protecting a state one layer's
+ * tests structurally cannot construct. A fixture can, so the guard is proven here, where the predicate is
+ * called directly.
+ *
+ * **Why the guard is not merely defensive.** `unvaried-control` carries the identical one in
+ * `colleagueHints.ts` with the reason written out: with an empty notebook every control is trivially
+ * unvaried, and telling somebody who has not measured anything that they never varied a control is the
+ * wrong first thing to say. The same holds here in the other direction — with fewer than two observations
+ * nothing *could* have been repeated, and "you have confirmed nothing" is not feedback, it is a
+ * restatement of having just arrived. A second case whose synthesis gate is looser than this one's would
+ * reach that state, and the predicate has to be right there too.
+ */
+describe('the missing-replication predicate', () => {
+    const rules = [{
+        id: 'repeat',
+        predicate: { kind: 'missing-replication' } as const,
+        layers: {
+            observation: { en: 'Nothing repeats.', fr: 'Rien ne se répète.' },
+            plainLanguage: { en: 'A number seen once.', fr: 'Un nombre vu une fois.' },
+            technicalDetail: { en: 'Repeat one.', fr: 'Reprenez-en un.' }
+        },
+        nextStep: { en: 'Record the same setup twice.', fr: 'Enregistrez deux fois le même montage.' }
+    }];
+
+    const asks = (runs: Parameters<typeof chooseConsultation>[1]['runs']): boolean =>
+        chooseConsultation(rules, {
+            runs,
+            inspectedSourceIds: [],
+            theory: createTheoryBoardDraft(),
+            significanceRule: definition.significanceRule
+        }) !== undefined;
+
+    it('says nothing to a notebook that could not have repeated anything yet', () => {
+        // The mutation target. Both rows fail with the `runs.length < 2` guard deleted, because a single
+        // configuration is trivially all-distinct and the predicate would fire on arrival.
+        expect(asks([])).toBe(false);
+        expect(asks([run('one')])).toBe(false);
+    });
+
+    it('asks once two observations stand and neither confirms the other', () => {
+        expect(asks([run('one', 2), run('two', 3)])).toBe(true);
+    });
+
+    it('stops asking as soon as any two observations share a configuration', () => {
+        // Asked of `configurationKey`, so "the same setup" means here exactly what it means to the
+        // significance rule — the same reuse `conclusionReadiness` was rewritten to make in Story 3.2,
+        // rather than a second control-by-control comparison that would drift from it.
+        expect(asks([run('one', 2), run('two', 2)])).toBe(false);
+        // And a repeat anywhere in a longer notebook counts, not only an adjacent pair.
+        expect(asks([run('one', 2), run('two', 3), run('three', 2)])).toBe(false);
     });
 });

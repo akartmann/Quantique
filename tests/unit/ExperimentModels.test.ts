@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises';
 
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
-    ORIENTATION_AMPLITUDE, STABLE_WINDOW_C, THERMAL_COEFFICIENT, calculateInterferometerDrift
+    ETHER_DEMANDED_DISPLACEMENT_FRINGE_WIDTHS, ORIENTATION_AMPLITUDE, PUBLISHED_CERTAINTY_FRACTION,
+    PUBLISHED_RESIDUAL_BOUND_FRINGE_WIDTHS, STABLE_WINDOW_C, THERMAL_COEFFICIENT, calculateInterferometerDrift
 } from '../../src/domain/apparatus/calculateInterferometerDrift';
 import { calculateYoungFringeSpacing } from '../../src/domain/apparatus/calculateYoungFringeSpacing';
 import { decimalPlaces } from '../../src/core/i18n/formatNumber';
@@ -16,6 +17,25 @@ import type { RunRecord } from '../../src/domain/evidence/RunRecord';
 import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
 import { en } from '../../src/core/i18n/locales/en';
 import { fr } from '../../src/core/i18n/locales/fr';
+
+/**
+ * One authored control from the **shipped** prototype, so the constant-anchoring rows read the case's own
+ * bounds rather than a literal 18–24 that could drift from `case.json` without any test noticing.
+ */
+let prototypeDefinition: CaseDefinition | undefined;
+const interferometerControl = (controlId: string) => {
+    if (!prototypeDefinition) throw new Error('The prototype case must be loaded before a control is read.');
+    const control = prototypeDefinition.apparatus.primaryControls.find(({ id }) => id === controlId);
+    if (!control) throw new Error(`The prototype must author a ${controlId} control.`);
+    return control;
+};
+
+beforeAll(async () => {
+    const content: unknown = JSON.parse(await readFile('public/cases/morley-miller/case.json', 'utf8'));
+    const parsed = CaseDefinitionSchema.safeParse(content);
+    if (!parsed.success) throw new Error('The authored Morley–Miller case must parse.');
+    prototypeDefinition = parsed.data as CaseDefinition;
+});
 
 describe('the experiment model registry', () => {
     it('resolves every implemented model, and nothing else', () => {
@@ -109,6 +129,71 @@ describe('the interferometer drift model', () => {
         expect(warm).toBeCloseTo(ORIENTATION_AMPLITUDE + 2 * THERMAL_COEFFICIENT, 10);
         // The confound is real: two degrees of warmth outweigh the whole orientation swing.
         expect(Math.abs(2 * THERMAL_COEFFICIENT)).toBeGreaterThan(2 * ORIENTATION_AMPLITUDE);
+    });
+
+    /**
+     * The two teaching-chosen constants' **stated design requirement**, asserted (Story 4.2, AC3).
+     *
+     * `THERMAL_COEFFICIENT` and `STABLE_WINDOW_C` are not derived from anything the 1907 report publishes,
+     * because it publishes no coefficient — it says only that *"the temperature effects could never be
+     * entirely eliminated"*, so a derivation would be a fabrication dressed as a citation. AC3's second
+     * branch therefore applies: they are documented with the design reason they are not derived. This is
+     * that reason made executable, so the docstring cannot go quietly false the way five stories' worth of
+     * comments in this codebase already have.
+     *
+     * Mutation target: bring `THERMAL_COEFFICIENT` down to the orientation amplitude's own scale, or move
+     * `STABLE_WINDOW_C` off the authored range, and one of these rows fails.
+     */
+    it('keeps the thermal confound an order of magnitude above the signal at the authored default', () => {
+        const bath = interferometerControl('bathTempC');
+        const thermalAtDefault = Math.abs(THERMAL_COEFFICIENT * (bath.defaultValue - STABLE_WINDOW_C));
+
+        // Swamps, not merely exceeds: the point of the loop is that a player reading the default bench
+        // cannot see the orientation signal at all until they bring the bath back.
+        expect(thermalAtDefault).toBeGreaterThanOrEqual(10 * ORIENTATION_AMPLITUDE);
+        // And it genuinely vanishes at the window, so what remains there is only the signal.
+        expect(THERMAL_COEFFICIENT * (STABLE_WINDOW_C - STABLE_WINDOW_C)).toBe(0);
+    });
+
+    it('puts the stable window inside the authored range, so the instruction can actually be followed', () => {
+        const bath = interferometerControl('bathTempC');
+
+        // A window outside the authored bounds would make `experiment.resetPath` — "bring the bath back to
+        // its steady window" — an instruction no player could carry out: a gate made unsatisfiable by
+        // code, asked of a constant rather than of a predicate.
+        expect(STABLE_WINDOW_C).toBeGreaterThanOrEqual(bath.min);
+        expect(STABLE_WINDOW_C).toBeLessThanOrEqual(bath.max);
+        // And reachable *exactly*, because the thermal term vanishes at one temperature and the authored
+        // step is what decides whether the player can land on it.
+        expect(Number(((STABLE_WINDOW_C - bath.min) / bath.step).toFixed(6)) % 1).toBe(0);
+    });
+
+    /**
+     * The historical anchor for {@link ORIENTATION_AMPLITUDE} (Story 4.2, AC3).
+     *
+     * The case's own 1907 transcription states both published numbers: a stationary ether demanded **1.53
+     * wave-lengths**, and the observations were certain to **one eightieth** of that. So the largest
+     * residual orientation signal 1907 could *not* exclude is ≈ 0.019 fringe widths, and the property that
+     * makes this case honest is that its apparatus reads something smaller than that.
+     *
+     * That property used to be a coincidence a docstring could not claim. It is now a guarantee that fails
+     * with its own justification, which is the whole of what AC3 asks for on this constant — see the
+     * calculator's header for why the amplitude is *bounded by* the published figure rather than *derived
+     * from* it, and what a derivation would cost a returning player.
+     *
+     * Mutation target: raise `ORIENTATION_AMPLITUDE` above 0.019125 and this fails by name.
+     */
+    it('keeps the orientation signal inside the bound the 1907 observations could exclude', () => {
+        expect(PUBLISHED_RESIDUAL_BOUND_FRINGE_WIDTHS)
+            .toBeCloseTo(ETHER_DEMANDED_DISPLACEMENT_FRINGE_WIDTHS * PUBLISHED_CERTAINTY_FRACTION, 12);
+        expect(ORIENTATION_AMPLITUDE).toBeLessThan(PUBLISHED_RESIDUAL_BOUND_FRINGE_WIDTHS);
+        // The whole orientation swing, peak to peak, is still inside the bound — not merely its amplitude.
+        expect(2 * ORIENTATION_AMPLITUDE).toBeGreaterThan(PUBLISHED_RESIDUAL_BOUND_FRINGE_WIDTHS);
+        // The two published figures are the ones the case's own record quotes, so the model and the
+        // transcription cannot drift: the case file's prose is asserted against these in
+        // `MorleyMillerPrototype.test.ts`.
+        expect(ETHER_DEMANDED_DISPLACEMENT_FRINGE_WIDTHS).toBe(1.53);
+        expect(PUBLISHED_CERTAINTY_FRACTION).toBe(1 / 80);
     });
 
     it('rounds for storage exactly as the Young calculator does', () => {

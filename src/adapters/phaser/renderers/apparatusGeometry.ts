@@ -83,6 +83,45 @@ export const REVISIT_CONTROL_Y = ADVANCE_CONTROL_Y + ADVANCE_CONTROL_HEIGHT + 8;
 export const ADVANCE_CONTROL_LABEL_WRAP = advanceControlLabelWrap(SIDE_COLUMN_WIDTH);
 
 /**
+ * The control that opens the apparatus notes, in the side column under the way back (Story 4.2, AC2).
+ *
+ * ## Why this control exists at all
+ *
+ * `experiment.assumptions`, `experiment.confound.description` and `experiment.resetPath.description` are
+ * authored bilingually on **both** shipped cases, validated thoroughly — `CaseDefinition.test.ts` proves
+ * the schema rejects them missing and rejects a locale mismatch — and, before this story, rendered on **no
+ * player surface at all**. That matters more than tidiness: **FR18** requires every case to have *"one
+ * discoverable confound or misleading result, a reset-solvable required puzzle, and inspectable model
+ * assumptions"*, and the case review artifact lists all three as satisfied, naming the authored field for
+ * each. That table was true about the *authoring* and misleading about the *player*: a player could
+ * complete either case without ever being shown the confound, the reset path, or the model's assumptions.
+ * It is the *"author a case field that nothing reads"* shape, three times over, on the three fields FR18
+ * is about. A new find — in no previous story, no review, and nowhere in `deferred-work.md`.
+ *
+ * ## Why it is here rather than on the reference shelf below it
+ *
+ * The shelf's heading is `lab.reference.heading` — "References to hand" — and its entries are authored
+ * *artifacts*. Apparatus notes are neither: they are the case's own statement about its apparatus, with no
+ * provenance, no rendition and no rights row. Putting them under that heading would mislabel them, and
+ * re-wording the heading would move Young's chrome, which AC1's fourth clause forbids. So it is its own
+ * control, above the heading, and the shelf's own placement is derived from it rather than restated.
+ *
+ * ## What it costs the shelf, measured rather than hoped
+ *
+ * The colleague's hint grows *upward* from the canvas floor into this same column and the shelf grows
+ * downward, so inserting 48px here moves {@link REFERENCE_HEADING_Y} down by 48 and the shelf meets the
+ * hint sooner. At the **shipped** hint lengths both of the prototype's reference controls still fit, which
+ * `ApparatusGeometry.test.ts` asserts against the longest French hint either case actually authors rather
+ * than against a guess. At the schema's 320-character *ceiling* the shelf is truncated one control earlier
+ * than before — a regression at a length nothing authors, recorded in `deferred-work.md` with an owner
+ * rather than left for a reader to discover.
+ *
+ * The priority that decides it: a reference is still reachable from the reading room, which is the shelf's
+ * own documented reason for yielding to the hint. The notes are reachable **nowhere else**.
+ */
+export const NOTES_CONTROL_Y = REVISIT_CONTROL_Y + ADVANCE_CONTROL_HEIGHT + 8;
+
+/**
  * The reference shelf in the side column (Story 2.8, Task 6 / AC6).
  *
  * The book has to stay reachable from the bench for re-reading during `experiment` — that is what the
@@ -108,8 +147,14 @@ export const REFERENCE_CONTROL_FONT_SIZE = 13;
 export const REFERENCE_CONTROL_PADDING = 10;
 export const REFERENCE_CONTROL_GAP = 8;
 
-/** Where the reference shelf's heading sits: under the way out, never over the apparatus above it. */
-export const REFERENCE_HEADING_Y = REVISIT_CONTROL_Y + ADVANCE_CONTROL_HEIGHT + REFERENCE_HEADING_GAP;
+/**
+ * Where the reference shelf's heading sits: under the apparatus notes, never over the apparatus above it.
+ *
+ * Derived from {@link NOTES_CONTROL_Y} rather than from {@link REVISIT_CONTROL_Y} as of Story 4.2, so
+ * inserting or removing a control in this column moves the shelf with it instead of leaving two numbers
+ * that agree until one of them is edited.
+ */
+export const REFERENCE_HEADING_Y = NOTES_CONTROL_Y + ADVANCE_CONTROL_HEIGHT + REFERENCE_HEADING_GAP;
 
 /** The bound a reference label wraps to, derived from the column rather than restated. */
 export const REFERENCE_CONTROL_LABEL_WRAP = SIDE_COLUMN_WIDTH - (2 * REFERENCE_CONTROL_PADDING);
@@ -158,6 +203,10 @@ export const advanceToSynthesisControlCentre = (): Readonly<{ x: number; y: numb
 
 export const revisitToPredictionControlCentre = (): Readonly<{ x: number; y: number }> =>
     advanceControlCentre({ x: SIDE_COLUMN_LEFT, y: REVISIT_CONTROL_Y, width: SIDE_COLUMN_WIDTH });
+
+/** The control that opens the apparatus notes, so a browser test clicks it without restating the column. */
+export const apparatusNotesControlCentre = (): Readonly<{ x: number; y: number }> =>
+    advanceControlCentre({ x: SIDE_COLUMN_LEFT, y: NOTES_CONTROL_Y, width: SIDE_COLUMN_WIDTH });
 
 // ================================================================================================
 // The bench (Story 2.10)
@@ -684,3 +733,57 @@ export const notebookSaveControlCentre = (): Readonly<{ x: number; y: number }> 
 
 export const notebookCloseControlCentre = (): Readonly<{ x: number; y: number }> =>
     notebookActionCentre(NOTEBOOK_CLOSE_LEFT);
+
+// --- The apparatus-notes overlay (Story 4.2, AC2) -----------------------------------------------
+
+/**
+ * The apparatus notes, presented **over** the bench on exactly the panel the notebook uses.
+ *
+ * One panel rect for both overlays, derived rather than restated: the notebook's was measured against
+ * this surface once (*"after the tableau, the readouts and the side column there is no 620×364 band left
+ * … and this surface does not scroll"*), and a second overlay wanting the same thing should inherit that
+ * measurement rather than repeat the exercise and land two pixels off. So the panel, its padding and its
+ * action row are the notebook's; only the row layout inside is this overlay's own.
+ *
+ * **Nothing here is a fixed-height text band.** The three sections render authored prose — an assumptions
+ * list, the confound, the reset path — in two languages, and `fitBodyText` shrinks to a floor and then
+ * *silently overflows with no crop*. So each section is stacked on the previous one's **measured** bottom,
+ * which is the rule the reading room's detail panel, the bench's result readout and the debrief's rows all
+ * follow, and the defect five previous reviews found by placing an object against a constant while the
+ * object beside it grew with French copy. What the unit harness can prove about that is nothing: every
+ * text object reports `height: 18`. AC9's by-eye pass at 1280×720 in both locales is the check.
+ */
+export const NOTES_PANEL_X = NOTEBOOK_PANEL_X;
+export const NOTES_PANEL_Y = NOTEBOOK_PANEL_Y;
+export const NOTES_PANEL_WIDTH = NOTEBOOK_PANEL_WIDTH;
+export const NOTES_PANEL_HEIGHT = NOTEBOOK_PANEL_HEIGHT;
+export const NOTES_PADDING = NOTEBOOK_PADDING;
+export const NOTES_HEADING_FONT_SIZE = NOTEBOOK_HEADING_FONT_SIZE;
+export const NOTES_SECTION_FONT_SIZE = 16;
+export const NOTES_BODY_FONT_SIZE = 14;
+export const NOTES_HEADING_Y = NOTES_PANEL_Y + NOTES_PADDING;
+/** Where the first section's own heading starts, under the panel's title. */
+export const NOTES_SECTIONS_TOP = NOTES_HEADING_Y + 40;
+/** Between a section heading's measured bottom and its body. */
+export const NOTES_SECTION_HEADING_GAP = 8;
+/** Between one section's measured bottom and the next section's heading. */
+export const NOTES_SECTION_GAP = 20;
+/** Between one line of an authored list and the next. Lines are measured; this is only the gap. */
+export const NOTES_LIST_GAP = 6;
+export const NOTES_TEXT_WRAP = NOTES_PANEL_WIDTH - (2 * NOTES_PADDING);
+
+/**
+ * The ceiling the stacked sections must not cross: the top of the action row that holds the way out.
+ *
+ * The way out is bottom-anchored on the notebook's own action row, so it cannot be pushed off the panel
+ * by a long section — and a section that would reach this line is the one case the renderer has to answer
+ * out loud rather than paint over the control.
+ */
+export const NOTES_ACTION_ROW_Y = NOTES_PANEL_Y + NOTES_PANEL_HEIGHT - NOTES_PADDING - NOTEBOOK_ACTION_HEIGHT;
+export const NOTES_SECTIONS_FLOOR_Y = NOTES_ACTION_ROW_Y - 16;
+export const NOTES_CLOSE_LEFT = NOTES_PANEL_X + NOTES_PANEL_WIDTH - NOTES_PADDING - NOTEBOOK_ACTION_WIDTH;
+
+export const notesCloseControlCentre = (): Readonly<{ x: number; y: number }> => ({
+    x: NOTES_CLOSE_LEFT + (NOTEBOOK_ACTION_WIDTH / 2),
+    y: NOTES_ACTION_ROW_Y + (NOTEBOOK_ACTION_HEIGHT / 2)
+});

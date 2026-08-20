@@ -1,6 +1,6 @@
 {
   "id": "morley-miller",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "title": {
     "en": "Morley–Miller — the rotating interferometer",
     "fr": "Morley–Miller — l’interféromètre tournant"
@@ -23,7 +23,10 @@
         "reference": "michelson-morley-1887-ajs"
       },
       "rightsStatus": "reviewed",
-      "ledgerEntry": { "sourceRole": "primary", "reviewerState": "pending" },
+      "ledgerEntry": {
+        "sourceRole": "primary",
+        "reviewerState": "pending"
+      },
       "caseRelationship": {
         "en": "The published account of the null result this bench is built to re-examine.",
         "fr": "Le compte rendu publié du résultat nul que ce banc doit réexaminer."
@@ -126,7 +129,10 @@
         "reference": "morley-miller-1907-final-report"
       },
       "rightsStatus": "reviewed",
-      "ledgerEntry": { "sourceRole": "secondary", "reviewerState": "pending" },
+      "ledgerEntry": {
+        "sourceRole": "secondary",
+        "reviewerState": "pending"
+      },
       "caseRelationship": {
         "en": "The authors’ own closing account: where they moved the instrument, what a stationary ether demanded, and how small a residue they could still vouch for.",
         "fr": "Le compte rendu final des auteurs eux-mêmes : où ils ont déplacé l’instrument, ce qu’exigeait un éther immobile, et quel résidu minime ils pouvaient encore garantir."
@@ -260,8 +266,8 @@
     "resetPath": {
       "recoveryRoute": "replication",
       "description": {
-        "en": "Bring the bath back to its steady window and take the reading again; what survives is not the warmth.",
-        "fr": "Ramenez le bain à sa fenêtre stable et reprenez le relevé ; ce qui subsiste n’est pas la chaleur."
+        "en": "Bring the bath back to its steady window — 20 °C, where the warmth contributes nothing — and take the reading again; what survives is not the warmth.",
+        "fr": "Ramenez le bain à sa fenêtre stable — 20 °C, où la chaleur n’apporte rien — et reprenez le relevé ; ce qui subsiste n’est pas la chaleur."
       }
     }
   },
@@ -607,52 +613,28 @@
   },
   "consultationRules": [
     {
-      "id": "consult-no-runs",
+      "id": "consult-turn-the-stone",
       "predicate": {
-        "kind": "missing-run"
+        "kind": "alternative-test",
+        "controlId": "rotationDeg"
       },
       "layers": {
         "observation": {
-          "en": "The notebook is empty.",
-          "fr": "Le carnet est vide."
+          "en": "The stone has stood at one orientation throughout.",
+          "fr": "Le bloc est resté à une seule orientation."
         },
         "plainLanguage": {
-          "en": "Nothing has been measured yet, so there is nothing to compare.",
-          "fr": "Rien n’a encore été mesuré, il n’y a donc rien à comparer."
+          "en": "Whatever the notebook holds, none of it can be about orientation yet.",
+          "fr": "Quoi que contienne le carnet, rien n’y porte encore sur l’orientation."
         },
         "technicalDetail": {
-          "en": "A claim about orientation needs at least one recorded displacement to rest on.",
-          "fr": "Une affirmation sur l’orientation doit reposer sur au moins un déplacement enregistré."
+          "en": "Hold the bath and turn the stone alone; a drift tied to orientation can only appear between two orientations.",
+          "fr": "Maintenez le bain et ne tournez que le bloc ; une dérive liée à l’orientation ne peut apparaître qu’entre deux orientations."
         }
       },
       "nextStep": {
-        "en": "Start the light once and record what the fringes do.",
-        "fr": "Allumez la source une fois et notez ce que font les franges."
-      }
-    },
-    {
-      "id": "consult-unread-report",
-      "predicate": {
-        "kind": "missing-source",
-        "sourceId": "morley-miller-1907-final-report"
-      },
-      "layers": {
-        "observation": {
-          "en": "The 1907 final report has not been read.",
-          "fr": "Le rapport final de 1907 n’a pas été lu."
-        },
-        "plainLanguage": {
-          "en": "The authors say plainly how small a shift they could still rule out.",
-          "fr": "Les auteurs disent clairement quel décalage ils pouvaient exclure."
-        },
-        "technicalDetail": {
-          "en": "It names the temperature difference across the arms as the dominant nuisance.",
-          "fr": "Il désigne la différence de température entre les bras comme la gêne dominante."
-        }
-      },
-      "nextStep": {
-        "en": "Read the later report before committing to a claim.",
-        "fr": "Lisez le rapport ultérieur avant de vous engager sur une affirmation."
+        "en": "Take one observation with the stone turned and the bath left where it is.",
+        "fr": "Prenez une observation avec le bloc tourné et le bain laissé tel quel."
       }
     },
     {
@@ -681,6 +663,30 @@
       }
     },
     {
+      "id": "consult-repeat-reading",
+      "predicate": {
+        "kind": "missing-replication"
+      },
+      "layers": {
+        "observation": {
+          "en": "Every reading in the notebook stands alone.",
+          "fr": "Chaque relevé du carnet est isolé."
+        },
+        "plainLanguage": {
+          "en": "A number seen once could be the apparatus having a bad afternoon.",
+          "fr": "Un nombre vu une seule fois peut n’être qu’un mauvais après-midi de l’appareil."
+        },
+        "technicalDetail": {
+          "en": "Take the same reading twice at the steady window: what repeats is the measurement, and what does not was the warmth.",
+          "fr": "Reprenez deux fois le même relevé à la fenêtre stable : ce qui se répète est la mesure, ce qui ne se répète pas était la chaleur."
+        }
+      },
+      "nextStep": {
+        "en": "Bring the bath to its steady window and record the same arrangement a second time.",
+        "fr": "Amenez le bain à sa fenêtre stable et enregistrez une seconde fois le même montage."
+      }
+    },
+    {
       "id": "consult-no-limitation",
       "predicate": {
         "kind": "missing-limitation"
@@ -695,8 +701,8 @@
           "fr": "Un résultat sans limite énoncée se lit comme une affirmation plus large que ce que porte la preuve."
         },
         "technicalDetail": {
-          "en": "Name what this afternoon could not have detected, and the claim becomes defensible.",
-          "fr": "Nommez ce que cet après-midi n’aurait pas pu détecter, et l’affirmation devient défendable."
+          "en": "The 1907 report states its own bound rather than a zero: name what this afternoon could not have detected, and the claim becomes defensible.",
+          "fr": "Le rapport de 1907 énonce sa propre limite plutôt qu’un zéro : nommez ce que cet après-midi n’aurait pas pu détecter, et l’affirmation devient défendable."
         }
       },
       "nextStep": {
@@ -935,11 +941,25 @@
   },
   "ledger": {
     "signOff": {
-      "contentAuthor": { "state": "reviewed", "name": "Claude (Story 3.2 development)", "date": "2026-08-19" },
-      "scholarlyReviewer": { "state": "pending" },
-      "accessibilityReviewer": { "state": "de-scoped", "reference": "ADR-008" }
+      "contentAuthor": {
+        "state": "reviewed",
+        "name": "Claude (Story 3.2 development)",
+        "date": "2026-08-19"
+      },
+      "scholarlyReviewer": {
+        "state": "pending"
+      },
+      "accessibilityReviewer": {
+        "state": "de-scoped",
+        "reference": "ADR-008"
+      }
     },
-    "educatorContextSheet": { "state": "pending" },
-    "accessibleControlsReference": { "state": "de-scoped", "reference": "ADR-008" }
+    "educatorContextSheet": {
+      "state": "pending"
+    },
+    "accessibleControlsReference": {
+      "state": "de-scoped",
+      "reference": "ADR-008"
+    }
   }
 }

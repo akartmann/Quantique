@@ -40,6 +40,14 @@ export const en = {
     'lab.guide': 'Turn each instrument to set the bench up, then start the light to record what the screen shows.',
     'lab.source': 'source',
     'lab.screen': 'screen',
+    // The rotating interferometer's own part labels (Story 4.2, AC1 / AC7). `lab.source` and `lab.screen`
+    // above are **Young's tableau's** labels, and reusing them here by default is what Task 4 asks the
+    // implementer to decide against rather than fall into: this apparatus has no bare "source" — the lamp
+    // rides the stone — and its screen is read at a fixed position of the turn, which is what the longer
+    // name says. Each tableau writes its own, so neither case's labels can move the other's.
+    'lab.interferometer.bench': 'floating bench',
+    'lab.interferometer.bath': 'temperature bath',
+    'lab.interferometer.screen': 'observing screen',
     'lab.control.readout': '{label}: {value}',
     // The glyphs on the discrete step affordances, which every draggable instrument keeps (ADR-012).
     // They survive the retirement of the old text buttons because the affordance still carries them.
@@ -101,6 +109,16 @@ export const en = {
     'lab.wavelength.comparisonLocked': '{value} nm — locked',
     // The references kept to hand at the bench (Story 2.8). Re-reading one here records nothing and
     // changes no progression — the reading is recorded once, in the reading room.
+    // The apparatus notes (Story 4.2, AC2): the case's own `experiment.assumptions`,
+    // `experiment.confound.description` and `experiment.resetPath.description`, which were authored on both
+    // shipped cases and rendered nowhere. These are the *headings*; every word of the content is authored
+    // case prose, because what an apparatus assumes belongs to the case and not to the chrome.
+    'lab.notes.open': 'Apparatus notes',
+    'lab.notes.heading': 'Notes on this apparatus',
+    'lab.notes.assumptions': 'What this apparatus takes for granted',
+    'lab.notes.confound': 'What can imitate the effect you are looking for',
+    'lab.notes.resetPath': 'How to tell the two apart',
+    'lab.notes.close': 'Close the notes',
     'lab.reference.heading': 'References to hand',
 
     // --- The bench notebook (Story 2.10) ---------------------------------------------------------

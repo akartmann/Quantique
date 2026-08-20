@@ -5,6 +5,7 @@ import { selectLocale } from '../../../core/store/selectors';
 import { registerCanvasBoundsRefresh } from '../canvasBounds';
 import { createPhaserStoreAdapter } from '../PhaserStoreAdapter';
 import { preloadCaseAssets } from '../preloadCaseAssets';
+import { ApparatusNotesRenderer } from '../renderers/ApparatusNotesRenderer';
 import { ApparatusRenderer } from '../renderers/ApparatusRenderer';
 import { NotebookRenderer } from '../renderers/NotebookRenderer';
 import { ReferenceBookPresenter } from '../renderers/ReferenceBookPresenter';
@@ -33,6 +34,8 @@ export class LaboratoryScene extends Scene {
     private apparatusRenderer?: ApparatusRenderer;
     private referenceBook?: ReferenceBookPresenter;
     private notebook?: NotebookRenderer;
+    /** The case's own apparatus notes (Story 4.2, AC2) — a third scene-owned overlay on the same rule. */
+    private apparatusNotes?: ApparatusNotesRenderer;
 
     public constructor(private readonly store: AppStore) {
         super('Laboratory');
@@ -43,14 +46,19 @@ export class LaboratoryScene extends Scene {
     }
 
     /**
-     * The apparatus accepts input only while **neither** overlay is up.
+     * The apparatus accepts input only while **no** overlay is up.
      *
-     * Two independent `setInputEnabled(!visible)` calls would race: closing the book while the
-     * notebook is still open would hand input back to a bench nobody can see, and a click meant for a
-     * notebook row would fall through and move a slit. One rule, read from both presenters.
+     * Independent `setInputEnabled(!visible)` calls would race: closing the book while the notebook is
+     * still open would hand input back to a bench nobody can see, and a click meant for a notebook row
+     * would fall through and move a slit. One rule, read from every presenter — which is why adding the
+     * apparatus notes (Story 4.2) is one more clause here rather than a fourth call somewhere else. The
+     * rule was written for two overlays and states the property for any number: *no* overlay open.
      */
     private suppressApparatus(): void {
-        this.apparatusRenderer?.setInputEnabled(!(this.referenceBook?.isOpen ?? false) && !(this.notebook?.isOpen ?? false));
+        const overlayOpen = (this.referenceBook?.isOpen ?? false)
+            || (this.notebook?.isOpen ?? false)
+            || (this.apparatusNotes?.isOpen ?? false);
+        this.apparatusRenderer?.setInputEnabled(!overlayOpen);
     }
 
     public create(): void {
@@ -74,8 +82,9 @@ export class LaboratoryScene extends Scene {
         this.apparatusRenderer = new ApparatusRenderer(this, adapter, {
             openReference: (artifact) => presenter.open(artifact),
             // Resolved through the field rather than captured, because the notebook is constructed
-            // *after* this renderer — see below.
-            openNotebook: () => this.notebook?.open()
+            // *after* this renderer — see below. The apparatus notes are the same, for the same reason.
+            openNotebook: () => this.notebook?.open(),
+            openApparatusNotes: () => this.apparatusNotes?.openNotes()
         });
         this.apparatusRenderer.create();
 
@@ -88,6 +97,11 @@ export class LaboratoryScene extends Scene {
         });
         notebook.create();
         this.notebook = notebook;
+        // On its own depth above the bench, for the reason stated above the notebook: creation order is
+        // the depth mechanism here, and an overlay built before the bench is painted over by it.
+        const notes = new ApparatusNotesRenderer(this, adapter, { onVisibilityChange: () => this.suppressApparatus() });
+        notes.create();
+        this.apparatusNotes = notes;
         // Suppressed at creation as well as on every visibility change. Both scene-local overlays are
         // closed at `create()`, so this cannot currently be false — but it states the rule that
         // mattered when the book outlived the scene, and it costs one call.
@@ -105,6 +119,8 @@ export class LaboratoryScene extends Scene {
             // every dispatch rather than only on a locale change — a run recorded, a selection made or
             // a note saved all change what it shows. It is a no-op while closed.
             this.notebook?.render(state);
+            // A no-op while closed, and a locale change while open must reach every heading it draws.
+            this.apparatusNotes?.render(state);
         });
         this.apparatusRenderer.render(this.store.getState());
 
@@ -119,6 +135,8 @@ export class LaboratoryScene extends Scene {
         this.referenceBook = undefined;
         this.notebook?.destroy();
         this.notebook = undefined;
+        this.apparatusNotes?.destroy();
+        this.apparatusNotes = undefined;
         this.apparatusRenderer?.destroy();
         this.apparatusRenderer = undefined;
     }

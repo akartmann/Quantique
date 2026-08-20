@@ -37,10 +37,13 @@
  *  └──────────────────────────────────────────────────────────┘
  * ```
  *
- * The observation list is **paged** because nothing caps `runs`: `flow.maximumExperimentCycles` is
- * declared in the type, the schema and `case.json`, and no reducer reads it — `reduceExperimentRun`
- * applies no cap (recorded in `selectSignificantMeasureCount`'s docstring, review 2026-08-06). So the
- * list is unbounded and `NOTEBOOK_ROWS_PER_PAGE` is the pattern to follow rather than a count to trust.
+ * The observation list is **paged because nothing caps `runs`, and as of Story 4.2 that is a settled
+ * decision rather than an outstanding gap.** `flow.maximumExperimentCycles` is authored *session-shape*
+ * metadata: it is read at load, by a refinement that refuses a range FR25 forbids, and by nothing at
+ * runtime. Making it a real quota would strand a player who spent every cycle at one arrangement — see
+ * the field's own documentation in `CaseDefinitionSchema`'s `flow` shape for the whole trap. So the list
+ * is unbounded by design, and `NOTEBOOK_ROWS_PER_PAGE` is the pattern to follow rather than a count to
+ * trust.
  */
 
 /** A rectangle in design space, top-left anchored. */

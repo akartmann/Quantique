@@ -428,6 +428,12 @@ const ConsultationPredicateSchema = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('missing-run') }).strict(),
     z.object({ kind: z.literal('missing-source'), sourceId: stableId }).strict(),
     z.object({ kind: z.literal('alternative-test'), controlId: stableId }).strict(),
+    // `missing-replication` names no control: it asks whether *any* two observations share a configuration,
+    // which `significanceRule.criticalControlIds` already decides. Taking a control id here would be a
+    // second, narrower definition of "the same setup" beside the one the significance rule owns, and two
+    // answers to that question drift apart — the reason `conclusionReadiness` reuses `configurationKey`
+    // rather than re-deriving it (Story 3.2).
+    z.object({ kind: z.literal('missing-replication') }).strict(),
     z.object({ kind: z.literal('missing-limitation') }).strict()
 ]);
 
@@ -901,8 +907,37 @@ export const CaseDefinitionSchema = z.object({
         openingDispute: z.literal(true),
         curatedRecord: z.literal(true),
         labSetup: z.literal(true),
-        // Positive ints with `min <= max` checked in the refinement below. FR3's two-to-four range is
-        // Young's, and is pinned case-scoped rather than shape-wide.
+        /**
+         * The authored **session shape**, not a runtime quota (Story 4.2, AC6 — decision D1).
+         *
+         * **Nothing caps the player's runs, and nothing should.** These two describe the two-to-four
+         * cycles of work FR25 and NFR14 size a 20–45 minute case around; they are advisory *design*
+         * metadata that a load-time refinement enforces against the author, and no reducer reads them.
+         * `reduceExperimentRun` applies no cap, and `caseFileGeometry.ts` pages the observation list for
+         * exactly that reason.
+         *
+         * That was a decision, not an omission, and the alternative is a trap worth stating here so the
+         * next author does not re-litigate it. Making the cap real would refuse a run past
+         * `maximumExperimentCycles` — and a player who spends all four observations at one arrangement,
+         * which this project's own confound (`discoverableBy: 'replication'`) actively invites, would then
+         * hold **zero** distinct configurations against a `minimumSignificantRuns` of 2, with no way to
+         * record a third. Nothing clears `runs`: `reduceApparatusReset` resets the controls and the
+         * wavelength and deliberately touches nothing else, because Story 2.2's shipped acceptance
+         * criterion is *"reset is immediate and does not erase saved observations"*. That is a gate made
+         * unsatisfiable **by code**, which `project-context.md` names as its own rule, plus a collision
+         * with NFR8 (no hard fail) and FR23 (unlimited reset and comparison).
+         *
+         * So the fields are **read**, and by something that does real work: the refinements below refuse
+         * a range FR25 forbids, at load, with the offending path named. A field read by a load-time
+         * refinement that rejects invalid content is not the *"author a case field that nothing reads"*
+         * shape from the Don't-Miss table — a field read by nothing at all is. That distinction is stated
+         * out loud in `docs/content-authoring/README.md` and in
+         * `docs/case-reviews/morley-miller-case-review.md` §3 as well as here, because the deferred-work
+         * entry it closes was opened by a reader of that table.
+         *
+         * Positive ints, with `min <= max` checked in the refinement below. FR3's two-to-four range is
+         * Young's, and is pinned case-scoped rather than shape-wide.
+         */
         minimumExperimentCycles: z.number().int().positive(),
         maximumExperimentCycles: z.number().int().positive(),
         theoryBoardReview: z.literal(true),
@@ -982,6 +1017,9 @@ export const CaseDefinitionSchema = z.object({
         context.addIssue({ code: 'custom', message: 'The case title must not encode a scene, route, or phase path.', path: ['title'] });
     }
 
+    // One of the two reads that make these fields live rather than dead: an author cannot ship an
+    // inverted range. See the field's own documentation for why *this* is the whole of what reads them,
+    // deliberately (Story 4.2, D1).
     if (definition.flow.minimumExperimentCycles > definition.flow.maximumExperimentCycles) {
         context.addIssue({
             code: 'custom',
@@ -1039,6 +1077,9 @@ export const CaseDefinitionSchema = z.object({
             context.addIssue({ code: 'custom', message: 'The Young case requires exactly two runs, two sources, and two significant measurements.', path: ['requirements'] });
         }
 
+        // FR3's range for Young, enforced against the *author*. It caps no player: see the field's own
+        // documentation in the `flow` shape above for the decision and the strand-the-player trap that
+        // decided it (Story 4.2, D1).
         if (definition.flow.minimumExperimentCycles !== 2 || definition.flow.maximumExperimentCycles !== 4) {
             context.addIssue({ code: 'custom', message: 'The Young case runs two to four experiment cycles.', path: ['flow'] });
         }
@@ -1085,7 +1126,12 @@ export const CaseDefinitionSchema = z.object({
     // `caseFileGeometry.ts:40` and `selectors.ts:410` both say so in as many words, and the condition
     // applies to Young equally. So this corrects the authored value against FR25 and stops a future
     // author from re-authoring a range FR25 forbids, failing at load with the path named; it does not
-    // cap anything the player does. That gap is recorded in `deferred-work.md` with an owner.
+    // cap anything the player does.
+    //
+    // **Resolved by Story 4.2 (AC6, decision D1): advisory design metadata, and that is final rather
+    // than pending.** The deferred-work entry is struck. The fields stay read-by-refinement-only on
+    // purpose; the reasoning is at the `flow` shape above, and the sentence an author needs — *nothing
+    // caps the player's runs, and nothing should* — is in `docs/content-authoring/README.md`.
     //
     // Deliberately *not* applied to the `morley-drift-bench` fixture: `cloneSecondCase()` in
     // `CaseDefinition.test.ts` carries 2/6 to prove the shared shape is not Young's literal, its id is

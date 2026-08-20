@@ -224,6 +224,37 @@ schema now refuses a requirement larger than the configuration space, but it can
 route there is one your case actually teaches. If your `resetPath` tells the player to move a control,
 that control had better be one the rule counts.
 
+## The cycle range — `flow.minimumExperimentCycles` / `maximumExperimentCycles`
+
+```jsonc
+"flow": { "minimumExperimentCycles": 2, "maximumExperimentCycles": 4, /* … */ }
+```
+
+**Nothing caps the player's runs, and nothing should.** These two are *advisory design metadata*: they
+describe the session shape FR25 and NFR14 size a 20–45 minute case around — two to four cycles of work —
+and they are not a runtime quota. No reducer reads them, the observation list in the case file is paged
+because the run list is unbounded, and a player who wants a fifth observation gets one.
+
+They are still read, and by something that does real work: **a load-time refinement refuses a range FR25
+forbids**, with the offending path named, so you will hear about an inverted or out-of-range pair when
+your case is parsed rather than when a player reaches the bench.
+
+Do not ask for them to become a real cap. It was considered and it is a trap:
+
+- A significant measure is a *distinct configuration* over `significanceRule.criticalControlIds`, and
+  `requirements.minimumSignificantRuns` is typically 2.
+- A player may spend every cycle at **one** arrangement — and if your case's confound is
+  `discoverableBy: "replication"`, your own content invites exactly that.
+- Nothing clears `runs`. Reset returns the controls to their defaults and deliberately touches nothing
+  else, because *"reset is immediate and does not erase saved observations"* is a shipped guarantee.
+
+So a hard cap at four would leave that player holding zero distinct configurations, needing a third, and
+unable to record one: a gate made unsatisfiable **by code**, colliding with NFR8's no-hard-fail rule and
+FR23's unlimited reset and comparison.
+
+Write the range to describe your case honestly. It documents your intent to the next author and it fails
+loudly if you contradict FR25. It does not, and will not, stop anybody measuring.
+
 ## Colleague hints and reading-gate lines
 
 A refused action always says why, and where the player can act on it the answer comes from a colleague

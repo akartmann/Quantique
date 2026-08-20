@@ -1,5 +1,3 @@
-import { readFile } from 'node:fs/promises';
-
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CaseFilePresenter } from '../../src/adapters/phaser/renderers/CaseFilePresenter';
@@ -12,7 +10,7 @@ import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore, type AppStore } from '../../src/core/store/createStore';
 import { selectConclusionReadiness } from '../../src/core/store/selectors';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
-import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
+import { loadMorleyMillerCase, loadYoungCase } from './shippedCases';
 import { makeSceneSlice, makeWindowStub, type SceneSlice } from './sceneSlice';
 
 /**
@@ -30,11 +28,12 @@ import { makeSceneSlice, makeWindowStub, type SceneSlice } from './sceneSlice';
 
 let definition: CaseDefinition;
 
+/** The second shipped case, whose result unit is spelled-out prose rather than an SI symbol. */
+let prototype: CaseDefinition;
+
 beforeAll(async () => {
-    const content: unknown = JSON.parse(await readFile('public/cases/young-interference/case.json', 'utf8'));
-    const parsed = CaseDefinitionSchema.safeParse(content);
-    if (!parsed.success) throw new Error('The authored Young case must parse.');
-    definition = parsed.data as CaseDefinition;
+    definition = await loadYoungCase();
+    prototype = await loadMorleyMillerCase();
 });
 
 /** A store at the theory board with `count` observations recorded at genuinely different throws. */
@@ -597,5 +596,72 @@ describe('the case file record actions', () => {
         expect(harness.slice.pressable()[FIRST_RECORD_ACTION]).toBeUndefined();
         [en['caseFile.record.export'], en['caseFile.record.import'], en['caseFile.record.print']]
             .forEach((label) => expect(harness.slice.texts()).not.toContain(label));
+    });
+});
+
+/**
+ * The case file's observation row for the **prototype**, which is the fourth of the four surfaces that
+ * render a run's apparatus settings and its result (Story 4.2, AC5 / AC7 / §SS9).
+ *
+ * This file drove the shipped **Young** case only, and every assertion in it is about Young. That is the
+ * shape of §SS9's worked example: Story 3.2 localized the bench, the notebook and the printable record
+ * and missed `CaseFilePresenter` *for the single reason that it was the only one of the four absent from
+ * that story's file list* — and the case file then showed no settings at all for the prototype. The fix
+ * was made; nothing asserted it here, so the row that fix produced was covered by no unit test and its
+ * French form was where `deferred-work.md:277` was actually seen (`0,11largeurs de frange`).
+ *
+ * So this drives the prototype through the same presenter, in both locales, and asserts the composed row
+ * whole. Both AC5 classes are on it at once: the arc degree with **no** separator, and the spelled-out
+ * unit with a full no-break space.
+ */
+describe('the case file states the prototype\'s own apparatus and result', () => {
+    beforeEach(() => { vi.stubGlobal('window', stub.window); });
+    afterEach(() => { vi.unstubAllGlobals(); });
+
+    /**
+     * A prototype store at the theory board with two observations at genuinely distinguishing settings.
+     *
+     * 0°/90° rather than the travel ends: `rotationDeg` spans 0–180 against `cos(2θ)`, so 0° and 180° are
+     * **one** reading and a pair taken from the authored range's ends would not distinguish anything.
+     * That correction is recorded against the e2e walk and it applies just as much to a unit fixture.
+     */
+    const prototypeAtTheBoard = (locale: 'en' | 'fr'): AppStore => {
+        const store = createStore(createInitialAppState(prototype, locale));
+        prototype.contextualArtifacts.forEach(({ id }) => store.dispatch({ type: 'source.inspected', sourceId: id }));
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
+        store.dispatch({ type: 'prediction.proposalChosen', proposalId: prototype.predictionProposals[0].id });
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
+        store.dispatch({ type: 'experiment.run', id: 'run-1', timestamp: '2026-08-20T10:00:00.000Z' });
+        store.dispatch({ type: 'apparatus.controlSet', controlId: 'rotationDeg', value: 90, origin: 'phaser' });
+        store.dispatch({ type: 'experiment.run', id: 'run-2', timestamp: '2026-08-20T10:01:00.000Z' });
+        store.dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' });
+        return store;
+    };
+
+    it('writes no separator before the arc degree and a readable one before the spelled-out unit', () => {
+        const texts = mount(prototypeAtTheBoard('en')).slice.texts();
+        const row = texts.find((text) => text.includes('Bench rotation'));
+
+        // Mutation: give `'degree'` a separator, or take the space off `'prose'`, and this row fails.
+        expect(row).toContain('Bench rotation: 0°');
+        // Scoped to the rotation readout, not to the whole row: `22.0 °C` contains `0 °` as a
+        // substring, so a bare `not.toContain('0 °')` fails against a perfectly correct row — and the
+        // temperature keeping its separator is the near-miss this rule has to survive, asserted below.
+        expect(row).not.toContain('Bench rotation: 0 °');
+        expect(row).toContain('Bath temperature: 22.0 °C');
+        expect(texts.some((text) => text.includes('0.11 fringe widths'))).toBe(true);
+    });
+
+    it('renders the same row in French with the units French typography actually wants', () => {
+        const texts = mount(prototypeAtTheBoard('fr')).slice.texts();
+        const row = texts.find((text) => text.includes('Rotation du banc'));
+
+        // `deferred-work.md:224` was `0\u202f°` here; `:277` was `0,11largeurs de frange`. Both on one row.
+        expect(row).toContain('Rotation du banc : 0°');
+        expect(row).toContain(`Température du bain : 22,0\u202f°C`);
+        expect(texts.some((text) => text.includes('0,11\u00a0largeurs de frange'))).toBe(true);
+        // The defect itself, named so a regression is unmistakable rather than a diff of two spaces.
+        expect(texts.some((text) => text.includes('0,11largeurs de frange'))).toBe(false);
+        expect(row).not.toContain('Rotation du banc : 0\u202f°');
     });
 });

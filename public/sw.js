@@ -69,7 +69,26 @@
 // A dead end reachable by ordinary play rather than by a mid-deploy race. The fix is the precache
 // below, and a new name is what stops a v12 cache — populated under the old fetch-through-only rule
 // and therefore holding at most one case — from being treated as complete.
-const CACHE_NAME = 'quantique-bootstrap-v13';
+// v14 — Story 4.2. A content change on the Morley–Miller case (1.4.0 → 1.5.0), bumped **whether or not**
+// a field became required, which is what AC10 asks and what the last three stories each did late.
+//
+// No field became required and no id a record holds has moved, so this is neither v9's class nor v12's.
+// What makes it a bump is the *old file, new bundle* direction, and it is the same shape v11 stated: the
+// worker serves `case.json` from cache while the hashed bundle comes from the network, so a returning
+// player can run this build's `CaseDefinitionSchema` over a cached **1.4.0** file. That file's
+// `consultationRules` carry `consult-no-runs` and `consult-unread-report`, whose predicates are
+// `missing-run` and `missing-source` — both still valid members of the union, so it parses. It would not
+// *refuse*; it would quietly hand the player back the two dead branches this story replaced, and lose the
+// replication guidance the case's own `resetPath` teaches. A silently older case rather than a broken one,
+// which is exactly the outcome a `CACHE_NAME` is for.
+//
+// The *new file, old bundle* direction refuses outright and is the stronger half: 1.5.0 authors
+// `predicate: { kind: 'missing-replication' }`, and `ConsultationPredicateSchema` is a
+// `discriminatedUnion` of `.strict()` objects, so a bundle without that member fails the parse into
+// `invalid-case-definition` — "content unavailable", with no recovery offline. **An additive union member
+// is still a bump, for the reason v11 gives about an additive optional field: `.strict()` makes every
+// schema change breaking in the old-bundle direction.**
+const CACHE_NAME = 'quantique-bootstrap-v14';
 
 /**
  * The case directories to precache at install, so the boot target can advance offline.

@@ -1,5 +1,3 @@
-import { readFile } from 'node:fs/promises';
-
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { CONTROL_AFFORDANCES, controlAffordance, type CaseDefinition, type ControlAffordance, type PrimaryControl } from '../../src/domain/cases/CaseDefinition';
@@ -70,8 +68,11 @@ import {
     stepAffordanceCentre,
     wavelengthChoiceCentre
 } from '../../src/adapters/phaser/renderers/apparatusGeometry';
+import { YOUNG_TABLEAU_FLOOR_Y } from '../../src/adapters/phaser/renderers/YoungOpticalTableau';
+import { BATH_OUTER_RADIUS, STONE_CENTRE_Y, TABLEAU_FLOOR_Y as INTERFEROMETER_TABLEAU_FLOOR_Y } from '../../src/adapters/phaser/renderers/interferometerGeometry';
+import { loadMorleyMillerCase, loadYoungCase } from './shippedCases';
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../../src/adapters/phaser/designSurface';
-import { CaseDefinitionSchema, MAX_PRIMARY_CONTROLS } from '../../src/schemas/CaseDefinitionSchema';
+import { MAX_PRIMARY_CONTROLS } from '../../src/schemas/CaseDefinitionSchema';
 
 /**
  * The laboratory side column must not sit on top of the apparatus it stands beside.
@@ -96,16 +97,30 @@ import { CaseDefinitionSchema, MAX_PRIMARY_CONTROLS } from '../../src/schemas/Ca
 let definition: CaseDefinition;
 
 beforeAll(async () => {
-    const content: unknown = JSON.parse(await readFile('public/cases/young-interference/case.json', 'utf8'));
-    const parsed = CaseDefinitionSchema.safeParse(content);
-    if (!parsed.success) throw new Error('The authored Young case must parse.');
-    definition = parsed.data as CaseDefinition;
+    definition = await loadYoungCase();
 
-    const prototype: unknown = JSON.parse(await readFile('public/cases/morley-miller/case.json', 'utf8'));
-    const parsedPrototype = CaseDefinitionSchema.safeParse(prototype);
-    if (!parsedPrototype.success) throw new Error('The authored Morley–Miller case must parse.');
-    prototypeControls = (parsedPrototype.data as CaseDefinition).apparatus.primaryControls;
+    prototypeDefinition = await loadMorleyMillerCase();
+    prototypeControls = prototypeDefinition.apparatus.primaryControls;
 });
+
+/**
+ * Each shipped case with the floor of the apparatus **it actually draws** (Story 4.2, AC9).
+ *
+ * The sweep below used to derive one `apparatusFloor` from `CENTRE_Y + SCREEN_HALF_HEIGHT` and
+ * `SCREEN_LABEL_Y + SCREEN_LABEL_HEIGHT` — Young's screen bar and Young's screen label — and then measure
+ * **both** shipped control sets against it. So the prototype's dial and slider were asserted to clear an
+ * apparatus the prototype does not draw. The assertion was green and its subject was not on screen: the
+ * 2.9 fabricated-band defect, inside the sweep written to prevent it, and it is why `instrumentBand`
+ * carries that lesson in its own docstring one layer down.
+ *
+ * Each tableau now exports its own floor and this asks each case for its own. `TABLEAU_FLOOR_Y` and
+ * `YOUNG_TABLEAU_FLOOR_Y` are read, never restated, so a tableau that grows downward moves the bound
+ * that protects the bench from it.
+ */
+const shippedBenches = (): readonly Readonly<{ caseId: string; controls: readonly PrimaryControl[]; apparatusFloor: number }>[] => [
+    { caseId: definition.id, controls: authoredControls(), apparatusFloor: YOUNG_TABLEAU_FLOOR_Y },
+    { caseId: prototypeDefinition.id, controls: prototypeControls, apparatusFloor: INTERFEROMETER_TABLEAU_FLOOR_Y }
+];
 
 /** Every screen distance the player can actually select, from the authored bounds. */
 const authoredScreenDistances = (): number[] => {
@@ -195,23 +210,54 @@ const authoredControls = (): readonly PrimaryControl[] => definition.apparatus.p
  * synthetic pair would prove the geometry agrees with itself.
  */
 let prototypeControls: readonly PrimaryControl[];
+let prototypeDefinition: CaseDefinition;
+
+/** The two cases `public/cases/` ships, so a sweep that silently loses one fails rather than narrows. */
+const SHIPPED_CASE_COUNT = 2;
 
 describe('the bench', () => {
-    it('places every object clear of the interference screen at every authored throw', () => {
-        // The bar spans `CENTRE_Y ± SCREEN_HALF_HEIGHT` and its label runs to `SCREEN_LABEL_Y +
-        // SCREEN_LABEL_HEIGHT`; the bench must start below both, at every distance the screen can
-        // reach. A bench band drawn over the pattern is the defect `ADVANCE_CONTROL_Y = 130` was.
-        const apparatusFloor = Math.max(CENTRE_Y + SCREEN_HALF_HEIGHT, SCREEN_LABEL_Y + SCREEN_LABEL_HEIGHT);
-        // Both shipped control sets, because the prototype's are drawn as a dial and a slider and an
-        // affordance that reached above the apparatus floor would be invisible to a Young-only sweep.
-        const reaching = [...benchObjectBands(authoredControls()), ...benchObjectBands(prototypeControls)]
-            .filter(({ top }) => top <= apparatusFloor)
-            .map(({ name, top }) => `${name} starts at y=${top}, at or above the apparatus floor y=${apparatusFloor}`);
+    it('places every object clear of the apparatus each case actually draws', () => {
+        // The bench must start below the apparatus above it — a bench band drawn over the pattern is the
+        // defect `ADVANCE_CONTROL_Y = 130` was. **Each case against its own apparatus** (Story 4.2, AC9):
+        // see {@link shippedBenches} for the Young-for-both floor this replaces, and the row below for
+        // why the fix is about the sweep's subject rather than about its arithmetic.
+        const reaching = shippedBenches().flatMap(({ caseId, controls, apparatusFloor }) =>
+            benchObjectBands(controls)
+                .filter(({ top }) => top <= apparatusFloor)
+                .map(({ name, top }) => `${caseId}: ${name} starts at y=${top}, at or above its apparatus floor y=${apparatusFloor}`));
 
         expect(reaching).toEqual([]);
-        // A guard on the sweep: an empty band list would make the assertion vacuous, which is how a
-        // geometry test starts passing because the thing it protects moved out of it.
+        // A guard on the sweep: an empty band list, or a case list that quietly lost a case, would make
+        // the assertion vacuous — which is how a geometry test starts passing because the thing it
+        // protects moved out of it.
         expect(benchObjectBands(authoredControls()).length).toBeGreaterThan(4);
+        expect(shippedBenches()).toHaveLength(SHIPPED_CASE_COUNT);
+        expect(new Set(shippedBenches().map(({ caseId }) => caseId)).size).toBe(SHIPPED_CASE_COUNT);
+    });
+
+    /**
+     * **The two floors agree today, and that is worth pinning rather than glossing.**
+     *
+     * The first draft of this row asserted they *differ*, on the assumption that the old Young-for-both
+     * sweep must have been measuring a wrong number. It was not: both tableaux put their part labels on
+     * the shared row at `SCREEN_LABEL_Y`, and that row is the deepest thing in both, so Young's floor and
+     * the interferometer's are both 342. What was wrong with the old sweep was not its arithmetic but its
+     * *subject* — it asserted the prototype's bench cleared an apparatus the prototype does not draw, and
+     * would have gone on passing however deep the interferometer actually reached.
+     *
+     * So the value of the AC9 fix is that the derivation is per case, not that the numbers differ. This
+     * row states the coincidence explicitly so a future change that separates them is a visible decision
+     * rather than a silent one, and asserts the part that is genuinely load-bearing: each floor really is
+     * derived from its own tableau's deepest object, including the bath Young has nothing like.
+     */
+    it('derives each apparatus floor from that case\'s own deepest object, and records that the two agree', () => {
+        expect(YOUNG_TABLEAU_FLOOR_Y).toBe(SCREEN_LABEL_Y + SCREEN_LABEL_HEIGHT);
+        expect(INTERFEROMETER_TABLEAU_FLOOR_Y).toBe(SCREEN_LABEL_Y + SCREEN_LABEL_HEIGHT);
+        // The interferometer's bath is the object Young has no counterpart for, and it is inside the
+        // floor — so the floor covers it rather than the label row covering for it by accident.
+        expect(STONE_CENTRE_Y + BATH_OUTER_RADIUS).toBeLessThanOrEqual(INTERFEROMETER_TABLEAU_FLOOR_Y);
+        // Both above the bench, which is the property that has to hold whichever is deeper.
+        expect(BENCH_TOP).toBeGreaterThan(Math.max(YOUNG_TABLEAU_FLOOR_Y, INTERFEROMETER_TABLEAU_FLOOR_Y));
     });
 
     it('actually stands under the screen at the shortest throw, so the check above has a subject', () => {

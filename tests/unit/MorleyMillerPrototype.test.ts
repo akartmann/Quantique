@@ -370,7 +370,11 @@ describe('the prototype played through the shared framework', () => {
      */
     it('restores a context-phase record saved before the artifact was re-anchored, which names no retired content', async () => {
         const definition = await loadPrototype();
-        expect(definition.version).toBe('1.4.0');
+        // The shipped version, pinned so a bump cannot land without a reader of this file meeting the
+        // allowlist clause it needs. That is the whole reason the literal is here rather than read from the
+        // definition — Story 3.4's severest finding was a bump shipped without its clause, and this row is
+        // what makes the two one action. 1.5.0 is Story 4.2's.
+        expect(definition.version).toBe('1.5.0');
         const store = createStore(createInitialAppState(definition, 'en'));
         store.dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
         const projected = createCaseRecordProjection(store.getState());
@@ -381,7 +385,10 @@ describe('the prototype played through the shared framework', () => {
         expect(projected.value.phase).toBe('context');
         expect(projected.value.inspectedSourceIds).toEqual(['michelson-morley-1887']);
 
-        (['1.0.0', '1.1.0', '1.2.0', '1.3.0'] as const).forEach((caseDefinitionVersion) => {
+        // Every prior version this case has shipped, including 1.4.0 — which the 1.5.0 clause accepts for
+        // the same reason 1.4.0 accepted its own predecessors, and which would be the version a returning
+        // player's autosave actually holds.
+        (['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0'] as const).forEach((caseDefinitionVersion) => {
             const stale = { ...projected.value, caseDefinitionVersion };
             expect(validateCaseRecordForDefinition(stale, definition)).toMatchObject({ ok: true });
         });

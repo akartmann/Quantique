@@ -10,6 +10,7 @@ import { createStore, type AppStore } from '../../src/core/store/createStore';
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 import type { Locale } from '../../src/core/i18n/Locale';
 import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
+import { FRINGE_LAYER_NAME } from '../../src/adapters/phaser/renderers/benchTableau';
 import { makeSceneSlice, makeWindowStub } from './sceneSlice';
 
 /**
@@ -71,18 +72,18 @@ describe('the bench states the case\'s own apparatus', () => {
         const ui = mount(storeAtTheBench(prototype));
         const idle = ui.texts().find((text) => text.includes('The bench is dark'));
 
-        // `formatMeasurement` puts its locale separator before every unit, which is right for `°C` and
-        // wrong for an arc degree. Shared with Young's rendering, so it is asserted as it is and
-        // recorded as a typography gap for the bench work of Story 4.2 rather than changed here.
         // The **inline** forms — lowercase, and in French carrying their own preposition and elision.
         // This asserted the capitalised *display* labels spliced mid-sentence until the review of 3.2,
         // which is what the sentence actually rendered and what made the French ungrammatical; the row
         // pinned the defect rather than the intent (review 2026-08-19).
         //
-        // `formatMeasurement` puts its locale separator before every unit, which is right for `°C` and
-        // wrong for an arc degree. Shared with Young's rendering, so it is asserted as it is and
-        // recorded as a typography gap for the bench work of Story 4.2 rather than changed here.
-        expect(idle).toBe('The bench is dark at 0 ° bench rotation, 22.0 °C bath temperature. Start the light to record an observation.');
+        // **`0°`, not `0 °` (Story 4.2, AC5).** The two paragraphs that stood here said `formatMeasurement`
+        // writes its separator before every unit, that this is wrong for an arc degree, and that the row
+        // therefore pinned the defect and left it to this story — twice, verbatim, in the same test. The
+        // separator is now a function of `(locale, unit)`, so the row states the intent instead of the
+        // defect. `°C` keeps its separator, which is the near-miss the classifier has to survive and
+        // which this same line asserts.
+        expect(idle).toBe('The bench is dark at 0° bench rotation, 22.0 °C bath temperature. Start the light to record an observation.');
         expect(idle).not.toContain('slit spacing');
         expect(idle).not.toContain('screen distance');
         // No capital reaches the middle of the sentence.
@@ -106,9 +107,11 @@ describe('the bench states the case\'s own apparatus', () => {
         // The whole composed sentence, in French, asserted exactly — not two `toContain`s that a
         // capital and a missing elision both slipped through. "de Écartement des fentes" was the shipped
         // output for Young; correct French needs the preposition authored with the label.
-        // `\u202f` is the narrow no-break space `formatMeasurement` puts before a unit in French. Written
-        // as an escape so the expectation cannot be silently "fixed" by pasting an ordinary space.
-        expect(idle).toBe('La paillasse est éteinte : 0\u202f° de rotation du banc, 22,0\u202f°C de température du bain. Allumez la source pour enregistrer une observation.');
+        // `\u202f` is the narrow no-break space `formatMeasurement` puts before a **symbol** unit in
+        // French. Written as an escape so the expectation cannot be silently "fixed" by pasting an
+        // ordinary space. The arc degree now takes **no** separator in French either (Story 4.2, AC5):
+        // `0°`, not `0\u202f°`. Both rules are on this one line, which is why it is asserted whole.
+        expect(idle).toBe('La paillasse est éteinte : 0° de rotation du banc, 22,0\u202f°C de température du bain. Allumez la source pour enregistrer une observation.');
         expect(idle).not.toContain('de Rotation');
         expect(idle).not.toContain('de Température');
     });
@@ -144,7 +147,7 @@ describe('the bench reports a run it has no Young model inputs for', () => {
      */
     it('paints the prototype\'s screen after a run, not just its readout', () => {
         const ui = mount(recordOneRun(prototype));
-        const fringes = ui.ofKind('graphics')[0]!;
+        const fringes = ui.named(FRINGE_LAYER_NAME)!;
 
         expect(fringes.state.commands).toBeGreaterThan(0);
         expect(fringes.state.visible).toBe(true);
@@ -152,16 +155,42 @@ describe('the bench reports a run it has no Young model inputs for', () => {
 
     it('leaves the prototype\'s screen blank until a run is recorded', () => {
         const ui = mount(storeAtTheBench(prototype));
-        const fringes = ui.ofKind('graphics')[0]!;
+        const fringes = ui.named(FRINGE_LAYER_NAME)!;
 
         expect(fringes.state.commands).toBe(0);
     });
 
     it('still paints Young\'s screen from its own recorded spacing', () => {
         const ui = mount(recordOneRun(young));
-        const fringes = ui.ofKind('graphics')[0]!;
+        const fringes = ui.named(FRINGE_LAYER_NAME)!;
 
         expect(fringes.state.commands).toBeGreaterThan(0);
+    });
+
+    /**
+     * The guard on the three rows above, and the reason they name the layer instead of indexing it.
+     *
+     * They read `ofKind('graphics')[0]` and called it the fringe graphics. That was true while the
+     * laboratory drew one apparatus; Story 4.2 gave the prototype its own tableau, whose temperature bath
+     * is created first — and the bath is painted whether or not a run exists, so *"the screen is blank
+     * until a run is recorded"* began measuring an object that is never blank. It failed, which is the
+     * only reason this was caught rather than shipped as coverage of nothing.
+     *
+     * So this asserts that the named layer really is a distinct object from the first graphics on the
+     * prototype's bench. Without it, `named()` could quietly start returning the same thing an index
+     * would and the lesson would be lost.
+     */
+    it('finds the fringe layer at a different index on each case, which is why it is named', () => {
+        const forPrototype = mount(recordOneRun(prototype));
+        const forYoung = mount(recordOneRun(young));
+
+        // Young's fringe field is still the first graphics its tableau creates; the prototype's is not,
+        // because its temperature bath is created before it. **One written-down index cannot be right for
+        // both**, which is the whole finding — and the bath is painted with or without a run, so the index
+        // that stayed put silently pointed the "blank until recorded" assertion at a never-blank object.
+        expect(forYoung.named(FRINGE_LAYER_NAME)).toBe(forYoung.ofKind('graphics')[0]);
+        expect(forPrototype.named(FRINGE_LAYER_NAME)).toBeDefined();
+        expect(forPrototype.named(FRINGE_LAYER_NAME)).not.toBe(forPrototype.ofKind('graphics')[0]);
     });
 
     /**
@@ -240,7 +269,10 @@ describe('the notebook row states the case\'s own apparatus', () => {
         const texts = mountNotebook(prototype, 'en').texts();
         const settings = texts.find((text) => text.includes('Bench rotation'));
 
-        expect(settings).toBe('Bench rotation: 0 ° · Bath temperature: 22.0 °C');
+        // `0°`, not `0 °` — the same AC5 rule, on the second of the four surfaces that render a run's
+        // apparatus settings. All four are asserted, because Story 3.2 localized three of them and
+        // missed the fourth for the single reason that it was absent from that story's file list.
+        expect(settings).toBe('Bench rotation: 0° · Bath temperature: 22.0 °C');
         expect(texts.some((text) => text.includes('slitSpacingMm'))).toBe(false);
         expect(texts.some((text) => text.includes('screenDistanceM'))).toBe(false);
         expect(texts.some((text) => text.includes('—'))).toBe(false);

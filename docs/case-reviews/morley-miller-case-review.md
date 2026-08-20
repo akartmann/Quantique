@@ -135,10 +135,33 @@ justified a cost with the cap. So this is a **content-and-contract correction** 
 value in line with FR25 and makes a load-time refinement enforce it for the next author; it does not cap
 anything a player does.
 
-That is the *"author a case field that nothing reads"* shape from the Don't-Miss table. It **predates
-this story**, applies to Young equally, and is recorded in `deferred-work.md` with **Story 4.2** as
-candidate owner. Adding the refinement is still worth doing: it stops a future author shipping a range
-FR25 forbids, and it fails at load with the path named.
+That was the *"author a case field that nothing reads"* shape from the Don't-Miss table. It **predates
+this story** and applies to Young equally, and it was recorded in `deferred-work.md` with **Story 4.2** as
+candidate owner.
+
+### Resolved by Story 4.2 (2026-08-20): advisory design metadata
+
+**Nothing caps the player's runs, and nothing should.** Both fields are now documented as the authored
+*session shape* FR25 and NFR14 size a 20–45 minute case around — two to four cycles of work — and not as a
+runtime quota. The load-time refinement stays and is what makes them read fields rather than dead ones: it
+refuses a range FR25 forbids, with the offending path named. A field read by a refinement that rejects
+invalid content is read; a field read by nothing at all is not, and that distinction is stated at each of
+the four sites so this entry can be struck honestly rather than re-opened by the next reader of the table.
+
+The alternative was considered and it is a trap. A hard cap at `maximumExperimentCycles` would strand a
+player who spends every cycle at **one** arrangement — which this case's own confound, `discoverableBy:
+'replication'`, actively invites. `requirements.minimumSignificantRuns` is 2 and a significant measure is a
+*distinct configuration*, so that player needs a third observation and cannot take one: nothing clears
+`runs`, because `reduceApparatusReset` resets the controls and the wavelength and deliberately touches
+nothing else — Story 2.2's shipped criterion is *"reset is immediate and does not erase saved
+observations."* That is a gate made unsatisfiable **by code**, which `project-context.md` names as its own
+rule with this exact case as the worked example, plus a collision with NFR8 (no hard fail) and FR23
+(unlimited reset and comparison). Branch B is also reversible in a way Branch A is not.
+
+Reconciled so that no comment contradicts the decision: the `flow` shape's own documentation in
+`CaseDefinitionSchema.ts` (which carries the full reasoning), both case-id refinements,
+`caseFileGeometry.ts`'s paging rationale, `selectors.ts`'s significant-measure-count docstring, and
+`docs/content-authoring/README.md`, where an author actually meets it.
 
 Deliberately **not** applied to the `morley-drift-bench` fixture, which carries `2/6` to prove the
 shared shape is not Young's literal. Both directions are under test: the branch fires on this id
@@ -257,12 +280,14 @@ window is inside this epic, and the case is ledger-BLOCKED so it cannot reach a 
 
 | Gap | Owner |
 |---|---|
-| The bench artwork is Young's — light source, slits, barrier | **Story 4.2** |
-| The model constants (`A = 0.01`, `k = 0.05/°C`, `T₀ = 20.0 °C`) are invented and say so; not calibrated against the 1907 numbers | **Story 4.2** |
-| `formatMeasurement` writes a separator before every unit — `0 °`, and on this case `0,11largeurs de frange`, where U+202F is too tight before a spelled-out unit | **Story 4.2** |
-| `flow.minimumExperimentCycles` / `maximumExperimentCycles` are read by nothing (§3) | **Story 4.2** (candidate) |
+| ~~The bench artwork is Young's — light source, slits, barrier~~ **CLOSED by Story 4.2** — `InterferometerTableau` draws a stone floating in a temperature bath, carrying a splitter, two perpendicular arms with end mirrors and the recombined path to the observing screen. Rotation bound to `rotationDeg`, bath colour to `bathTempC`, `Graphics` fills only, no asset and no ledger row. The `hasOpticalGeometry` duck-type guard is deleted; artwork is now keyed on `experiment.modelId` through an exhaustive record | — |
+| ~~The model constants are invented and say so; not calibrated against the 1907 numbers~~ **ADDRESSED by Story 4.2, and the values did not move.** The two published figures are named constants (1.53 wave-lengths; one eightieth), and `ORIENTATION_AMPLITUDE` is now asserted to lie *inside* the published residual bound — the historical-honesty property, executable. Deriving it exactly would change every recorded value, which needs an `experiment.modelVersion` bump, and a bump refuses every saved record outright (see the new deferred item) | — |
+| ~~`formatMeasurement` writes a separator before every unit~~ **CLOSED by Story 4.2** — the separator is a function of `(locale, unit)`: none before an arc degree, U+202F before a symbol, U+00A0 before a spelled-out unit. Young's four units are byte-identical | — |
+| ~~`flow.minimumExperimentCycles` / `maximumExperimentCycles` are read by nothing (§3)~~ **CLOSED by Story 4.2** — advisory design metadata, decided and documented at four sites. See §3 | — |
+| ~~The thermal-drift teaching loop, stable-window replication, feedback directing to replication~~ **CLOSED by Story 4.2** — separability asserted on recorded results rather than on the formula; the stable window named in the authored `resetPath` prose in both locales *and* rung on the bath in-fiction; a new `missing-replication` consultation predicate closes the gap where the case taught a recovery route it never mentioned | — |
+| **Two of the four shipped `consultationRules` could never fire** — found by Story 4.2 and repurposed rather than deleted. `consult-no-runs` asked `runs.length < 2` where the case file is only reachable past a gate requiring two significant measures; `consult-unread-report` asked for an unread source where `minimumSources` equals the authored artifact count. Every branch is now reachable and proven so against the real store | — |
+| **FR18's three fields reached no player surface** — `experiment.assumptions`, `confound.description` and `resetPath.description` were authored on both cases, schema-validated, and rendered by nothing, while §1 of this document listed all three as satisfied. Closed by Story 4.2's apparatus-notes surface; §1's table is true about the player now, not only about the authoring | — |
 | The bounded conclusion, the overclaim refusal, the debrief's revision feedback | **Story 4.3** |
-| The thermal-drift teaching loop, stable-window replication, feedback directing to replication | **Story 4.2** |
 | `citation.reuseStatement` is authored in both locales for every artifact and rendered nowhere — and §2.1 below offers it as the record of the 1887 verification, so that record reaches no surface | **Story 4.3** |
 | `debrief.sourceRefs` is validated only as non-empty strings and read by nothing; its `provenance.reference` vocabulary now collides with the 1907 artifact's own id, so an author confusing the two vocabularies gets silence from both | **Epic 5's first story** |
 | No shipped case exercises the `reconstruction` rendition kind any more | **Epic 5's first story** |

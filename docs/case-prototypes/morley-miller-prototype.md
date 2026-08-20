@@ -285,30 +285,55 @@ been part of.
 
 Every one of these is mirrored into `deferred-work.md` with a named owner.
 
-1. **The bench artwork is Young's** — light source, slits, barrier, the run animation. **The screen is
-   not part of this gap any more:** the code review of 2026-08-19 (decision D1) found that the prototype
-   ignited for the full 2.4 s and resolved onto a screen nothing had painted — `renderApparatusGeometry`
-   returned at its Young-geometry guard before reaching its own `paintFringes()` call — and delivered
-   `paintDisplacedFringes`, a fringe field shifted by the recorded drift. The shift is deliberately not
-   exaggerated: a reading at the stable window is a fraction of a fringe width, and the readout carries
-   the precision. What remains for 4.2 is the apparatus around the screen.
-   A reviewer opening the prototype sees an optical bench with rotation and temperature knobs on it.
-   That is honest for a framework prototype and would be dishonest for a case review; re-skinning it is
-   **Story 4.2** (D8). Young's `recordedResultValue → bandSpacingPx` mapping (`× 4.6`, clamped 8–31 px)
-   is its millimetres and is no longer applied to the prototype, which paints on its own path.
+1. ~~**The bench artwork is Young's** — light source, slits, barrier, the run animation.~~ **CLOSED by
+   Story 4.2** (2026-08-20). A reviewer opening this case now sees a rotating interferometer: a stone
+   floating in a temperature bath, carrying a beam splitter, two perpendicular arms with their end
+   mirrors, and the recombined path out to the observing screen. The rotation is bound to
+   `activeControlValues.rotationDeg` and the bath's colour to `bathTempC`; both come from the store and
+   neither is inferred. `Graphics` fill commands only, generated in the create pass — no texture, no
+   `assets.entries` row, no ledger row, which this case being ledger-**BLOCKED** made a requirement
+   rather than a preference.
+
+   The load-bearing part is *how* the artwork is chosen. `renderApparatusGeometry` used to decide which
+   case it was drawing from `Number.isFinite(slitSpacingMm) && Number.isFinite(screenDistanceM)` — two of
+   Young's control ids read off a case that does not author them. That guard is **deleted**, and the
+   tableau is selected from the case's own `experiment.modelId` through an exhaustive
+   `Record<ExperimentModelId, …>`, so a third model shipped without artwork is a `tsc` error rather than a
+   blank screen no test can see. The three things the guard was silently holding — the slit/screen
+   placement, the choice between the two fringe painters, and the geometry test's apparatus floor — are
+   each re-stated where they belong.
+
+   The screen was already not part of this gap: the code review of 2026-08-19 (decision D1) delivered
+   `paintDisplacedFringes` after finding that the prototype ignited for the full 2.4 s and resolved onto a
+   screen nothing had painted. That painter moved into the new tableau **verbatim**, deliberately.
 2. ~~**Transcription fidelity and page attribution** of the 1887 excerpts~~ — **closed by Story 4.1**
    (2026-08-20): verified against the facsimile of the cited issue, three corrections applied, pages now
    `[333, 334]` and `[341]`. See the ✅ block in §4. What is still open is the reviewer's *reading*, not
    the transcription.
-3. **`formatMeasurement` puts its locale separator before every unit**, which is right for `°C` and
-   wrong for an arc degree: the bench reads `0 °`. Shared with Young's rendering, so not changed in a
-   content story — **Story 4.2**, with the bench work.
+3. ~~**`formatMeasurement` puts its locale separator before every unit**~~ — **CLOSED by Story 4.2**
+   (2026-08-20). The separator is now a function of `(locale, unit)` across three classes: **none** before
+   an arc degree (`0°`, in both locales), U+202F before an SI symbol, and a full U+00A0 before a
+   spelled-out unit — which closes the converse manifestation the 4.1 review found by eye, the case file's
+   `0,11largeurs de frange`. Young's four units (`mm`, `m`, `nm`, `°C`) format **byte-identically** to
+   before, and `I18n.test.ts`'s original `formatMeasurement` expectations pass unchanged as the regression
+   fence. Three mutation proofs, including the near-miss the rule has to survive: classifying on a prefix
+   rather than on equality would have taken the space off every `°C`.
 4. ~~**The French typography sweep covers interface chrome and Young's authored content only.**~~ —
    **closed by Story 4.1** (2026-08-20): `tests/e2e/french-typography.spec.ts` now sweeps every case in
    `SHIPPED_CASE_IDS` for source names, control and inline labels, the composed idle and notebook rows,
    colleague names, proposal texts, conclusion claims and limitations, dialogue beats, colleague hints,
    reading-gate lines, rival-lab critiques and the reading-room bands, in both locales, with the case id
    in every sample label. No overflow was found in the prototype's prose.
+4b. **The model constants are teaching-chosen, and now say what they owe.** Story 4.2 named the two
+   figures the case's own 1907 transcription publishes — a demanded displacement of 1.53 wave-lengths,
+   certain to one eightieth of it — as constants the model reads, and asserts `ORIENTATION_AMPLITUDE`
+   *inside* that published residual bound. The values themselves did **not** move, and the reason is worth
+   a reviewer's attention: deriving the amplitude exactly (`1.53 / 80` ≈ 0.019) changes every recorded
+   number, which requires bumping `experiment.modelVersion` — and `validateCaseRecordForDefinition`
+   compares that stamp with unconditional equality and refuses the *whole* saved record, with no allowlist
+   mechanism and no migration. So the anchoring is a bound rather than a derivation, and the missing
+   record-compatibility path is recorded in `deferred-work.md` with an owner.
+
 5. **`reduceRecordRun` re-derives the result only for a run carrying `modelInputs`.** A prototype run's
    result is validated for bench-match and model version but not recomputed from the model — **Epic 4**.
 6. **`experiment.wavelengthNm` is still authored-and-unread** for Young; the prototype omits it. The

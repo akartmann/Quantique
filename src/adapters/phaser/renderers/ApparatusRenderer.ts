@@ -20,7 +20,7 @@ import {
 import { resolveLocalizedText } from '../../../core/i18n/resolveLocalizedText';
 import { resolveExperimentModel, resolveResultUnit } from '../../../domain/apparatus/experimentModels';
 import { isSourceEligibleForInspection, type ContextualArtifact, type PrimaryControl } from '../../../domain/cases/CaseDefinition';
-import { interferenceIntensity, rgbToInt, wavelengthToRgb } from '../../../domain/apparatus/opticalVisualModel';
+import { createBenchTableau, type BenchLightPhase, type BenchTableau } from './benchTableau';
 import { AdvanceControl } from '../ui/AdvanceControl';
 import {
     ADVANCE_CONTROL_Y,
@@ -35,7 +35,6 @@ import {
     RESULT_READOUT_CEILING_Y,
     RESULT_READOUT_GAP,
     BENCH_MESSAGE_WRAP,
-    CENTRE_Y,
     HINT_BOTTOM_MARGIN,
     HINT_LINE_FONT_SIZE,
     HINT_PADDING,
@@ -53,13 +52,11 @@ import {
     REFERENCE_HEADING_FONT_SIZE,
     REFERENCE_HEADING_GAP_BELOW,
     REFERENCE_HEADING_Y,
-    SCREEN_HALF_HEIGHT,
-    SCREEN_LABEL_Y,
+    NOTES_CONTROL_Y,
     SIDE_COLUMN_LEFT,
     SIDE_COLUMN_WIDTH,
     START_CONTROL_LEFT,
-    referenceShelfFloor,
-    screenXForDistance
+    referenceShelfFloor
 } from './apparatusGeometry';
 import { ApparatusInstrument } from './ApparatusInstrument';
 import { WavelengthChooser } from './WavelengthChooser';
@@ -67,20 +64,15 @@ import { advanceTransitionForPhase, revisitTransitionForPhase, resolveAdvanceRef
 import { SingleKeyDelivery } from './singleKeyDelivery';
 import { TransientMessageSlot } from './transientMessage';
 
-const SOURCE_X = 92;
-const BARRIER_X = 260;
-const FRINGE_STRIP_HALF_WIDTH = 9;
-const FRINGE_ROW_STEP = 2;
 /**
- * Fringe spacing for a case whose screen pattern is a *displacement*, not a spacing.
+ * The period the light's travelling part cycles on, in milliseconds.
  *
- * Young's bands are spaced by the reading itself, so `bandSpacingPx` is derived from the result. An
- * interferometer's reading is how far an otherwise-fixed fringe field has walked, so the spacing is a
- * constant of the picture and the result is an offset within it.
+ * Named for the *light* rather than for Young's wavefronts as of Story 4.2: it is handed to whichever
+ * tableau is drawn, as {@link BenchLightPhase.travelPhase01}, and the interferometer's recombined path
+ * advances on the same clock Young's wavefronts do. One period, so no tableau carries a timing of its own
+ * that could drift from another's.
  */
-const INTERFEROMETER_BAND_SPACING_PX = 18;
-const WAVEFRONT_RINGS = 6;
-const WAVEFRONT_PERIOD_MS = 2600;
+const LIGHT_TRAVEL_PERIOD_MS = 2600;
 
 const MAX_RESULT_FONT_SIZE = 19;
 const MIN_RESULT_FONT_SIZE = 15;
@@ -153,6 +145,18 @@ export type ApparatusRendererOptions = Readonly<{
      * control that does nothing is worse than no control at all.
      */
     openNotebook?: () => void;
+    /**
+     * Opens the case's own apparatus notes over the bench (Story 4.2, AC2).
+     *
+     * The same shape and the same rule as {@link openNotebook}: the *scene* owns the overlay and
+     * suppresses this renderer's input while it is up. Absent means the bench draws no notes control —
+     * a control that does nothing is worse than no control at all.
+     *
+     * It exists because `experiment.assumptions`, `experiment.confound.description` and
+     * `experiment.resetPath.description` are authored on both shipped cases, validated, and were rendered
+     * on **no** player surface: the three fields FR18 is actually about. See {@link NOTES_CONTROL_Y}.
+     */
+    openApparatusNotes?: () => void;
 }>;
 
 /**
@@ -175,19 +179,21 @@ export class ApparatusRenderer {
     private resultReadout?: Phaser.GameObjects.Text;
     private resultReadoutBottomY = 0;
     private visualGuidance?: Phaser.GameObjects.Text;
-    private sourceGlow?: Phaser.GameObjects.Arc;
-    private sourceCore?: Phaser.GameObjects.Arc;
-    private barrier?: Phaser.GameObjects.Rectangle;
-    private slitTop?: Phaser.GameObjects.Rectangle;
-    private slitBottom?: Phaser.GameObjects.Rectangle;
-    private screen?: Phaser.GameObjects.Rectangle;
-    private screenLabel?: Phaser.GameObjects.Text;
     private title?: Phaser.GameObjects.Text;
     private guide?: Phaser.GameObjects.Text;
-    private sourceLabel?: Phaser.GameObjects.Text;
-    private beamGraphics?: Phaser.GameObjects.Graphics;
-    private wavefrontGraphics?: Phaser.GameObjects.Graphics;
-    private fringeGraphics?: Phaser.GameObjects.Graphics;
+    /**
+     * The apparatus itself, selected from the case's authored `experiment.modelId` (Story 4.2, AC1).
+     *
+     * Resolved **once, in `create()`**, through the exhaustive record in `benchTableau.ts`. Everything
+     * this renderer used to own about Young's tableau — the source, the barrier, the two slits, the
+     * screen, the beam, the wavefronts and both fringe painters — lives in a tableau now, and the fields
+     * for them are gone rather than left behind for a second reader.
+     *
+     * `undefined` only for a model id this build does not implement, which the schema refuses at load, so
+     * it is unreachable from validated content. **There is no Young fallback**, which is what AC1's last
+     * clause forbids: an apparatus drawn for the wrong case is a lie the player reads and no test can see.
+     */
+    private tableau?: BenchTableau;
     private lastRunId?: string;
     /** The hint panel's measured top from this render pass, so the reference shelf can yield to it. */
     private hintPanelTop?: number;
@@ -198,6 +204,8 @@ export class ApparatusRenderer {
     private hintBackground?: Phaser.GameObjects.Rectangle;
     private hintSpeaker?: Phaser.GameObjects.Text;
     private hintLine?: Phaser.GameObjects.Text;
+    /** The way into the case's own apparatus notes (Story 4.2, AC2). Built only if the scene hosts them. */
+    private notesControl?: AdvanceControl;
 
     // --- The bench (Story 2.10) -----------------------------------------------------------------
     private readonly instruments = new Map<PrimaryControl['id'], ApparatusInstrument>();
@@ -237,13 +245,13 @@ export class ApparatusRenderer {
      */
     private runInFlight = false;
     private runElapsedMs = 0;
-    /** The recorded spacing the resolved pattern is painted from, or `undefined` when the bench is dark. */
     /**
      * The latest recorded result, while it still describes the bench in front of the player.
      *
      * Named for what it is since Story 3.2 rather than for Young's millimetres: it is whatever this
-     * case's model produced. The **mm→pixel mapping below is still Young's**, and the screen artwork
-     * with it — re-skinning the apparatus for a second case is Story 4.2 (prototype gap #1).
+     * case's model produced. As of Story 4.2 the mapping from it to pixels is the **tableau's**, so this
+     * is now simply a number handed down — the caveat that used to stand here (*"the mm→pixel mapping
+     * below is still Young's, and the screen artwork with it"*) is closed and is why it is gone.
      */
     private recordedResultValue?: number;
     /**
@@ -277,14 +285,9 @@ export class ApparatusRenderer {
      */
     private advanceRefused = false;
 
-    // Live optical geometry, refreshed from store state and consumed by the animation loop.
-    private slitTopY = CENTRE_Y - 30;
-    private slitBottomY = CENTRE_Y + 30;
-    private screenX = 605;
-    private bandSpacingPx = 18;
-    private currentWavelengthNm = 550;
-    private wavelengthColor = rgbToInt(wavelengthToRgb(550));
-    private fringeSignature = '';
+    // The live apparatus geometry — the slit positions, the screen's x, the band spacing, the wavelength
+    // colour and the fringe repaint signature — moved into the tableau with the artwork it describes
+    // (Story 4.2). Every one of those six fields was Young's, on a renderer that draws two cases.
     private updateBound?: (time: number, delta: number) => void;
     private readonly reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     private motionAllowed = !this.reducedMotionQuery.matches;
@@ -351,7 +354,17 @@ export class ApparatusRenderer {
         this.title = this.scene.add.text(40, 28, '', uiTextStyle({ color: '#f7f4ef', fontSize: '24px', wordWrap: { width: 900 } }));
         this.guide = this.scene.add.text(40, 62, '', uiTextStyle({ color: '#c7d7d9', fontSize: '15px', wordWrap: { width: 900 } }));
         this.objects.push(this.title, this.guide);
-        this.createRichPattern();
+        // The apparatus, selected from the case's own model id — never from a case id, never from a
+        // `modelVersion`, and never by sniffing whether one of Young's control values happens to be
+        // finite. See `benchTableau.ts` for the three defects that last shape produced.
+        this.tableau = createBenchTableau(this.storeAdapter.getState().caseDefinition.experiment.modelId, this.scene);
+        this.tableau?.create();
+        // Created **after** the tableau, so it paints over the apparatus rather than under it: creation
+        // order is the depth mechanism here, and this line used to be the last object `createRichPattern`
+        // built for exactly that reason. It is not artwork — it is the composed prose the bench speaks —
+        // so it stays with the renderer while the apparatus leaves.
+        this.visualGuidance = this.scene.add.text(40, 348, '', uiTextStyle({ color: '#c7d7d9', fontSize: '13px', wordWrap: { width: 620 } }));
+        this.objects.push(this.visualGuidance);
         this.createBench();
         // The readout is bottom-anchored above the bench message, which is itself bottom-anchored above
         // the control row — so a string that needs an extra line grows upward into empty space instead
@@ -396,8 +409,9 @@ export class ApparatusRenderer {
         // "Young interference — the optical bench" for whatever case was loaded.
         this.title?.setText(resolveLocalizedText(state.caseDefinition.title, locale));
         this.guide?.setText(t('lab.guide'));
-        this.sourceLabel?.setText(t('lab.source'));
-        this.screenLabel?.setText(t('lab.screen'));
+        // `lab.source` and `lab.screen` were written here for every case. They are Young's tableau's part
+        // labels, and the interferometer authors its own — so each tableau writes its own, which is what
+        // Task 4's "decide per model rather than reusing them by default" asks for (Story 4.2).
 
         const latest = state.runs[state.runs.length - 1];
         // Definition-driven (Story 3.2): every authored control, compared against the bench — the same
@@ -444,7 +458,13 @@ export class ApparatusRenderer {
         this.recordedResultValue = latestMatchesActiveSetup ? latest?.result.value : undefined;
 
         this.renderBench(state, t);
-        this.renderApparatusGeometry(state);
+        this.tableau?.render({
+            controls: state.caseDefinition.apparatus.primaryControls,
+            controlValues: state.activeControlValues,
+            recordedResultValue: this.recordedResultValue,
+            wavelengthNm: state.selectedWavelengthNm,
+            t
+        });
         this.renderReadouts(state, t, latest, Boolean(latestMatchesActiveSetup));
         this.renderSideColumn(state, t);
         this.renderReferenceShelf(state, t);
@@ -462,20 +482,23 @@ export class ApparatusRenderer {
         // Kill every tween this renderer can start — including any whose target is the renderer itself
         // — so nothing writes to torn-down objects after destroy.
         this.scene.tweens.killTweensOf(this);
-        this.scene.tweens.killTweensOf([this.sourceGlow, this.sourceCore, this.resultReadout].filter(Boolean) as Phaser.GameObjects.GameObject[]);
-        // Each widget owns its own objects and listeners, so it releases them itself.
+        this.scene.tweens.killTweensOf([this.resultReadout].filter(Boolean) as Phaser.GameObjects.GameObject[]);
+        // Each widget owns its own objects and listeners, so it releases them itself — the tableau
+        // included, which is why none of its display objects are on `this.objects` any more.
+        this.tableau?.destroy();
+        this.tableau = undefined;
         this.advanceControl?.destroy();
         this.revisitControl?.destroy();
+        this.notesControl?.destroy();
         this.instruments.forEach((instrument) => instrument.destroy());
         this.instruments.clear();
         this.wavelengthChooser?.destroy();
         this.objects.forEach((object) => object.destroy());
         this.objects.length = 0;
-        this.title = undefined; this.guide = undefined; this.sourceLabel = undefined;
-        this.resultReadout = undefined; this.visualGuidance = undefined; this.slitTop = undefined; this.slitBottom = undefined; this.screen = undefined; this.screenLabel = undefined;
-        this.sourceGlow = undefined; this.sourceCore = undefined; this.barrier = undefined;
-        this.beamGraphics = undefined; this.wavefrontGraphics = undefined; this.fringeGraphics = undefined;
-        this.advanceControl = undefined; this.revisitControl = undefined; this.wavelengthChooser = undefined;
+        this.title = undefined; this.guide = undefined;
+        this.resultReadout = undefined; this.visualGuidance = undefined;
+        this.advanceControl = undefined; this.revisitControl = undefined; this.notesControl = undefined;
+        this.wavelengthChooser = undefined;
         this.startSurface = undefined; this.startLabel = undefined;
         this.notebookSurface = undefined; this.notebookLabel = undefined; this.benchMessage = undefined;
         this.resetSurface = undefined; this.resetLabel = undefined;
@@ -484,7 +507,7 @@ export class ApparatusRenderer {
         this.advanceRefused = false; this.transientError.clear(); this.benchError.clear();
         this.focusedControlId = undefined; this.arrowKeysCaptured = false; this.benchInputEnabled = false;
         this.runInFlight = false; this.runElapsedMs = 0; this.recordedResultValue = undefined;
-        this.lastRunId = undefined; this.fringeSignature = '';
+        this.lastRunId = undefined;
     }
 
     /** An overlay temporarily owns pointer interaction without changing laboratory state. */
@@ -794,30 +817,7 @@ export class ApparatusRenderer {
         this.paintLight();
     }
 
-    // --- Painting -------------------------------------------------------------------------------
-
-    private createRichPattern(): void {
-        // Painted layers, back to front: fringe pattern under a soft additive glow of light.
-        this.fringeGraphics = this.scene.add.graphics();
-        this.beamGraphics = this.scene.add.graphics().setBlendMode('ADD');
-        this.wavefrontGraphics = this.scene.add.graphics().setBlendMode('ADD');
-
-        this.sourceGlow = this.scene.add.circle(SOURCE_X, CENTRE_Y, 26, this.wavelengthColor, 0.35).setBlendMode('ADD');
-        this.sourceCore = this.scene.add.circle(SOURCE_X, CENTRE_Y, 13, 0xfff4d0);
-        this.sourceLabel = this.scene.add.text(55, 232, '', uiTextStyle({ color: '#f7f4ef', fontSize: '14px' }));
-        this.barrier = this.scene.add.rectangle(BARRIER_X, CENTRE_Y, 16, 186, 0x8db7c2);
-        this.slitTop = this.scene.add.rectangle(BARRIER_X, this.slitTopY, 22, 13, 0x10252c);
-        this.slitBottom = this.scene.add.rectangle(BARRIER_X, this.slitBottomY, 22, 13, 0x10252c);
-        this.screen = this.scene.add.rectangle(this.screenX, CENTRE_Y, 14, SCREEN_HALF_HEIGHT * 2, 0x0b1a20);
-        this.screenLabel = this.scene.add.text(this.screenX - 31, 322, '', uiTextStyle({ color: '#f7f4ef', fontSize: '14px' }));
-        this.visualGuidance = this.scene.add.text(40, 348, '', uiTextStyle({ color: '#c7d7d9', fontSize: '13px', wordWrap: { width: 620 } }));
-
-        this.objects.push(
-            this.fringeGraphics, this.beamGraphics, this.wavefrontGraphics,
-            this.sourceGlow, this.sourceCore, this.sourceLabel, this.barrier, this.slitTop, this.slitBottom,
-            this.screen, this.screenLabel, this.visualGuidance
-        );
-    }
+    // --- The light -------------------------------------------------------------------------------
 
     /**
      * A run's result label in the reader's language.
@@ -938,193 +938,42 @@ export class ApparatusRenderer {
         readout.setY(this.resultReadoutBottomY);
     }
 
-    private renderApparatusGeometry(state: AppState): void {
-        const slitSpacing = state.activeControlValues.slitSpacingMm;
-        const screenDistance = state.activeControlValues.screenDistanceM;
-        // Young's two control ids, written down. Until Story 3.1 the schema guaranteed they exist; the
-        // control set is now authored, so a case without them reads `undefined` here — and unlike the
-        // readouts this path does not throw, it computes `NaN` and calls `setY(NaN)` on the slits and the
-        // screen. So the *slit and screen placement* stays behind this guard: a case with no slit spacing
-        // leaves the last good geometry standing rather than moving it to `NaN`.
-        //
-        // **The paint step must not sit behind it (review 2026-08-19).** It did, and `paintFringes()` has
-        // exactly one call site — inside this method — so an interferometer run returned here before
-        // anything filled `fringeGraphics`, while `paintLight`'s `dark` flag (which no longer consults
-        // `modelInputs`) had already decided the bench was lit. The result was a full 2.4 s ignition,
-        // beam and wavefronts included, resolving onto an empty screen: the exact defect the removed
-        // `modelInputs !== undefined` clause used to prevent, re-opened for the one case it was removed
-        // for. Nothing in 1334 tests could see it, because the bench's tests assert text.
-        const hasOpticalGeometry = Number.isFinite(slitSpacing) && Number.isFinite(screenDistance);
-        if (hasOpticalGeometry) {
-            const slitGapPx = 28 + ((slitSpacing - 0.1) / 0.4) * 92;
-            this.screenX = screenXForDistance(screenDistance);
-            this.slitTopY = CENTRE_Y - (slitGapPx / 2);
-            this.slitBottomY = CENTRE_Y + (slitGapPx / 2);
-            this.slitTop?.setY(this.slitTopY);
-            this.slitBottom?.setY(this.slitBottomY);
-            this.screen?.setX(this.screenX);
-            this.screenLabel?.setPosition(this.screenX - 31, SCREEN_LABEL_Y);
-        }
-        // Safe for every case: `AppState` initialises `selectedWavelengthNm` unconditionally, and a
-        // model whose apparatus has no wavelength simply never reads it.
-        this.currentWavelengthNm = state.selectedWavelengthNm;
-        this.wavelengthColor = rgbToInt(wavelengthToRgb(state.selectedWavelengthNm));
-        this.sourceGlow?.setFillStyle(this.wavelengthColor, 0.35);
-        // **The pattern is painted from the recorded value and from nothing else.** There is no preview
-        // branch here any more: an unrecorded setup has no reading, and the screen stays unlit.
-        if (this.recordedResultValue === undefined) return;
-        if (hasOpticalGeometry) {
-            this.bandSpacingPx = Math.max(8, Math.min(31, this.recordedResultValue * 4.6));
-            this.paintFringes();
-            return;
-        }
-        this.paintDisplacedFringes(this.recordedResultValue);
-    }
-
     /**
-     * The screen for a case whose reading is a fringe *displacement* rather than a fringe spacing.
+     * Hands whichever tableau is drawn the one description of what the light is doing.
      *
-     * A regular fringe field at a constant spacing, shifted bodily by the recorded drift. The shift is
-     * deliberately **not** exaggerated: a Morley–Miller reading at the stable window is a fraction of a
-     * fringe width, so the honest picture is a field that barely moves, and the number in the readout is
-     * what carries the precision. Amplifying it for legibility would be a physics lie painted onto the
-     * one observation the case is about.
+     * **This method is where `project-context.md`'s "a renderer's case-shape guard and its 'is this
+     * running?' decision must be the same decision" is now structurally satisfied**, rather than merely
+     * obeyed. It used to be obeyed by care: `renderApparatusGeometry` opened with
      *
-     * No diffraction envelope, unlike {@link paintFringes}: an interferometer's field is even across the
-     * aperture. Bench *artwork* — a rotating apparatus rather than Young's source, barrier and slits — is
-     * still Young's and remains gap #1, owned by Story 4.2.
-     */
-    private paintDisplacedFringes(displacementFringeWidths: number): void {
-        const offsetPx = displacementFringeWidths * INTERFEROMETER_BAND_SPACING_PX;
-        const signature = `displaced|${this.screenX.toFixed(1)}|${offsetPx.toFixed(3)}|${this.wavelengthColor}`;
-        if (signature === this.fringeSignature || !this.fringeGraphics) return;
-        this.fringeSignature = signature;
-        this.bandSpacingPx = INTERFEROMETER_BAND_SPACING_PX;
-        const { r, g, b } = wavelengthToRgb(this.currentWavelengthNm);
-        const g0 = this.fringeGraphics;
-        g0.clear();
-        for (let offset = -SCREEN_HALF_HEIGHT; offset <= SCREEN_HALF_HEIGHT; offset += FRINGE_ROW_STEP) {
-            const phase = ((offset - offsetPx) / INTERFEROMETER_BAND_SPACING_PX) * Math.PI;
-            const intensity = Math.cos(phase) ** 2;
-            if (intensity <= 0.01) continue;
-            const color = (Math.round(r * intensity) << 16) | (Math.round(g * intensity) << 8) | Math.round(b * intensity);
-            g0.fillStyle(color, Math.min(1, 0.25 + intensity));
-            g0.fillRect(this.screenX - FRINGE_STRIP_HALF_WIDTH, CENTRE_Y + offset - FRINGE_ROW_STEP / 2, FRINGE_STRIP_HALF_WIDTH * 2, FRINGE_ROW_STEP);
-        }
-    }
-
-    /**
-     * Paints the interference pattern as a smooth vertical stack of intensity-shaded rows on the
-     * screen, sampling the pure {@link interferenceIntensity} model. Redrawn only when the geometry,
-     * spacing, or wavelength changes — never per animation frame. The *reveal* is an alpha on the whole
-     * object, so a run resolving does not regenerate the geometry.
-     */
-    private paintFringes(): void {
-        const signature = `${this.screenX.toFixed(1)}|${this.bandSpacingPx.toFixed(2)}|${this.wavelengthColor}`;
-        if (signature === this.fringeSignature || !this.fringeGraphics) return;
-        this.fringeSignature = signature;
-        const envelopePx = this.bandSpacingPx * 3.2;
-        const { r, g, b } = wavelengthToRgb(this.currentWavelengthNm);
-        const g0 = this.fringeGraphics;
-        g0.clear();
-        for (let offset = -SCREEN_HALF_HEIGHT; offset <= SCREEN_HALF_HEIGHT; offset += FRINGE_ROW_STEP) {
-            const intensity = interferenceIntensity(offset, this.bandSpacingPx, envelopePx);
-            if (intensity <= 0.01) continue;
-            const color = (Math.round(r * intensity) << 16) | (Math.round(g * intensity) << 8) | Math.round(b * intensity);
-            g0.fillStyle(color, Math.min(1, 0.25 + intensity));
-            g0.fillRect(this.screenX - FRINGE_STRIP_HALF_WIDTH, CENTRE_Y + offset - FRINGE_ROW_STEP / 2, FRINGE_STRIP_HALF_WIDTH * 2, FRINGE_ROW_STEP);
-        }
-    }
-
-    /**
-     * The whole of what the light looks like, in one place, for the three states the bench has.
+     * ```ts
+     * const hasOpticalGeometry = Number.isFinite(slitSpacing) && Number.isFinite(screenDistance);
+     * ```
      *
-     * **Dark** — no run, or the setup has moved on from the one that was run (AC4, AC6): the source is
-     * out, no wavefronts propagate, and the screen carries nothing beyond its own unlit bar.
-     * **Running** — the source ignites, the beam reaches the slits, wavefronts travel to the screen and
-     * the pattern resolves on it (AC5). **Resolved** — a still frame of the recorded pattern, with no
-     * loop registered and nothing moving.
+     * — two of Young's control ids read off a case that does not author them — and the rule was that this
+     * guard and `paintLight`'s `dark` flag must not disagree. They had already disagreed once, in each
+     * direction: first a full 2.4 s ignition resolving onto a screen nothing had painted, then the
+     * `modelInputs` clause removed to fix that and the guard left in place to re-open it.
      *
-     * Called from the update loop while a run is in flight and from `render()` otherwise, so the
-     * reduced-motion path and the motion path end on the same picture rather than on two that agree by
-     * coincidence.
+     * There is no such guard to keep in step now. The case shape was resolved **once, in `create()`**, and
+     * `dark` is computed here, once, from the run this renderer owns — so a tableau cannot believe it is
+     * dark while the renderer believes it is lit, because a tableau does not decide.
+     *
+     * Called from the update loop while a run is in flight and from `render()` otherwise, which is what
+     * makes the reduced-motion frame and the animated frame the same picture rather than two that agree by
+     * coincidence: under `reduce` no loop is ever registered, `runInFlight` stays false, and the phase
+     * below is the resolved one.
      */
     private paintLight(): void {
-        const beam = this.beamGraphics;
-        const rings = this.wavefrontGraphics;
-        const fringes = this.fringeGraphics;
-        if (!beam || !rings || !fringes) return;
-
-        const dark = this.recordedResultValue === undefined && !this.runInFlight;
-        if (dark) {
-            beam.clear();
-            rings.clear();
-            fringes.setVisible(false);
-            this.sourceGlow?.setAlpha(0).setScale(1);
-            this.sourceCore?.setAlpha(0.18).setScale(1);
-            return;
-        }
-
-        const ignition = this.runInFlight ? Math.min(1, this.runElapsedMs / RUN_IGNITION_MS) : 1;
-        this.sourceGlow?.setAlpha(ignition).setScale(1 + (0.9 * ignition));
-        this.sourceCore?.setAlpha(0.18 + (0.82 * ignition)).setScale(1 + (0.35 * ignition));
-
-        this.drawBeam(ignition);
-        if (this.runInFlight) {
-            const travelled = Math.max(0, this.runElapsedMs - RUN_IGNITION_MS);
-            this.drawWavefronts((travelled % WAVEFRONT_PERIOD_MS) / WAVEFRONT_PERIOD_MS, ignition);
-            // The pattern arrives over the last act, as an alpha on geometry that was painted once.
-            const resolving = this.runElapsedMs - (RUN_IGNITION_MS + RUN_PROPAGATION_MS);
-            const revealed = Math.min(1, Math.max(0, resolving / RUN_RESOLVE_MS));
-            fringes.setVisible(revealed > 0).setAlpha(revealed);
-            return;
-        }
-        // Resolved: the light stands still. No loop is registered and nothing here moves.
-        rings.clear();
-        fringes.setVisible(true).setAlpha(1);
-    }
-
-    /** Incident light: a soft beam wedge plus two crisp converging rays onto the slits. */
-    private drawBeam(intensity: number): void {
-        const beam = this.beamGraphics;
-        if (!beam) return;
-        beam.clear();
-        if (intensity <= 0) return;
-        beam.fillStyle(this.wavelengthColor, 0.14 * intensity);
-        beam.fillTriangle(SOURCE_X, CENTRE_Y, BARRIER_X, this.slitTopY, BARRIER_X, this.slitBottomY);
-        beam.lineStyle(2, 0xfff4d0, Math.min(1, 0.6 * intensity));
-        beam.lineBetween(SOURCE_X, CENTRE_Y, BARRIER_X, this.slitTopY);
-        beam.lineBetween(SOURCE_X, CENTRE_Y, BARRIER_X, this.slitBottomY);
-    }
-
-    /**
-     * Expanding Huygens wavefronts from each slit, whose additive overlap between the slits and the
-     * screen renders the interference visually. `basePhase01` in [0,1) advances them.
-     *
-     * The two slit positions are iterated without allocating an array per frame, which is the
-     * discipline §Performance asks for in a render path and which this method has always kept.
-     */
-    private drawWavefronts(basePhase01: number, intensity: number): void {
-        const rings = this.wavefrontGraphics;
-        if (!rings) return;
-        rings.clear();
-        const maxRadius = Math.max(60, this.screenX - BARRIER_X + 24);
-        const arcHalfAngleRad = (72 * Math.PI) / 180;
-        for (let s = 0; s < 2; s += 1) {
-            const slitY = s === 0 ? this.slitTopY : this.slitBottomY;
-            for (let i = 0; i < WAVEFRONT_RINGS; i += 1) {
-                const p = (basePhase01 + i / WAVEFRONT_RINGS) % 1;
-                const radius = p * maxRadius;
-                if (radius < 4) continue;
-                // Fade in at birth, fade out as the wavefront expands (clamped ≤1).
-                const alpha = Math.min(1, Math.min(1, p * 6) * (1 - p) * 0.6 * intensity);
-                if (alpha <= 0.01) continue;
-                rings.lineStyle(2, this.wavelengthColor, alpha);
-                rings.beginPath();
-                rings.arc(BARRIER_X, slitY, radius, -arcHalfAngleRad, arcHalfAngleRad, false);
-                rings.strokePath();
-            }
-        }
+        const travelled = Math.max(0, this.runElapsedMs - RUN_IGNITION_MS);
+        const resolving = this.runElapsedMs - (RUN_IGNITION_MS + RUN_PROPAGATION_MS);
+        const light: BenchLightPhase = {
+            dark: this.recordedResultValue === undefined && !this.runInFlight,
+            ignition: this.runInFlight ? Math.min(1, this.runElapsedMs / RUN_IGNITION_MS) : 1,
+            running: this.runInFlight,
+            revealed: Math.min(1, Math.max(0, resolving / RUN_RESOLVE_MS)),
+            travelPhase01: (travelled % LIGHT_TRAVEL_PERIOD_MS) / LIGHT_TRAVEL_PERIOD_MS
+        };
+        this.tableau?.paintLight(light);
     }
 
     // --- The side column (Story 2.6 / 2.7) ------------------------------------------------------
@@ -1152,6 +1001,20 @@ export class ApparatusRenderer {
             onAdvance: () => this.requestRevisit()
         });
         this.revisitControl.create();
+
+        // `AdvanceControl` is reused as the widget rather than a fourth hand-rolled surface-and-label pair:
+        // it already owns its own objects, its own label wrap and its own enabled state, and this is the
+        // same column at the same width. It advances nothing — the callback opens an overlay — which is why
+        // its label is `lab.notes.open` and not a transition label, and why nothing here touches the phase.
+        if (this.options.openApparatusNotes) {
+            this.notesControl = new AdvanceControl(this.scene, {
+                x: SIDE_COLUMN_LEFT,
+                y: NOTES_CONTROL_Y,
+                width: SIDE_COLUMN_WIDTH,
+                onAdvance: () => this.options.openApparatusNotes?.()
+            });
+            this.notesControl.create();
+        }
 
         // Bottom-anchored, for the same reason `resultReadout` is: an authored hint is prose of
         // unbounded-by-layout length and French runs 15–25% longer, so it has to grow *upward* into
@@ -1244,6 +1107,9 @@ export class ApparatusRenderer {
         });
         const revisit = revisitTransitionForPhase(selectCasePhase(state));
         this.revisitControl?.render({ label: revisit ? t(revisit.labelKey) : '', isReady: revisit !== undefined });
+        // Always ready: reading the case's own notes is not gated on evidence, and gating it would be the
+        // "blocking reading" inversion Story 2.12 removed from this very column.
+        this.notesControl?.render({ label: t('lab.notes.open'), isReady: true });
 
         this.hintLine?.setText(lineText);
         this.hintSpeaker?.setText(speakerText);
@@ -1426,6 +1292,9 @@ export class ApparatusRenderer {
         // laboratory — the same defect the book overlay caused on the proposal cards (1.12 review).
         this.advanceControl?.setInputEnabled(enabled);
         this.revisitControl?.setInputEnabled(enabled);
+        // Follows the overlay suppression for the reason the advance control does: a click meant for the
+        // notes' own way out that fell through would re-open the panel the player was closing.
+        this.notesControl?.setInputEnabled(enabled);
         // And the reference shelf, which is directly under the book's own control row: a page turn
         // falling through here would re-open the book the player was closing.
         this.referenceControls.forEach(({ hitArea }) => {

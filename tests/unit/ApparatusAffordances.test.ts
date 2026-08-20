@@ -63,7 +63,9 @@ const mount = (definition: CaseDefinition) => {
     const renderer = new ApparatusRenderer(slice.scene, createPhaserStoreAdapter(store), { openNotebook: () => undefined });
     renderer.create();
     renderer.render(store.getState());
-    return { ...slice, renderer, store };
+    // Carried on the harness rather than looked up at each assertion, because it is a fact about *which
+    // case was mounted* — see {@link TABLEAU_GRAPHICS}.
+    return { ...slice, renderer, store, tableauGraphics: TABLEAU_GRAPHICS[definition.experiment.modelId]! };
 };
 
 /**
@@ -76,20 +78,32 @@ const mount = (definition: CaseDefinition) => {
  */
 const expectInstrumentTail = (ui: ReturnType<typeof mount>, controlCount: number): readonly DrawnObject[] => {
     const graphics = ui.ofKind('graphics');
-    // Every instrument contributes exactly three, and the bench's own graphics all precede them.
-    expect(graphics.length).toBe(BENCH_GRAPHICS_BEFORE_INSTRUMENTS + (3 * controlCount));
+    // Every instrument contributes exactly three, and the tableau's own graphics all precede them.
+    expect(graphics.length).toBe(ui.tableauGraphics + (3 * controlCount));
     return graphics;
 };
 
 /**
- * How many graphics the bench draws before the first instrument — the light, the screen and the frame.
+ * How many graphics each **tableau** draws before the first instrument, by the model id that selects it.
  *
- * A magic number in a test is normally the thing this project forbids; it is here deliberately, as the
- * *fixture's* shape rather than the source's, and its only job is to go red when construction order
- * moves. Derived once from a mounted bench rather than reasoned about: change the renderer and this
- * number tells you, which is the whole point of pinning it.
+ * A magic number in a test is normally the thing this project forbids; these are here deliberately, as
+ * the *fixture's* shape rather than the source's, and their only job is to go red when construction
+ * order moves. That is exactly what they did when Story 4.2 split the apparatus out of the renderer.
+ *
+ * **It used to be one number for both cases** (`BENCH_GRAPHICS_BEFORE_INSTRUMENTS = 3`, described as
+ * "the light, the screen and the frame"), which was true of Young's three additive layers and was
+ * applied to the prototype as well — so the prototype's tail arithmetic was riding on its apparatus
+ * having the same layer count as Young's. That is the same Young-for-both shape AC9 makes the geometry
+ * sweep stop doing, one layer down, and it is why this is now keyed on `experiment.modelId`: the number
+ * is a property of the artwork, so it belongs beside the thing that selects the artwork.
+ *
+ * Young: the fringe field, the beam and the wavefronts. The interferometer: the bath, the stone, the
+ * apparatus, the fringe field and the beams.
  */
-const BENCH_GRAPHICS_BEFORE_INSTRUMENTS = 3;
+const TABLEAU_GRAPHICS: Readonly<Record<string, number>> = {
+    'young-double-slit': 3,
+    'morley-miller-interferometer': 5
+};
 
 /**
  * The moving part of each instrument: the third graphics of its triple (face, focus ring, mover).

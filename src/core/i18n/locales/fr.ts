@@ -31,6 +31,11 @@ export const fr: Record<TranslationKey, string> = {
     'lab.guide': 'Réglez chaque instrument, puis allumez la source pour enregistrer ce que montre l’écran.',
     'lab.source': 'source',
     'lab.screen': 'écran',
+    // Les étiquettes propres à l'interféromètre tournant (Story 4.2). Aucune préposition n'y est jointe :
+    // ce sont des étiquettes autonomes posées sous l'objet qu'elles nomment, pas des fragments de phrase.
+    'lab.interferometer.bench': 'banc flottant',
+    'lab.interferometer.bath': 'bain thermique',
+    'lab.interferometer.screen': 'écran d’observation',
     'lab.control.readout': '{label} : {value}',
     'lab.control.decrease': '−',
     'lab.control.increase': '+',
@@ -57,6 +62,14 @@ export const fr: Record<TranslationKey, string> = {
     'lab.wavelength.fixed': '{value} nm — parcours minimal',
     'lab.wavelength.comparison': '{value} nm — comparaison',
     'lab.wavelength.comparisonLocked': '{value} nm — verrouillée',
+    // Les notes sur l'appareil (Story 4.2). Uniquement les titres : tout le contenu est de la prose de cas
+    // rédigée, car ce que suppose un appareil appartient au cas et non à l'interface.
+    'lab.notes.open': 'Notes sur l’appareil',
+    'lab.notes.heading': 'Notes sur cet appareil',
+    'lab.notes.assumptions': 'Ce que cet appareil tient pour acquis',
+    'lab.notes.confound': 'Ce qui peut imiter l’effet recherché',
+    'lab.notes.resetPath': 'Comment distinguer les deux',
+    'lab.notes.close': 'Fermer les notes',
     'lab.reference.heading': 'Références à portée de main',
 
     // --- Le carnet de la paillasse (Story 2.10) --------------------------------------------------
