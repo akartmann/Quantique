@@ -1258,9 +1258,23 @@ test('keeps the apparatus notes inside the panel that holds them, in both locale
         .map(({ label, text, width }) => `${label}: "${text}" (${Math.round(width)}px > ${NOTES_TEXT_WRAP}px)`);
 
     expect(overflowing).toEqual([]);
-    // A guard on the sweep: an empty list would make the assertion vacuous, and this one has a floor worth
-    // stating — both cases author three assumptions, a confound and a reset path, in two locales.
-    expect(APPARATUS_NOTE_LINES.length).toBeGreaterThanOrEqual(SHIPPED_CASES.length * 2 * 3);
+    // A guard on the sweep: an empty list would make the assertion vacuous, and this one has an exact
+    // expected size rather than a floor — **derived from the authored content**, so it cannot go stale.
+    //
+    // Both halves of this were wrong until the 4.2 code review. The floor read
+    // `SHIPPED_CASES.length * 2 * 3` = 12, under half of what the sweep actually collects, so breaking the
+    // confound and reset-path entries out of the `flatMap` — or losing one locale's assumptions entirely —
+    // would have narrowed it from 18 lines to 12 with the guard that exists to prevent exactly that still
+    // green. And the comment beside it said *"both cases author three assumptions"*, which is not true:
+    // Young authors two and the prototype three, so the real total is `(2 + 1 + 1) + (3 + 1 + 1)` per
+    // locale, doubled — 18, not the 20 that comment implied. Counting the authored lists rather than
+    // restating a number is the only version of this guard that stays true when a case gains an assumption.
+    const expectedLines = SHIPPED_CASES.reduce(
+        (total, { definition }) => total + (2 * (definition.experiment.assumptions.en.length + 2)),
+        0
+    );
+    expect(expectedLines).toBeGreaterThanOrEqual(SHIPPED_CASES.length * 2 * 4);
+    expect(APPARATUS_NOTE_LINES).toHaveLength(expectedLines);
 });
 
 test('keeps the authored rival-lab critiques inside the surface that holds them, in both locales', async ({ page }) => {

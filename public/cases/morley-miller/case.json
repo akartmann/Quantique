@@ -1,6 +1,6 @@
 {
   "id": "morley-miller",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "title": {
     "en": "Morley–Miller — the rotating interferometer",
     "fr": "Morley–Miller — l’interféromètre tournant"
@@ -267,7 +267,7 @@
       "recoveryRoute": "replication",
       "description": {
         "en": "Bring the bath back to its steady window — 20 °C, where the warmth contributes nothing — and take the reading again; what survives is not the warmth.",
-        "fr": "Ramenez le bain à sa fenêtre stable — 20 °C, où la chaleur n’apporte rien — et reprenez le relevé ; ce qui subsiste n’est pas la chaleur."
+        "fr": "Ramenez le bain à sa fenêtre stable — 20 °C, où la chaleur n’apporte rien — et reprenez le relevé ; ce qui subsiste n’est pas la chaleur."
       }
     }
   },

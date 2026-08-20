@@ -420,6 +420,13 @@ describe('CaseDefinitionSchema', () => {
         ['not exactly two artifacts', (definition: Record<string, unknown>) => { definition.contextualArtifacts = [definition.contextualArtifacts instanceof Array ? definition.contextualArtifacts[0] : undefined]; }],
         ['off-step control', (definition: Record<string, unknown>) => { ((definition.apparatus as { primaryControls: Array<{ defaultValue: number }> }).primaryControls[0]).defaultValue = 0.23; }],
         ['missing model version', (definition: Record<string, unknown>) => { delete (definition.experiment as { modelVersion?: string }).modelVersion; }],
+        // U+00BA (masculine ordinal indicator) and U+02DA (ring above) render almost identically to the
+        // arc degree at a bench's font size, and both are whitespace-free — so before the 4.2 review they
+        // classified as SI symbols and took a separator, reprinting the `0 °` defect that story fixed, on
+        // content that parsed clean. `formatNumber` now renders them right; this refuses them outright, so
+        // the record and the ledger cannot end up holding two spellings of one unit.
+        ['a degree homoglyph as a unit', (definition: Record<string, unknown>) => { ((definition.apparatus as { primaryControls: Array<{ unit: string }> }).primaryControls[0]).unit = '\u00BA'; }],
+        ['a ring-above homoglyph as a unit', (definition: Record<string, unknown>) => { ((definition.apparatus as { primaryControls: Array<{ unit: string }> }).primaryControls[0]).unit = '\u02DA'; }],
         ['missing debrief source', (definition: Record<string, unknown>) => { (definition.debrief as { sourceRefs: string[] }).sourceRefs = []; }],
         ['invalid asset manifest', (definition: Record<string, unknown>) => { ((definition.assets as { entries: Array<{ path: string }> }).entries[0]).path = 'relative.png'; }],
         ['protocol-relative asset path', (definition: Record<string, unknown>) => { ((definition.assets as { entries: Array<{ path: string }> }).entries[0]).path = '//example.test/asset.png'; }],

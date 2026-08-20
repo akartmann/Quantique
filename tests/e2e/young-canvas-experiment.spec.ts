@@ -24,6 +24,7 @@ import { KNOB_ARC_END_RAD } from '../../src/adapters/phaser/renderers/instrument
 import { libraryAdvanceControlCentre } from '../../src/adapters/phaser/scenes/libraryGeometry';
 import {
     artifactAt,
+    canvas,
     chooseProposalThroughColleague,
     clickDesign,
     clickUntilScene,
@@ -383,4 +384,60 @@ test('steps an instrument by touch on a narrow viewport, and still leaves the ro
     } finally {
         await context.close();
     }
+});
+
+/**
+ * The reference shelf at the longest colleague hint Young authors, in French, by eye.
+ *
+ * **Why this exists.** Story 4.2 inserted an "apparatus notes" control 48px above the reference shelf in
+ * *both* cases' side columns. The shelf grows **down** from that control and the colleague's hint grows
+ * **up** from the canvas floor into the same column, so the two meet sooner than they did. The story's
+ * `NOTES_CONTROL_Y` docstring said the cost was measured — *"which `ApparatusGeometry.test.ts` asserts
+ * against the longest French hint either case actually authors"* — and the code review of 4.2 found no such
+ * assertion in that file or in any other: nothing anywhere read `referenceShelfFloor`, a hint length, or a
+ * shelf control count. On a pessimistic wrap estimate Young's longest authored French hint costs the shelf
+ * its **first** control, which would be an AC1 *"Young's bench is unchanged for the Young case"* regression
+ * at a length the shipped case does author.
+ *
+ * **Why it is a screenshot and not an assertion.** Phaser's text metrics need a real browser, and the unit
+ * harness reports a constant `height: 18` for every text object — so the hint panel is always one line tall
+ * there and `referenceShelfFloor` cannot be exercised at a realistic height from a unit test. This project's
+ * own recorded memory is explicit that depth-order and occlusion defects pass every test. There is also no
+ * click target exported for a shelf control, which is why this captures rather than clicks — closing that is
+ * the `deferred-work.md` item this spec's failure mode belongs to.
+ *
+ * The state: two observations at the *same* arrangement, which is what `repeated-configuration` fires on and
+ * which the case's own confound invites. That selects `hint-vary-a-setting`, Young's longest authored French
+ * line at 231 characters against a 280px wrap.
+ */
+test.describe('AC1 by eye: Young\'s side column under its longest French hint', () => {
+    test.use({ viewport: { width: 1280, height: 720 }, locale: 'fr-FR' });
+
+    test('captures the reference shelf with a repeated-configuration hint showing', async ({ page }, testInfo) => {
+        test.setTimeout(90_000);
+        await walkToTheBench(page);
+
+        // Two runs at the default setup: nothing is varied, so the arrangement repeats.
+        await startTheLightUntilRecorded(page, START, 1);
+        await startTheLightUntilRecorded(page, START, 2);
+        await expect(recordedObservations(page)).toHaveCount(2);
+
+        // **The hint is not shown by the state alone.** `resolveAdvanceView` computes
+        // `showsHint = stillRefused && hint !== undefined`, so the colleague speaks only once the player
+        // has *asked* to move on and been refused — which is the design (an unasked-for hint would be the
+        // game marking your homework) and is also why the first capture of this frame had no hint in it.
+        // So: press the way on while the gate is unmet, and let the refusal bring the hint up.
+        await clickDesign(page, LABORATORY_ADVANCE);
+        await waitForInputToSettle(page);
+        // Still at the bench: the refusal is the point, and a passed gate would mean this frame proves
+        // nothing about a hint.
+        await expectActiveScene(page, 'Laboratory');
+        // Written through `outputPath` rather than attached inline: the `list` reporter keeps no
+        // attachment bodies, and a frame nobody can open is the AC9 evidence problem this review already
+        // found once. The path is printed so a reader can go and look at it.
+        const shotPath = testInfo.outputPath('young-bench-fr-longest-hint.png');
+        await canvas(page).screenshot({ path: shotPath });
+        await testInfo.attach('young-bench-fr-longest-hint', { path: shotPath, contentType: 'image/png' });
+        console.log(`[by-eye] ${shotPath}`);
+    });
 });

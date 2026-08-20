@@ -48,8 +48,9 @@ import {
  * It also carries AC2's other clause: the reset path names the **stable window in the reader's own
  * language**, so *"repeat a stable-window measurement"* is an instruction a player can follow rather than
  * a number they have to guess. That number is authored prose, not an interface string — the case's
- * physics belongs to the case — and `MorleyMillerPrototype.test.ts` asserts the authored sentence against
- * `STABLE_WINDOW_C` so the two cannot drift.
+ * physics belongs to the case — and `MorleyMillerFeedback.test.ts` asserts the authored sentence against
+ * `STABLE_WINDOW_C` so the two cannot drift (the file this named before the 4.2 code review does not carry
+ * that assertion).
  *
  * ## Why a third scene-owned overlay rather than a reuse
  *
@@ -79,6 +80,18 @@ export class ApparatusNotesRenderer {
     private heading?: Phaser.GameObjects.Text;
     private closeSurface?: Phaser.GameObjects.Rectangle;
     private closeLabel?: Phaser.GameObjects.Text;
+    /**
+     * The one thing this panel says that is not authored content: *some of it did not fit.*
+     *
+     * The 4.2 code review found the overflow branch and the nothing-authored branch taking the identical
+     * statement — `line.setText('').setVisible(false)` — under a comment claiming *"they are different
+     * facts, and the second is reported rather than swallowed"*. Nothing was reported anywhere: no throw,
+     * no log, no notice. So a case whose French confound paragraph ran long would lose its reset path, the
+     * third of FR18's three fields, silently and on the one surface that shows them. It is also the branch
+     * the unit harness cannot reach at all (`height: 18` for every text object), which is precisely why a
+     * comment could not stand in for it.
+     */
+    private overflowNotice?: Phaser.GameObjects.Text;
     /** One heading-and-body pair per section, in the order the sections are declared below. */
     private readonly sections: SectionObjects[] = [];
     private open = false;
@@ -129,6 +142,13 @@ export class ApparatusNotesRenderer {
             this.objects.push(sectionHeading, ...lines);
             this.sections.push({ heading: sectionHeading, lines });
         });
+
+        // Sits on the floor the sections are clamped to, so it occupies the space the dropped content
+        // would have used rather than needing a reserve of its own.
+        this.overflowNotice = this.scene.add.text(NOTES_PANEL_X + NOTES_PADDING, NOTES_SECTIONS_FLOOR_Y, '', uiTextStyle({
+            color: '#f2c98a', fontSize: `${NOTES_BODY_FONT_SIZE}px`, wordWrap: { width: NOTES_TEXT_WRAP }
+        })).setName(NOTES_OVERFLOW_NOTICE_NAME).setVisible(false);
+        this.objects.push(this.overflowNotice);
 
         this.closeSurface = this.scene.add
             .rectangle(NOTES_CLOSE_LEFT, NOTES_ACTION_ROW_Y, NOTEBOOK_ACTION_WIDTH, NOTEBOOK_ACTION_HEIGHT, 0x1d4451)
@@ -194,22 +214,45 @@ export class ApparatusNotesRenderer {
         // Measured, top-anchored stacking: each section starts below the previous one's *measured* bottom.
         // Nothing is placed against a constant that a longer French paragraph could invalidate.
         let cursor = NOTES_SECTIONS_TOP;
+        // Set by either clamp below, read once after the loop. A line with nothing authored for it and a
+        // line there is no room for are genuinely different facts, and only the second one is this.
+        let dropped = false;
         this.sections.forEach((section, index) => {
-            section.heading.setText(t(SECTION_KEYS[index]!)).setY(cursor).setVisible(true);
+            // The heading is clamped too, against its own measured height. Before the 4.2 review it was
+            // `setVisible(true)` unconditionally with no floor test, so a section whose predecessor had
+            // filled the panel painted its heading on top of — or below — the action row that holds the
+            // only way out of the overlay.
+            const headingFits = cursor + section.heading.height < NOTES_SECTIONS_FLOOR_Y;
+            section.heading.setText(headingFits ? t(SECTION_KEYS[index]!) : '').setY(cursor).setVisible(headingFits);
+            if (!headingFits) {
+                // Everything from here down is out of room: hide the whole section rather than letting its
+                // body lines find gaps above their own missing heading.
+                dropped = dropped || (bodies[index]?.length ?? 0) > 0;
+                section.lines.forEach((line) => line.setText('').setVisible(false));
+                return;
+            }
             cursor += section.heading.height + NOTES_SECTION_HEADING_GAP;
             section.lines.forEach((line, lineIndex) => {
                 const text = bodies[index]?.[lineIndex];
-                // A line with nothing authored for it, and a line there is no longer room for, are both
-                // hidden — but they are different facts, and the second is reported rather than swallowed.
-                if (text === undefined || cursor >= NOTES_SECTIONS_FLOOR_Y) {
+                if (text === undefined) {
                     line.setText('').setVisible(false);
+                    return;
+                }
+                if (cursor + line.height >= NOTES_SECTIONS_FLOOR_Y) {
+                    line.setText('').setVisible(false);
+                    dropped = true;
                     return;
                 }
                 line.setText(text).setY(cursor).setVisible(true);
                 cursor += line.height + NOTES_LIST_GAP;
             });
+            // A section authoring more lines than the panel reserves loses the surplus the same way, and it
+            // is the same fact: content this surface was given and did not show.
+            dropped = dropped || (bodies[index]?.length ?? 0) > section.lines.length;
             cursor += NOTES_SECTION_GAP;
         });
+
+        this.overflowNotice?.setText(dropped ? t('lab.notes.truncated') : '').setVisible(dropped);
     }
 
     public destroy(): void {
@@ -243,6 +286,12 @@ type SectionObjects = Readonly<{ heading: Phaser.GameObjects.Text; lines: Phaser
  * one fact. Adding a fourth authored field to this surface is adding a key here and a body beside it.
  */
 const SECTION_KEYS = ['lab.notes.assumptions', 'lab.notes.confound', 'lab.notes.resetPath'] as const;
+
+/**
+ * The overflow notice's layer name, exported so a test names the object instead of indexing creation
+ * order — the rule `benchTableau.ts` states and the habit the 4.2 review found still live in three rows.
+ */
+export const NOTES_OVERFLOW_NOTICE_NAME = 'apparatus-notes-overflow-notice';
 
 /**
  * How many authored lines one section can show.

@@ -71,7 +71,7 @@ describe('browser-resolved locale across the whole projection', () => {
     it('paints an English browser in English from the first render', () => {
         const scene = mountFakeSceneRenderer(bootWith(['en-GB']));
 
-        expect(scene.painted).toEqual(['Young interference — the optical bench | Slit spacing: 0.25 mm']);
+        expect(scene.painted).toEqual([`Young interference — the optical bench | Slit spacing: 0.25\u00A0mm`]);
     });
 
     it('paints a French browser in French from the first render, formatting included', () => {

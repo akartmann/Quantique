@@ -2,8 +2,8 @@ import type { Scene } from 'phaser';
 
 import { uiTextStyle } from '../textStyles';
 import { INTERFEROMETER_CONTROL_IDS, STABLE_WINDOW_C } from '../../../domain/apparatus/calculateInterferometerDrift';
-import { CENTRE_Y, SCREEN_HALF_HEIGHT } from './apparatusGeometry';
-import { FRINGE_LAYER_NAME, LAMP_LAYER_NAME, type BenchLightPhase, type BenchTableau, type BenchTableauView } from './benchTableau';
+import { CENTRE_Y, SCREEN_BAR_HALF_WIDTH, SCREEN_HALF_HEIGHT } from './apparatusGeometry';
+import { BATH_LAYER_NAME, FRINGE_LAYER_NAME, LAMP_LAYER_NAME, type BenchLightPhase, type BenchTableau, type BenchTableauView } from './benchTableau';
 import {
     ARM_HALF_WIDTH,
     BATH_INNER_RADIUS,
@@ -20,6 +20,7 @@ import {
     SCREEN_LABEL_WRAP,
     SCREEN_X,
     SOURCE_GLOW_RADIUS,
+    SOURCE_GLOW_SCALE_AT_FULL,
     SOURCE_RADIUS,
     SPLITTER_HALF_LENGTH,
     SPLITTER_THICKNESS,
@@ -97,6 +98,14 @@ export class InterferometerTableau implements BenchTableau {
 
     /** The live bench state the light's per-frame pass reads, refreshed by {@link render}. */
     private rotationDeg = 0;
+    /**
+     * The bath's last good temperature, kept for the same reason {@link rotationDeg} is.
+     *
+     * `undefined` until a render supplies one, which is the only state in which the authored default is
+     * the honest thing to paint — after that, a control that stops resolving leaves the trough where the
+     * player last saw it rather than snapping to a colour they never set.
+     */
+    private bathTempC?: number;
     private bathSignature = '';
     private apparatusSignature = '';
     private fringeSignature = '';
@@ -108,7 +117,7 @@ export class InterferometerTableau implements BenchTableau {
         // and the stone under the apparatus, the apparatus under the light, the fringe field on the
         // screen bar. An overlay built before the thing it sits on is one of the three defects the 2.9
         // review found only by screenshotting.
-        this.bathGraphics = this.scene.add.graphics();
+        this.bathGraphics = this.scene.add.graphics().setName(BATH_LAYER_NAME);
         this.stoneGraphics = this.scene.add.graphics();
         this.apparatusGraphics = this.scene.add.graphics();
         // Named for the same reason Young's is, and it is *this* tableau that made the naming necessary:
@@ -125,12 +134,15 @@ export class InterferometerTableau implements BenchTableau {
         this.bathLabel = this.scene.add.text(BATH_LABEL_X, LABEL_Y, '', uiTextStyle({
             color: '#f7f4ef', fontSize: `${LABEL_FONT_SIZE}px`, wordWrap: { width: BATH_LABEL_WRAP }
         }));
+        // Named, because the two centred labels are the ones `interferometerObjectBands()` measures as
+        // `centre ± wrap / 2` and a test has to be able to find them. The harness discards constructor
+        // geometry (the 3.4 review's standing gap), so position is not a handle a test can use here.
         this.stoneLabel = this.scene.add.text(STONE_CENTRE_X, LABEL_Y, '', uiTextStyle({
             color: '#f7f4ef', fontSize: `${LABEL_FONT_SIZE}px`, align: 'center', wordWrap: { width: STONE_LABEL_WRAP }
-        })).setOrigin(0.5, 0);
+        })).setOrigin(0.5, 0).setName(BENCH_LABEL_NAME);
         this.screenLabel = this.scene.add.text(SCREEN_X, LABEL_Y, '', uiTextStyle({
             color: '#f7f4ef', fontSize: `${LABEL_FONT_SIZE}px`, align: 'center', wordWrap: { width: SCREEN_LABEL_WRAP }
-        })).setOrigin(0.5, 0);
+        })).setOrigin(0.5, 0).setName(SCREEN_LABEL_NAME);
 
         this.objects.push(
             this.bathGraphics, this.stoneGraphics, this.apparatusGraphics, this.fringeGraphics, this.beamGraphics,
@@ -152,8 +164,13 @@ export class InterferometerTableau implements BenchTableau {
         // apparatus nobody can see rather than one that has not turned. This is **not** a case-shape
         // guard — which apparatus is drawn was settled in `create()` by the model id.
         if (rotation !== undefined) this.rotationDeg = rotation;
+        // The bath keeps the same memory, for the same reason. The 4.2 code review found the contract
+        // stated above for both and honoured for one: with no finite `bathTempC` the trough snapped to the
+        // *authored default* colour while the steady ring went off — two facts about one object painted
+        // from two different sources in the same call, one of them the store and one of them the schema.
+        if (bathTempC !== undefined) this.bathTempC = bathTempC;
         this.paintApparatus();
-        this.paintBath(view, bathTempC);
+        this.paintBath(view, this.bathTempC);
 
         // **The pattern is painted from the recorded value and from nothing else** — the same rule
         // Young's tableau follows. An unrecorded setup has no reading, and the screen stays unlit.
@@ -186,7 +203,7 @@ export class InterferometerTableau implements BenchTableau {
             return;
         }
 
-        this.sourceGlow?.setAlpha(light.ignition).setScale(1 + (0.9 * light.ignition));
+        this.sourceGlow?.setAlpha(light.ignition).setScale(1 + (SOURCE_GLOW_SCALE_AT_FULL * light.ignition));
         this.sourceCore?.setAlpha(0.18 + (0.82 * light.ignition)).setScale(1 + (0.35 * light.ignition));
 
         this.drawBeams(light);
@@ -226,7 +243,11 @@ export class InterferometerTableau implements BenchTableau {
         // rather than a `Rectangle` because this tableau has a `Graphics` in the create pass anyway and
         // one object is cheaper than two — the shape and the size are identical.
         g0.fillStyle(SCREEN_FILL, 1);
-        g0.fillRect(SCREEN_X - SCREEN_BAR_HALF_WIDTH_PX, CENTRE_Y - SCREEN_HALF_HEIGHT, SCREEN_BAR_HALF_WIDTH_PX * 2, SCREEN_HALF_HEIGHT * 2);
+        // The shared constant, not a local copy of its value: `interferometerObjectBands` measures the screen's
+        // band from `SCREEN_BAR_HALF_WIDTH`, so a private duplicate here would have let an edit move the
+        // measured band without moving the drawn bar — the exact "a band measuring something that is not
+        // drawn" failure that function exists to end (4.2 code review).
+        g0.fillRect(SCREEN_X - SCREEN_BAR_HALF_WIDTH, CENTRE_Y - SCREEN_HALF_HEIGHT, SCREEN_BAR_HALF_WIDTH * 2, SCREEN_HALF_HEIGHT * 2);
     }
 
     /**
@@ -248,8 +269,11 @@ export class InterferometerTableau implements BenchTableau {
         const g0 = this.bathGraphics;
         const bath = view.controls.find(({ id }) => id === BATH_TEMP_ID);
         if (!g0 || !bath) return;
-        const warmth = bathWarmth01(bathTempC ?? bath.defaultValue, bath.min, bath.max);
-        const steady = bathTempC === STABLE_WINDOW_C;
+        // One value decides both facts. Before the 4.2 review `warmth` read the authored default when the
+        // control did not resolve while `steady` compared the unresolved value, so the two disagreed.
+        const shown = bathTempC ?? bath.defaultValue;
+        const warmth = bathWarmth01(shown, bath.min, bath.max);
+        const steady = shown === STABLE_WINDOW_C;
         const signature = `${warmth.toFixed(4)}|${steady}`;
         if (signature === this.bathSignature) return;
         this.bathSignature = signature;
@@ -347,7 +371,9 @@ export class InterferometerTableau implements BenchTableau {
      * The light on its way round the apparatus: lamp to splitter, out along both arms, and recombined
      * across to the screen.
      *
-     * Per-frame while a run is in flight, so it allocates nothing and measures nothing. The travelling
+     * Per-frame while a run is in flight, so it measures nothing and allocates only the three small points
+     * its geometry helpers return — see the note in the body, which replaces an earlier claim that it
+     * allocated nothing at all. The travelling
      * part is the recombined path's leading edge, which is this apparatus's equivalent of Young's
      * wavefronts — the moment of spectacle `EXPERIENCE.md` §Feedback asks the run to have — and it is
      * driven by the phase the renderer passes rather than by a frame counter.
@@ -358,6 +384,11 @@ export class InterferometerTableau implements BenchTableau {
         beam.clear();
         if (light.ignition <= 0) return;
 
+        // `sourcePoint` and `armEndPoint` each return a fresh `{ x, y }`, so this path allocates three
+        // small objects per frame for the 2.4 s a run lasts. Stated rather than claimed away: the file's
+        // §Performance note used to say it "allocates nothing", which Young's counterpart earns by
+        // iterating its slit positions without building an array and this does not (4.2 code review).
+        // Three short-lived objects per frame is not worth trading the geometry/painting split for.
         const lamp = sourcePoint(this.rotationDeg);
         beam.lineStyle(2, LAMP_COLOR, Math.min(1, 0.7 * light.ignition));
         beam.lineBetween(lamp.x, lamp.y, STONE_CENTRE_X, STONE_CENTRE_Y);
@@ -377,9 +408,19 @@ export class InterferometerTableau implements BenchTableau {
     /**
      * The screen for a case whose reading is a fringe *displacement* rather than a fringe spacing.
      *
-     * A regular fringe field at a constant spacing, shifted bodily by the recorded drift. **Moved here
-     * verbatim from `ApparatusRenderer`, deliberately unchanged**: it was delivered and mutation-proven
-     * by the code review of 3.2, and gap #1 was narrowed in writing to exclude it. The shift is
+     * A regular fringe field at a constant spacing, shifted bodily by the recorded drift. Moved here from
+     * `ApparatusRenderer`, whose version was delivered and mutation-proven by the code review of 3.2, with
+     * gap #1 narrowed in writing to exclude it.
+     *
+     * **One thing did change, and this docstring claimed otherwise until the 4.2 code review.** The
+     * baseline painted the field from `wavelengthToRgb(selectedWavelengthNm)` — 550 nm, so green — and kept
+     * the colour and the screen's x in the repaint signature. It now paints from a fixed {@link FRINGE_RGB}
+     * and the signature is the offset alone. The change is right, for the reason `FRINGE_RGB`'s own
+     * docstring gives: this apparatus has no wavelength chooser, so tinting its fringes with a wavelength
+     * the player cannot see or select is a claim the case does not make. But the story's Task 4 said *"do
+     * not rewrite it"*, and three places recorded the move as `verbatim, deliberately unchanged` — so the
+     * one player-visible pixel change in the whole story was written down as not having happened. Keeping
+     * the change was Alexis's call in the review; saying so here is the other half of it. The shift is
      * deliberately **not** exaggerated — a Morley–Miller reading at the stable window is a fraction of a
      * fringe width, so the honest picture is a field that barely moves and the number in the readout is
      * what carries the precision. Amplifying it for legibility would be a physics lie painted onto the
@@ -435,8 +476,7 @@ const [ROTATION_ID, BATH_TEMP_ID] = INTERFEROMETER_CONTROL_IDS;
 const INTERFEROMETER_BAND_SPACING_PX = 18;
 const FRINGE_STRIP_HALF_WIDTH = 9;
 const FRINGE_ROW_STEP = 2;
-/** Young's screen bar half-width, restated as this tableau's own because it is drawn as a fill here. */
-const SCREEN_BAR_HALF_WIDTH_PX = 7;
+
 
 /**
  * The fringe field's colour: white light, because this apparatus authors no wavelength to select.
@@ -449,6 +489,17 @@ const SCREEN_BAR_HALF_WIDTH_PX = 7;
  * quantity read off a case that does not author it.
  */
 const FRINGE_RGB = Object.freeze({ r: 0xf0, g: 0xf4, b: 0xe8 });
+
+/**
+ * The two labels whose bands are measured from a centre rather than from an edge.
+ *
+ * Named so `InterferometerTableau.test.ts` can assert the `setOrigin(0.5, 0)` that
+ * `interferometerObjectBands()` silently assumes — an invariant that could not fail until the 4.2 code
+ * review taught the harness to record `setOrigin`, and which a name is the only handle for, since the
+ * harness still discards the constructor coordinates these labels are positioned by.
+ */
+export const BENCH_LABEL_NAME = 'interferometer-bench-label';
+export const SCREEN_LABEL_NAME = 'interferometer-screen-label';
 
 const LAMP_COLOR = 0xfff4d0;
 const STONE_FILL = 0x24404a;

@@ -648,8 +648,8 @@ describe('the case file states the prototype\'s own apparatus and result', () =>
         // substring, so a bare `not.toContain('0 °')` fails against a perfectly correct row — and the
         // temperature keeping its separator is the near-miss this rule has to survive, asserted below.
         expect(row).not.toContain('Bench rotation: 0 °');
-        expect(row).toContain('Bath temperature: 22.0 °C');
-        expect(texts.some((text) => text.includes('0.11 fringe widths'))).toBe(true);
+        expect(row).toContain(`Bath temperature: 22.0\u00A0°C`);
+        expect(texts.some((text) => text.includes(`0.11\u00A0fringe widths`))).toBe(true);
     });
 
     it('renders the same row in French with the units French typography actually wants', () => {

@@ -3,7 +3,7 @@ import type { Scene } from 'phaser';
 import type { PhaserStoreAdapter } from '../PhaserStoreAdapter';
 import { uiTextStyle } from '../textStyles';
 import type { AppState } from '../../../core/store/AppState';
-import { decimalPlaces, formatMeasurement, formatRecordedValue } from '../../../core/i18n/formatNumber';
+import { decimalPlaces, formatMeasurement } from '../../../core/i18n/formatNumber';
 import { createTranslator, type Translator } from '../../../core/i18n/translate';
 import {
     selectComparisonNote,
@@ -56,7 +56,7 @@ import {
 } from './apparatusGeometry';
 import { SingleKeyDelivery } from './singleKeyDelivery';
 import { TransientMessageSlot } from './transientMessage';
-import { resolveExperimentModel, resolveResultUnit } from '../../../domain/apparatus/experimentModels';
+import { formatRecordedResult, resolveExperimentModel } from '../../../domain/apparatus/experimentModels';
 
 /**
  * The bench notebook (Story 2.10, AC8): every saved observation, readable in-scene, with any two
@@ -486,7 +486,7 @@ export class NotebookRenderer {
         const result = t('notebook.row.result', {
             label: matchedModel ? t(matchedModel.resultLabelKey) : record.result.label,
             // The unit is canonical English on the record too, so it takes the same route as the label.
-            value: formatRecordedValue(locale, record.result.value, resolveResultUnit(matchedModel, record.result.unit, t))
+            value: formatRecordedResult(locale, matchedModel, record.result, t)
         });
         if (!record.modelInputs) return result;
         return `${result}\n${t('notebook.row.meta', {

@@ -83,7 +83,18 @@ export type BenchLightPhase = Readonly<{
     running: boolean;
     /** 0→1 across the resolve act: how much of the recorded pattern has arrived on the screen. */
     revealed: number;
-    /** 0→1, cyclic, for whatever the apparatus sends across itself. Meaningless while not `running`. */
+    /**
+     * 0→1, cyclic, for whatever the apparatus sends across itself. Meaningless while not `running`.
+     *
+     * **Cyclic, and one consumer reads it as progress.** Young's wavefronts want a sawtooth — they repeat
+     * for as long as the run lasts — while the interferometer's recombined path uses it as *how far the
+     * light has reached*, which is only the same thing while the sawtooth has not yet wrapped. It has not:
+     * the producer's period is `LIGHT_TRAVEL_PERIOD_MS` (2600 ms) and a whole run is `RUN_ANIMATION_MS`
+     * (2400 ms), a 200 ms margin that nothing recorded and no test read until the 4.2 code review. Shorten
+     * the period or lengthen the run past it and the recombined beam visibly snaps back from the screen to
+     * the stone mid-run while the fringe field is still arriving. `ApparatusRun.test.ts` now asserts the
+     * inequality, so the two constants fail together instead of drifting apart quietly.
+     */
     travelPhase01: number;
 }>;
 
@@ -171,6 +182,18 @@ export const FRINGE_LAYER_NAME = 'fringes';
  * by index would be the same fragility {@link FRINGE_LAYER_NAME} exists to end.
  */
 export const LAMP_LAYER_NAME = 'lamp';
+
+/**
+ * The temperature bath's layer, named for the same reason and found by the same defect.
+ *
+ * The bath is the interferometer's **first** created object, so `ofKind('graphics')[0]` reached it — and
+ * two assertions in `InterferometerTableau.test.ts` were written against exactly that index while this
+ * file's own header explains why an index is what broke. Swapping the two `scene.add.graphics()` lines in
+ * `create()` — which creation-order-as-depth actively invites — would have retargeted both rows onto the
+ * stone, which also strokes circles and is never cleared, so one row would fail with a message about the
+ * wrong object and the other would pass forever (4.2 code review).
+ */
+export const BATH_LAYER_NAME = 'temperature-bath';
 
 /** Re-exported so a test asserts the artwork record's coverage against the domain's own closed list. */
 export { EXPERIMENT_MODEL_IDS };

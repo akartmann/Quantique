@@ -118,6 +118,10 @@ export const en = {
     'lab.notes.assumptions': 'What this apparatus takes for granted',
     'lab.notes.confound': 'What can imitate the effect you are looking for',
     'lab.notes.resetPath': 'How to tell the two apart',
+    // Shown only when authored prose did not fit the panel. It names the panel's own limit rather than
+    // blaming the content, because the player did not write it and cannot fix it — and it exists at all
+    // because the 4.2 review found the overflow being dropped in silence under a comment saying otherwise.
+    'lab.notes.truncated': 'Some notes do not fit on this page and are not shown.',
     'lab.notes.close': 'Close the notes',
     'lab.reference.heading': 'References to hand',
 

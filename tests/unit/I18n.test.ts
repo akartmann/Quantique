@@ -7,6 +7,7 @@ import { fr } from '../../src/core/i18n/locales/fr';
 import { createTranslator, translate, translateError } from '../../src/core/i18n/translate';
 import { ARC_DEGREE, formatMeasurement, formatNumber, NO_BREAK_SPACE, unitSeparatorClass } from '../../src/core/i18n/formatNumber';
 import { resolveLocalizedText, resolveLocalizedTextList } from '../../src/core/i18n/resolveLocalizedText';
+import { loadShippedCases } from './shippedCases';
 import { ReviewerStateSchema, SourceProvenanceCategorySchema, SourceRightsStatusSchema, SourceRoleSchema, SourceTypeSchema } from '../../src/schemas/CaseDefinitionSchema';
 import { LEDGER_BLOCKER_KINDS } from '../../src/domain/sources/releaseApproval';
 import { RECOGNITION_IDS } from '../../src/domain/recognition/recognitionRules';
@@ -14,7 +15,15 @@ import { RECOGNITION_IDS } from '../../src/domain/recognition/recognitionRules';
 /** U+202F. Asserted as a code point: a plain space would pass locally and drift across ICU builds. */
 const NARROW_NO_BREAK_SPACE = '\u202F';
 
-/** Every unit the Young case authors, which must format byte-identically to before Story 4.2. */
+/**
+ * Every unit the Young case authors.
+ *
+ * These formatted byte-identically across Story 4.2 and were its regression fence. The **4.2 code review**
+ * moved them, as a decision: English wrote U+0020 before a unit, which let the bench wrap
+ * `Bath temperature: 20.0` / `°C` — a value split from its unit, the exact property U+202F protects in
+ * French. English now takes U+00A0 in both the `symbol` and `prose` classes. The fence is still a fence;
+ * it is asserted against the characters so the next move here is also a decision and not a drift.
+ */
 const YOUNG_UNITS = ['mm', 'm', 'nm', '°C'] as const;
 
 describe('locale resources', () => {
@@ -426,8 +435,11 @@ describe('translateError', () => {
 });
 
 describe('formatMeasurement', () => {
-    it('formats English with a dot decimal and a plain space', () => {
-        expect(formatMeasurement('en', 0.25, 2, 'mm')).toBe('0.25 mm');
+    it('formats English with a dot decimal and an unbreakable space', () => {
+        // U+00A0, not U+0020, since the 4.2 review: an ordinary space here reads identically in a diff
+        // and lets the value and its unit land on two lines. Asserted as a code point for that reason.
+        expect(formatMeasurement('en', 0.25, 2, 'mm')).toBe(`0.25${NO_BREAK_SPACE}mm`);
+        expect(formatMeasurement('en', 0.25, 2, 'mm')).not.toBe('0.25 mm');
     });
 
     it('formats French with a comma decimal and a narrow no-break space before the unit', () => {
@@ -435,9 +447,9 @@ describe('formatMeasurement', () => {
     });
 
     it('keeps authored precision including trailing zeros', () => {
-        expect(formatMeasurement('en', 2, 2, 'm')).toBe('2.00 m');
+        expect(formatMeasurement('en', 2, 2, 'm')).toBe(`2.00${NO_BREAK_SPACE}m`);
         expect(formatMeasurement('fr', 2, 2, 'm')).toBe(`2,00${NARROW_NO_BREAK_SPACE}m`);
-        expect(formatMeasurement('en', 1.5, 0, 'm')).toBe('2 m');
+        expect(formatMeasurement('en', 1.5, 0, 'm')).toBe(`2${NO_BREAK_SPACE}m`);
     });
 
     it('formats a bare number without a unit', () => {
@@ -455,9 +467,14 @@ describe('formatMeasurement', () => {
  *
  * Two shipped defects, one function: `deferred-work.md:224` (a separator before an arc degree, so the
  * prototype's bench read `0 °`) and `:277` (U+202F before a spelled-out multi-word unit, so the case
- * file read `0,11largeurs de frange` — present but too tight to read as a space). The four units Young
- * ships must format **byte-identically** to before, which is what the `formatMeasurement` describe above
- * is now the regression fence for: it is asserted unchanged and must stay that way.
+ * file read `0,11largeurs de frange` — present but too tight to read as a space).
+ *
+ * **Amended by the 4.2 code review.** AC5's fourth clause required Young's four units to format
+ * byte-identically with these expectations "passing unchanged", and they no longer do: English moved from
+ * U+0020 to U+00A0 in both separated classes. The reason is a defect the story's own by-eye pass
+ * photographed without noting — the English bench wrapped `Bath temperature: 20.0` / `°C` — and the
+ * amendment was taken as a decision, with the fence re-baselined onto code points rather than deleted.
+ * French is untouched. The `degree` class is empty in both locales and always was.
  *
  * The mutation target for each row is named on the row.
  */
@@ -474,14 +491,14 @@ describe('formatMeasurement chooses its separator by unit class', () => {
     it('still separates the degree Celsius, which is a symbol and not an arc degree', () => {
         // The near-miss the rule has to survive: `°C` starts with the degree sign. Classifying on a
         // prefix rather than on equality would silently take the space off every temperature.
-        expect(formatMeasurement('en', 22, 1, '°C')).toBe('22.0 °C');
+        expect(formatMeasurement('en', 22, 1, '°C')).toBe(`22.0${NO_BREAK_SPACE}°C`);
         expect(formatMeasurement('fr', 22, 1, '°C')).toBe(`22,0${NARROW_NO_BREAK_SPACE}°C`);
     });
 
     it('separates a spelled-out unit with a space wide enough to read as one in French', () => {
         // Mutation: put `NARROW_NO_BREAK_SPACE` back in the `fr`/`prose` cell and this row fails with
         // the shipped defect, `0,11largeurs de frange`. It is the whole of `deferred-work.md:277`.
-        expect(formatMeasurement('en', 0.11, 2, 'fringe widths')).toBe('0.11 fringe widths');
+        expect(formatMeasurement('en', 0.11, 2, 'fringe widths')).toBe(`0.11${NO_BREAK_SPACE}fringe widths`);
         expect(formatMeasurement('fr', 0.11, 2, 'largeurs de frange')).toBe(`0,11${NO_BREAK_SPACE}largeurs de frange`);
         // Still unbreakable **at the boundary**, which is the property U+202F was chosen for and which
         // this must not give up in order to be legible. Asserted on the separator itself rather than on
@@ -497,8 +514,18 @@ describe('formatMeasurement chooses its separator by unit class', () => {
         // classifier cannot move Young's typography without a named failure. `I18n.test.ts`'s own
         // `formatMeasurement` describe above is the second, unchanged copy of this guarantee.
         expect(YOUNG_UNITS.map((unit) => formatMeasurement('en', 0.25, 2, unit))).toEqual([
-            '0.25 mm', '0.25 m', '0.25 nm', '0.25 °C'
+            `0.25${NO_BREAK_SPACE}mm`,
+            `0.25${NO_BREAK_SPACE}m`,
+            `0.25${NO_BREAK_SPACE}nm`,
+            `0.25${NO_BREAK_SPACE}°C`
         ]);
+        // The property the characters are there for, asserted rather than implied: no separator this
+        // function writes in either locale may be a breakable space.
+        YOUNG_UNITS.forEach((unit) => {
+            LOCALES.forEach((locale) => {
+                expect(formatMeasurement(locale, 0.25, 2, unit)).not.toContain(' ');
+            });
+        });
         expect(YOUNG_UNITS.map((unit) => formatMeasurement('fr', 0.25, 2, unit))).toEqual([
             `0,25${NARROW_NO_BREAK_SPACE}mm`,
             `0,25${NARROW_NO_BREAK_SPACE}m`,
@@ -507,14 +534,51 @@ describe('formatMeasurement chooses its separator by unit class', () => {
         ]);
     });
 
-    it('classifies every unit the two shipped cases actually author', () => {
-        // Read from the shipped content rather than restated, so a third case authoring a unit class
-        // nothing handles is a failure here rather than a surprise on a bench.
-        expect(unitSeparatorClass('mm')).toBe('symbol');
-        expect(unitSeparatorClass('°C')).toBe('symbol');
-        expect(unitSeparatorClass(ARC_DEGREE)).toBe('degree');
+    it('classifies every unit the two shipped cases actually author', async () => {
+        // Reads the shipped content, which the 4.2 review found this row only *claimed* to do: it was
+        // five literals under a comment promising that "a third case authoring a unit class nothing
+        // handles is a failure here rather than a surprise on a bench". Now it is.
+        //
+        // Mutation: author a unit of a shape the classifier does not handle — a single-word prose unit
+        // like `degrés` — on either shipped case, and this fails by name rather than rendering a narrow
+        // space between a number and a word on a bench.
+        const cases = await loadShippedCases();
+        const authored = cases.flatMap(({ caseId, definition }) => definition.apparatus.primaryControls
+            .map(({ id, unit }) => ({ where: `${caseId}/${id}`, unit })));
+
+        expect(authored.length).toBeGreaterThanOrEqual(4);
+        authored.forEach(({ where, unit }) => {
+            const classified = unitSeparatorClass(unit);
+            // A prose class must genuinely be prose, and a symbol must genuinely be a symbol: a
+            // single-word prose unit would classify as a symbol and is the classifier's stated blind
+            // spot, so the check is that no authored unit is *ambiguous* rather than that each lands in
+            // a bucket a literal named.
+            const looksLikeProse = /\s/.test(unit) || /^[a-zà-ÿ]{4,}$/u.test(unit);
+            expect({ where, unit, classified, looksLikeProse })
+                .toEqual({ where, unit, classified, looksLikeProse: classified === 'prose' });
+        });
+
+        // The result units, which live on the model rather than on a control, swept the same way.
         expect(unitSeparatorClass('fringe widths')).toBe('prose');
-        expect(unitSeparatorClass('largeurs de frange')).toBe('prose');
+        expect(unitSeparatorClass(fr['experiment.unit.fringeWidths'])).toBe('prose');
+        expect(unitSeparatorClass(en['experiment.unit.fringeWidths'])).toBe('prose');
+    });
+
+    it('classifies a degree homoglyph as a degree', () => {
+        // U+00BA and U+02DA render almost identically to U+00B0 and are whitespace-free, so before the
+        // 4.2 review they classified as symbols and reprinted `0 °` — in French with an invisible U+202F
+        // in the gap, on content that parsed clean at load.
+        //
+        // Mutation: narrow `unitSeparatorClass` back to `unit === ARC_DEGREE` and the first four rows
+        // fail. The *authoring* half — that a case may not ship one of these at all — is asserted where
+        // the schema is asserted, in `CaseDefinition.test.ts`; rendering right and refusing at load are
+        // two obligations and this row owns only the first.
+        expect(unitSeparatorClass('\u00BA')).toBe('degree');
+        expect(unitSeparatorClass('\u02DA')).toBe('degree');
+        expect(formatMeasurement('fr', 0, 0, '\u00BA')).toBe('0\u00BA');
+        expect(formatMeasurement('en', 90, 0, '\u02DA')).toBe('90\u02DA');
+        // `°C` is the near-miss in the other direction and stays a symbol.
+        expect(unitSeparatorClass('°C')).toBe('symbol');
     });
 });
 

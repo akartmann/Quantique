@@ -1,5 +1,7 @@
 import { calculateInterferometerDrift, INTERFEROMETER_CONTROL_IDS } from './calculateInterferometerDrift';
 import { calculateYoungFringeSpacing, YOUNG_CONTROL_IDS } from './calculateYoungFringeSpacing';
+import { decimalPlaces, formatMeasurement } from '../../core/i18n/formatNumber';
+import type { Locale } from '../../core/i18n/Locale';
 import type { TranslationKey, Translator } from '../../core/i18n/translate';
 import type { WavelengthMode } from '../cases/CaseDefinition';
 import type { CalculateExperimentResult, RunRecord } from '../evidence/RunRecord';
@@ -72,6 +74,23 @@ export type ExperimentModel = Readonly<{
      * the same way and which `formatMeasurement` is already licensed to pass through untranslated.
      */
     resultUnitKey?: TranslationKey;
+    /**
+     * The precision this model's *results* are shown at, when the value's own precision is the wrong
+     * answer.
+     *
+     * Same shape and same reason as {@link ExperimentModel.resultUnitKey}: declared by the one model that
+     * needs it, omitted by the model that does not. `formatRecordedValue` sizes a number from the decimals
+     * it carries, which is right for a control (it carries its authored step) and wrong for a result (it
+     * carries whatever its arithmetic left). The interferometer's drift spans 0 to 0.21, so one sweep of
+     * the dial rendered `0`, `0.01`, `0.1` and `0.11` — four precisions for one quantity, with an exact
+     * `0` at the two on-step angles where `cos(2θ)` vanishes, reading as *no measurement* rather than as
+     * the null result the case is about (4.2 review).
+     *
+     * **Young deliberately declares none.** Its fringe spacing is a few millimetres (`4.4 mm` at the
+     * authored defaults), where per-value precision is both meaningful and what the case has shipped
+     * since Story 2.2 — declaring a number here would change a shipped readout for no gain.
+     */
+    resultDecimalPlaces?: number;
     /** Binds whatever the model needs beyond the bench, yielding the pure controls→result seam. */
     bind: (session: ExperimentModelSession) => CalculateExperimentResult;
     /**
@@ -109,6 +128,10 @@ const MORLEY_MILLER_INTERFEROMETER: ExperimentModel = Object.freeze({
     resultLabelKey: 'experiment.result.fringeDisplacement',
     // 'fringe widths' is English prose, not an SI symbol, so unlike Young's `mm` it needs a key.
     resultUnitKey: 'experiment.unit.fringeWidths',
+    // Two decimals: the drift's whole authored range is 0 to ~0.21 fringe widths, so two places separate
+    // every reachable reading while a null reads `0.00` — a measurement that came out at zero, which is
+    // what the 1907 result was, rather than a bare `0` that reads as an absence.
+    resultDecimalPlaces: 2,
     // The session is ignored on purpose: this apparatus has no wavelength to select, which is the whole
     // reason `experiment.wavelengthNm` had to become optional in the shared contract.
     bind: () => calculateInterferometerDrift
@@ -143,3 +166,36 @@ export const resolveExperimentModel = (modelId: string): ExperimentModel | undef
  */
 export const resolveResultUnit = (model: ExperimentModel | undefined, canonicalUnit: string, t: Translator): string =>
     model?.resultUnitKey ? t(model.resultUnitKey) : canonicalUnit;
+
+/**
+ * The precision to *show* a recorded result at: the model's declared places where it has one, else the
+ * precision the recorded value itself carries.
+ *
+ * The `undefined` model is the same case {@link resolveResultUnit} handles — a run whose
+ * `experimentModelVersion` does not match the case's keeps its own canonical rendering rather than
+ * borrowing this build's, so it falls through to the value's own precision.
+ */
+export const resolveResultDecimalPlaces = (model: ExperimentModel | undefined, value: number): number =>
+    model?.resultDecimalPlaces ?? decimalPlaces(value);
+
+/**
+ * Renders a recorded result the one way every surface renders it: the model's label, the model's unit and
+ * the model's precision, or the run's own canonical values where the model does not match.
+ *
+ * Five surfaces compose this — the bench readout twice, the notebook, the case file and the printable
+ * record — and before this they each spelled out `formatRecordedValue(locale, value, resolveResultUnit(…))`
+ * themselves. Story 3.2's defect was one of those five surfaces being missed because it was the only one
+ * absent from a story's file list; a fifth copy is a fifth chance to miss one, so the composition lives
+ * here and the surfaces call it.
+ */
+export const formatRecordedResult = (
+    locale: Locale,
+    model: ExperimentModel | undefined,
+    result: Readonly<{ value: number; unit: string }>,
+    t: Translator
+): string => formatMeasurement(
+    locale,
+    result.value,
+    resolveResultDecimalPlaces(model, result.value),
+    resolveResultUnit(model, result.unit, t)
+);

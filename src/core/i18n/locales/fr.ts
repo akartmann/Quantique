@@ -69,6 +69,7 @@ export const fr: Record<TranslationKey, string> = {
     'lab.notes.assumptions': 'Ce que cet appareil tient pour acquis',
     'lab.notes.confound': 'Ce qui peut imiter l’effet recherché',
     'lab.notes.resetPath': 'Comment distinguer les deux',
+    'lab.notes.truncated': 'Certaines notes ne tiennent pas sur cette page et ne sont pas affichées.',
     'lab.notes.close': 'Fermer les notes',
     'lab.reference.heading': 'Références à portée de main',
 

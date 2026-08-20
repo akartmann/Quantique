@@ -88,7 +88,17 @@
 // `invalid-case-definition` — "content unavailable", with no recovery offline. **An additive union member
 // is still a bump, for the reason v11 gives about an additive optional field: `.strict()` makes every
 // schema change breaking in the old-bundle direction.**
-const CACHE_NAME = 'quantique-bootstrap-v14';
+//
+// v15 — code review of 4.2. `case.json` goes to **1.6.0** (a French U+202F before `°C` in
+// `experiment.resetPath.description`), and `CaseDefinitionSchema` gains two refusals a cached bundle does
+// not implement: `apparatus.primaryControls[].unit` refuses the degree homoglyphs U+00BA and U+02DA, and
+// `experiment.assumptions` is capped at four entries. Neither refusal is reachable from the shipped content,
+// so the *old file, new bundle* direction is harmless here — but the *new file, old bundle* direction is the
+// one that matters and it is the usual one: a returning player's cached 1.5.0 copy would be validated by
+// this build against a version its allowlist accepts, while a cached **bundle** paired with the new file
+// would parse 1.6.0 fine and then disagree with it about the separator. Bumped because the content moved at
+// all, which is the rule this list exists to keep, and because offline reload is a release gate.
+const CACHE_NAME = 'quantique-bootstrap-v15';
 
 /**
  * The case directories to precache at install, so the boot target can advance offline.

@@ -3,7 +3,6 @@ import type { Scene } from 'phaser';
 import type { PhaserStoreAdapter } from '../PhaserStoreAdapter';
 import { uiTextStyle } from '../textStyles';
 import type { AppState } from '../../../core/store/AppState';
-import { formatRecordedValue } from '../../../core/i18n/formatNumber';
 import { createTranslator, type Translator } from '../../../core/i18n/translate';
 import {
     selectAdvancedWavelengthUnlocked,
@@ -18,7 +17,7 @@ import {
     selectWavelengthChoices
 } from '../../../core/store/selectors';
 import { resolveLocalizedText } from '../../../core/i18n/resolveLocalizedText';
-import { resolveExperimentModel, resolveResultUnit } from '../../../domain/apparatus/experimentModels';
+import { formatRecordedResult, resolveExperimentModel } from '../../../domain/apparatus/experimentModels';
 import { isSourceEligibleForInspection, type ContextualArtifact, type PrimaryControl } from '../../../domain/cases/CaseDefinition';
 import { createBenchTableau, type BenchLightPhase, type BenchTableau } from './benchTableau';
 import { AdvanceControl } from '../ui/AdvanceControl';
@@ -72,7 +71,16 @@ import { TransientMessageSlot } from './transientMessage';
  * advances on the same clock Young's wavefronts do. One period, so no tableau carries a timing of its own
  * that could drift from another's.
  */
-const LIGHT_TRAVEL_PERIOD_MS = 2600;
+/**
+ * The period of the cyclic travel phase handed to a tableau, in ms.
+ *
+ * Exported since the 4.2 code review, so its relationship to {@link RUN_ANIMATION_MS} is asserted rather
+ * than coincidental: `travelPhase01` is a **sawtooth** on this period, which Young's repeating wavefronts
+ * want, while the interferometer's recombined path consumes it as *how far the light has reached*. Those
+ * are the same thing only while the sawtooth has not wrapped, and it does not wrap only because a whole run
+ * is shorter than this. Nothing recorded that until `ApparatusRun.test.ts` began asserting it.
+ */
+export const LIGHT_TRAVEL_PERIOD_MS = 2600;
 
 const MAX_RESULT_FONT_SIZE = 19;
 const MIN_RESULT_FONT_SIZE = 15;
@@ -863,7 +871,7 @@ export class ApparatusRenderer {
         // on them; every case reports its own labelled, unit-carrying result.
         this.resultReadout?.setVisible(!this.runInFlight);
         const recordedValue = latest
-            ? formatRecordedValue(locale, latest.result.value, resolveResultUnit(this.matchedModel(state, latest), latest.result.unit, t))
+            ? formatRecordedResult(locale, this.matchedModel(state, latest), latest.result, t)
             : '';
         this.resultReadout?.setText(!latest
             ? t('lab.result.emptyHint')
@@ -901,7 +909,7 @@ export class ApparatusRenderer {
                 ? t('lab.idle', { settings })
                 : t('lab.pattern.recorded', {
                     label: this.resultLabel(state, latest, t),
-                    value: formatRecordedValue(locale, this.recordedResultValue, resolveResultUnit(this.matchedModel(state, latest), latest.result.unit, t))
+                    value: formatRecordedResult(locale, this.matchedModel(state, latest), { value: this.recordedResultValue, unit: latest.result.unit }, t)
                 }));
 
         // Measured, floor-anchored stacking: the refusal grows up out of the gap above the control row,

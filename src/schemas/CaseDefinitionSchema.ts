@@ -82,6 +82,27 @@ export const MAX_PRIMARY_CONTROLS = 2;
 export const MAX_CONTEXTUAL_ARTIFACTS = 2;
 
 /**
+ * How many `experiment.assumptions` entries a case may author.
+ *
+ * Must equal `ApparatusNotesRenderer`'s `MAX_SECTION_LINES`, which is the reserve this bound exists to
+ * protect: the bench's apparatus-notes panel creates that many body text objects per section, and a fifth
+ * authored line would be drawn by nothing. Restated here rather than imported because a schema must not
+ * depend on a Phaser renderer; `ApparatusNotes.test.ts` asserts the two agree, which is what keeps a
+ * restatement honest.
+ */
+export const MAX_AUTHORED_ASSUMPTION_LINES = 4;
+
+/**
+ * Codepoints that look like an arc degree and are not it — U+00BA (masculine ordinal indicator) and
+ * U+02DA (ring above).
+ *
+ * Kept beside the schema rather than imported from `formatNumber`'s own list because the two answer
+ * different questions: the formatter asks *"how do I render whatever an author typed"*, and this asks
+ * *"may an author type it at all"*.
+ */
+const NON_CANONICAL_DEGREE_SIGNS = Object.freeze(['\u00BA', '\u02DA']);
+
+/**
  * Every localizable authored string must carry both shipped locales (AC3). The requirement lives in
  * the object schema itself rather than in a `superRefine`, because Zod skips refinements once the
  * base parse has failed — a missing `fr` has to be the base-parse failure, not a later one.
@@ -142,7 +163,23 @@ const PrimaryControlSchema = z.object({
      * precisely the silent degradation that shipped the broken sentence in the first place.
      */
     inlineLabel: LocalizedTextSchema,
-    unit: z.string().trim().min(1),
+    /**
+     * The unit as it is written beside a value.
+     *
+     * Refused rather than corrected when an author writes a **degree homoglyph** — U+00BA (the masculine
+     * ordinal indicator, which several keyboard layouts emit for a degree) or U+02DA (the ring above).
+     * Both render almost identically to `°` at a bench's font size and both are whitespace-free, so
+     * `unitSeparatorClass` would once have called them symbols and written a separator before them,
+     * reprinting the `0 °` defect Story 4.2 exists to fix — in French with an invisible U+202F in the gap,
+     * on content that parsed clean. The formatter now classifies them as degrees so nothing *renders*
+     * wrong, and this refuses them anyway: silently accepting a near-miss codepoint forever is how one
+     * ends up with two spellings of the same unit in the record and in the ledger. `°C` is unaffected —
+     * it is `°` followed by `C`, not a bare degree sign.
+     */
+    unit: z.string().trim().min(1).refine(
+        (unit) => !NON_CANONICAL_DEGREE_SIGNS.some((glyph) => unit.includes(glyph)),
+        { message: 'Write the arc degree as U+00B0 (°). U+00BA and U+02DA look identical and are not degree signs.' }
+    ),
     min: z.number().finite(),
     max: z.number().finite(),
     step: z.number().positive().finite(),
@@ -868,7 +905,20 @@ export const CaseDefinitionSchema = z.object({
             fixedMinimumPathNm: z.number().positive().finite(),
             advancedChoicesNm: z.tuple([z.literal(450), z.literal(650)])
         }).strict().optional(),
-        assumptions: LocalizedTextListSchema,
+        /**
+         * Capped at {@link MAX_AUTHORED_ASSUMPTION_LINES}, because the bench's apparatus-notes panel
+         * reserves exactly that many body lines per section and a fifth would not be drawn.
+         *
+         * The 4.2 code review found the renderer's own docstring claiming this check existed here already
+         * — *"`CaseDefinition.test.ts` asserts the authored lists against it and fails at load-time review
+         * rather than in front of a player"* — when the only guard was a test iterating the two shipped
+         * cases, which a *third* case would pass without adding a failure. Now a third case is refused at
+         * load with its path named, which is the moment an author can act on it.
+         */
+        assumptions: LocalizedTextListSchema.refine(
+            (list) => list.en.length <= MAX_AUTHORED_ASSUMPTION_LINES,
+            { message: `A case may author at most ${MAX_AUTHORED_ASSUMPTION_LINES} model assumptions: the apparatus-notes panel reserves that many lines per section.` }
+        ),
         confound: z.object({
             id: stableId,
             description: LocalizedTextSchema,

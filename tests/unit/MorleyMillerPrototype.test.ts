@@ -14,6 +14,12 @@ import { CaseDefinitionSchema, KNOWN_CASE_IDS, MORLEY_MILLER_CASE_ID, YOUNG_CASE
 import { resolveCaseId } from '../../src/adapters/content/resolveCaseId';
 import { CAMPAIGN_ORDER } from '../../src/domain/cases/campaignOrder';
 import { EXPERIMENT_MODEL_IDS } from '../../src/domain/apparatus/experimentModels';
+import {
+    ETHER_DEMANDED_DISPLACEMENT_FRINGE_WIDTHS,
+    ORIENTATION_AMPLITUDE,
+    PUBLISHED_CERTAINTY_FRACTION,
+    PUBLISHED_RESIDUAL_BOUND_FRINGE_WIDTHS
+} from '../../src/domain/apparatus/calculateInterferometerDrift';
 
 /**
  * The shipped prototype, parsed the way `loadCaseDefinition` parses it.
@@ -127,6 +133,45 @@ describe('the shipped Morley–Miller prototype', () => {
             // looser assertion is kept deliberately, because it is the rule the schema enforces.
             expect(rendition!.renditions.filter(({ kind }) => kind !== 'translation').map(({ locale }) => locale)).toEqual(['en']);
         });
+    });
+
+    /**
+     * The model's two "published figures" against the transcription they are quoted from (AC3).
+     *
+     * `calculateInterferometerDrift` exports `ETHER_DEMANDED_DISPLACEMENT_FRINGE_WIDTHS = 1.53` and
+     * `PUBLISHED_CERTAINTY_FRACTION = 1/80`, and its docstring quotes the 1907 sentence they come from.
+     * Two docstrings and a test comment all claimed *this file* asserted the case's prose against them so
+     * "the model and the transcription cannot drift" — and the 4.2 code review found no such assertion
+     * anywhere, in any file. The constants were pinned only against literals of themselves, so
+     * re-transcribing the paragraph to a different figure broke nothing.
+     *
+     * Mutation target: change either constant, or edit the quoted figures in the 1907 rendition, and this
+     * fails by name. It is the only thing in the suite that couples the physics to the historical source.
+     */
+    it('anchors the model constants to the figures the 1907 rendition actually states', async () => {
+        const definition = await loadPrototype();
+
+        const report = definition.contextualArtifacts
+            .find(({ textualRendition }) => textualRendition?.renditions
+                .some(({ sections }) => sections.some(({ paragraphs }) => paragraphs
+                    .some((paragraph) => paragraph.includes('displacement of the interference fringes')))));
+        expect(report).toBeDefined();
+
+        const prose = report!.textualRendition!.renditions
+            .flatMap(({ sections }) => sections.flatMap(({ paragraphs }) => paragraphs))
+            .join(' ');
+
+        // The ether-demanded displacement, as a number the prose writes and the model exports.
+        expect(prose).toContain(`${ETHER_DEMANDED_DISPLACEMENT_FRINGE_WIDTHS} wave-lengths`);
+        // And the certainty fraction, which the prose states in words rather than as a numeral — so the
+        // coupling is asserted on the word and on the arithmetic it stands for, together.
+        expect(prose).toContain('one eightieth part');
+        expect(PUBLISHED_CERTAINTY_FRACTION).toBe(1 / 80);
+        expect(PUBLISHED_RESIDUAL_BOUND_FRINGE_WIDTHS)
+            .toBeCloseTo(ETHER_DEMANDED_DISPLACEMENT_FRINGE_WIDTHS / 80, 12);
+        // The property that makes the case honest, restated where the source is in hand: the apparatus
+        // reads less than the largest residual those observations could not exclude.
+        expect(ORIENTATION_AMPLITUDE).toBeLessThan(PUBLISHED_RESIDUAL_BOUND_FRINGE_WIDTHS);
     });
 
     it('names a model this build implements, and one whose inputs its apparatus authors', async () => {
@@ -373,8 +418,11 @@ describe('the prototype played through the shared framework', () => {
         // The shipped version, pinned so a bump cannot land without a reader of this file meeting the
         // allowlist clause it needs. That is the whole reason the literal is here rather than read from the
         // definition — Story 3.4's severest finding was a bump shipped without its clause, and this row is
-        // what makes the two one action. 1.5.0 is Story 4.2's.
-        expect(definition.version).toBe('1.5.0');
+        // what makes the two one action. 1.5.0 was Story 4.2's; 1.6.0 is its code review's, which moved one
+        // character of French display copy (U+0020 → U+202F before `°C` in `resetPath.description`) and
+        // added the matching allowlist clause in the same change. This row is what made that a single action
+        // rather than two, exactly as intended.
+        expect(definition.version).toBe('1.6.0');
         const store = createStore(createInitialAppState(definition, 'en'));
         store.dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
         const projected = createCaseRecordProjection(store.getState());

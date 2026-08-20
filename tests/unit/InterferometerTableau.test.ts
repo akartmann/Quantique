@@ -1,16 +1,17 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApparatusRenderer } from '../../src/adapters/phaser/renderers/ApparatusRenderer';
-import { createBenchTableau, EXPERIMENT_MODEL_IDS, FRINGE_LAYER_NAME, LAMP_LAYER_NAME, TABLEAU_MODEL_IDS } from '../../src/adapters/phaser/renderers/benchTableau';
-import { InterferometerTableau } from '../../src/adapters/phaser/renderers/InterferometerTableau';
+import { BATH_LAYER_NAME, createBenchTableau, EXPERIMENT_MODEL_IDS, FRINGE_LAYER_NAME, LAMP_LAYER_NAME, TABLEAU_MODEL_IDS } from '../../src/adapters/phaser/renderers/benchTableau';
+import { BENCH_LABEL_NAME, InterferometerTableau, SCREEN_LABEL_NAME } from '../../src/adapters/phaser/renderers/InterferometerTableau';
 import { YoungOpticalTableau } from '../../src/adapters/phaser/renderers/YoungOpticalTableau';
 import {
     ARM_LENGTH,
     BATH_OUTER_RADIUS,
     MIRROR_HALF_WIDTH,
     SCREEN_X,
-    SOURCE_DISTANCE,
+    MIRROR_THICKNESS,
     SOURCE_GLOW_RADIUS,
+    SOURCE_GLOW_SCALE_AT_FULL,
     STONE_CENTRE_X,
     STONE_CENTRE_Y,
     STONE_RADIUS,
@@ -19,7 +20,9 @@ import {
     bathFillColor,
     bathWarmth01,
     interferometerObjectBands,
-    sourcePoint
+    mirrorReachFromCentre,
+    sourcePoint,
+    sourceReachFromCentre
 } from '../../src/adapters/phaser/renderers/interferometerGeometry';
 import { ADVANCE_CONTROL_Y, BENCH_TOP, SIDE_COLUMN_LEFT } from '../../src/adapters/phaser/renderers/apparatusGeometry';
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../../src/adapters/phaser/designSurface';
@@ -130,15 +133,51 @@ describe('the artwork is selected from the case\'s own experiment model', () => 
 
 describe('the interferometer tableau paints its own apparatus', () => {
     beforeEach(() => { vi.stubGlobal('window', stub.window); });
+
+    /**
+     * The centring `interferometerObjectBands()` assumes, asserted on the objects that have to have it.
+     *
+     * The bench and screen labels are measured as `centre ± wrap / 2`, which is only their extent if they
+     * are drawn with `setOrigin(0.5, …)`. `setOrigin` was unrecorded by the harness until the 4.2 code
+     * review, so deleting either call left the two labels overlapping on the shared label row — the exact
+     * thing the non-overlap row below exists to catch — with the whole suite green.
+     *
+     * Mutation: drop `.setOrigin(0.5, 0)` from either label in `InterferometerTableau.create()` and this
+     * fails by name.
+     */
+    it('centres the labels its bands are measured from', () => {
+        const ui = mount(storeAtTheBench(prototype));
+
+        // The bath label is left-anchored by design (its band starts at `BATH_LABEL_X`); these two are
+        // measured as `centre ± wrap / 2`, which is their extent only if they are centred. Found by name
+        // because the harness still discards the constructor coordinates they are positioned by.
+        ([BENCH_LABEL_NAME, SCREEN_LABEL_NAME]).forEach((name) => {
+            const label = ui.named(name);
+            expect(label).toBeDefined();
+            expect(label!.state.originX).toBe(0.5);
+            expect(label!.state.originY).toBe(0);
+        });
+    });
     afterEach(() => { vi.unstubAllGlobals(); });
 
     it('paints the bath, the stone and the apparatus without any run at all', () => {
         const ui = mount(storeAtTheBench(prototype));
-        const painted = ui.ofKind('graphics').filter(({ state }) => state.commands > 0);
 
         // The apparatus is scenery: it stands there whether or not the player has started anything. What
         // must be dark with no run is the *light*, which the next rows assert.
-        expect(painted.length).toBeGreaterThan(0);
+        //
+        // Asked of the three objects by name, not of the bench in aggregate: `ofKind('graphics')` returns
+        // every instrument's graphics too, so `painted.length > 0` was true with `paintFixedScenery`,
+        // `paintBath` and `paintApparatus` all deleted (4.2 code review).
+        const bath = ui.named(BATH_LAYER_NAME);
+        expect(bath?.state.commands ?? 0).toBeGreaterThan(0);
+        // The stone and the arms are not separately named — they are one layer drawn in one pass — so they
+        // are asked for through the shapes they issue: a face, and two arms crossed by a splitter.
+        const apparatusCommands = ui.ofKind('graphics')
+            .flatMap(({ state }) => state.commandNames)
+            .filter((name) => name === 'fillCircle' || name === 'fillRect' || name === 'fillTriangle');
+        expect(apparatusCommands).toContain('fillCircle');
+        expect(apparatusCommands).toContain('fillTriangle');
     });
 
     it('leaves the light dark and the fringe field blank until the player starts it (ADR-012)', () => {
@@ -191,7 +230,11 @@ describe('the interferometer tableau paints its own apparatus', () => {
     it('repaints the bath when the bath temperature changes, and only then', () => {
         const store = storeAtTheBench(prototype);
         const ui = mount(store);
-        const bath = ui.ofKind('graphics')[0]!;
+        // By name. This read `ofKind('graphics')[0]` until the 4.2 code review — the exact index habit this
+        // file's own `FRINGE_LAYER_NAME` docstring exists to end, and reordering the two `add.graphics()`
+        // calls in `create()` would have retargeted it onto the stone, which is never cleared, so the row
+        // would then have passed forever.
+        const bath = ui.named(BATH_LAYER_NAME)!;
         const clearsAfterFirstPaint = bath.state.clears;
 
         // A repaint with nothing changed must not re-issue the fills: the signature guard is what keeps a
@@ -212,23 +255,40 @@ describe('the interferometer tableau paints its own apparatus', () => {
      * thermal term vanishes at one temperature and not in a neighbourhood of it, and a softer definition
      * here would show the player a steady bath while they still read a thermal contribution.
      *
-     * Mutation target: draw the ring unconditionally, or widen it to a tolerance, and one half of this
-     * fails. The command *names* are what the harness keeps, and `strokeCircle` is what the ring issues.
+     * Mutation target: draw the ring unconditionally, or widen it to a tolerance, and this fails.
+     *
+     * **The tolerance half needed the walk back out.** Until the 4.2 code review the row only moved *to*
+     * the window and asserted the strokes rose, which a tolerance of `|bath − 20| < 2` passes: the default
+     * is 22, `|22 − 20|` is not `< 2`, so the baseline was unchanged and the count still rose. Leaving the
+     * window again and asserting the ring is gone is the assertion that catches it. The command *names*
+     * are what the harness keeps, and `strokeCircle` is what the ring issues.
      */
     it('rings the bath only when it is actually at the model\'s stable window', () => {
         const store = storeAtTheBench(prototype);
         const ui = mount(store);
-        const bath = ui.ofKind('graphics')[0]!;
-        const strokesAtDefault = bath.state.commandNames.filter((name) => name === 'strokeCircle').length;
+        const bath = ui.named(BATH_LAYER_NAME)!;
+        const ringStrokes = (): number => bath.state.commandNames.filter((name) => name === 'strokeCircle').length;
 
-        const steady = store.dispatch({ type: 'apparatus.controlSet', controlId: 'bathTempC', value: STABLE_WINDOW_C, origin: 'phaser' });
-        if (!steady.ok) throw new Error(`The bench refused the steady bath: ${steady.error.code}`);
-        ui.renderer.render(store.getState());
-        const strokesAtWindow = bath.state.commandNames.filter((name) => name === 'strokeCircle').length;
+        const setBath = (value: number): void => {
+            const moved = store.dispatch({ type: 'apparatus.controlSet', controlId: 'bathTempC', value, origin: 'phaser' });
+            if (!moved.ok) throw new Error(`The bench refused a bath of ${value}: ${moved.error.code}`);
+            ui.renderer.render(store.getState());
+        };
 
         // The authored default is 22, which is not the window — so the ring appears where it did not.
         expect(prototype.apparatus.primaryControls.find(({ id }) => id === 'bathTempC')!.defaultValue).not.toBe(STABLE_WINDOW_C);
+        const strokesAtDefault = ringStrokes();
+
+        setBath(STABLE_WINDOW_C);
+        const strokesAtWindow = ringStrokes();
         expect(strokesAtWindow).toBeGreaterThan(strokesAtDefault);
+
+        // One step off the window in each direction, which is where a tolerance would keep the ring lit.
+        const bathControl = prototype.apparatus.primaryControls.find(({ id }) => id === 'bathTempC')!;
+        ([STABLE_WINDOW_C + bathControl.step, STABLE_WINDOW_C - bathControl.step]).forEach((offWindow) => {
+            setBath(offWindow);
+            expect(ringStrokes()).toBe(strokesAtDefault);
+        });
     });
 
     it('releases every display object and tween it made', () => {
@@ -270,6 +330,7 @@ describe('the interferometer tableau paints its own apparatus', () => {
 });
 
 describe('the interferometer\'s geometry fits the surface it is laid out on', () => {
+
     it('keeps the whole apparatus inside the canvas and clear of the side column above it', () => {
         const outside = interferometerObjectBands()
             .filter(({ left, right, top, bottom }) => left < 0 || right > DESIGN_WIDTH || top < 0 || bottom > DESIGN_HEIGHT)
@@ -299,24 +360,54 @@ describe('the interferometer\'s geometry fits the surface it is laid out on', ()
         expect(bands.length).toBeGreaterThan(4);
     });
 
-    it('keeps both end mirrors and the lamp wholly on the stone at every authored angle', () => {
-        // The bound is the **hypotenuse**, not the sum: a mirror is a bar across the end of its arm, so
-        // its far corners sit at `hypot(ARM_LENGTH, MIRROR_HALF_WIDTH)` from the centre. Adding the two
-        // would be the more cautious arithmetic and the wrong shape, so this asserts the number that is
-        // actually load-bearing.
-        expect(Math.hypot(ARM_LENGTH, MIRROR_HALF_WIDTH)).toBeLessThanOrEqual(STONE_RADIUS);
-        expect(SOURCE_DISTANCE + SOURCE_GLOW_RADIUS).toBeLessThanOrEqual(STONE_RADIUS);
-        // And every authored angle really does keep them there, rather than the bound above holding only
-        // for the two axes the arms happen to start on.
+    /**
+     * Both bounds, measured at the corner and the scale the painter actually draws (4.2 code review).
+     *
+     * Two numbers were wrong here and both were wrong in the loose direction:
+     *
+     * - The mirror bound read `hypot(ARM_LENGTH, MIRROR_HALF_WIDTH)` ≈ 69.6, and `paintApparatus` gives
+     *   each mirror `MIRROR_THICKNESS` of depth *along* the arm, so the drawn corner is at ≈ 74.5.
+     *   `MIRROR_THICKNESS: 5 → 20` put a bar off the stone at every angle with the old row green.
+     * - The lamp bound read `SOURCE_DISTANCE + SOURCE_GLOW_RADIUS` = 79, and `paintLight` scales the glow
+     *   to `1.9×` for every lit frame, so it reaches 94.3 — *past* `STONE_RADIUS`, which is why the bound
+     *   asserted here is the bath's outer edge and the docstring now says so.
+     *
+     * The per-angle loop below asserted `hypot(armEndPoint(deg, i) − centre) === ARM_LENGTH`, which is
+     * `armEndPoint`'s own body restated, and likewise for the lamp — true for every input, so it could not
+     * observe the property its name claims. It asks the reach question instead, at each authored angle.
+     */
+    it('keeps both end mirrors and the lamp wholly on the apparatus at every authored angle', () => {
+        // Mutation: raise `MIRROR_THICKNESS`, `ARM_LENGTH`, `SOURCE_DISTANCE` or `SOURCE_GLOW_RADIUS` and
+        // the matching row fails by name. Both read exported helpers, so the number and the drawing move
+        // together rather than the test carrying its own copy of the arithmetic.
+        expect(mirrorReachFromCentre()).toBeLessThanOrEqual(STONE_RADIUS);
+        expect(mirrorReachFromCentre()).toBeGreaterThan(Math.hypot(ARM_LENGTH, MIRROR_HALF_WIDTH));
+
+        // Dark, the lamp is unscaled and sits on the stone; lit, its glow spills over the trough and must
+        // still stay inside the apparatus's own outer edge.
+        expect(sourceReachFromCentre(0)).toBeLessThanOrEqual(STONE_RADIUS);
+        expect(sourceReachFromCentre(1)).toBeGreaterThan(STONE_RADIUS);
+        expect(sourceReachFromCentre(1)).toBeLessThanOrEqual(BATH_OUTER_RADIUS);
+
+        // And every authored angle really does keep them there, rather than the bounds above holding only
+        // for the two axes the arms happen to start on. The mirror's far corner is the arm's end pushed
+        // `MIRROR_THICKNESS` further out along its own axis and `MIRROR_HALF_WIDTH` across it.
         const rotation = prototype.apparatus.primaryControls.find(({ id }) => id === 'rotationDeg')!;
+        let anglesChecked = 0;
         for (let deg = rotation.min; deg <= rotation.max + 1e-9; deg += rotation.step) {
             ([0, 1] as const).forEach((armIndex) => {
                 const end = armEndPoint(deg, armIndex);
-                expect(Math.hypot(end.x - STONE_CENTRE_X, end.y - STONE_CENTRE_Y)).toBeCloseTo(ARM_LENGTH, 6);
+                const fromCentre = Math.hypot(end.x - STONE_CENTRE_X, end.y - STONE_CENTRE_Y);
+                expect(fromCentre + MIRROR_THICKNESS).toBeLessThanOrEqual(STONE_RADIUS);
+                expect(Math.hypot(fromCentre + MIRROR_THICKNESS, MIRROR_HALF_WIDTH)).toBeLessThanOrEqual(STONE_RADIUS);
             });
             const lamp = sourcePoint(deg);
-            expect(Math.hypot(lamp.x - STONE_CENTRE_X, lamp.y - STONE_CENTRE_Y)).toBeCloseTo(SOURCE_DISTANCE, 6);
+            const lampFromCentre = Math.hypot(lamp.x - STONE_CENTRE_X, lamp.y - STONE_CENTRE_Y);
+            expect(lampFromCentre + (SOURCE_GLOW_RADIUS * (1 + SOURCE_GLOW_SCALE_AT_FULL))).toBeLessThanOrEqual(BATH_OUTER_RADIUS);
+            anglesChecked += 1;
         }
+        // The loop must have run: a step the authored range cannot reach would make every row above vacuous.
+        expect(anglesChecked).toBe(1 + ((rotation.max - rotation.min) / rotation.step));
     });
 
     it('keeps the two arms at right angles to each other, which is what the model\'s period is about', () => {

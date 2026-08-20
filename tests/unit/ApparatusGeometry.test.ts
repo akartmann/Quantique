@@ -253,9 +253,18 @@ describe('the bench', () => {
     it('derives each apparatus floor from that case\'s own deepest object, and records that the two agree', () => {
         expect(YOUNG_TABLEAU_FLOOR_Y).toBe(SCREEN_LABEL_Y + SCREEN_LABEL_HEIGHT);
         expect(INTERFEROMETER_TABLEAU_FLOOR_Y).toBe(SCREEN_LABEL_Y + SCREEN_LABEL_HEIGHT);
-        // The interferometer's bath is the object Young has no counterpart for, and it is inside the
-        // floor — so the floor covers it rather than the label row covering for it by accident.
-        expect(STONE_CENTRE_Y + BATH_OUTER_RADIUS).toBeLessThanOrEqual(INTERFEROMETER_TABLEAU_FLOOR_Y);
+        // The interferometer's bath is the object Young has no counterpart for, and the floor covers it.
+        //
+        // Asked of the *drawn* extent against the *label row*, not of the floor against one of its own
+        // `Math.max` arguments: `TABLEAU_FLOOR_Y` is `Math.max(STONE_CENTRE_Y + BATH_OUTER_RADIUS, …)`, so
+        // comparing the two was true by construction and would have held with the bath at y = 5000
+        // (4.2 code review). What is load-bearing is that the *label row* is deep enough to contain the
+        // bath — which is why the two floors coincide at all, and the fact that stops coinciding first if
+        // the bath grows.
+        expect(STONE_CENTRE_Y + BATH_OUTER_RADIUS).toBeLessThanOrEqual(SCREEN_LABEL_Y + SCREEN_LABEL_HEIGHT);
+        // And the floor is genuinely derived from the bath rather than ignoring it: raise the bath past the
+        // label row and the floor must follow it down.
+        expect(INTERFEROMETER_TABLEAU_FLOOR_Y).toBeGreaterThanOrEqual(STONE_CENTRE_Y + BATH_OUTER_RADIUS);
         // Both above the bench, which is the property that has to hold whichever is deeper.
         expect(BENCH_TOP).toBeGreaterThan(Math.max(YOUNG_TABLEAU_FLOOR_Y, INTERFEROMETER_TABLEAU_FLOOR_Y));
     });

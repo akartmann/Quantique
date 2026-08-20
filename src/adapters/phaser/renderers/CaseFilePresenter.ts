@@ -1,9 +1,9 @@
 import type { Scene } from 'phaser';
 
-import { decimalPlaces, formatMeasurement, formatRecordedValue } from '../../../core/i18n/formatNumber';
+import { decimalPlaces, formatMeasurement } from '../../../core/i18n/formatNumber';
 import { createTranslator, type TranslationKey, type Translator } from '../../../core/i18n/translate';
 import { resolveLocalizedText } from '../../../core/i18n/resolveLocalizedText';
-import { resolveExperimentModel, resolveResultUnit } from '../../../domain/apparatus/experimentModels';
+import { formatRecordedResult, resolveExperimentModel } from '../../../domain/apparatus/experimentModels';
 import type { AppState } from '../../../core/store/AppState';
 import type { Result } from '../../../core/errors/Result';
 import {
@@ -521,7 +521,7 @@ export class CaseFilePresenter {
             : undefined;
         const result = t('notebook.row.result', {
             label: matchedModel ? t(matchedModel.resultLabelKey) : record.result.label,
-            value: formatRecordedValue(locale, record.result.value, resolveResultUnit(matchedModel, record.result.unit, t))
+            value: formatRecordedResult(locale, matchedModel, record.result, t)
         });
         if (!settings) return result;
         return t('caseFile.observation.detail', { settings, result });

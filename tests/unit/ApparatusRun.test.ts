@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ApparatusRenderer, RUN_ANIMATION_MS } from '../../src/adapters/phaser/renderers/ApparatusRenderer';
+import { ApparatusRenderer, LIGHT_TRAVEL_PERIOD_MS, RUN_ANIMATION_MS } from '../../src/adapters/phaser/renderers/ApparatusRenderer';
 import { createPhaserStoreAdapter } from '../../src/adapters/phaser/PhaserStoreAdapter';
 import { createInitialAppState } from '../../src/core/store/AppState';
 import { createStore, type AppStore } from '../../src/core/store/createStore';
@@ -546,5 +546,27 @@ describe('resetting the setup from the bench', () => {
         expect(narrow.texts()).toContain('Reset the setup');
         expect(benchControlNamed(narrow, 'Reset the setup').state.interactive).toBe(true);
         narrow.renderer.destroy();
+    });
+});
+
+/**
+ * The one relationship between the run's length and the travel phase's period (4.2 code review).
+ *
+ * `BenchLightPhase.travelPhase01` is documented as **cyclic** — `(travelled % LIGHT_TRAVEL_PERIOD_MS) /
+ * LIGHT_TRAVEL_PERIOD_MS` — and Young's wavefronts read it that way, repeating for as long as the run
+ * lasts. `InterferometerTableau.drawBeams` reads the same number as *progress*: how far along the
+ * recombined path the light has reached. Both readings are correct only while the sawtooth never wraps
+ * inside a run, and today it does not, by 200ms. Nothing coupled the two constants and no test read either.
+ */
+describe('the run is shorter than the travel phase it is driven by', () => {
+    it('never lets the cyclic travel phase wrap inside a single run', () => {
+        // Mutation: raise `RUN_PROPAGATION_MS` past 2200, or lower `LIGHT_TRAVEL_PERIOD_MS` below the run's
+        // total, and this fails by name — instead of the recombined beam visibly snapping back from the
+        // screen to the stone mid-run while the fringe field is still arriving.
+        expect(RUN_ANIMATION_MS).toBeLessThanOrEqual(LIGHT_TRAVEL_PERIOD_MS);
+        // And the phase really does reach the end of its travel by the end of the run, so the beam arrives
+        // rather than stopping short: this is the half that a *large* period would break.
+        const phaseAtRunEnd = (RUN_ANIMATION_MS % LIGHT_TRAVEL_PERIOD_MS) / LIGHT_TRAVEL_PERIOD_MS;
+        expect(phaseAtRunEnd).toBeGreaterThan(0.8);
     });
 });

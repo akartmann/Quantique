@@ -152,7 +152,14 @@ describe('the interferometer drift model', () => {
         // cannot see the orientation signal at all until they bring the bath back.
         expect(thermalAtDefault).toBeGreaterThanOrEqual(10 * ORIENTATION_AMPLITUDE);
         // And it genuinely vanishes at the window, so what remains there is only the signal.
-        expect(THERMAL_COEFFICIENT * (STABLE_WINDOW_C - STABLE_WINDOW_C)).toBe(0);
+        // Asked of the model, not of the arithmetic: `x * (a - a) === 0` is true for every finite x and
+        // proved nothing about the calculator (4.2 code review). Two runs at one orientation, one at the
+        // window and one off it, and the *difference between the recorded results* is the thermal term.
+        const atWindow = drift(0, STABLE_WINDOW_C);
+        const offWindow = drift(0, STABLE_WINDOW_C + 2);
+        expect(offWindow - atWindow).toBeCloseTo(THERMAL_COEFFICIENT * 2, 10);
+        // And at the window the thermal term contributes nothing: the reading is the orientation term alone.
+        expect(atWindow).toBeCloseTo(ORIENTATION_AMPLITUDE, 10);
     });
 
     it('puts the stable window inside the authored range, so the instruction can actually be followed', () => {
@@ -181,17 +188,26 @@ describe('the interferometer drift model', () => {
      * calculator's header for why the amplitude is *bounded by* the published figure rather than *derived
      * from* it, and what a derivation would cost a returning player.
      *
-     * Mutation target: raise `ORIENTATION_AMPLITUDE` above 0.019125 and this fails by name.
+     * **What this row asserts, and what it deliberately does not (4.2 code review).** It asserts the
+     * *amplitude* is inside the published bound. It used to also assert that twice the amplitude — the
+     * peak-to-peak swing a player reads as a difference between two orientations — was **greater** than
+     * the bound, under a comment claiming the opposite in writing. `2 × 0.01 = 0.02` against `0.019125`,
+     * so the comment was false and the row pinned the swing *outside* the bound; worse, it pointed the
+     * wrong way, turning red for `ORIENTATION_AMPLITUDE = 0.009`, which is the change that would make the
+     * model *more* honest. The swing being marginally outside the bound is a property of a
+     * teaching-chosen amplitude and is not something to freeze in either direction — bringing it inside
+     * would mean lowering the amplitude, which changes every recorded value and walks into the
+     * `experiment.modelVersion` refusal D2 declined for good reason.
+     *
+     * Mutation target: raise `ORIENTATION_AMPLITUDE` above 0.019125 and this fails by name. That is now
+     * true of the whole row rather than of one assertion in it.
      */
     it('keeps the orientation signal inside the bound the 1907 observations could exclude', () => {
-        expect(PUBLISHED_RESIDUAL_BOUND_FRINGE_WIDTHS)
-            .toBeCloseTo(ETHER_DEMANDED_DISPLACEMENT_FRINGE_WIDTHS * PUBLISHED_CERTAINTY_FRACTION, 12);
         expect(ORIENTATION_AMPLITUDE).toBeLessThan(PUBLISHED_RESIDUAL_BOUND_FRINGE_WIDTHS);
-        // The whole orientation swing, peak to peak, is still inside the bound — not merely its amplitude.
-        expect(2 * ORIENTATION_AMPLITUDE).toBeGreaterThan(PUBLISHED_RESIDUAL_BOUND_FRINGE_WIDTHS);
-        // The two published figures are the ones the case's own record quotes, so the model and the
-        // transcription cannot drift: the case file's prose is asserted against these in
-        // `MorleyMillerPrototype.test.ts`.
+        // The two published figures are the ones the case's own record quotes. That they cannot drift
+        // apart from the transcription is asserted where the transcription is read, in
+        // `MorleyMillerPrototype.test.ts` — not here, and it was claimed here before the 4.2 review found
+        // no such assertion existed anywhere.
         expect(ETHER_DEMANDED_DISPLACEMENT_FRINGE_WIDTHS).toBe(1.53);
         expect(PUBLISHED_CERTAINTY_FRACTION).toBe(1 / 80);
     });

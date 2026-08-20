@@ -29,8 +29,9 @@
  * bench from {@link BENCH_TOP} = 404 and the side column from {@link SIDE_COLUMN_LEFT} = 680 — but only
  * *below* `ADVANCE_CONTROL_Y` = 360, which is why the screen may reach past 680 in x and the labels may
  * not reach past 768 in y. What is left for the apparatus is roughly **x 40–710 by y 92–342**, and every
- * number below is spent out of that. `InterferometerGeometry.test.ts` pins each bound against the
- * shared constants rather than trusting this comment.
+ * number below is spent out of that. `InterferometerTableau.test.ts` pins each bound against the
+ * shared constants rather than trusting this comment — there is no `InterferometerGeometry.test.ts`, which
+ * is what this line named until the 4.2 code review followed the pointer and found nothing there.
  */
 
 import { CENTRE_Y, SCREEN_BAR_HALF_WIDTH, SCREEN_HALF_HEIGHT, SCREEN_LABEL_HEIGHT, SCREEN_LABEL_Y } from './apparatusGeometry';
@@ -55,11 +56,18 @@ export const BATH_OUTER_RADIUS = STONE_RADIUS + 20;
  * The arms are what makes the rotation *visible*: a disc has no orientation, so a stone drawn as a
  * circle would turn without appearing to, and the fact that it *is* turning is AC1's second clause.
  *
- * The end mirrors stay wholly on the stone at every authored angle, and the bound is the **hypotenuse**
- * rather than the sum: a mirror is a bar drawn across the end of its arm, so its far corners sit at
- * `hypot(ARM_LENGTH, MIRROR_HALF_WIDTH)` ≈ 69.6 from the centre, not at `ARM_LENGTH + MIRROR_HALF_WIDTH`.
- * Adding them would be the more cautious arithmetic and the wrong shape, so the test asserts the
- * hypotenuse — the number that is actually load-bearing — against {@link STONE_RADIUS}.
+ * The end mirrors stay wholly on the stone at every authored angle, and the bound is a **hypotenuse**
+ * rather than a sum: a mirror is a bar drawn across the end of its arm, so its corners sit off the arm's
+ * axis rather than further along it.
+ *
+ * **Which corner, exactly** — the 4.2 code review found this docstring and its test both measuring one the
+ * painter does not draw. `paintApparatus` gives each mirror a depth of {@link MIRROR_THICKNESS} *along*
+ * the arm axis, so the far corners are at `hypot(ARM_LENGTH + MIRROR_THICKNESS, MIRROR_HALF_WIDTH)` ≈ 74.5
+ * from the centre, not at `hypot(ARM_LENGTH, MIRROR_HALF_WIDTH)` ≈ 69.6. Both are inside
+ * {@link STONE_RADIUS} today, so nothing was drawn wrong — but the guard was five pixels loose in the one
+ * direction that matters, and `MIRROR_THICKNESS: 5 → 20` would have put a mirror bar off the stone at
+ * every angle with the assertion still green. {@link mirrorReachFromCentre} is now the single number both
+ * the docstring and the test read.
  */
 export const ARM_LENGTH = 68;
 export const ARM_HALF_WIDTH = 3;
@@ -69,14 +77,42 @@ export const SPLITTER_HALF_LENGTH = 13;
 export const SPLITTER_THICKNESS = 4;
 
 /**
+ * How far the outermost drawn corner of an end mirror sits from the stone's centre.
+ *
+ * Exported so the bound and the painting read one number: the mirror is drawn as a bar of half-width
+ * {@link MIRROR_HALF_WIDTH} across the arm's end, given {@link MIRROR_THICKNESS} of depth along the arm's
+ * own axis, so its far corner is the hypotenuse of (arm + depth) and half-width. Rotation-independent —
+ * it is a distance from the centre of rotation, which is what makes "at every authored angle" a
+ * statement about one number rather than a sweep.
+ */
+export const mirrorReachFromCentre = (): number => Math.hypot(ARM_LENGTH + MIRROR_THICKNESS, MIRROR_HALF_WIDTH);
+
+/**
  * The lamp, mounted on the stone and turning with it, feeding the splitter along the incoming arm.
  *
- * 62 of offset plus 17 of glow is 79, inside {@link STONE_RADIUS}; the glow is the part that decides it,
- * not the lamp's own body, and at 68 it would have spilled a pixel off the stone at every angle.
+ * The glow is the part that decides how far the lamp reaches, not the lamp's own body — and **the glow is
+ * scaled while the light is on**, which this docstring got wrong until the 4.2 code review.
+ * `paintLight` sets `setScale(1 + 0.9 * ignition)`, and `ignition` is 1 for every resolved lit frame, so
+ * the drawn glow radius is `17 × 1.9 = 32.3` and the lamp reaches `62 + 32.3 = 94.3` — not the 79 the
+ * unscaled sum gives, and past {@link STONE_RADIUS}. It stays inside {@link BATH_OUTER_RADIUS}, so what
+ * spills is a pale disc over the bath annulus rather than anything leaving the apparatus; that is the
+ * bound {@link sourceReachFromCentre} is asserted against, at the scale actually painted.
  */
 export const SOURCE_RADIUS = 8;
 export const SOURCE_GLOW_RADIUS = 17;
 export const SOURCE_DISTANCE = 62;
+
+/**
+ * How far the lamp's glow reaches from the stone's centre, at the scale it is drawn at.
+ *
+ * Takes the ignition the painter would pass, so the test can ask the question at the value that is on
+ * screen rather than at the value the constants happen to spell. `SOURCE_GLOW_SCALE_AT_FULL` is the
+ * painter's own multiplier, exported beside it so the two cannot drift.
+ */
+export const SOURCE_GLOW_SCALE_AT_FULL = 0.9;
+
+export const sourceReachFromCentre = (ignition01: number): number =>
+    SOURCE_DISTANCE + (SOURCE_GLOW_RADIUS * (1 + (SOURCE_GLOW_SCALE_AT_FULL * ignition01)));
 
 /**
  * The observing screen: fixed, because the reading is taken at a fixed position of the turn.

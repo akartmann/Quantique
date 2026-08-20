@@ -305,7 +305,11 @@ Every one of these is mirrored into `deferred-work.md` with a named owner.
 
    The screen was already not part of this gap: the code review of 2026-08-19 (decision D1) delivered
    `paintDisplacedFringes` after finding that the prototype ignited for the full 2.4 s and resolved onto a
-   screen nothing had painted. That painter moved into the new tableau **verbatim**, deliberately.
+   screen nothing had painted. That painter moved into the new tableau essentially unchanged — **with one
+   exception the code review of 4.2 found recorded here as "verbatim"**: the fringe field's colour was
+   wavelength-derived (550 nm, green) and is now a fixed off-white, because this apparatus authors no
+   wavelength for a player to choose or see. The change was kept on Alexis's call and is noted here because
+   it is the story's one player-visible pixel change and was, until then, written down as not existing.
 2. ~~**Transcription fidelity and page attribution** of the 1887 excerpts~~ — **closed by Story 4.1**
    (2026-08-20): verified against the facsimile of the cited issue, three corrections applied, pages now
    `[333, 334]` and `[341]`. See the ✅ block in §4. What is still open is the reviewer's *reading*, not

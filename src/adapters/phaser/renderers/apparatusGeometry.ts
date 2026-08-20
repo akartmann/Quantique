@@ -110,11 +110,35 @@ export const ADVANCE_CONTROL_LABEL_WRAP = advanceControlLabelWrap(SIDE_COLUMN_WI
  *
  * The colleague's hint grows *upward* from the canvas floor into this same column and the shelf grows
  * downward, so inserting 48px here moves {@link REFERENCE_HEADING_Y} down by 48 and the shelf meets the
- * hint sooner. At the **shipped** hint lengths both of the prototype's reference controls still fit, which
- * `ApparatusGeometry.test.ts` asserts against the longest French hint either case actually authors rather
- * than against a guess. At the schema's 320-character *ceiling* the shelf is truncated one control earlier
- * than before — a regression at a length nothing authors, recorded in `deferred-work.md` with an owner
- * rather than left for a reader to discover.
+ * hint sooner. At the **prototype's** shipped hint lengths both of its reference controls still fit, which
+ * `ApparatusNotes.test.ts` asserts through {@link referenceShelfFloor} against the longest hint that case
+ * authors. At the schema's 320-character *ceiling* the shelf is truncated one control earlier than before.
+ *
+ * **What it costs Young, measured in a browser and accepted (code review of 4.2).** This docstring
+ * previously named `ApparatusGeometry.test.ts` as asserting the fit *"against the longest French hint
+ * either case actually authors"*, and the review found no such assertion there or anywhere — nothing read
+ * `referenceShelfFloor`, a hint length, or a shelf control count. So it was captured instead, at 1280×720
+ * in French, in this build and in the baseline before the insertion, from the same state:
+ * `young-canvas-experiment.spec.ts`'s *"captures the reference shelf with a repeated-configuration hint
+ * showing"* is that capture, committed so it can be re-run.
+ *
+ * The result: with Young's longest authored French hint on screen (`hint-vary-a-setting`, 231 characters,
+ * five wrapped lines), the shelf holds **one** control here and held **two** at `771adca`. So the
+ * insertion does cost Young a reference control, at a length the shipped case authors, reachable by
+ * ordinary play — record one arrangement twice, ask to move on, be refused.
+ *
+ * **Accepted, on Alexis's call, and the reasons are the shelf's own.** The loss is *transient*: the hint
+ * only shows after a refused advance (`resolveAdvanceView`'s `showsHint = stillRefused && hint`), so both
+ * controls are present whenever no colleague is speaking, and the shelf refills itself the moment the hint
+ * withdraws. And the priority is already written down two paragraphs up — *a reference is still reachable
+ * from the reading room, which is the shelf's own documented reason for yielding to the hint*. Yielding one
+ * control further while a colleague is mid-sentence is that same rule costing one more control, not a new
+ * failure mode. AC1's fourth clause is amended in the story file to name this exception rather than being
+ * left to read as though nothing on Young's bench moved.
+ *
+ * The alternative was ~24px of tightening across `REFERENCE_HEADING_GAP` and `REFERENCE_CONTROL_GAP`
+ * against ~23px needed — marginal by a pixel, and both constants are shared with the prototype, so it
+ * would have moved a second bench to spare this one.
  *
  * The priority that decides it: a reference is still reachable from the reading room, which is the shelf's
  * own documented reason for yielding to the hint. The notes are reachable **nowhere else**.

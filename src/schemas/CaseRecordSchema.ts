@@ -551,6 +551,18 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // working tree, which is what that test is for.
         || (isPrototype && definition.version === '1.5.0'
             && ['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0'].includes(record.caseDefinitionVersion)
+            && !recordNamesRetiredArtifact(record))
+        // 1.6.0 — code review of 4.2. One character: the French `experiment.resetPath.description` wrote an
+        // ordinary U+0020 before `°C`, where the bench renders the same quantity with U+202F, so the value
+        // could wrap away from its unit in the apparatus-notes panel and the two readings of one temperature
+        // were typeset differently on one screen.
+        //
+        // Display copy, and **not** in this function's recomputed canonical set: no record holds
+        // `resetPath.description`, nothing compares it, and the artifact ids are untouched — so the
+        // `recordNamesRetiredArtifact` condition rides along from 1.4.0 for the reason it was added there
+        // and for no new reason. Diff-verified: nothing this function recomputes or compares moved.
+        || (isPrototype && definition.version === '1.6.0'
+            && ['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.5.0'].includes(record.caseDefinitionVersion)
             && !recordNamesRetiredArtifact(record));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');

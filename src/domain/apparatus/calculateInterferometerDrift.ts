@@ -24,8 +24,10 @@ import type { ExperimentResult, RunControls } from '../evidence/RunRecord';
  * It is unavailable, and the reason is worth stating at the site rather than only in a story file. Any
  * change to a constant here changes every recorded value, which requires bumping
  * `experiment.modelVersion` — and `validateCaseRecordForDefinition` compares `experimentModelVersion`
- * against the definition's with **unconditional equality**, at `CaseRecordSchema.ts:592` for the restore
- * walk and `:705` for the completion walk, returning `invalid-case-record` for the *whole record*. There
+ * against the definition's with **unconditional equality**, in `validateCaseRecordForDefinition`'s restore
+ * walk and again in its completion walk, returning `invalid-case-record` for the *whole record*. (Named by
+ * walk rather than by line number since the 4.2 code review: the two line numbers this cited had already
+ * drifted by thirty lines, which is what a line number in a docstring does.) There
  * is no allowlist for `experimentModelVersion` as there is for `caseDefinitionVersion`; the only way to
  * accept a pre-bump record is a record migration. And because `attachAutosave` saves on the first
  * dispatch of the recovered session, the refusal overwrites the record it refused. So a bump discards
@@ -111,8 +113,10 @@ export const THERMAL_COEFFICIENT = 0.05;
  * It is also the one constant here the *player* has to know: `experiment.resetPath.description` tells
  * them to bring the bath back to its steady window, and a window they cannot name is an instruction they
  * cannot follow. So the authored prose states this number in both locales and
- * `MorleyMillerPrototype.test.ts` asserts the authored sentence against this constant — two copies that
- * fail together rather than drift. The bench also rings the bath when it is at this temperature
+ * `MorleyMillerFeedback.test.ts` asserts the authored sentence against this constant — two copies that
+ * fail together rather than drift. (This named `MorleyMillerPrototype.test.ts` until the 4.2 code review
+ * checked; that file asserts the *model constants against the 1907 transcription*, which is a different
+ * pair and was itself asserted nowhere at all.) The bench also rings the bath when it is at this temperature
  * (`InterferometerTableau`), which is the same fact told diegetically.
  */
 export const STABLE_WINDOW_C = 20;

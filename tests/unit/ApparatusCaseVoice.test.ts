@@ -83,7 +83,7 @@ describe('the bench states the case\'s own apparatus', () => {
         // separator is now a function of `(locale, unit)`, so the row states the intent instead of the
         // defect. `°C` keeps its separator, which is the near-miss the classifier has to survive and
         // which this same line asserts.
-        expect(idle).toBe('The bench is dark at 0° bench rotation, 22.0 °C bath temperature. Start the light to record an observation.');
+        expect(idle).toBe(`The bench is dark at 0° bench rotation, 22.0\u00A0°C bath temperature. Start the light to record an observation.`);
         expect(idle).not.toContain('slit spacing');
         expect(idle).not.toContain('screen distance');
         // No capital reaches the middle of the sentence.
@@ -97,7 +97,7 @@ describe('the bench states the case\'s own apparatus', () => {
 
         // Young's own inline forms, on content that had already shipped: the composed sentence is the
         // one surface where the display labels were wrong, and this is the regression that caught it.
-        expect(idle).toBe('The bench is dark at 0.25 mm slit spacing, 2.00 m screen distance. Start the light to record an observation.');
+        expect(idle).toBe(`The bench is dark at 0.25\u00A0mm slit spacing, 2.00\u00A0m screen distance. Start the light to record an observation.`);
     });
 
     it('states the prototype\'s controls in French', () => {
@@ -214,7 +214,7 @@ describe('the bench reports a run it has no Young model inputs for', () => {
         const ui = mount(recordOneRun(prototype));
         const texts = ui.texts();
 
-        expect(texts).toContain('Recorded Fringe displacement: 0.11 fringe widths.');
+        expect(texts).toContain(`Recorded Fringe displacement: 0.11\u00A0fringe widths.`);
         // The empty-state hint itself is no longer Young-worded (review 2026-08-19), so this asserts the
         // string that actually ships — a stale literal here would pass whatever the bench said.
         expect(texts.some((text) => text.includes('No measurement recorded yet'))).toBe(false);
@@ -235,7 +235,7 @@ describe('the bench reports a run it has no Young model inputs for', () => {
     it('describes the pattern with the run\'s own quantity, not a fringe spacing', () => {
         const pattern = mount(recordOneRun(prototype)).texts().find((text) => text.includes('Recorded observation'));
 
-        expect(pattern).toBe('Recorded observation: Fringe displacement of 0.11 fringe widths in the saved model result.');
+        expect(pattern).toBe(`Recorded observation: Fringe displacement of 0.11\u00A0fringe widths in the saved model result.`);
     });
 
     it('keeps Young\'s wavelength sentence, which is the part that genuinely needs model inputs', () => {
@@ -272,7 +272,7 @@ describe('the notebook row states the case\'s own apparatus', () => {
         // `0°`, not `0 °` — the same AC5 rule, on the second of the four surfaces that render a run's
         // apparatus settings. All four are asserted, because Story 3.2 localized three of them and
         // missed the fourth for the single reason that it was absent from that story's file list.
-        expect(settings).toBe('Bench rotation: 0° · Bath temperature: 22.0 °C');
+        expect(settings).toBe(`Bench rotation: 0° · Bath temperature: 22.0\u00A0°C`);
         expect(texts.some((text) => text.includes('slitSpacingMm'))).toBe(false);
         expect(texts.some((text) => text.includes('screenDistanceM'))).toBe(false);
         expect(texts.some((text) => text.includes('—'))).toBe(false);
@@ -281,7 +281,7 @@ describe('the notebook row states the case\'s own apparatus', () => {
     it('still lists Young\'s two controls for Young', () => {
         const settings = mountNotebook(young, 'en').texts().find((text) => text.includes('Slit spacing'));
 
-        expect(settings).toBe('Slit spacing: 0.25 mm · Screen distance: 2.00 m');
+        expect(settings).toBe(`Slit spacing: 0.25\u00A0mm · Screen distance: 2.00\u00A0m`);
     });
 
     it('names the measured quantity in French rather than the canonical English', () => {

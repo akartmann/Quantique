@@ -24,6 +24,22 @@ export const NO_BREAK_SPACE = '\u00A0';
 export const ARC_DEGREE = '\u00B0';
 
 /**
+ * Codepoints an author may reach for when they mean {@link ARC_DEGREE}, and which render almost
+ * identically at a bench's font size.
+ *
+ * U+00BA is the masculine ordinal indicator, which several keyboard layouts emit for a degree; U+02DA is
+ * the ring above. Both are whitespace-free, so `unitSeparatorClass` would have called them symbols and
+ * written a separator before them — reprinting `0 °` in English and `0 U+202F °` in French, on content
+ * that parses clean at load. Classified as degrees here so the *rendering* is right whatever an author
+ * typed, and **refused at load** by `CaseDefinitionSchema`'s `unit` check so the author is told to write
+ * the canonical sign rather than being silently corrected forever.
+ */
+const DEGREE_LIKE = Object.freeze(['\u00B0', '\u00BA', '\u02DA']);
+
+/** True for {@link ARC_DEGREE} and for the homoglyphs {@link DEGREE_LIKE} lists. */
+export const isArcDegreeUnit = (unit: string): boolean => DEGREE_LIKE.includes(unit);
+
+/**
  * How a unit takes its separator. Three classes, because French typography has three answers.
  *
  * - `degree` — the arc-degree sign takes **no** separator in either locale: `0°`, never `0 °`. This was
@@ -57,12 +73,27 @@ export type UnitSeparatorClass = 'degree' | 'symbol' | 'prose';
  * the formatted output of the units that happen to be authored right now.
  */
 export const unitSeparatorClass = (unit: string): UnitSeparatorClass => {
-    if (unit === ARC_DEGREE) return 'degree';
+    if (isArcDegreeUnit(unit)) return 'degree';
     return /\s/.test(unit) ? 'prose' : 'symbol';
 };
 
+/**
+ * The separator each locale writes for each unit class.
+ *
+ * **English is unbreakable too, since the 4.2 review.** It used to write U+0020 for both `symbol` and
+ * `prose`, and the consequence was photographed rather than argued: the English bench wrapped
+ * `Bath temperature: 20.0` / `°C`, splitting a value from its unit across two lines — the exact property
+ * {@link NARROW_NO_BREAK_SPACE} was chosen to protect in French, given up in English for no stated
+ * reason. English takes U+00A0 in both classes rather than U+202F, because the narrow space is a French
+ * typographic convention and English simply wants an ordinary-width space that does not break.
+ *
+ * This *is* a visible change to Young's shipped English output at the byte level, and it was taken as a
+ * decision in the 4.2 review (amending that story's AC5 clause, which required the English bytes to be
+ * untouched). `I18n.test.ts` pins the characters deliberately so the next change here is also a decision.
+ * The `degree` class stays empty in both locales: there is nothing to break between `0` and `°`.
+ */
 const UNIT_SEPARATOR: Readonly<Record<Locale, Readonly<Record<UnitSeparatorClass, string>>>> = {
-    en: { degree: '', symbol: ' ', prose: ' ' },
+    en: { degree: '', symbol: NO_BREAK_SPACE, prose: NO_BREAK_SPACE },
     fr: { degree: '', symbol: NARROW_NO_BREAK_SPACE, prose: NO_BREAK_SPACE }
 };
 
@@ -102,6 +133,15 @@ export const decimalPlaces = (value: number): number => value.toString().split('
 /**
  * Formats a value the domain already rounded, at exactly the precision it carries. Recorded run
  * results keep their canonical number; only the separators change with the language.
+ *
+ * **Precision from the value is right for a control and wrong for a result.** A control's value carries
+ * its authored step, so `22` at a step of `0.5` renders `22.0` and means it. A *result* carries whatever
+ * its arithmetic happened to leave: the interferometer's drift spans 0 to 0.21, so one travel of the dial
+ * rendered `0`, `0.01`, `0.1` and `0.11` — four precisions for one quantity, and an exact `0` at the two
+ * positions where `cos(2θ)` vanishes, which reads as *no measurement* rather than as a null result. So a
+ * model may declare the precision its results are shown at (`ExperimentModel.resultDecimalPlaces`), and
+ * a caller rendering a **result** passes it through {@link formatMeasurement} with that number. Young
+ * declares none and keeps this per-value behaviour, which is why its readout is unchanged.
  */
 export const formatRecordedValue = (locale: Locale, value: number, unit: string): string =>
     formatMeasurement(locale, value, decimalPlaces(value), unit);

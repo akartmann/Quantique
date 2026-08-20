@@ -1,4 +1,3 @@
-import { formatRecordedValue } from '../../core/i18n/formatNumber';
 import { resolveLocalizedText } from '../../core/i18n/resolveLocalizedText';
 import { createTranslator, type Translator } from '../../core/i18n/translate';
 import type { AppStore } from '../../core/store/createStore';
@@ -9,7 +8,8 @@ import {
 } from '../../core/store/selectors';
 import type { AppState } from '../../core/store/AppState';
 import { composeCaseSummary } from '../../domain/evidence/caseSummary';
-import { resolveExperimentModel, resolveResultUnit } from '../../domain/apparatus/experimentModels';
+import { formatRecordedValue } from '../../core/i18n/formatNumber';
+import { formatRecordedResult, resolveExperimentModel } from '../../domain/apparatus/experimentModels';
 import { CANONICAL_UNAVAILABLE_MESSAGE, type PeerReviewProjection } from '../../domain/review/peerReviewRules';
 
 const term = (label: string, value: string): HTMLDivElement => {
@@ -106,7 +106,7 @@ export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): ((
                 // A run this case's model did not produce keeps its own canonical label, which is the
                 // honest rendering of a reading whose provenance is something else.
                 label: matchedRunModel ? t(matchedRunModel.resultLabelKey) : run.result.label,
-                value: formatRecordedValue(locale, run.result.value, resolveResultUnit(matchedRunModel, run.result.unit, t)),
+                value: formatRecordedResult(locale, matchedRunModel, run.result, t),
                 timestamp: run.timestamp,
                 model: run.experimentModelVersion,
                 inputs

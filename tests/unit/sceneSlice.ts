@@ -86,6 +86,16 @@ export type DrawnObject = Readonly<{
         x: number;
         y: number;
         rotation: number;
+        /**
+         * The object's anchor, from `setOrigin` (4.2 code review).
+         *
+         * `0, 0` until a renderer sets one, matching Phaser's default for `Graphics` and rectangles.
+         * Recorded because `interferometerObjectBands()` measures the bench and screen labels as
+         * `centre ± wrap / 2` — i.e. it *assumes* `setOrigin(0.5, 0)` — so without this the non-overlap
+         * invariant those bands exist for could not fail when the call was removed.
+         */
+        originX: number;
+        originY: number;
     };
     /**
      * The pointer handlers the renderer attached to this object, so a test can press a control the
@@ -132,10 +142,10 @@ const DRAWING_COMMANDS = new Set([
 const makeObject = (kind: string, log: DrawnObject[]) => {
     // `interactive` starts false: nothing Phaser creates is interactive until `setInteractive` is called,
     // and starting it true would make a renderer that never armed a control look armed.
-    const state = { alpha: 1, visible: true, destroyed: false, text: '', interactive: false, name: '', commands: 0, commandNames: [] as string[], clears: 0, x: 0, y: 0, rotation: 0 };
+    const state = { alpha: 1, visible: true, destroyed: false, text: '', interactive: false, name: '', commands: 0, commandNames: [] as string[], clears: 0, x: 0, y: 0, rotation: 0, originX: 0, originY: 0 };
     const handlers = new Map<string, (...args: unknown[]) => void>();
     log.push({ kind, state, handlers });
-    const self: Chainable & { context: { measureText: (value: string) => { width: number } }; height: number; x: number; y: number; text: string; rotation?: number } = {
+    const self: Chainable & { context: { measureText: (value: string) => { width: number } }; height: number; x: number; y: number; text: string; rotation?: number; originX?: number; originY?: number } = {
         // Enough of a text metrics API for a caret to be placed. Seven pixels a character is not real,
         // and nothing here asserts a pixel — what matters is that the call does not throw.
         context: { measureText: (value: string) => ({ width: value.length * 7 }) },
@@ -208,6 +218,24 @@ const makeObject = (kind: string, log: DrawnObject[]) => {
         // reduced-motion snap-back) yielded `NaN` under test while behaving correctly in Phaser, and
         // every `toBeCloseTo` on it then failed as an uninformative `NaN`.
         setRotation: (value) => { self.rotation = value as number; state.rotation = self.rotation; return chain; },
+        /**
+         * Recorded since the 4.2 code review, because an invariant depended on it and could not fail.
+         *
+         * The interferometer's bench and screen labels are centred with `setOrigin(0.5, 0)`, and
+         * `interferometerObjectBands()` measures their bands as `centre ± wrap / 2` — centring hard-coded
+         * into the geometry. `setOrigin` fell through the permissive proxy unrecorded, so deleting the call
+         * left the two labels overlapping on the shared label row while the whole suite, including the row
+         * named for that non-overlap invariant, stayed green. Same class as the position setters above and
+         * the same fix: write it back and record it, then let the assertion tighten onto it.
+         */
+        setOrigin: (x, y) => {
+            self.originX = x as number;
+            // Phaser's own default: `setOrigin(v)` sets both axes.
+            self.originY = (y ?? x) as number;
+            state.originX = self.originX;
+            state.originY = self.originY;
+            return chain;
+        },
         // A cleared `Graphics` holds nothing until something is drawn into it again, which is exactly what
         // the bench's unlit state is.
         clear: () => { state.commands = 0; state.commandNames.length = 0; state.clears += 1; return chain; },

@@ -94,7 +94,11 @@ describe('the notebook reads the record and nothing else', () => {
         const [first] = store.getState().runs;
         expect(shown).toContain('Observation 1');
         expect(shown).toContain('Observation 2');
-        expect(shown).toContain(`${first!.result.value} mm`);
+        // U+00A0 since the 4.2 review: every separator `formatMeasurement` writes is unbreakable now, in
+        // both locales. The `550 nm` row below deliberately keeps an ordinary space — the wavelength is
+        // interpolated into an interface string and never routed through the formatter, which is the one
+        // reachable unit the `(locale, unit)` rule does not reach and is recorded in `deferred-work.md`.
+        expect(shown).toContain(`${first!.result.value}\u00A0mm`);
         expect(shown).toContain(first!.timestamp);
         expect(shown).toContain(first!.experimentModelVersion);
         expect(shown).toContain('550 nm');
