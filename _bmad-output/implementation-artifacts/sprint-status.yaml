@@ -1,5 +1,5 @@
 # generated: 2026-08-04T18:18:39+0200
-# last_updated: 2026-08-20  # story 4.1 -> done (code review complete, 22 patches applied)
+# last_updated: 2026-08-20  # story 4.2 -> ready-for-dev (context created)
 # project: Quantique
 # project_key: NOKEY
 # tracking_system: file-system
@@ -113,7 +113,7 @@ development_status:
   epic-3-retrospective: optional
   epic-4: in-progress  # first story of epic 4 contexted 2026-08-20
   4-1-morley-miller-historical-case-record: done  # code review complete 2026-08-20, 22 patches applied. Dev: 1907 final report re-anchored (full transcription, Science XXV p.525); 1887 excerpts VERIFIED against the cited issue's facsimile -- 3 divergences fixed, pages [333,334] and [341]; bounded-null (1.53 wavelengths / one eightieth) reaches curated record + debrief; cycles 6->4 with a Morley-Miller refinement; new pure campaignOrder.ts, boot default FLIPPED to the campaign entry (validation route held on Young). Review found and fixed: the French typography sweep's cross-case extension was a no-op (longestFrench picked Young for all 6 constants) and the debrief prose was swept by nothing -- SAMPLE_PARAMS now holds one parameter set per case and the debrief/consultation prose is measured; sw.js gains an install-time precache (v12->v13) closing an offline dead end reachable by completing case 1; the 1.4.0 record clause now accepts prior versions for records that cannot name the retired artifact, so in-context progress is no longer discarded and overwritten; the completion probe no longer routes a player past a case on a record the app will refuse; gotoCase's implicit-Young default removed at all 17 sites; a stale 1905-era consultation line and the 1887 elision marks corrected; 4 residual owners assigned (4.3 / Epic 5). case.json 1.4.0 (unreleased, so unbumped by the patches), ledger still BLOCKED (reviewer + educator sheet unassigned -- Alexis). Gates: typecheck clean, 1527 unit/80 files, build + build:subpath ok, 67/67 e2e, typecheck:tests 106/60 unchanged. 7 further mutation proofs; AC3/AC4 verified by screenshot at 1280x720 EN+FR (debrief not reachable -- recorded for 4.3).
-  4-2-thermal-drift-investigation-tutorial: backlog
+  4-2-thermal-drift-investigation-tutorial: ready-for-dev  # story contexted 2026-08-20
   4-3-morley-miller-bounded-conclusion-and-debrief: backlog
   epic-4-retrospective: optional
   epic-5: backlog
