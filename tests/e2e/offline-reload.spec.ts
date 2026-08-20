@@ -9,6 +9,7 @@ import {
 } from '../../src/adapters/persistence/IndexedDbRepository';
 import {
     WALK_TO_DEBRIEF_COST_MS,
+    gotoCase,
     recordedComparisonNotes,
     recordedObservations,
     walkToTheBoard
@@ -134,7 +135,10 @@ test.describe('unsupported browser language', () => {
 test('restores canvas-recorded progress after an offline reload, with no manual save', async ({ page, context }) => {
     test.setTimeout(30_000 + WALK_TO_DEBRIEF_COST_MS);
 
-    await page.goto('/');
+    // Named, not `/`: the warm-up has to load the case this test then walks, because it waits on
+    // *Thea's* portrait — a Young asset a Morley–Miller boot never fetches (Story 4.1 flipped the
+    // campaign default). The three locale assertions above deliberately stay at the root.
+    await gotoCase(page);
     await expect(page.getByRole('button', { name: en['boot.enter'] })).toBeVisible();
     await page.waitForFunction(async () => {
         await navigator.serviceWorker.ready;

@@ -2,9 +2,10 @@
 epic: 4
 story: 1
 key: 4-1-morley-miller-historical-case-record
-status: ready-for-dev
+status: review
 created: 2026-08-20
 baseline: 62b65b2
+baseline_commit: d657713fbe2d641c961746f779667962efa0860e
 inputs:
   - _bmad-output/planning-artifacts/epics.md §Epic 4 / Story 4.1
   - _bmad-output/planning-artifacts/gdds/gdd-Quantique-2026-08-04/gdd.md §Case slices, §decision-log 0.3
@@ -17,7 +18,7 @@ inputs:
 
 # Story 4.1: Morley–Miller historical case record
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -114,68 +115,68 @@ _`flow.maximumExperimentCycles` ships at **6** and the epic AC and FR25 both say
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Read the governing rules and the code you are about to change** (blocks everything)
-  - [ ] Read `_bmad-output/project-context.md` in full. It is revision 2.6 and it is governing. §Project Context Rules below is a pointer, not a substitute.
-  - [ ] Read `docs/case-prototypes/morley-miller-prototype.md` — especially §4 (provenance), §8 (the gap list) and the code-review section at the foot.
-  - [ ] Read `public/cases/morley-miller/case.json` end to end. It is 38 KB and every clause you touch has a sibling that references it by id.
-  - [ ] Read `src/schemas/CaseDefinitionSchema.ts` lines 25–100 (the case-id constants and the two `MAX_*` ceilings) and 337–420 (the rendition schema and its four refinements).
-  - [ ] Read `src/adapters/content/resolveCaseId.ts` in full — 24 lines, and its docstring names this story.
+- [x] **Task 1 — Read the governing rules and the code you are about to change** (blocks everything)
+  - [x] Read `_bmad-output/project-context.md` in full. It is revision 2.6 and it is governing. §Project Context Rules below is a pointer, not a substitute.
+  - [x] Read `docs/case-prototypes/morley-miller-prototype.md` — especially §4 (provenance), §8 (the gap list) and the code-review section at the foot.
+  - [x] Read `public/cases/morley-miller/case.json` end to end. It is 38 KB and every clause you touch has a sibling that references it by id.
+  - [x] Read `src/schemas/CaseDefinitionSchema.ts` lines 25–100 (the case-id constants and the two `MAX_*` ceilings) and 337–420 (the rendition schema and its four refinements).
+  - [x] Read `src/adapters/content/resolveCaseId.ts` in full — 24 lines, and its docstring names this story.
 
-- [ ] **Task 2 — Re-anchor the secondary artifact to the 1907 final report** (AC1, AC3, AC8)
-  - [ ] Replace the `morley-miller-1905-reconstruction` artifact with the 1907 final report. Keep `contextualArtifacts.length === 2` — `MAX_CONTEXTUAL_ARTIFACTS` is 2 and raising it is renderer work across three surfaces (§SS3).
-  - [ ] Decide `sourceType` / `provenance.category` / rendition `kind` from what the text **actually is**. The 1907 report is short enough to quote in full and is public domain, so a genuine `transcription` of `primary-material` is available here in a way it was not for 1905 (§SS4).
-  - [ ] Author the rendition sections, `summary`, `readerLabel`, `caseRelationship`, `citation.reuseStatement` in EN + FR. Every rendition must cover the same `sourcePages` in the same order with the same paragraph counts across locales — the schema refines this.
-  - [ ] Sweep every reference listed in §SS4's table. Nothing may still say 1905 except the historical prose that deliberately mentions the earlier repetition.
-  - [ ] Update `readingGateHints` id/`artifactId`, both `conclusionProposals` `inspected-source` predicates, `debrief.sourceRefs`, `debrief.historicalComparison` (title, text, `sourceIds`), and the `provenance.reference`.
+- [x] **Task 2 — Re-anchor the secondary artifact to the 1907 final report** (AC1, AC3, AC8)
+  - [x] Replace the `morley-miller-1905-reconstruction` artifact with the 1907 final report. Keep `contextualArtifacts.length === 2` — `MAX_CONTEXTUAL_ARTIFACTS` is 2 and raising it is renderer work across three surfaces (§SS3).
+  - [x] Decide `sourceType` / `provenance.category` / rendition `kind` from what the text **actually is**. The 1907 report is short enough to quote in full and is public domain, so a genuine `transcription` of `primary-material` is available here in a way it was not for 1905 (§SS4).
+  - [x] Author the rendition sections, `summary`, `readerLabel`, `caseRelationship`, `citation.reuseStatement` in EN + FR. Every rendition must cover the same `sourcePages` in the same order with the same paragraph counts across locales — the schema refines this.
+  - [x] Sweep every reference listed in §SS4's table. Nothing may still say 1905 except the historical prose that deliberately mentions the earlier repetition.
+  - [x] Update `readingGateHints` id/`artifactId`, both `conclusionProposals` `inspected-source` predicates, `debrief.sourceRefs`, `debrief.historicalComparison` (title, text, `sourceIds`), and the `provenance.reference`.
 
-- [ ] **Task 3 — Resolve the 1887 excerpts' fidelity and page attribution** (AC2)
-  - [ ] Compare each authored paragraph against the archived text at the artifact's own `archiveUrl`. §SS5 records two divergences already found — treat them as a floor, not a list.
-  - [ ] Decide each section's `sourcePages` by §SS5's rule: keep only what the cited source supports; the schema requires at least one positive integer, so the honest fallback is the article's own first page rather than an unverifiable interior page.
-  - [ ] Restate the outcome in `deferred-work.md` — struck if closed, rewritten with what remains if not. Do not carry the entry forward verbatim.
-  - [ ] Update `docs/case-prototypes/morley-miller-prototype.md` §4's ⚠ block and §8 item 2 to say what is now true.
+- [x] **Task 3 — Resolve the 1887 excerpts' fidelity and page attribution** (AC2)
+  - [x] Compare each authored paragraph against the archived text at the artifact's own `archiveUrl`. §SS5 records two divergences already found — treat them as a floor, not a list.
+  - [x] Decide each section's `sourcePages` by §SS5's rule: keep only what the cited source supports; the schema requires at least one positive integer, so the honest fallback is the article's own first page rather than an unverifiable interior page.
+  - [x] Restate the outcome in `deferred-work.md` — struck if closed, rewritten with what remains if not. Do not carry the entry forward verbatim.
+  - [x] Update `docs/case-prototypes/morley-miller-prototype.md` §4's ⚠ block and §8 item 2 to say what is now true.
 
-- [ ] **Task 4 — Make the bounded-null distinction explicit in authored content** (AC3, AC8)
-  - [ ] Carry the 1907 report's own arithmetic into the reader-facing content: the demanded displacement, and the fraction of it the observations could exclude. §SS4 quotes the source.
-  - [ ] Check `openingDispute`, the 1907 artifact's `summary` and `caseRelationship`, `debrief.summary`, `debrief.historicalComparison.text`, `debrief.deeperTheory` and the `context` dialogue beat. The distinction must be reachable in at least the curated record **and** the debrief.
-  - [ ] Do **not** add or reword a `conclusionProposal`. Bounded-conclusion wording and its overclaim refusal are **Story 4.3's** ACs; `predict-nothing-at-all` already carries the perfect-zero prediction and needs no change.
+- [x] **Task 4 — Make the bounded-null distinction explicit in authored content** (AC3, AC8)
+  - [x] Carry the 1907 report's own arithmetic into the reader-facing content: the demanded displacement, and the fraction of it the observations could exclude. §SS4 quotes the source.
+  - [x] Check `openingDispute`, the 1907 artifact's `summary` and `caseRelationship`, `debrief.summary`, `debrief.historicalComparison.text`, `debrief.deeperTheory` and the `context` dialogue beat. The distinction must be reachable in at least the curated record **and** the debrief.
+  - [x] Do **not** add or reword a `conclusionProposal`. Bounded-conclusion wording and its overclaim refusal are **Story 4.3's** ACs; `predict-nothing-at-all` already carries the perfect-zero prediction and needs no change.
 
-- [ ] **Task 5 — Bring the authored cycle range to two-to-four** (AC5)
-  - [ ] Set `flow.maximumExperimentCycles` to `4` in `public/cases/morley-miller/case.json`.
-  - [ ] Add a `MORLEY_MILLER_CASE_ID` clause to `CaseDefinitionSchema`'s top-level `superRefine` pinning `minimumExperimentCycles === 2 && maximumExperimentCycles === 4`, beside the existing `YOUNG_CASE_ID` branch — not as a `z.literal` in the shared shape.
-  - [ ] **Leave `cloneSecondCase()` in `tests/unit/CaseDefinition.test.ts` at 2/6.** Its id is `morley-drift-bench`, the new branch does not fire for it, and its 6 exists to prove the shared shape is not Young's literal. `CaseDefinition.test.ts:1419` asserts that 6 and must keep passing.
-  - [ ] Add a test that the new branch fires for `morley-miller` and does not fire for anything else, mirroring the Young-branch test.
+- [x] **Task 5 — Bring the authored cycle range to two-to-four** (AC5)
+  - [x] Set `flow.maximumExperimentCycles` to `4` in `public/cases/morley-miller/case.json`.
+  - [x] Add a `MORLEY_MILLER_CASE_ID` clause to `CaseDefinitionSchema`'s top-level `superRefine` pinning `minimumExperimentCycles === 2 && maximumExperimentCycles === 4`, beside the existing `YOUNG_CASE_ID` branch — not as a `z.literal` in the shared shape.
+  - [x] **Leave `cloneSecondCase()` in `tests/unit/CaseDefinition.test.ts` at 2/6.** Its id is `morley-drift-bench`, the new branch does not fire for it, and its 6 exists to prove the shared shape is not Young's literal. `CaseDefinition.test.ts:1419` asserts that 6 and must keep passing.
+  - [x] Add a test that the new branch fires for `morley-miller` and does not fire for anything else, mirroring the Young-branch test.
 
-- [ ] **Task 6 — Declare and wire the campaign lock order** (AC6)
-  - [ ] Create `src/domain/cases/campaignOrder.ts`: pure TypeScript, no Zod, no Phaser, no I/O. It exports the ordered campaign, a predicate for whether a case is unlocked, and a resolver for the campaign entry.
-  - [ ] Order is `[MORLEY_MILLER_CASE_ID, YOUNG_CASE_ID]`, imported from `CaseDefinitionSchema`'s existing constants — do not restate either string.
-  - [ ] Unit-test the three invariants AC6 names: Morley–Miller's index is lower than Young's; a completed or validated Young does not reorder or unlock anything ahead of Morley–Miller; unlocking is monotonic in the completed set.
-  - [ ] Wire it into the boot path per §SS8's decision. Whichever branch is taken, the module must be **read** by `src/` — a constant nothing consumes is the "authored content nothing reads" defect the Don't-Miss table names.
-  - [ ] Update `resolveCaseId.ts`'s docstring: it currently says this story owns the decision. Say what the decision was.
+- [x] **Task 6 — Declare and wire the campaign lock order** (AC6)
+  - [x] Create `src/domain/cases/campaignOrder.ts`: pure TypeScript, no Zod, no Phaser, no I/O. It exports the ordered campaign, a predicate for whether a case is unlocked, and a resolver for the campaign entry.
+  - [x] Order is `[MORLEY_MILLER_CASE_ID, YOUNG_CASE_ID]`, imported from `CaseDefinitionSchema`'s existing constants — do not restate either string.
+  - [x] Unit-test the three invariants AC6 names: Morley–Miller's index is lower than Young's; a completed or validated Young does not reorder or unlock anything ahead of Morley–Miller; unlocking is monotonic in the completed set.
+  - [x] Wire it into the boot path per §SS8's decision. Whichever branch is taken, the module must be **read** by `src/` — a constant nothing consumes is the "authored content nothing reads" defect the Don't-Miss table names.
+  - [x] Update `resolveCaseId.ts`'s docstring: it currently says this story owns the decision. Say what the decision was.
 
-- [ ] **Task 7 — Extend the French typography sweep to both shipped cases** (AC7)
-  - [ ] In `tests/e2e/french-typography.spec.ts`, turn the module-level Young-only `caseDefinition` parse (line ~447) into a per-case sweep over `SHIPPED_CASE_IDS` (line 197), following the `CASE_TITLES` (line 492) and `stagedFigureCounts` (line 213) patterns already in the file.
-  - [ ] Convert each content sample constant to a cross-case sweep: `SOURCE_NAME`, `CONTROL_LABEL`, `CONTROL_INLINE_LABEL`, `IDLE_SETTINGS_CLAUSE`, `NOTEBOOK_SETTINGS_ROW`, `COLLEAGUE_NAME`, `FIGURE_PLAQUE_NAMES`, `PROPOSAL_TEXTS`, `CONCLUSION_CLAIMS`, `CONCLUSION_LIMITATIONS`, `FRENCH_LIMITATIONS`, `DIALOGUE_BEATS`, `RIVAL_LAB_CRITIQUES`, the colleague-hint sweep, and the reading-gate lines.
-  - [ ] Label each sample with its case id, so a failure names which case overflowed.
-  - [ ] **Mutation-prove it.** Lengthen one authored French string in the prototype past its band, watch the sweep go red, restore it, record the proof. Without this the whole task is a change that reads as coverage.
-  - [ ] Fix any real overflow the extended sweep finds in authored prose by shortening the **content**, not by widening the band. If a band is genuinely wrong, that is renderer work — record it with an owner.
-  - [ ] Strike `deferred-work.md:84` and `:220`.
+- [x] **Task 7 — Extend the French typography sweep to both shipped cases** (AC7)
+  - [x] In `tests/e2e/french-typography.spec.ts`, turn the module-level Young-only `caseDefinition` parse (line ~447) into a per-case sweep over `SHIPPED_CASE_IDS` (line 197), following the `CASE_TITLES` (line 492) and `stagedFigureCounts` (line 213) patterns already in the file.
+  - [x] Convert each content sample constant to a cross-case sweep: `SOURCE_NAME`, `CONTROL_LABEL`, `CONTROL_INLINE_LABEL`, `IDLE_SETTINGS_CLAUSE`, `NOTEBOOK_SETTINGS_ROW`, `COLLEAGUE_NAME`, `FIGURE_PLAQUE_NAMES`, `PROPOSAL_TEXTS`, `CONCLUSION_CLAIMS`, `CONCLUSION_LIMITATIONS`, `FRENCH_LIMITATIONS`, `DIALOGUE_BEATS`, `RIVAL_LAB_CRITIQUES`, the colleague-hint sweep, and the reading-gate lines.
+  - [x] Label each sample with its case id, so a failure names which case overflowed.
+  - [x] **Mutation-prove it.** Lengthen one authored French string in the prototype past its band, watch the sweep go red, restore it, record the proof. Without this the whole task is a change that reads as coverage.
+  - [x] Fix any real overflow the extended sweep finds in authored prose by shortening the **content**, not by widening the band. If a band is genuinely wrong, that is renderer work — record it with an owner.
+  - [x] Strike `deferred-work.md:84` and `:220`.
 
-- [ ] **Task 8 — Versions, cache, ledger** (AC9)
-  - [ ] Bump `public/cases/morley-miller/case.json` `version` to `1.4.0`.
-  - [ ] Add `|| (isPrototype && definition.version === '1.4.0' && ['1.0.0', '1.1.0', '1.2.0', '1.3.0'].includes(record.caseDefinitionVersion))` to `CaseRecordSchema`, with a comment stating what changed. **This is the finding 3.4's review rated severest** — the 1.3.0 bump shipped without its clause and every saved prototype investigation was refused.
-  - [ ] Consider whether a saved record can survive the artifact id change at all: `inspectedSourceIds`, `theory.selectedSourceIds` and the record's source references may hold `morley-miller-1905-reconstruction`. If a saved record cannot be honestly accepted, the clause must **exclude** the older versions rather than list them — say which, and why, in the comment.
-  - [ ] Bump `public/sw.js` `CACHE_NAME` to `quantique-bootstrap-v12` and append the reason. The v11 header states the rule: **an additive optional field is still a bump, because `.strict()` makes every schema change breaking in the old-bundle direction.** This story changes content *and* adds a refinement, so it is unambiguously a bump.
-  - [ ] Run `npm run audit:ledger` and commit both regenerated `docs/source-rights/morley-miller-ledger.{en,fr}.md`.
+- [x] **Task 8 — Versions, cache, ledger** (AC9)
+  - [x] Bump `public/cases/morley-miller/case.json` `version` to `1.4.0`.
+  - [x] Add `|| (isPrototype && definition.version === '1.4.0' && ['1.0.0', '1.1.0', '1.2.0', '1.3.0'].includes(record.caseDefinitionVersion))` to `CaseRecordSchema`, with a comment stating what changed. **This is the finding 3.4's review rated severest** — the 1.3.0 bump shipped without its clause and every saved prototype investigation was refused.
+  - [x] Consider whether a saved record can survive the artifact id change at all: `inspectedSourceIds`, `theory.selectedSourceIds` and the record's source references may hold `morley-miller-1905-reconstruction`. If a saved record cannot be honestly accepted, the clause must **exclude** the older versions rather than list them — say which, and why, in the comment.
+  - [x] Bump `public/sw.js` `CACHE_NAME` to `quantique-bootstrap-v12` and append the reason. The v11 header states the rule: **an additive optional field is still a bump, because `.strict()` makes every schema change breaking in the old-bundle direction.** This story changes content *and* adds a refinement, so it is unambiguously a bump.
+  - [x] Run `npm run audit:ledger` and commit both regenerated `docs/source-rights/morley-miller-ledger.{en,fr}.md`.
 
-- [ ] **Task 9 — Produce the loop review artifact** (AC5)
-  - [ ] Write the review per §SS7 — a reviewer-readable document mapping each clause of AC5 to the authored field that carries it, with the residual gaps named and owned.
-  - [ ] It supersedes nothing: `docs/case-prototypes/morley-miller-prototype.md` stays as the 3.2 authoring review. This is the pre-production **case** review.
+- [x] **Task 9 — Produce the loop review artifact** (AC5)
+  - [x] Write the review per §SS7 — a reviewer-readable document mapping each clause of AC5 to the authored field that carries it, with the residual gaps named and owned.
+  - [x] It supersedes nothing: `docs/case-prototypes/morley-miller-prototype.md` stays as the 3.2 authoring review. This is the pre-production **case** review.
 
-- [ ] **Task 10 — Verification and bookkeeping** (AC10)
-  - [ ] Run all four gates. Record the test and file counts, the e2e pass count, and the `typecheck:tests` measurement.
-  - [ ] Record every mutation proof: what was broken, which named test went red, that it was restored.
-  - [ ] Strike closed `deferred-work.md` items; record new ones with a named owner story (not "Epic 4" — 3.2's review rejected that).
-  - [ ] Fill the Dev Agent Record, File List and Change Log.
+- [x] **Task 10 — Verification and bookkeeping** (AC10)
+  - [x] Run all four gates. Record the test and file counts, the e2e pass count, and the `typecheck:tests` measurement.
+  - [x] Record every mutation proof: what was broken, which named test went red, that it was restored.
+  - [x] Strike closed `deferred-work.md` items; record new ones with a named owner story (not "Epic 4" — 3.2's review rejected that).
+  - [x] Fill the Dev Agent Record, File List and Change Log.
 
 ## Dev Notes
 
@@ -555,19 +556,188 @@ Extracted from `_bmad-output/project-context.md` revision 2.6 — the rules that
 
 ### Agent Model Used
 
-_To be completed by the dev agent._
+Claude Opus 4.6 (`claude-opus-4-6`), via the `gds-dev-story` workflow.
 
 ### Debug Log References
 
+**Mutation proofs — six guards broken, each named test observed red, each restored.** Every guard this
+story added whose failure would have been silent is here.
+
+| # | Mutation applied to `src/` (or content) | Named test that went red | Restored |
+|---|---|---|---|
+| A | Deleted the `MORLEY_MILLER_CASE_ID` cycle-range refinement entirely | `a second case > fails the Morley–Miller cycle-range refinement the moment it claims to be Morley–Miller` (1 failed / 291 passed) | ✅ |
+| B | Removed the refinement's `definition.id ===` guard, making it unconditional | 8 tests including `a second case > carries its own control set, evidence floor and cycle range through to the parsed output` (the fixture's deliberate 2/6) and `leaves a case that is not Morley–Miller free to author its own cycle range` | ✅ |
+| C | Widened `CaseRecordSchema` with `(isPrototype && version === '1.4.0' && ['1.0.0','1.1.0','1.2.0','1.3.0'].includes(...))` | `refuses a record saved before the artifact was re-anchored, as incompatible rather than invalid` | ✅ |
+| D | Reversed `CAMPAIGN_ORDER` to build order (`[YOUNG, MORLEY_MILLER]`) | 7 tests across `CampaignOrder.test.ts` and `MorleyMillerPrototype.test.ts`, including `puts Morley–Miller before Young, against FR2 rather than build order` and `opens the campaign entry when no case is named, not Young` | ✅ |
+| E | Flipped `isCampaignCaseUnlocked`'s `every` to `some` | `unlocks the first case with nothing completed, and nothing after it`; `does not let a completed Young unlock or reorder anything ahead of Morley–Miller` | ✅ |
+| F | Lengthened one authored **French** string in the prototype (`displayName.fr`) past its band | `keeps the reading room's authored content inside the bands that hold it, in both locales` — and the failure named the case: `morley-miller artifact name morley-miller-1907-final-report [fr]: "…" (554px > 206px)` | ✅ |
+
+**A mutation that did *not* fail, recorded because it is information.** The first attempt at proof F
+lengthened a *reading-gate line* instead, and the sweep stayed green — legitimately: `LIBRARY_GATE_WRAP`
+is the widest prose band in the room and a 76-character unbreakable token still fits inside it. The
+proof was redone against `LIBRARY_ARTIFACT_LABEL_WRAP` (206px), the narrowest. The sweep is not blind;
+that band is simply generous.
+
+**`typecheck:tests` measured against a stashed baseline**, not eyeballed:
+`git stash push --include-untracked` → measure → `git stash pop`. **Baseline 114 errors / 60 files →
+106 errors / 60 files.** The count went down by 8 and the file count did not move. It briefly went to 61
+files when `CampaignOrder.test.ts` was first written with an inline storage literal whose `ok: boolean`
+widened past `Result<void>`; typing the fake through the exported `CaseRecordStorage` closed it.
+
+**Two authored-content defects found by eye that no automated check could have caught** — the harness
+reports a constant `height: 18` for every text object, and `LectureBookRenderer.fitBodyText` shrinks to
+a floor and then overflows with **no crop**:
+
+1. The 1907 leaf's heading (`"Printed page 525 — the final report, in full"`) wrapped to two lines at
+   18px bold across the 372px page width, and its second line **collided with** the "Source page 525."
+   line beneath it — `drawPage` places the heading at y=166 and the reference at y=195, a fixed 29px gap
+   that assumes one line. Heading shortened in both locales; re-screenshotted clean.
+2. The debrief's comparison and summary prose overran their bands. `DEBRIEF_COMPARISON_BAND_HEIGHT` is
+   sized for four lines at 14px across a 560px wrap (~315 chars) and the first draft was **477**; the
+   summary band is two lines at 16px (~140 chars) and the draft was **290**. Both authored down to fit
+   the stated reserve rather than left to the renderer's shrink-then-crop clamp, because a cropped
+   sentence is not content the player reaches. *(The prototype's summary was already over its reserve
+   before this story, at 222 chars; it is now 126.)*
+
+**The stale-`sourceId` risk surfaced loudly rather than silently**, which is worth recording because
+§SS13 predicted the opposite shape: the store refuses an unknown `sourceId`, so the prototype's unit
+walk failed with `Refused source.inspected: unknown-source-id` until every dispatch site moved. Nine
+tests in one file, no silent degradation.
+
+**The boot-default flip surfaced two genuine Young-shaped assumptions** that no amount of reading would
+have found — both were green before and failed the moment `/` stopped meaning Young:
+`offline-reload.spec.ts`'s warm-up waits on *Thea's portrait*, a Young asset a Morley–Miller boot never
+fetches; and `subpath-hosting.spec.ts` asserted a hand-copied list of Young's five portraits against a
+bare-root navigation.
+
+**Verification of external sources.** The 1887 excerpts were checked against the Internet Archive
+facsimile of the exact cited issue (`sim_american-journal-of-science_1887-11_34_203`, *AJS* vol. 34
+no. 203, November 1887), read against its printed running heads — which is how pages 333/334/341 were
+established. The 1907 text and its public-domain status were checked against the linked Wikisource page.
+
 ### Completion Notes List
 
+**All 10 ACs met. The case is complete and, correctly, still ledger-BLOCKED.**
+
+- **AC1 — the secondary artifact is the 1907 final report.** `morley-miller-1905-reconstruction` is
+  replaced by `morley-miller-1907-final-report`: Morley & Miller (1907), *Science* N.S. XXV, p. 525,
+  public domain, transcribed **in full** (the report is one paragraph) as `published-book` /
+  `primary-material` — so the `reconstruction` workaround 3.2 needed is no longer forced. Two artifacts
+  still, per `MAX_CONTEXTUAL_ARTIFACTS`. Every reference in §SS4's table swept; `grep -rn 1905` over the
+  case file returns nothing. **One citation discrepancy recorded rather than averaged:** the archive page
+  says issue "No. 2" where the common form is 25(641), so `citationText` carries only volume, page and
+  date, and the review artifact asks a reviewer to settle it.
+- **AC2 — the 1887 excerpts are verified, not de-claimed.** Open Question #2's default was option (b)
+  (de-claim honestly); a facsimile of the *cited issue* turned out to be reachable, so **option (a) was
+  achieved instead** — the strictly better outcome the deferred item actually asked for. Three
+  divergences found and fixed: a paraphrase that had changed the sentence's meaning (*"the motion of the
+  particles of the body"* for *"the motion of the earth in its orbit"*, plus a dropped clause and a
+  truncated second half), lost commas in the concluding excerpt, and a section that spans **two** printed
+  pages rather than one (`sourcePages: [333, 334]`). **341 was correct** and is now genuinely verified.
+  French renditions re-translated against the corrected English. `deferred-work.md:217` and `:247` struck
+  with what was found.
+- **AC3 — a bounded near-null, never a perfect zero.** The authors' own numbers (1.53 wave-lengths
+  demanded; certain to one eightieth) reach the player in the curated record *and* the debrief, verified
+  by eye in both locales. No `conclusionProposal` added or reworded — that is 4.3's.
+- **AC4 — provenance on every context surface.** Verified rather than built, as the AC directs:
+  screenshots confirm the re-anchored artifact resolving through `LibraryRenderer` (detail panel:
+  *"Ouvrage publié · Source primaire"*), `CaseFilePresenter` (pinned source rows) and `DebriefRenderer`
+  (cited-sources band) in French, and the reconstruction is no longer presented as anything.
+- **AC5 — the loop is reviewed before production.** `docs/case-reviews/morley-miller-case-review.md`
+  maps every clause to the field that carries it, and `flow.maximumExperimentCycles` is 6 → **4** with a
+  load-time refinement. It says plainly that **nothing in `src/` reads either cycle field**, so the
+  change is a contract correction and not a cap.
+- **AC6 — campaign lock order declared, enforced and read.** `src/domain/cases/campaignOrder.ts` (pure);
+  `resolveCaseId` reads it; **the boot default flipped** per Open Question #1. `?mode=validation` stays
+  on Young deliberately — `young-validation-plan.md` names that route as validating *the Young
+  laboratory*, so it is the route's purpose rather than a leftover assumption.
+- **AC7 — the sweep measures both cases.** The single Young-only parse in
+  `french-typography.spec.ts` is now `SHIPPED_CASES` over `KNOWN_CASE_IDS`, covering every surface the
+  task named, in both locales, with the case id in every label. Mutation-proved. **No overflow was found
+  in the prototype's prose** at the current bounds; the two defects that *were* found are height claims
+  the sweep cannot make, found by eye and fixed. `deferred-work.md:84` and `:220` struck.
+- **AC8 — bilingual.** Every added or changed string carries `en` and `fr`; localized lists are equal
+  length; the generated ledger renders in both. Surfaces checked by grepping for the *read*, per §SS10.
+- **AC9 — contract, version, cache, ledger.** `case.json` 1.3.0 → **1.4.0**; `sw.js` →
+  **`quantique-bootstrap-v12`** with its reason appended; `npm run audit:ledger` re-run and both
+  generated files committed. **The `1.4.0` record clause deliberately lists no prior version** — the
+  artifact id moved and a saved record holds it in `inspectedSourceIds`, which `CaseRecordSchema` already
+  cross-checks and rejects, so listing 1.0.0–1.3.0 would only downgrade an honest
+  `incompatible-case-record` into `invalid-case-record`. The exclusion is asserted by name.
+- **AC10 — verification.** Four gates green: `typecheck` clean, **1523** unit tests passing (80 files),
+  `build` and `build:subpath` succeed, **64/64** e2e passing on an idle machine.
+  `typecheck:tests` **106 / 60**, down from 114 / 60. Six mutation proofs recorded above.
+
+**Answers to the story's Open Questions.** #1 — the boot default **flipped**, as recommended; #2 —
+resolved as option **(a)**, better than its default, because a facsimile of the cited issue was
+reachable; #3 — the reviewer and educator context sheet remain **unassigned** and the case is reported
+**BLOCKED**, with no name authored to clear a row; #4 — recorded in `deferred-work.md` with **Story 4.2**
+as candidate owner and put to Alexis in the review artifact.
+
+**Deliberately not done** (§SS1, each owned elsewhere): the bench artwork, the model constants and
+`formatMeasurement`'s separator (**4.2** — a second manifestation of the separator gap was found on this
+case and added to that item); the bounded conclusion, the overclaim refusal and revision feedback
+(**4.3**); no third artifact, no new scene or phase, no fourth `src/ui/` module, no registry; the five
+orphaned `src/game/scenes/*` files untouched. **Four new items recorded with owners**, three of which are
+"authored field nothing reads" instances found while working: the cycle fields, `citation.reuseStatement`
+(which is why AC2 was verified rather than de-claimed — a caveat there would never reach the player),
+`debrief.sourceRefs`, and the now-unexercised `reconstruction` rendition kind.
+
 ### File List
+
+**New**
+
+- `src/domain/cases/campaignOrder.ts`
+- `src/adapters/persistence/completedCampaignCases.ts`
+- `tests/unit/CampaignOrder.test.ts`
+- `docs/case-reviews/morley-miller-case-review.md`
+
+**Modified — source**
+
+- `src/main.ts`
+- `src/adapters/content/resolveCaseId.ts`
+- `src/schemas/CaseDefinitionSchema.ts`
+- `src/schemas/CaseRecordSchema.ts`
+- `src/core/i18n/resolveLocalizedText.ts` (comment)
+- `src/domain/cases/CaseDefinition.ts` (comment)
+- `src/domain/apparatus/calculateInterferometerDrift.ts` (comment)
+
+**Modified — content, worker, generated**
+
+- `public/cases/morley-miller/case.json`
+- `public/sw.js`
+- `docs/source-rights/morley-miller-ledger.en.md` (generated)
+- `docs/source-rights/morley-miller-ledger.fr.md` (generated)
+
+**Modified — tests**
+
+- `tests/unit/CaseDefinition.test.ts`
+- `tests/unit/MorleyMillerPrototype.test.ts`
+- `tests/e2e/canvasHelpers.ts`
+- `tests/e2e/french-typography.spec.ts`
+- `tests/e2e/subpath-hosting.spec.ts`
+- `tests/e2e/canvas-transitions.spec.ts`
+- `tests/e2e/dialogue-advance.spec.ts`
+- `tests/e2e/library-reading.spec.ts`
+- `tests/e2e/offline-reload.spec.ts`
+- `tests/e2e/rival-lab.spec.ts`
+- `tests/e2e/scene-router.spec.ts`
+- `tests/e2e/validation-route.spec.ts`
+- `tests/e2e/young-canvas-experiment.spec.ts`
+
+**Modified — docs and tracking**
+
+- `docs/case-prototypes/morley-miller-prototype.md`
+- `_bmad-output/implementation-artifacts/deferred-work.md`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`
+- `_bmad-output/implementation-artifacts/4-1-morley-miller-historical-case-record.md`
 
 ## Change Log
 
 | Date | Version | Change | By |
 |---|---|---|---|
 | 2026-08-20 | 0.1 | Story context created from epics.md §Epic 4 Story 4.1, gdd.md and its decision log, project-context.md rev 2.6, the 3.2 prototype artifact, deferred-work.md, and the source at HEAD `62b65b2`. The 1907 anchor and the 1887 excerpt divergences were verified against the cited archives at creation time. | Scrum Master |
+| 2026-08-20 | 1.0 | Story implemented. The secondary artifact is re-anchored from the 1905 reconstruction to a full transcription of the genuine **1907** final report (*Science* N.S. XXV, p. 525), with the complete rename swept and re-grepped. The 1887 excerpts were **verified against a facsimile of the cited issue** rather than de-claimed — three divergences found and corrected, including a paraphrase that had changed the sentence's meaning and a section spanning two printed pages (`[333, 334]`). The bounded-null distinction (1.53 wave-lengths demanded, certain to one eightieth) now reaches the player in the curated record and the debrief. `flow.maximumExperimentCycles` 6 → 4 with a `MORLEY_MILLER_CASE_ID` refinement. New `src/domain/cases/campaignOrder.ts` puts Morley–Miller before Young and **the boot default flipped** to the campaign entry, with `?mode=validation` deliberately held on Young. The French typography sweep now measures **every** shipped case. `case.json` 1.4.0, `sw.js` v12, ledger regenerated (still **BLOCKED**, correctly). Six guards mutation-proved; `typecheck:tests` 114 → **106** errors. Two authored-content layout defects found by eye and fixed. | Dev Agent (Link Freeman) |
 
 ## Open Questions for Alexis
 

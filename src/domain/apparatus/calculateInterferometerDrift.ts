@@ -7,7 +7,7 @@ import type { ExperimentResult, RunControls } from '../evidence/RunRecord';
  * **These constants are a prototype's shape, not a historical calibration.** They are chosen to make
  * the teaching loop of FR19 reachable — a near-null orientation signal buried under a temperature
  * confound that a patient experimenter can remove — and nothing here is sourced from the 1887 paper or
- * the 1905 report. Calibrating them against the published numbers, and having that agreement reviewed,
+ * the 1907 final report. Calibrating them against the published numbers, and having that agreement reviewed,
  * is **Story 4.2's** work. Do not cite these figures as historical.
  */
 

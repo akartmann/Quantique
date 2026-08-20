@@ -346,12 +346,17 @@ const LocalizedTextualRenditionSchema = z.object({
     /**
      * What this rendition *is*, which is a provenance claim and not a formatting one.
      *
-     * `reconstruction` was added in the review of 3.2. The prototype's 1905 artifact is prose written
-     * for this investigation — its own `reuseStatement` says so — and it was nonetheless declared a
-     * `transcription` with printed page attributions, because the enum offered nothing else and the
-     * refinement below *required* one rendition to be a transcription. The rendition of record may now
-     * say it is a reconstruction, which is what `sourceType: 'reconstruction'` was already claiming one
-     * layer up.
+     * `reconstruction` was added in the review of 3.2, and the case that motivated it is named here
+     * deliberately: the prototype's **1905** artifact was prose written for this investigation — its own
+     * `reuseStatement` said so — and it was nonetheless declared a `transcription` with printed page
+     * attributions, because the enum offered nothing else and the refinement below *required* one
+     * rendition to be a transcription. The rendition of record may now say it is a reconstruction, which
+     * is what `sourceType: 'reconstruction'` was already claiming one layer up.
+     *
+     * Story 4.1 replaced that artifact with the 1907 final report — short, public domain, and a genuine
+     * transcription — so **no shipped case exercises `reconstruction` any more.** The member is
+     * legitimate and documented in `docs/content-authoring/README.md`, but the branch is now untested
+     * against real content; `deferred-work.md` records that for the next case author.
      */
     kind: z.enum(['transcription', 'translation', 'reconstruction']),
     sections: z.array(TextualRenditionSectionSchema).min(1)
@@ -1067,6 +1072,26 @@ export const CaseDefinitionSchema = z.object({
                 });
             }
         });
+    }
+
+    // --- What is true of Morley–Miller alone (Story 4.1) -------------------------------------------
+    //
+    // FR25 and Epic 4's AC both put this case at **two to four** experiment cycles, and the prototype
+    // shipped `maximumExperimentCycles: 6`. A second branch beside Young's rather than a `z.literal` in
+    // the shared shape, for the reason stated above the Young branch: the shared contract holds only
+    // what every case shares, and a literal here would drag every later case into this case's range.
+    //
+    // Note what this does and does not buy. **Nothing in `src/` reads either cycle field** —
+    // `caseFileGeometry.ts:40` and `selectors.ts:410` both say so in as many words, and the condition
+    // applies to Young equally. So this corrects the authored value against FR25 and stops a future
+    // author from re-authoring a range FR25 forbids, failing at load with the path named; it does not
+    // cap anything the player does. That gap is recorded in `deferred-work.md` with an owner.
+    //
+    // Deliberately *not* applied to the `morley-drift-bench` fixture: `cloneSecondCase()` in
+    // `CaseDefinition.test.ts` carries 2/6 to prove the shared shape is not Young's literal, its id is
+    // not this one, and `CaseDefinition.test.ts:1419` asserts that 6.
+    if (definition.id === MORLEY_MILLER_CASE_ID && (definition.flow.minimumExperimentCycles !== 2 || definition.flow.maximumExperimentCycles !== 4)) {
+        context.addIssue({ code: 'custom', message: 'The Morley–Miller case runs two to four experiment cycles.', path: ['flow'] });
     }
 
     if (new Set(definition.contextualArtifacts.map((artifact) => artifact.id)).size !== definition.contextualArtifacts.length) {

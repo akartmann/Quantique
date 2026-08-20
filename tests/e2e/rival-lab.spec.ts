@@ -30,6 +30,7 @@ import {
     chooseProposalThroughColleague,
     enterTheLaboratory,
     expectActiveScene,
+    gotoCase,
     recordedAutoSummary,
     recordedObservations,
     startTheLightUntilRecorded,
@@ -91,7 +92,7 @@ const walkToTheoryBoardWithThinEvidence = async (
     locale: 'en' | 'fr'
 ): Promise<void> => {
     const labels = locale === 'fr' ? fr : en;
-    await page.goto('/');
+    await gotoCase(page);
     // Proves the browser really resolved the locale under test before anything downstream depends on
     // it — the canvas resolves every string through the same store-held locale. Asserted **before**
     // entry, because the frame that carries this heading is dismissed by it; `enterTheLaboratory`'s own

@@ -42,7 +42,24 @@
 // bundle fails into `invalid-case-definition` — "content unavailable", with no recovery offline. The
 // rule this makes explicit, and which the header did not say before: **an additive optional field is
 // still a bump, because `.strict()` makes every schema change breaking in the old-bundle direction.**
-const CACHE_NAME = 'quantique-bootstrap-v11';
+// v12 — Story 4.1. The strongest case for a bump so far, and it fails in **both** directions at once.
+// The Morley–Miller case re-anchors its second contextual artifact: the id
+// `morley-miller-1905-reconstruction` is retired and `morley-miller-1907-final-report` takes its slot,
+// with new authored prose, a new citation and a new archive URL. Two consequences, either one of which
+// is a bump on its own.
+//
+// *New file, old bundle:* the retired id is still what a cached record's `inspectedSourceIds` holds and
+// what the old bundle's reading gate, support predicates and debrief citations name — so the new
+// `case.json` read by the old bundle refuses the player's saved investigation outright.
+//
+// *Old file, new bundle:* a cached 1.3.0 `case.json` still carries the 1905 artifact, and the new
+// `CaseDefinitionSchema` also gains a Morley–Miller refinement pinning `flow` to two-to-four cycles,
+// which that cached file violates at `maximumExperimentCycles: 6` — a load-time refusal with the path
+// named, which is "content unavailable" for an offline player.
+//
+// Note this is a *content and refinement* change rather than a newly-required field, so it is neither
+// v9's class nor v10's: it is the rule v11 stated, applied to a case where the content itself moved.
+const CACHE_NAME = 'quantique-bootstrap-v12';
 
 self.addEventListener('install', (event) => {
     event.waitUntil(self.skipWaiting());

@@ -83,10 +83,10 @@ export type SourceRole = 'primary' | 'secondary';
  *
  * **This is a second enum beside `SourceRightsStatus`, not a widening of it, because they answer
  * different questions.** `rightsStatus` answers *may we ship this*: a public-domain 1801 lecture is
- * `reviewed` with no human involved. `reviewerState` answers *has a person signed this off*. The
- * prototype's open item (`deferred-work.md`, the 1905 reconstruction) is exactly the gap between them —
- * `rightsStatus: 'reviewed'` on material whose reuse is trivially clear, where whether that is correct
- * is the assigned scholarly reviewer's call. One enum could not express that.
+ * `reviewed` with no human involved. `reviewerState` answers *has a person signed this off*. Both of the
+ * prototype's sources are exactly the gap between them — `rightsStatus: 'reviewed'` on public-domain
+ * material whose reuse is trivially clear, beside `reviewerState: 'pending'` because no scholarly
+ * reviewer has been assigned (Story 4.1 left the case ledger-BLOCKED on precisely that). One enum could not express that.
  *
  * `de-scoped` is the state ADR-008's accessibility roles occupy. It is recorded with the decision that
  * de-scoped it and rendered as such — never dropped, and never spelled `reviewed`.

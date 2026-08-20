@@ -32,6 +32,7 @@ import {
     dragDesignUntil,
     enterTheLaboratory,
     expectActiveScene,
+    gotoCase,
     waitForBookToClose,
     waitForBookToOpen,
     waitForInputToSettle,
@@ -152,7 +153,7 @@ const walkToTheBench = async (
     page: import('@playwright/test').Page,
     sceneTimeoutMs?: number
 ): Promise<void> => {
-    await page.goto('/');
+    await gotoCase(page);
     // The boot frame covers the canvas until it is dismissed (Story 2.12), so every coordinate mapped
     // before this lands on the frame instead of the surface.
     await enterTheLaboratory(page);

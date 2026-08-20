@@ -9,6 +9,7 @@ import {
     WALK_TO_DEBRIEF_COST_MS,
     clickDesign,
     expectActiveScene,
+    gotoCase,
     recordedObservations,
     recordedSetting,
     walkToDebrief,
@@ -86,7 +87,7 @@ test('stops responding to a scene the router has torn down', async ({ page }) =>
 });
 
 test('restores a reloaded session into the scene matching the persisted phase', async ({ page }) => {
-    await page.goto('/');
+    await gotoCase(page);
     await expectActiveScene(page, 'Library');
     await expect(page.getByRole('heading', { name: en['boot.title'] })).toBeVisible();
 

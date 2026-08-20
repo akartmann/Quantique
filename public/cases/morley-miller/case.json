@@ -1,6 +1,6 @@
 {
   "id": "morley-miller",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "title": {
     "en": "Morley–Miller — the rotating interferometer",
     "fr": "Morley–Miller — l’interféromètre tournant"
@@ -35,8 +35,8 @@
         },
         "citation": {
           "reuseStatement": {
-            "en": "Public-domain text; published 1887 and long out of copyright. Excerpted, not complete.",
-            "fr": "Texte du domaine public ; publié en 1887 et libre de droits depuis longtemps. Extraits, non intégral."
+            "en": "Public-domain text; published 1887 and long out of copyright. Excerpted, not complete. Wording and printed pages were checked against the scanned issue (American Journal of Science, vol. 34, no. 203).",
+            "fr": "Texte du domaine public ; publié en 1887 et libre de droits depuis longtemps. Extraits, non intégral. Formulation et pages imprimées vérifiées sur le fac-similé numérisé (American Journal of Science, vol. 34, n° 203)."
           },
           "citationText": "Michelson, A. A., & Morley, E. W. (1887). On the Relative Motion of the Earth and the Luminiferous Ether. American Journal of Science, 34(203), 333–345.",
           "archiveUrl": "https://en.wikisource.org/wiki/On_the_Relative_Motion_of_the_Earth_and_the_Luminiferous_Ether"
@@ -60,20 +60,21 @@
             "sections": [
               {
                 "id": "mm-1887-p333",
-                "heading": "Printed page 333 — the question",
+                "heading": "Printed pages 333–334 — the question",
                 "paragraphs": [
                   "The discovery of the aberration of light was soon followed by an explanation according to the emission theory.",
-                  "If the earth were a transparent body, it might perhaps be conceded that the intermolecular ether should be at rest in space, notwithstanding the motion of the particles of the body."
+                  "If the earth were a transparent body, it might perhaps be conceded, in view of the experiments just cited, that the inter-molecular ether was at rest in space, notwithstanding the motion of the earth in its orbit; but we have no right to extend the conclusion from these experiments to opaque bodies."
                 ],
                 "sourcePages": [
-                  333
+                  333,
+                  334
                 ]
               },
               {
                 "id": "mm-1887-p341",
                 "heading": "Printed page 341 — the result",
                 "paragraphs": [
-                  "It appears from all that precedes reasonably certain that if there be any relative motion between the earth and the luminiferous ether, it must be small; quite small enough entirely to refute Fresnel's explanation of aberration."
+                  "It appears, from all that precedes, reasonably certain that if there be any relative motion between the earth and the luminiferous ether, it must be small; quite small enough entirely to refute Fresnel’s explanation of aberration."
                 ],
                 "sourcePages": [
                   341
@@ -87,20 +88,21 @@
             "sections": [
               {
                 "id": "mm-1887-p333",
-                "heading": "Page imprimée 333 — la question",
+                "heading": "Pages imprimées 333–334 — la question",
                 "paragraphs": [
                   "La découverte de l’aberration de la lumière fut bientôt suivie d’une explication conforme à la théorie de l’émission.",
-                  "Si la Terre était un corps transparent, on pourrait peut-être admettre que l’éther intermoléculaire demeure au repos dans l’espace, malgré le mouvement des particules du corps."
+                  "Si la Terre était un corps transparent, on pourrait peut-être admettre, au vu des expériences qui viennent d’être citées, que l’éther intermoléculaire était au repos dans l’espace, malgré le mouvement de la Terre sur son orbite ; mais nous n’avons pas le droit d’étendre la conclusion de ces expériences aux corps opaques."
                 ],
                 "sourcePages": [
-                  333
+                  333,
+                  334
                 ]
               },
               {
                 "id": "mm-1887-p341",
                 "heading": "Page imprimée 341 — le résultat",
                 "paragraphs": [
-                  "Il ressort de tout ce qui précède qu’il est raisonnablement certain que s’il existe un mouvement relatif entre la Terre et l’éther luminifère, il doit être faible ; assez faible pour réfuter entièrement l’explication de l’aberration donnée par Fresnel."
+                  "Il ressort, de tout ce qui précède, qu’il est raisonnablement certain que s’il existe un mouvement relatif entre la Terre et l’éther luminifère, il doit être faible ; assez faible pour réfuter entièrement l’explication de l’aberration donnée par Fresnel."
                 ],
                 "sourcePages": [
                   341
@@ -112,74 +114,61 @@
       }
     },
     {
-      "id": "morley-miller-1905-reconstruction",
+      "id": "morley-miller-1907-final-report",
       "displayName": {
-        "en": "A reconstruction of the 1905 Morley–Miller report",
-        "fr": "Une reconstitution du rapport Morley–Miller de 1905"
+        "en": "Morley and Miller’s 1907 final report",
+        "fr": "Le rapport final de Morley et Miller (1907)"
       },
-      "creatorOrOrigin": "Quantique editorial reconstruction, after Morley and Miller",
-      "sourceType": "reconstruction",
+      "creatorOrOrigin": "Edward W. Morley and Dayton C. Miller, Science",
+      "sourceType": "published-book",
       "provenance": {
-        "category": "reconstruction",
-        "reference": "morley-miller-1905-report"
+        "category": "primary-material",
+        "reference": "morley-miller-1907-final-report"
       },
       "rightsStatus": "reviewed",
       "ledgerEntry": { "sourceRole": "secondary", "reviewerState": "pending" },
       "caseRelationship": {
-        "en": "Restates what the later, longer repetition of the experiment set out to settle, and what it found.",
-        "fr": "Restitue ce que la reprise ultérieure et plus longue de l’expérience cherchait à trancher, et ce qu’elle a trouvé."
+        "en": "The authors’ own closing account: where they moved the instrument, what a stationary ether demanded, and how small a residue they could still vouch for.",
+        "fr": "Le compte rendu final des auteurs eux-mêmes : où ils ont déplacé l’instrument, ce qu’exigeait un éther immobile, et quel résidu minime ils pouvaient encore garantir."
       },
       "textualRendition": {
         "readerLabel": {
-          "en": "Read the reconstruction",
-          "fr": "Lire la reconstitution"
+          "en": "Read the 1907 final report",
+          "fr": "Lire le rapport final de 1907"
         },
         "citation": {
           "reuseStatement": {
-            "en": "Written for this investigation, not transcribed from the original. It restates the report it cites; read the cited original for the authors’ own words.",
-            "fr": "Rédigée pour cette enquête, et non transcrite de l’original. Elle restitue le rapport qu’elle cite ; consultez l’original cité pour les mots des auteurs."
+            "en": "Public-domain text; published 1907 and long out of copyright. Transcribed in full — the report is a single paragraph.",
+            "fr": "Texte du domaine public ; publié en 1907 et libre de droits depuis longtemps. Transcrit intégralement — le rapport tient en un seul paragraphe."
           },
-          "citationText": "Morley, E. W., & Miller, D. C. (1905). Report of an experiment to detect the Fitzgerald–Lorentz Effect. Proceedings of the American Academy of Arts and Sciences, 41(12), 321–328.",
-          "archiveUrl": "https://en.wikisource.org/wiki/Report_of_an_experiment_to_detect_the_Fitzgerald-Lorentz_Effect"
+          "citationText": "Morley, E. W., & Miller, D. C. (1907). Final Report on Ether-drift Experiments. Science, New Series, Vol. XXV, p. 525 (April 5, 1907).",
+          "archiveUrl": "https://en.wikisource.org/wiki/Final_Report_on_Ether-drift_Experiments"
         },
         "summary": {
           "en": [
-            "A longer apparatus, more observers, and many more turns of the stone.",
-            "The question was whether the earlier null result hid a small real shift under the noise.",
-            "The reported displacement remained a small fraction of what a stationary ether required."
+            "The interferometer was taken out of the stone building and mounted on high ground, in case the walls had smothered the effect.",
+            "Good readings needed a cloudy evening after a cloudy day, and the temperature effects could never be entirely eliminated.",
+            "A stationary ether demanded a displacement of 1.53 wave-lengths; the observations were certain to about one eightieth of that. A bound, not a perfect zero."
           ],
           "fr": [
-            "Un appareil plus long, davantage d’observateurs et bien plus de tours du bloc.",
-            "La question était de savoir si le résultat nul antérieur masquait un léger décalage réel sous le bruit.",
-            "Le déplacement rapporté est resté une petite fraction de ce qu’exigeait un éther immobile."
+            "L’interféromètre fut sorti du bâtiment de pierre et installé sur une hauteur, au cas où les murs auraient étouffé l’effet.",
+            "Les bons relevés exigeaient une soirée nuageuse après une journée nuageuse, et les effets de température n’ont jamais pu être entièrement éliminés.",
+            "Un éther immobile exigeait un déplacement de 1,53 longueur d’onde ; les observations étaient certaines à environ un quatre-vingtième près. Une borne, non un zéro parfait."
           ]
         },
         "renditions": [
           {
             "locale": "en",
-            "kind": "reconstruction",
+            "kind": "transcription",
             "sections": [
               {
-                "id": "mmr-1905-s1",
-                "heading": "The instrument",
+                "id": "mm-1907-p525",
+                "heading": "Printed page 525 — the final report",
                 "paragraphs": [
-                  "The optical path was lengthened by repeated reflection, so that a given motion through the ether would produce a larger displacement of the fringes than the 1887 arrangement could show.",
-                  "The whole apparatus floated on mercury and was turned slowly and continuously, and readings were taken at fixed positions of the turn rather than at the ends of a swing."
+                  "At the Philadelphia meeting an account was given of experiments to detect ether drift. These observations gave no indications of a drift of the ether. It has been suggested that the negative results are due to the influence of the heavy stone walls of the building within which the apparatus was mounted. The interferometer has, therefore, been mounted on high ground near Cleveland, and covered in such a manner that there is nothing but glass in the direction of the expected drift. It was much more difficult to make observations in this location than in the building; satisfactory observations could only be made on a cloudy evening following a cloudy day, when the temperature changed very slowly. The temperature effects could never be entirely eliminated. The conclusion from many observations is that there was no indication of a drift of the ether through the interferometer. The expected drift would produce a displacement of the interference fringes of 1.53 wave-lengths; the above result is probably certain to one eightieth part of the whole."
                 ],
                 "sourcePages": [
-                  321
-                ]
-              },
-              {
-                "id": "mmr-1905-s2",
-                "heading": "What was watched, and what interfered",
-                "paragraphs": [
-                  "Temperature was the dominant nuisance. A difference of a fraction of a degree across the arms bent the light path enough to imitate the effect being looked for, and the observers took considerable trouble to hold the room and the apparatus steady.",
-                  "The displacement finally reported was a small fraction of the value a stationary ether would require, and the authors declined to call so small a residue a detection."
-                ],
-                "sourcePages": [
-                  325,
-                  328
+                  525
                 ]
               }
             ]
@@ -189,26 +178,13 @@
             "kind": "translation",
             "sections": [
               {
-                "id": "mmr-1905-s1",
-                "heading": "L’instrument",
+                "id": "mm-1907-p525",
+                "heading": "Page imprimée 525 — le rapport final",
                 "paragraphs": [
-                  "Le trajet optique fut allongé par réflexions répétées, afin qu’un mouvement donné dans l’éther produise un déplacement des franges plus grand que ne pouvait le montrer le montage de 1887.",
-                  "L’ensemble de l’appareil flottait sur du mercure et tournait lentement et continûment ; les relevés étaient pris à des positions fixes du tour plutôt qu’aux extrémités d’une oscillation."
+                  "Lors de la réunion de Philadelphie, il a été rendu compte d’expériences destinées à détecter la dérive de l’éther. Ces observations n’ont donné aucune indication d’une dérive de l’éther. Il a été suggéré que ces résultats négatifs sont dus à l’influence des épais murs de pierre du bâtiment dans lequel l’appareil était installé. L’interféromètre a donc été installé sur une hauteur près de Cleveland, et couvert de telle manière qu’il n’y ait rien que du verre dans la direction de la dérive attendue. Il fut bien plus difficile de faire des observations en ce lieu que dans le bâtiment ; des observations satisfaisantes ne pouvaient être obtenues que par une soirée nuageuse suivant une journée nuageuse, lorsque la température variait très lentement. Les effets de température n’ont jamais pu être entièrement éliminés. La conclusion de nombreuses observations est qu’il n’y avait aucune indication d’une dérive de l’éther à travers l’interféromètre. La dérive attendue produirait un déplacement des franges d’interférence de 1,53 longueur d’onde ; le résultat ci-dessus est probablement certain à un quatre-vingtième près de l’ensemble."
                 ],
                 "sourcePages": [
-                  321
-                ]
-              },
-              {
-                "id": "mmr-1905-s2",
-                "heading": "Ce qui fut surveillé, et ce qui interférait",
-                "paragraphs": [
-                  "La température fut la gêne dominante. Une différence d’une fraction de degré entre les bras courbait le trajet lumineux assez pour imiter l’effet recherché, et les observateurs se donnèrent beaucoup de mal pour maintenir la salle et l’appareil stables.",
-                  "Le déplacement finalement rapporté ne représentait qu’une petite fraction de la valeur qu’exigerait un éther immobile, et les auteurs se refusèrent à qualifier de détection un résidu aussi faible."
-                ],
-                "sourcePages": [
-                  325,
-                  328
+                  525
                 ]
               }
             ]
@@ -361,15 +337,15 @@
       }
     },
     {
-      "id": "reading-1905",
+      "id": "reading-1907",
       "colleagueId": "tomas-reyes",
       "predicate": {
         "kind": "missing-artifact",
-        "artifactId": "morley-miller-1905-reconstruction"
+        "artifactId": "morley-miller-1907-final-report"
       },
       "line": {
-        "en": "Read the later report too. It tells you what went wrong before you repeat it.",
-        "fr": "Lisez aussi le rapport ultérieur. Il vous dit ce qui a mal tourné avant que vous ne recommenciez."
+        "en": "Read the 1907 final report too. It says plainly how small a residue they could still vouch for.",
+        "fr": "Lisez aussi le rapport final de 1907. Il dit clairement quel résidu minime ils pouvaient encore garantir."
       }
     },
     {
@@ -518,7 +494,7 @@
           },
           {
             "kind": "inspected-source",
-            "sourceId": "morley-miller-1905-reconstruction"
+            "sourceId": "morley-miller-1907-final-report"
           }
         ]
       }
@@ -547,7 +523,7 @@
           },
           {
             "kind": "inspected-source",
-            "sourceId": "morley-miller-1905-reconstruction"
+            "sourceId": "morley-miller-1907-final-report"
           }
         ]
       }
@@ -658,12 +634,12 @@
       "id": "consult-unread-report",
       "predicate": {
         "kind": "missing-source",
-        "sourceId": "morley-miller-1905-reconstruction"
+        "sourceId": "morley-miller-1907-final-report"
       },
       "layers": {
         "observation": {
-          "en": "The later report has not been read.",
-          "fr": "Le rapport ultérieur n’a pas été lu."
+          "en": "The 1907 final report has not been read.",
+          "fr": "Le rapport final de 1907 n’a pas été lu."
         },
         "plainLanguage": {
           "en": "It describes what went wrong the first time, which is worth knowing before repeating it.",
@@ -794,7 +770,7 @@
     "curatedRecord": true,
     "labSetup": true,
     "minimumExperimentCycles": 2,
-    "maximumExperimentCycles": 6,
+    "maximumExperimentCycles": 4,
     "theoryBoardReview": true,
     "historicalDebrief": true,
     "optionalReplay": true
@@ -901,25 +877,25 @@
   },
   "debrief": {
     "summary": {
-      "en": "Both benches looked for a shift the ether demanded, and both found something far too small to be it. The interesting work was in showing that the warmth of the room had not swallowed it.",
-      "fr": "Les deux bancs ont cherché un décalage qu’exigeait l’éther, et tous deux ont trouvé quelque chose de bien trop faible pour l’être. Le travail intéressant a consisté à montrer que la chaleur de la salle ne l’avait pas absorbé."
+      "en": "Both benches looked for the shift the ether demanded, and both found a bounded residue rather than a perfect zero.",
+      "fr": "Les deux bancs ont cherché le décalage qu’exigeait l’éther, et tous deux ont trouvé un résidu borné plutôt qu’un zéro parfait."
     },
     "sourceRefs": [
       "michelson-morley-1887-ajs",
-      "morley-miller-1905-report"
+      "morley-miller-1907-final-report"
     ],
     "historicalComparison": {
       "title": {
-        "en": "1887 and 1905, side by side",
-        "fr": "1887 et 1905, côte à côte"
+        "en": "1887 and 1907, side by side",
+        "fr": "1887 et 1907, côte à côte"
       },
       "text": {
-        "en": "The later repetition was longer, more careful and far more numerous, and it moved the bound down rather than overturning it. That is what a null result looks like when it is being taken seriously.",
-        "fr": "La reprise ultérieure fut plus longue, plus soignée et bien plus nombreuse ; elle a abaissé la borne au lieu de la renverser. Voilà à quoi ressemble un résultat nul pris au sérieux."
+        "en": "In 1887 the shift was too small to credit. Morley and Miller repeated the work and closed it in 1907: a stationary ether demanded 1.53 wave-lengths, and they could vouch for the result to about one eightieth of it. The bound moved down, not to zero and not to a disproof.",
+        "fr": "En 1887, le décalage était trop faible pour y croire. Morley et Miller reprirent le travail et l’achevèrent en 1907 : un éther immobile exigeait 1,53 longueur d’onde, et ils garantissaient le résultat à un quatre-vingtième près. La borne a baissé, sans atteindre zéro ni valoir réfutation."
       },
       "sourceIds": [
         "michelson-morley-1887",
-        "morley-miller-1905-reconstruction"
+        "morley-miller-1907-final-report"
       ]
     },
     "deeperTheory": {

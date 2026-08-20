@@ -10,6 +10,7 @@ import { selectConclusionReadiness, selectDefensibleConclusionProposalIds } from
 import type { CaseDefinition } from '../../src/domain/cases/CaseDefinition';
 import { CaseDefinitionSchema, KNOWN_CASE_IDS, MORLEY_MILLER_CASE_ID, YOUNG_CASE_ID } from '../../src/schemas/CaseDefinitionSchema';
 import { resolveCaseId } from '../../src/adapters/content/resolveCaseId';
+import { CAMPAIGN_ORDER } from '../../src/domain/cases/campaignOrder';
 import { EXPERIMENT_MODEL_IDS } from '../../src/domain/apparatus/experimentModels';
 
 /**
@@ -64,11 +65,13 @@ describe('the shipped Morley–Miller prototype', () => {
             expect(rendition!.citation.citationText.trim().length).toBeGreaterThan(0);
             expect(new URL(rendition!.citation.archiveUrl).protocol).toBe('https:');
             // Exactly one rendition *of record*, and it is the English one. Not "one transcription":
-            // the 1905 artifact is a reconstruction — its own `reuseStatement` says the prose was written
-            // for this investigation — and it declared `kind: 'transcription'` with printed page
-            // attributions because the enum offered nothing else. A reconstruction that borrows a
+            // the retired **1905** artifact was a reconstruction — its own `reuseStatement` said the prose
+            // was written for this investigation — and it declared `kind: 'transcription'` with printed
+            // page attributions because the enum offered nothing else. A reconstruction that borrows a
             // transcription's authority is the provenance claim AC7 exists to prevent (review
-            // 2026-08-19).
+            // 2026-08-19). Story 4.1 replaced it with the 1907 final report, which is a genuine
+            // transcription, so both of this case's renditions of record are now transcriptions — the
+            // looser assertion is kept deliberately, because it is the rule the schema enforces.
             expect(rendition!.renditions.filter(({ kind }) => kind !== 'translation').map(({ locale }) => locale)).toEqual(['en']);
         });
     });
@@ -101,7 +104,7 @@ describe('the prototype played through the shared framework', () => {
         const definition = await loadPrototype();
         const state = advanceTo(createInitialAppState(definition, 'en'), [
             { type: 'source.inspected', sourceId: 'michelson-morley-1887' },
-            { type: 'source.inspected', sourceId: 'morley-miller-1905-reconstruction' },
+            { type: 'source.inspected', sourceId: 'morley-miller-1907-final-report' },
             { type: 'case.phaseAdvance', nextPhase: 'prediction' },
             { type: 'prediction.proposalChosen', proposalId: 'predict-small-shift' },
             { type: 'case.phaseAdvance', nextPhase: 'experiment' },
@@ -126,7 +129,7 @@ describe('the prototype played through the shared framework', () => {
         };
 
         dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
-        dispatch({ type: 'source.inspected', sourceId: 'morley-miller-1905-reconstruction' });
+        dispatch({ type: 'source.inspected', sourceId: 'morley-miller-1907-final-report' });
         dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
         dispatch({ type: 'prediction.proposalChosen', proposalId: 'predict-small-shift' });
         dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
@@ -146,7 +149,7 @@ describe('the prototype played through the shared framework', () => {
         dispatch({ type: 'theory.supportRunSelected', runId: 'run-1' });
         dispatch({ type: 'theory.supportRunSelected', runId: 'run-2' });
         dispatch({ type: 'theory.supportSourceSelected', sourceId: 'michelson-morley-1887' });
-        dispatch({ type: 'theory.supportSourceSelected', sourceId: 'morley-miller-1905-reconstruction' });
+        dispatch({ type: 'theory.supportSourceSelected', sourceId: 'morley-miller-1907-final-report' });
         dispatch({ type: 'theory.conclusionProposalChosen', proposalId: 'conclude-bounded-null' });
 
         const readiness = selectConclusionReadiness(store.getState());
@@ -182,7 +185,7 @@ describe('the prototype played through the shared framework', () => {
                 if (!result.ok) throw new Error(`Refused ${action.type}: ${result.error.code} — ${result.error.message}`);
             };
             dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
-            dispatch({ type: 'source.inspected', sourceId: 'morley-miller-1905-reconstruction' });
+            dispatch({ type: 'source.inspected', sourceId: 'morley-miller-1907-final-report' });
             dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
             dispatch({ type: 'prediction.proposalChosen', proposalId: 'predict-small-shift' });
             dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
@@ -201,7 +204,7 @@ describe('the prototype played through the shared framework', () => {
             dispatch({ type: 'case.phaseAdvance', nextPhase: 'synthesis' });
             pinned.forEach((runId) => dispatch({ type: 'theory.supportRunSelected', runId }));
             dispatch({ type: 'theory.supportSourceSelected', sourceId: 'michelson-morley-1887' });
-            dispatch({ type: 'theory.supportSourceSelected', sourceId: 'morley-miller-1905-reconstruction' });
+            dispatch({ type: 'theory.supportSourceSelected', sourceId: 'morley-miller-1907-final-report' });
             return selectDefensibleConclusionProposalIds(store.getState());
         };
 
@@ -236,7 +239,7 @@ describe('the prototype played through the shared framework', () => {
         };
 
         dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
-        dispatch({ type: 'source.inspected', sourceId: 'morley-miller-1905-reconstruction' });
+        dispatch({ type: 'source.inspected', sourceId: 'morley-miller-1907-final-report' });
         dispatch({ type: 'case.phaseAdvance', nextPhase: 'prediction' });
         dispatch({ type: 'prediction.proposalChosen', proposalId: 'predict-small-shift' });
         dispatch({ type: 'case.phaseAdvance', nextPhase: 'experiment' });
@@ -251,7 +254,7 @@ describe('the prototype played through the shared framework', () => {
         dispatch({ type: 'theory.supportRunSelected', runId: 'run-1' });
         dispatch({ type: 'theory.supportRunSelected', runId: 'run-2' });
         dispatch({ type: 'theory.supportSourceSelected', sourceId: 'michelson-morley-1887' });
-        dispatch({ type: 'theory.supportSourceSelected', sourceId: 'morley-miller-1905-reconstruction' });
+        dispatch({ type: 'theory.supportSourceSelected', sourceId: 'morley-miller-1907-final-report' });
         dispatch({ type: 'theory.conclusionProposalChosen', proposalId: 'conclude-bounded-null' });
         dispatch({ type: 'theory.reviewRequested' });
         dispatch({ type: 'peerReview.requested' });
@@ -270,18 +273,74 @@ describe('the prototype played through the shared framework', () => {
         const reloaded = createStore(createInitialAppState(definition, 'en'));
         expect(reloaded.replaceWithValidatedRecord(projected.value)).toEqual({ ok: true, value: undefined });
     });
+
+    /**
+     * The 1.4.0 record-compatibility decision, asserted rather than left as an absence (Story 4.1, AC9).
+     *
+     * Every bump on this case before 1.4.0 was additive and its allowlist listed the prior versions.
+     * 1.4.0 is the first that moves an id a saved record *holds* — the retired
+     * `morley-miller-1905-reconstruction` — so it deliberately lists none, and the refusal a returning
+     * player meets must be `incompatible-case-record` ("a different version of this investigation"),
+     * not `invalid-case-record` ("could not be used").
+     *
+     * **Named change that breaks this:** adding `|| (isPrototype && definition.version === '1.4.0' && [...]
+     * .includes(record.caseDefinitionVersion))` to `CaseRecordSchema` — the very edit 3.4's review
+     * asked for at 1.3.0 and which is the wrong move here. Without this test that edit looks like
+     * consistency with every clause above it.
+     */
+    it('refuses a record saved before the artifact was re-anchored, as incompatible rather than invalid', async () => {
+        const definition = await loadPrototype();
+        expect(definition.version).toBe('1.4.0');
+        const store = createStore(createInitialAppState(definition, 'en'));
+        store.dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
+        const projected = createCaseRecordProjection(store.getState());
+        expect(projected.ok).toBe(true);
+        if (!projected.ok) return;
+
+        (['1.0.0', '1.1.0', '1.2.0', '1.3.0'] as const).forEach((caseDefinitionVersion) => {
+            const stale = { ...projected.value, caseDefinitionVersion };
+            expect(validateCaseRecordForDefinition(stale, definition)).toMatchObject({
+                ok: false,
+                error: { code: 'incompatible-case-record' }
+            });
+        });
+
+        // The exact version still restores, so the clause refuses old records without refusing all of them.
+        expect(validateCaseRecordForDefinition(projected.value, definition)).toMatchObject({ ok: true });
+    });
 });
 
 /**
- * The review route, and the two guarantees it has to keep (AC4).
+ * The review route, and the guarantees it has to keep (AC4) — now beside the campaign default.
  *
- * A reviewer-facing entry point, not campaign selection: no picker, no menu, no unlock order — Story
- * 4.1 owns those, and FR2 puts Morley–Miller *before* Young, so a picker built here would pre-empt it.
+ * Still a reviewer-facing entry point and still not a picker: there is no menu and no selection UI.
+ * What changed in Story 4.1 is that the *default* is no longer Young but the campaign entry, and
+ * `?case=` outranks it, because a reviewer opening a case is not a player progressing through one.
  */
 describe('the review route', () => {
-    it('opens the default investigation when no case is named', () => {
-        expect(resolveCaseId(new URLSearchParams(''))).toBe(YOUNG_CASE_ID);
+    it('opens the campaign entry when no case is named, not Young', () => {
+        // The assertion that would have passed before Story 4.1 and must now fail: `/` meant Young.
+        expect(resolveCaseId(new URLSearchParams(''))).toBe(MORLEY_MILLER_CASE_ID);
+        expect(resolveCaseId(new URLSearchParams(''))).toBe(CAMPAIGN_ORDER[0]);
+    });
+
+    /**
+     * The moderated route keeps opening Young, and this is not a Young-shaped assumption left standing:
+     * `docs/validation/young-validation-plan.md` names `?mode=validation` as the entry route for
+     * validating *the Young laboratory*, so a facilitator's existing link must keep opening Young after
+     * the campaign default flips. A facilitator wanting the other case says `&case=morley-miller`.
+     */
+    it('keeps the moderated validation route on Young', () => {
         expect(resolveCaseId(new URLSearchParams('mode=validation'))).toBe(YOUNG_CASE_ID);
+        expect(resolveCaseId(new URLSearchParams('mode=validation'), [MORLEY_MILLER_CASE_ID])).toBe(YOUNG_CASE_ID);
+        expect(resolveCaseId(new URLSearchParams(`mode=validation&case=${MORLEY_MILLER_CASE_ID}`))).toBe(MORLEY_MILLER_CASE_ID);
+    });
+
+    /** The campaign entry advances with the player, which is the whole point of reading the order. */
+    it('advances the default to the next uncompleted campaign case', () => {
+        expect(resolveCaseId(new URLSearchParams(''), [MORLEY_MILLER_CASE_ID])).toBe(YOUNG_CASE_ID);
+        // Every case completed: the last one, not a boot failure and not a phase nothing authors.
+        expect(resolveCaseId(new URLSearchParams(''), [...CAMPAIGN_ORDER])).toBe(YOUNG_CASE_ID);
     });
 
     it('opens an allowlisted case', () => {
@@ -299,7 +358,7 @@ describe('the review route', () => {
     it('falls back to the default rather than passing reviewer-supplied text through', () => {
         ['unknown-case', '../young-interference', 'https://elsewhere.example/case', '', 'Young-Interference']
             .forEach((requested) => {
-                expect(resolveCaseId(new URLSearchParams([['case', requested]]))).toBe(YOUNG_CASE_ID);
+                expect(resolveCaseId(new URLSearchParams([['case', requested]]))).toBe(CAMPAIGN_ORDER[0]);
             });
     });
 
@@ -326,7 +385,7 @@ describe('what reduceRecordRun now checks for every run', () => {
         const state = createInitialAppState(definition, 'en');
         const advanced = [
             { type: 'source.inspected', sourceId: 'michelson-morley-1887' },
-            { type: 'source.inspected', sourceId: 'morley-miller-1905-reconstruction' },
+            { type: 'source.inspected', sourceId: 'morley-miller-1907-final-report' },
             { type: 'case.phaseAdvance', nextPhase: 'prediction' },
             { type: 'prediction.proposalChosen', proposalId: 'predict-small-shift' },
             { type: 'case.phaseAdvance', nextPhase: 'experiment' }

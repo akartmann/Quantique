@@ -6,7 +6,7 @@ import type { CaseDefinition, LocalizedText, LocalizedTextList, TextualRendition
 import { CASE_PHASES, createInitialCaseProgress } from '../../src/domain/cases/CaseProgress';
 import { FIGURE_STAGING_SCENE_KEYS } from '../../src/domain/cases/ScenarioScript';
 import { advanceCasePhase, resetCaseProgress, retreatCasePhase } from '../../src/domain/cases/caseReducer';
-import { CaseDefinitionSchema, MAX_PRIMARY_CONTROLS } from '../../src/schemas/CaseDefinitionSchema';
+import { CaseDefinitionSchema, MAX_PRIMARY_CONTROLS, MORLEY_MILLER_CASE_ID } from '../../src/schemas/CaseDefinitionSchema';
 import { readShippedCaseFile } from '../shippedCases';
 
 /** Fixture helpers: every localizable authored string must carry both shipped locales. */
@@ -1538,6 +1538,53 @@ describe('a second case', () => {
             'The Young case requires exactly two runs, two sources, and two significant measurements.',
             'The Young case runs two to four experiment cycles.'
         ]));
+    });
+
+    /**
+     * The same negative pair for the Morley–Miller branch Story 4.1 added (AC5): FR25 puts the case at
+     * two to four cycles and the prototype shipped 6.
+     *
+     * Both halves matter, and the second is the one that catches the likely mistake. `cloneSecondCase()`
+     * is `morley-drift-bench` carrying 2/6 deliberately — it is the fixture that proves the shared shape
+     * is not Young's literal — so a refinement written without its `id ===` guard would reject it and the
+     * assertion at line ~1419 would fail. Together the two tests say: the branch fires on this id, and
+     * on nothing else.
+     */
+    it('fails the Morley–Miller cycle-range refinement the moment it claims to be Morley–Miller', () => {
+        const definition = cloneSecondCase() as unknown as Record<string, unknown>;
+        definition.id = MORLEY_MILLER_CASE_ID;
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(false);
+        if (parsed.success) return;
+        expect(parsed.error.issues).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                message: 'The Morley–Miller case runs two to four experiment cycles.',
+                path: ['flow']
+            })
+        ]));
+    });
+
+    it('leaves a case that is not Morley–Miller free to author its own cycle range', () => {
+        const definition = cloneSecondCase() as unknown as Record<string, unknown>;
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success).toBe(true);
+        expect(parsed.success ? [] : parsed.error.issues.map(({ message }) => message))
+            .not.toContain('The Morley–Miller case runs two to four experiment cycles.');
+    });
+
+    it('accepts Morley–Miller at the range FR25 requires', () => {
+        const definition = cloneSecondCase() as unknown as Record<string, unknown>;
+        definition.id = MORLEY_MILLER_CASE_ID;
+        definition.flow = { ...(definition.flow as Record<string, unknown>), minimumExperimentCycles: 2, maximumExperimentCycles: 4 };
+
+        const parsed = CaseDefinitionSchema.safeParse(definition);
+
+        expect(parsed.success ? [] : parsed.error.issues.map(({ message }) => message))
+            .not.toContain('The Morley–Miller case runs two to four experiment cycles.');
     });
 
     it('holds Young to its own bounds when a foreign control ID appears in Young content', () => {

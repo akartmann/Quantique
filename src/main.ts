@@ -3,6 +3,7 @@ import { createSceneRouter } from './adapters/phaser/SceneRouter';
 import { loadCaseDefinition } from './adapters/content/loadCaseDefinition';
 import { CaseRecordRepository } from './adapters/persistence/caseRecordRepository';
 import { attachAutosave, createCaseRecordOperations } from './adapters/persistence/caseRecordOperations';
+import { readCompletedCampaignCaseIds } from './adapters/persistence/completedCampaignCases';
 import { resolveBrowserLocale } from './core/i18n/resolveBrowserLocale';
 import { createTranslator, translateError } from './core/i18n/translate';
 import { createAppStateFromCaseRecord, createInitialAppState } from './core/store/AppState';
@@ -61,7 +62,6 @@ const reportMissingRoots = (missing: readonly string[], locale: ReturnType<typeo
 const initializeLaboratory = async (): Promise<void> => {
     const search = new URLSearchParams(window.location.search);
     const validationMode = search.get('mode') === 'validation';
-    const caseId = resolveCaseId(search);
     // This does not depend on any document root, so even a loud boot failure speaks the browser language.
     const locale = resolveBrowserLocale();
     const roots = Object.fromEntries(
@@ -92,6 +92,13 @@ const initializeLaboratory = async (): Promise<void> => {
     if (validationMode) mountValidationSessionDisclosure(validationDisclosureRoot, locale);
     void registerOfflineCache();
 
+    // The campaign entry is progress-dependent (Story 4.1, AC6), so the repository is built before the
+    // case id is resolved rather than after the definition loads. The validation route still builds no
+    // repository — it is not campaign-gated and `resolveCaseId` pins it to Young — so the moderated
+    // session reads no saved progress, which is the isolation Story 2.12's AC3 requires.
+    const repository = validationMode ? undefined : new CaseRecordRepository();
+    const caseId = resolveCaseId(search, repository ? await readCompletedCampaignCaseIds(repository) : []);
+
     const caseResult = await loadCaseDefinition(caseId);
     if (!caseResult.ok) {
         // Localized by the stable error code, not by re-raising the dev-facing message (NFR18).
@@ -99,10 +106,8 @@ const initializeLaboratory = async (): Promise<void> => {
         return;
     }
 
-    let repository: CaseRecordRepository | undefined;
     let initialState = createInitialAppState(caseResult.value, locale);
-    if (!validationMode) {
-        repository = new CaseRecordRepository();
+    if (repository) {
         const saved = await repository.load(caseResult.value.id);
         const restored = saved.ok && saved.value
             // The live session's language, never the record's: importing an investigation exported

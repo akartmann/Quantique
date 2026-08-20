@@ -104,6 +104,29 @@ export const caseContent = (caseId: string): WalkableCase => JSON.parse(
 
 export const YOUNG_CASE = 'young-interference';
 
+export const MORLEY_MILLER_CASE = 'morley-miller';
+
+/**
+ * The URL that opens a named case — **always naming it**, since Story 4.1 flipped the boot default.
+ *
+ * `/` used to mean Young, and about forty spec sites said `goto('/')` while asserting Young's content.
+ * The campaign entry is now Morley–Miller, so those forty sites silently meant "whatever case boots
+ * first" — a Young-shaped assumption baked into the suite, which is the project's top Don't-Miss rule.
+ * Every spec that asserts a *case's* content now names the case; the specs that assert *boot* behaviour
+ * (the boot frame, offline reload, subpath hosting, the moderated route) deliberately keep `goto('/')`,
+ * because what they are checking is what happens at the root.
+ *
+ * This replaced the conditional `caseId === YOUNG_CASE ? '/' : ...` that `walkToTheBoard` carried: the
+ * special case existed only to keep `/` meaning Young, and keeping it would reintroduce the assumption
+ * this helper exists to remove.
+ */
+export const caseRoute = (caseId: string): string => `/?case=${caseId}`;
+
+/** Opens a named case and waits for nothing — callers assert their own first frame. */
+export const gotoCase = async (page: Page, caseId: string = YOUNG_CASE): Promise<void> => {
+    await page.goto(caseRoute(caseId));
+};
+
 export const artifactCountFor = (caseId: string): number => caseContent(caseId).contextualArtifacts.length;
 
 export const ARTIFACT_COUNT = artifactCountFor(YOUNG_CASE);
@@ -1087,7 +1110,7 @@ export const walkToTheBoard = async (
     /** Which instrument the second observation turns — the case's own distinguishing control. */
     instrument: ReturnType<typeof varyingInstrument> = YOUNG_THROW
 ): Promise<void> => {
-    await page.goto(caseId === YOUNG_CASE ? '/' : `/?case=${caseId}`);
+    await gotoCase(page, caseId);
     // The app booted, and the gate is passed, before we start clicking. A precondition belongs where the
     // precondition is: this assertion used to sit *after* the whole walk in `canvas-transitions.spec.ts`,
     // where it checked an incidental fact about a still-mounted DOM shell and let a boot failure surface

@@ -67,7 +67,7 @@ start — which is what makes two orientations at the stable window a genuinely 
 and what remains is the near-null signal the historical result actually was.
 
 > **These constants are invented, not sourced.** They are a defensible *shape* for the FR19 teaching
-> loop. Calibrating them against the 1905 report's published numbers, and having that agreement
+> loop. Calibrating them against the 1907 final report's published numbers, and having that agreement
 > reviewed, is **Story 4.2's** work. The docstring on `calculateInterferometerDrift.ts` says so too, so
 > nobody later reads them as historical. Raised as story Open Question 4.
 
@@ -130,20 +130,44 @@ and the reason the two are not the same kind of thing.
 | Artifact | Type / provenance | Citation | Archive |
 |---|---|---|---|
 | `michelson-morley-1887` | `published-book` / `primary-material` | Michelson & Morley (1887), *American Journal of Science* 34(203), 333–345 | Wikisource (public domain, published 1887) |
-| `morley-miller-1905-reconstruction` | `reconstruction` / `reconstruction` | Morley & Miller (1905), *Proc. Amer. Acad. Arts & Sci.* 41(12), 321–328 | Wikisource (public domain) |
+| `morley-miller-1907-final-report` (was `morley-miller-1905-reconstruction`, re-anchored by **Story 4.1**) | `published-book` / `primary-material` | Morley & Miller (1907), *Science* N.S. XXV, p. 525 | Wikisource (public domain, published 1907) |
 
-**Why the second is a reconstruction, and why that matters.** The schema requires the English rendition
-to be the single `transcription` of record. For the 1887 paper the excerpts are genuine passages of the
-published text. For the 1905 report they are **not**: the prose was written for this investigation, and
-labelling it a transcription of the original would be a provenance claim nobody has reviewed — exactly
-what AC7 forbids. So the artifact declares itself a reconstruction, its `creatorOrOrigin` says so, its
-`reuseStatement` tells the reader in both languages, and the citation points at the original it
-restates. The vocabulary has a `reconstruction` category precisely for this.
+**Why the second *was* a reconstruction, and why it is no longer one.** The schema requires the English
+rendition to be the single rendition of record. For the 1887 paper the excerpts are genuine passages of
+the published text. For the **1905** report they were **not**: the prose was written for this
+investigation, and labelling it a transcription of the original would have been a provenance claim
+nobody had reviewed — exactly what AC7 forbids. So that artifact declared itself a reconstruction, its
+`creatorOrOrigin` said so, its `reuseStatement` told the reader in both languages, and the citation
+pointed at the original it restated. The vocabulary has a `reconstruction` category precisely for that.
 
-> **⚠ Open for the scholarly reviewer.** The 1887 excerpts are reproduced from memory of a public-domain
-> text and their **page attributions (333, 341) have not been checked against a facsimile**. That
-> verification is a named gap below, owned by Story 4.1. Nothing here should be quoted as a verified
-> transcription until it is done.
+**Story 4.1 removed the need for the workaround** rather than keeping it. The GDD anchors this tutorial
+on **1907**, and the 1907 *Final Report on Ether-drift Experiments* is a single paragraph in the public
+domain — short enough to transcribe in full. So the slot now holds a genuine `transcription` of
+`primary-material`, quoting the authors' own numbers (a demanded displacement of 1.53 wave-lengths,
+certain to about one eightieth of it) instead of prose restating them. The `reconstruction` vocabulary
+member remains legitimate and documented, but **no shipped case exercises it any more**; that is
+recorded in `deferred-work.md` for the next case author.
+
+> **✅ Verified by Story 4.1 (2026-08-20).** The 1887 excerpts and their page attributions **were**
+> checked against a facsimile — the scanned issue on the Internet Archive
+> (`sim_american-journal-of-science_1887-11_34_203`), which is the very issue the citation names, read
+> against its printed running heads. Three corrections came out of it, and they are the reason the check
+> was owed rather than assumed:
+>
+> 1. The second excerpt of the opening section was a **paraphrase**, not a transcription — it dropped
+>    the clause *"in view of the experiments just cited"*, changed *"the motion of the earth in its
+>    orbit"* to *"the motion of the particles of the body"*, and stopped short of the sentence's second
+>    half. It is now verbatim.
+> 2. The concluding excerpt had lost the source's commas: *"It appears, from all that precedes,
+>    reasonably certain…"*. Restored.
+> 3. The opening section spans **two** printed pages, not one. Its first paragraph is on 333 and its
+>    second on **334** (the running head for 334 falls between them), so `sourcePages` is `[333, 334]`
+>    and the leaf now says so. **341 was correct** and is now genuinely verified: the running head for
+>    page 341 immediately precedes the concluding excerpt.
+>
+> What remains open for the scholarly reviewer is the *reading* — whether these are the right excerpts,
+> fairly framed — not the wording or the pages. The role is still unassigned and this case is still
+> ledger-**BLOCKED** on it.
 
 **Accessibility reviewer:** the epic's acceptance criteria name one. That role is **de-scoped by
 ADR-008**, not silently dropped. No new accessibility-parity assertion was added and no existing a11y
@@ -167,7 +191,7 @@ transcribed here, and the ledger is the evidence reference for each.
 | Accessible-controls reference | — | — | De-scoped (ADR-008) | `morley-miller-ledger.en.md` — References |
 
 **What Story 3.3 actually did.** It built the ledger and pointed it at this table. The prototype's
-`case.json` went to 1.1.0: each source gained a `ledgerEntry` — the 1887 paper `primary`, the 1905
+`case.json` went to 1.1.0: each source gained a `ledgerEntry` — the 1887 paper `primary`, the then-1905
 reconstruction `secondary` — its one manifest asset gained a `rights` block, and the case gained the
 `ledger` block the five rows above are read from. `evaluateLedgerReleaseApproval` resolves this case to
 **BLOCKED** on two named rows, `scholarly-review-pending` and `educator-context-sheet-pending`, which is
@@ -272,14 +296,19 @@ Every one of these is mirrored into `deferred-work.md` with a named owner.
    That is honest for a framework prototype and would be dishonest for a case review; re-skinning it is
    **Story 4.2** (D8). Young's `recordedResultValue → bandSpacingPx` mapping (`× 4.6`, clamped 8–31 px)
    is its millimetres and is no longer applied to the prototype, which paints on its own path.
-2. **Transcription fidelity and page attribution** of the 1887 excerpts — **Story 4.1**, before any
-   scholarly sign-off.
+2. ~~**Transcription fidelity and page attribution** of the 1887 excerpts~~ — **closed by Story 4.1**
+   (2026-08-20): verified against the facsimile of the cited issue, three corrections applied, pages now
+   `[333, 334]` and `[341]`. See the ✅ block in §4. What is still open is the reviewer's *reading*, not
+   the transcription.
 3. **`formatMeasurement` puts its locale separator before every unit**, which is right for `°C` and
    wrong for an arc degree: the bench reads `0 °`. Shared with Young's rendering, so not changed in a
    content story — **Story 4.2**, with the bench work.
-4. **The French typography sweep covers interface chrome and Young's authored content only.** The
-   prototype's authored prose is bilingual and schema-validated but is not measured against the bands
-   that hold it — **Story 4.1**.
+4. ~~**The French typography sweep covers interface chrome and Young's authored content only.**~~ —
+   **closed by Story 4.1** (2026-08-20): `tests/e2e/french-typography.spec.ts` now sweeps every case in
+   `SHIPPED_CASE_IDS` for source names, control and inline labels, the composed idle and notebook rows,
+   colleague names, proposal texts, conclusion claims and limitations, dialogue beats, colleague hints,
+   reading-gate lines, rival-lab critiques and the reading-room bands, in both locales, with the case id
+   in every sample label. No overflow was found in the prototype's prose.
 5. **`reduceRecordRun` re-derives the result only for a run carrying `modelInputs`.** A prototype run's
    result is validated for bench-match and model version but not recomputed from the model — **Epic 4**.
 6. **`experiment.wavelengthNm` is still authored-and-unread** for Young; the prototype omits it. The
@@ -312,6 +341,9 @@ prototype's own content and contract:
   citation (Morley & Miller, *Proc. Amer. Acad. Arts & Sci.* 41(12), 321–328, with a matching Wikisource
   URL); the naming was aligned to the citation, because that is the verifiable anchor. `rightsStatus`
   is unchanged and left to the scholarly reviewer.
+  *(Story 4.1 resolved this the other way round: rather than keep a 1905 artifact, it re-anchored the slot
+  to the genuine **1907** final report the GDD names — short, public domain, and a real transcription. The
+  reasoning above is why a 1907 title was not simply reinstated over the 1905 citation.)*
 - **`conclude-bounded-null` now enforces the steady bath it claims** — through
   `unvaried-control-pinned bathTempC`, scoped to the runs the player pinned. Scoping matters: asking it of
   every recorded run would have made the claim unreachable for anyone following the `resetPath`.

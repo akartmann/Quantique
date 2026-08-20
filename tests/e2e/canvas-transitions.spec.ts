@@ -11,6 +11,7 @@ import {
     WALK_TO_DEBRIEF_COST_MS,
     clickDesign,
     expectActiveScene,
+    gotoCase,
     recordedObservations,
     walkToDebrief,
     walkToTheBoard
@@ -122,7 +123,7 @@ test('takes every forward transition of the Young case from the canvas', async (
 });
 
 test('refuses a transition the evidence has not earned, and stays where it was', async ({ page }) => {
-    await page.goto('/');
+    await gotoCase(page);
     await expectActiveScene(page, 'Library');
 
     // Nothing read, so `missing-contextual-sources` refuses. What is observable *here* is that the

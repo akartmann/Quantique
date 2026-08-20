@@ -476,6 +476,27 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // a player's investigation, and the reason the 1.1.0 clause above exists at all. **Bumping
         // `CaseDefinition.version` and extending this allowlist are one action, not two.**
         || (isPrototype && definition.version === '1.3.0' && ['1.0.0', '1.1.0', '1.2.0'].includes(record.caseDefinitionVersion));
+    // 1.4.0 — Story 4.1. **This clause deliberately lists no prior version, and the omission is the
+    // decision rather than the repeat of 3.4's finding.**
+    //
+    // 1.4.0 replaces the artifact `morley-miller-1905-reconstruction` with
+    // `morley-miller-1907-final-report`. Unlike every bump above it, that moves an id a saved record
+    // *holds*: `inspectedSourceIds`, `theory.selectedSourceIds`, each `revisionHistory` entry's
+    // `selectedSourceIds`, and `completion.inspectedSourceIds`. A record naming the retired id cannot be
+    // honestly accepted, and the checks below would not accept it either — line ~499 cross-checks
+    // `inspectedSourceIds` against the authored artifacts and fails the whole record, and
+    // `evaluateContextReadiness` counts *every* authored artifact, so any record past the `context`
+    // phase necessarily carries both ids and necessarily names the retired one.
+    //
+    // So listing 1.0.0–1.3.0 here would not preserve those investigations; it would only downgrade the
+    // refusal they already get from `incompatible-case-record` ("this record is for a different version
+    // of this investigation") to `invalid-case-record` ("this record could not be used") — a worse
+    // message for the same outcome, and a claim of compatibility the next check contradicts. Widening
+    // the allowlist is what `project-context.md` §Organization forbids: *keep it honest rather than
+    // widening it*.
+    //
+    // The exclusion is asserted by name in `tests/unit/MorleyMillerPrototype.test.ts`, so it is a
+    // decision under test rather than an absence nobody notices.
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');
     }

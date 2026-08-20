@@ -21,6 +21,7 @@ import {
     clickDesign,
     clickUntilScene,
     enterTheLaboratory,
+    gotoCase,
     waitForBookToClose,
     waitForBookToOpen
 } from './canvasHelpers';
@@ -102,7 +103,7 @@ const panelShot = async (page: import('@playwright/test').Page): Promise<Buffer>
 };
 
 test('advances the authored conversation on the canvas without touching the investigation', async ({ page }) => {
-    await page.goto('/');
+    await gotoCase(page);
     await enterTheLaboratory(page);
 
     await reachTheColleagues(page);
@@ -142,7 +143,7 @@ test('advances the authored conversation on the canvas without touching the inve
 });
 
 test('opens one colleague proposal after the conversation completes, then chooses it', async ({ page }) => {
-    await page.goto('/');
+    await gotoCase(page);
     await enterTheLaboratory(page);
 
     await reachTheColleagues(page);

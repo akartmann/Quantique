@@ -14,6 +14,7 @@ import {
     chooseProposalThroughColleague,
     enterTheLaboratory,
     expectActiveScene,
+    gotoCase,
     recordedSources,
     waitForBookToClose,
     waitForInputToSettle,
@@ -66,7 +67,7 @@ const readReference = async (page: Parameters<typeof clickDesign>[0], index: num
 };
 
 test('reads both references and leaves the room, without touching a DOM control', async ({ page }) => {
-    await page.goto('/');
+    await gotoCase(page);
     // Subsumes the boot-title assertion this line used to carry: `enterTheLaboratory` waits on the same
     // hydrated heading before it clicks, and the heading is gone once the frame is dismissed.
     await enterTheLaboratory(page);
@@ -90,7 +91,7 @@ test('re-opens a reference already on the record, without refusing it', async ({
     // GitHub's serialized Chromium walk completes legitimately just over the default 30-second budget.
     // The assertions still require the book's suppression and a real scene transition.
     test.setTimeout(45_000);
-    await page.goto('/');
+    await gotoCase(page);
     await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
@@ -143,7 +144,7 @@ test('reveals and dismisses the reference summary from the book itself', async (
     page.on('pageerror', (error) => errors.push(error.message));
     page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
 
-    await page.goto('/');
+    await gotoCase(page);
     await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
@@ -183,7 +184,7 @@ test('opens and closes the reference book under reduced motion', async ({ page }
     // immediately — so no animation wait is needed, and *that* is the thing being checked: the same
     // walk with none of the timing the animated path needs.
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/');
+    await gotoCase(page);
     await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
@@ -235,7 +236,7 @@ test('opens and closes the reference book under reduced motion', async ({ page }
 });
 
 test('refuses to leave the room with nothing read, and stays where it was', async ({ page }) => {
-    await page.goto('/');
+    await gotoCase(page);
     await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
@@ -249,7 +250,7 @@ test('refuses to leave the room with nothing read, and stays where it was', asyn
 });
 
 test('does not let a click meant for the reference book leave the room underneath it', async ({ page }) => {
-    await page.goto('/');
+    await gotoCase(page);
     await enterTheLaboratory(page);
     await expectActiveScene(page, 'Library');
 
