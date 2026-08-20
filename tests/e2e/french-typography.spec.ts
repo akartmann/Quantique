@@ -25,7 +25,10 @@ import {
 // private `LibraryRenderer` font sizes were copied into this file.
 import {
     CASE_FILE_CONTROL_FONT_SIZE,
+    CASE_FILE_ISSUES_HEIGHT,
     CASE_FILE_META_FONT_SIZE,
+    CASE_FILE_MIN_FONT_SIZE,
+    caseFileLineHeight,
     caseFileActionLabelWrap,
     caseFilePageControlLabelWrap,
     caseFileRecordControlLabelWrap,
@@ -33,8 +36,13 @@ import {
     caseFileRightTextWrap
 } from '../../src/adapters/phaser/renderers/caseFileGeometry';
 import {
+    DEBRIEF_BAND_PADDING,
     DEBRIEF_BODY_FONT_SIZE,
+    DEBRIEF_COMPARISON_BAND_HEIGHT,
     DEBRIEF_META_FONT_SIZE,
+    DEBRIEF_SOURCE_ROW_HEIGHT,
+    DEBRIEF_TITLE_GAP,
+    debriefLineHeight,
     DEBRIEF_PAGE_CONTROL_FONT_SIZE,
     DEBRIEF_SECTION_TITLE_FONT_SIZE,
     DEBRIEF_SUMMARY_FONT_SIZE,
@@ -488,7 +496,19 @@ const BOOK_CONTROLS = ['book.previous', 'book.next', 'book.close', 'book.summary
  * `formatMeasurement` emits in French.
  */
 type ShippedCase = {
-    contextualArtifacts: { id: string; displayName: { en: string; fr: string }; caseRelationship: { en: string; fr: string } }[];
+    contextualArtifacts: {
+        id: string;
+        displayName: { en: string; fr: string };
+        caseRelationship: { en: string; fr: string };
+        // The three labels the debrief's cited-source rows compose beside the name (Story 4.3, AC5).
+        // Typed as the authored unions, not as `string`: the debrief composes them into
+        // `source.type.*` / `source.provenanceName.*` / `source.rights.*` keys, and a widened `string`
+        // makes those template literals unresolvable against the bundle — a `TS7053` each, on a count
+        // that may only go down.
+        sourceType: 'lecture-record' | 'published-book' | 'reconstruction' | 'interpretive-essay' | 'fictionalized-account';
+        provenance: { category: 'primary-material' | 'reconstruction' | 'later-interpretation' | 'deliberate-fiction' };
+        rightsStatus: 'reviewed' | 'incomplete' | 'unavailable';
+    }[];
     readingGateHints: { id: string; line: { en: string; fr: string } }[];
     colleagueHints: { id: string; line: { en: string; fr: string } }[];
     apparatus: { primaryControls: { label: { fr: string }; inlineLabel: { fr: string } }[] };
@@ -515,7 +535,12 @@ type ShippedCase = {
     // Debug Log records as having overrun their bands — found by eye, because nothing measured them.
     debrief: {
         summary: { en: string; fr: string };
-        historicalComparison: { title: { en: string; fr: string }; text: { en: string; fr: string } };
+        historicalComparison: {
+            title: { en: string; fr: string };
+            text: { en: string; fr: string };
+            /** The two-tuple the surface actually cites, cross-checked against `contextualArtifacts`. */
+            sourceIds: string[];
+        };
         deeperTheory: { title: { en: string; fr: string }; text: { en: string; fr: string } };
     };
     consultationRules: {
@@ -526,6 +551,10 @@ type ShippedCase = {
             technicalDetail: { en: string; fr: string };
         };
     }[];
+    // The peer-review prose, which this sweep measured for **neither** case until Story 4.3 (AC5). Grep
+    // the file at `4b2b60f` for `peerReview`, `feedback` or `revisionPath` and it returns nothing — while
+    // the pane it lands in is a 106px shrink-then-crop surface holding up to two composed lines of it.
+    peerReviewRules: { id: string; predicate: { kind: string }; feedback: { en: string; fr: string }; revisionPath: { en: string; fr: string } }[];
 };
 
 /**
@@ -721,6 +750,41 @@ const CONSULTATION_LAYERS = SHIPPED_CASES.flatMap(({ caseId, definition }) =>
             (['fr', 'en'] as const).map((locale) => ({
                 label: `${caseId} ${id} ${layer} [${locale}]`, text: layers[layer][locale]
             })))));
+
+/**
+ * **The peer-review prose, for both shipped cases, which this file swept for neither** (Story 4.3, AC5).
+ *
+ * Three strings per rule reach the case file's right column at `review`: the authored `feedback`, the
+ * authored `revisionPath`, and the line `CaseFilePresenter.renderPeerReview` composes from the two through
+ * `caseFile.review.issue` (`'{feedback} — {revisionPath}'`). The composed line is the one the surface
+ * actually holds, and it is measured **as well as** its halves rather than instead of them: a bound broken
+ * by a single authored token should name the authored string, and one broken only in composition should
+ * name the composition.
+ *
+ * The pane is `CASE_FILE_ISSUES_HEIGHT` = 106px at `CASE_FILE_META_FONT_SIZE` across
+ * `CASE_FILE_RIGHT_COLUMN_WIDTH` = 372px, and it **shrinks toward a floor and then crops**, with nothing
+ * failing anywhere — the same clamp the consultation block uses, which is why the two are swept the same
+ * way. Composed French lengths, measured rather than guessed: Morley–Miller's `peer-missing-evidence` 162
+ * and `peer-overreach` 184; Young's `review-missing-evidence` 204, `review-unsupported-support` 183 and
+ * `review-overreach` **234** — the longest prose the pane can be asked to hold.
+ *
+ * As with every other sweep here the pass condition is **per-token pixel width**, so both locales are
+ * measured: an unbreakable token overflows in whatever language it was written, and `longestFrench` by
+ * character count would let a short string carrying one wide token through unmeasured. The *height* half is
+ * what the by-eye captures in `morley-miller-debrief.spec.ts` are for, at one and at two standing issues.
+ */
+const PEER_REVIEW_PROSE = SHIPPED_CASES.flatMap(({ caseId, definition }) =>
+    definition.peerReviewRules.flatMap(({ id, feedback, revisionPath }) =>
+        (['fr', 'en'] as const).flatMap((locale) => [
+            { label: `${caseId} ${id} feedback [${locale}]`, text: feedback[locale] },
+            { label: `${caseId} ${id} revisionPath [${locale}]`, text: revisionPath[locale] },
+            {
+                label: `${caseId} ${id} composed review issue [${locale}]`,
+                text: (locale === 'fr' ? fr : en)['caseFile.review.issue']
+                    .replace('{feedback}', feedback[locale])
+                    .replace('{revisionPath}', revisionPath[locale])
+            }
+        ])));
 
 const DIALOGUE_BEATS = SHIPPED_CASES.flatMap(({ caseId, definition }) =>
     definition.scenarioScript.scenes.flatMap(({ phase, dialogueBeats }) =>
@@ -1017,7 +1081,7 @@ test('keeps the authored case titles and the composed notebook settings row insi
 test('samples every shipped case in every cross-case sweep', () => {
     const sweeps: Readonly<Record<string, readonly { label: string }[]>> = {
         PROPOSAL_TEXTS, CONCLUSION_CLAIMS, CONCLUSION_LIMITATIONS, DIALOGUE_BEATS,
-        FIGURE_PLAQUE_NAMES, DEBRIEF_PROSE, CONSULTATION_LAYERS
+        FIGURE_PLAQUE_NAMES, DEBRIEF_PROSE, CONSULTATION_LAYERS, PEER_REVIEW_PROSE
     };
 
     const missing = Object.entries(sweeps).flatMap(([name, samples]) =>
@@ -1038,7 +1102,7 @@ test('samples every shipped case in every cross-case sweep', () => {
  * standing reason: the pass condition is per-token pixel width and an unbreakable token overflows in
  * whatever language it was written.
  */
-test('keeps the debrief prose and the consultation layers inside their bands, in both locales', async ({ page }) => {
+test('keeps the debrief prose, the consultation layers and the peer-review prose inside their bands, in both locales', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
 
@@ -1047,6 +1111,11 @@ test('keeps the debrief prose and the consultation layers inside their bands, in
             label, fontSize, wrapWidth: debriefLeftTextWrap(DESIGN_WIDTH), text
         })),
         ...CONSULTATION_LAYERS.map(({ label, text }) => ({
+            label, fontSize: CASE_FILE_META_FONT_SIZE, wrapWidth: caseFileRightTextWrap(), text
+        })),
+        // Same column, same font size, same shrink-then-crop clamp as the consultation block — the pane
+        // the peer-review prose lands in is the one the consultation vacates at `review`.
+        ...PEER_REVIEW_PROSE.map(({ label, text }) => ({
             label, fontSize: CASE_FILE_META_FONT_SIZE, wrapWidth: caseFileRightTextWrap(), text
         }))
     ];
@@ -1065,6 +1134,260 @@ test('keeps the debrief prose and the consultation layers inside their bands, in
     expect(overflowing).toEqual([]);
     // The floor, for the same reason the dialogue sweep carries one.
     expect(authored.length).toBeGreaterThan(0);
+});
+
+/**
+ * **The peer-review pane's *height*, measured with real font metrics** (Story 4.3, AC5 / AC10).
+ *
+ * Every other assertion in this file is a width bound, because a width is what `measureText` gives
+ * directly. This one is a **line count**, and it is here rather than in a unit test for the reason this
+ * file's own header gives and `project-context.md` repeats: `tests/unit/sceneSlice.ts` reports a constant
+ * `height: 18` for every text object and stubs `setFontSize`/`setCrop` permissively, so the clamp's
+ * shrink loop and its crop branch are *unreachable* from Vitest. A height claim proven there is
+ * arithmetic. Here the wrap is Phaser's own greedy rule over the browser's own metrics through the same
+ * font stack — the technique `canvasHelpers`' `boardDialogueAdvanceControlAims` already uses to locate a
+ * control under a measured heading.
+ *
+ * ## What it reproduces
+ *
+ * `CaseFilePresenter.renderPeerReview` joins one `caseFile.review.issue` line per standing issue with
+ * `\n`, then `clamp(...)`: try the authored `CASE_FILE_META_FONT_SIZE`, step down one pixel at a time
+ * while the text is taller than `CASE_FILE_ISSUES_HEIGHT`, stop at `CASE_FILE_MIN_FONT_SIZE`, and
+ * `setCrop` if it still does not fit. Cropping is **silent** — no ellipsis, no notice — so the failure
+ * this guards is a player losing the end of the sentence that tells them what to do about their draft.
+ *
+ * ## The worst combination ordinary play can reach
+ *
+ * Two issues, not one and not three. `reduceTheorySupportRun` carries no phase gate, so a player at
+ * `review` can unpin an observation and ask again, standing `missing-evidence` beside `overreach`. Three
+ * would need an `unsupported-support` code, which needs a *deleted* run, and nothing can delete one — so
+ * three is the reserve's theoretical obligation and two is the walk's. Both are reported.
+ *
+ * ## What it found
+ *
+ * Recorded here because the numbers are the point of the assertion. At `CASE_FILE_ISSUES_HEIGHT` = 106
+ * and the authored 12px, `caseFileLineHeight` gives 17, so **six lines fit and seven do not**.
+ * Morley–Miller's French pair wraps to six — 102px, four to spare, and it renders at the authored size.
+ * **Young's wraps to more**, because its composed lines are 204 and 234 French characters against this
+ * case's 162 and 184, so Young's pane shrinks below the authored size to fit. That is the shared band
+ * being sized to its shorter tenant, and it is why this asserts a *fit at some size* per case and reports
+ * the size each one needs, rather than asserting the authored size and going red on the validated case.
+ *
+ * **Named change that breaks this:** lowering `CASE_FILE_ISSUES_HEIGHT`, or authoring either case's
+ * `feedback` / `revisionPath` longer, until the worst pair no longer fits even at the floor.
+ */
+test('fits the worst peer-review pair ordinary play can reach inside the pane, in both locales', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
+
+    /** The pair a player standing at `review` can have showing at once, and the full authored set. */
+    const combinations = SHIPPED_CASES.flatMap(({ caseId, definition }) => {
+        const byKind = (kind: string) => definition.peerReviewRules.find(({ predicate }) => predicate.kind === kind);
+        const reachablePair = ['missing-evidence', 'overreach'].map(byKind);
+        if (reachablePair.some((rule) => !rule)) {
+            throw new Error(`${caseId} must author a missing-evidence rule and an overreach rule.`);
+        }
+        return (['fr', 'en'] as const).flatMap((locale) => {
+            const compose = (rules: readonly (typeof definition.peerReviewRules[number] | undefined)[]) =>
+                rules.filter(Boolean).map((rule) => (locale === 'fr' ? fr : en)['caseFile.review.issue']
+                    .replace('{feedback}', rule!.feedback[locale])
+                    .replace('{revisionPath}', rule!.revisionPath[locale])).join('\n');
+            return [
+                { label: `${caseId} two standing issues [${locale}]`, text: compose(reachablePair), reachable: true },
+                // Every authored rule at once. **Reported, not asserted**: a third issue needs an
+                // `unsupported-support` code, which needs a run to have been *deleted*, and nothing in the
+                // build can delete one. Asserting it would size a shared band to a state no player can be
+                // in, at the cost of a row off the observation list or the readiness list — both Young
+                // surfaces with their own measured reserves. Re-owned in `deferred-work.md`.
+                { label: `${caseId} every authored issue [${locale}]`, text: compose(definition.peerReviewRules), reachable: false }
+            ];
+        });
+    });
+
+    /**
+     * Phaser's wrap and the clamp's loop, over the browser's metrics.
+     *
+     * The one thing measurement cannot give is Phaser's per-line box, which comes from font metrics the
+     * canvas API does not expose the same way — so `caseFileLineHeight` is imported and used, which is
+     * the renderer's own multiplier rather than a number restated here.
+     */
+    const fitted = await page.evaluate(({ cases, font, authoredSize, minSize, wrap, available, lineHeights }) => {
+        const context = document.createElement('canvas').getContext('2d');
+        if (!context) throw new Error('Canvas 2D is unavailable.');
+        const linesAt = (text: string, fontSize: number): number => {
+            context.font = `${fontSize}px ${font}`;
+            // Every authored newline starts a new line, then greedy word wrap inside each.
+            return text.split('\n').reduce((total, paragraph) => {
+                let lines = 1;
+                let current = '';
+                for (const word of paragraph.split(/\s+/).filter(Boolean)) {
+                    const candidate = current ? `${current} ${word}` : word;
+                    if (current && context.measureText(candidate).width > wrap) {
+                        lines += 1;
+                        current = word;
+                    } else {
+                        current = candidate;
+                    }
+                }
+                return total + lines;
+            }, 0);
+        };
+        return cases.map(({ label, text, reachable }) => {
+            const authoredLines = linesAt(text, authoredSize);
+            for (let fontSize = authoredSize; fontSize >= minSize; fontSize -= 1) {
+                const lines = linesAt(text, fontSize);
+                if (lines * lineHeights[fontSize]! <= available) {
+                    return { label, reachable, fontSize, lines, authoredLines, authoredHeight: authoredLines * lineHeights[authoredSize]!, cropped: false };
+                }
+            }
+            return { label, reachable, fontSize: minSize, lines: linesAt(text, minSize), authoredLines, authoredHeight: authoredLines * lineHeights[authoredSize]!, cropped: true };
+        });
+    }, {
+        cases: combinations,
+        font: UI_FONT_STACK,
+        authoredSize: CASE_FILE_META_FONT_SIZE,
+        minSize: CASE_FILE_MIN_FONT_SIZE,
+        wrap: caseFileRightTextWrap(),
+        available: CASE_FILE_ISSUES_HEIGHT,
+        // The renderer's own line-box function, evaluated for every size the clamp can reach.
+        lineHeights: Object.fromEntries(
+            Array.from({ length: CASE_FILE_META_FONT_SIZE - CASE_FILE_MIN_FONT_SIZE + 1 },
+                (_, offset) => CASE_FILE_MIN_FONT_SIZE + offset)
+                .map((fontSize) => [fontSize, caseFileLineHeight(fontSize)])
+        )
+    });
+
+    // The measurement itself, printed so a reviewer reads the sizes rather than trusting a green tick.
+    fitted.forEach(({ label, fontSize, lines, authoredLines, authoredHeight }) =>
+        console.log(`[pane] ${label}: fits ${lines} lines at ${fontSize}px | at authored ${CASE_FILE_META_FONT_SIZE}px it is ${authoredLines} lines = ${authoredHeight}px (band ${CASE_FILE_ISSUES_HEIGHT}px)`));
+
+    // **Nothing a player can reach crops.** A cropped pane silently costs them the end of the sentence
+    // telling them what to change, which is the one thing this surface exists to say.
+    expect(fitted.filter(({ reachable, cropped }) => reachable && cropped).map(({ label }) => label)).toEqual([]);
+
+    // The unreachable full set is reported rather than asserted — but the *reporting* is guarded, so a
+    // future third reachable code cannot slip in as an unasserted row.
+    const overflowing = fitted.filter(({ cropped }) => cropped).map(({ label }) => label);
+    expect(overflowing.every((label) => label.includes('every authored issue'))).toBe(true);
+
+    // Floors, so a sweep that stopped generating samples could not pass: both cases, both locales, and
+    // both combinations.
+    expect(fitted.filter(({ reachable }) => reachable)).toHaveLength(SHIPPED_CASES.length * 2);
+    expect(fitted.length).toBe(SHIPPED_CASES.length * 4);
+});
+
+/**
+ * **The debrief's comparison band and its cited-source rows, measured the same way** (Story 4.3, AC5 /
+ * AC10 — the first and third of the three bands the story names).
+ *
+ * `DEBRIEF_COMPARISON_BAND_HEIGHT` = 152 reserves a **two-line** French title at
+ * `DEBRIEF_SECTION_TITLE_FONT_SIZE` over **four** prose lines at `DEBRIEF_BODY_FONT_SIZE`, plus
+ * `DEBRIEF_TITLE_GAP` and both `DEBRIEF_BAND_PADDING`s. Story 4.1 authored this case's French comparison
+ * up from Young's 222 characters to **289**, and the constant's docstring — corrected by that story's
+ * review — has recorded ever since that the "line spare" it used to promise is gone. Nothing measured
+ * whether the content still fits, and nothing could: past four lines `DebriefRenderer` clamps toward
+ * `DEBRIEF_MIN_FONT_SIZE` and then `setCrop`s, invisibly.
+ *
+ * `DEBRIEF_SOURCE_ROW_HEIGHT` = 36 holds a source name at the body size over a provenance line at the
+ * meta size — three localized labels composed by `debrief.sources.line` beside a French display name,
+ * also unmeasured.
+ *
+ * Both are asserted against the reserve as the reserve is computed, from `debriefLineHeight`, which is
+ * the renderer's own multiplier rather than a number restated here.
+ *
+ * **Named change that breaks this:** authoring either case's `historicalComparison` title or text past
+ * what the reserve holds, or lowering `DEBRIEF_COMPARISON_BAND_HEIGHT` / `DEBRIEF_SOURCE_ROW_HEIGHT`.
+ */
+test('fits the debrief comparison band and its cited-source rows, in both locales', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: fr['boot.title'] })).toBeVisible();
+
+    const comparison = SHIPPED_CASES.flatMap(({ caseId, definition }) =>
+        (['fr', 'en'] as const).map((locale) => ({
+            label: `${caseId} comparison [${locale}]`,
+            title: definition.debrief.historicalComparison.title[locale],
+            text: definition.debrief.historicalComparison.text[locale]
+        })));
+
+    const sourceRows = SHIPPED_CASES.flatMap(({ caseId, definition }) =>
+        definition.debrief.historicalComparison.sourceIds.flatMap((sourceId) => {
+            const artifact = definition.contextualArtifacts.find(({ id }) => id === sourceId);
+            if (!artifact) throw new Error(`${caseId} cites ${sourceId}, which it does not author as an artifact.`);
+            return (['fr', 'en'] as const).map((locale) => ({
+                label: `${caseId} cited source ${sourceId} [${locale}]`,
+                name: artifact.displayName[locale],
+                provenance: (locale === 'fr' ? fr : en)['debrief.sources.line']
+                    .replace('{provenance}', (locale === 'fr' ? fr : en)[`source.provenanceName.${artifact.provenance.category}`])
+                    .replace('{type}', (locale === 'fr' ? fr : en)[`source.type.${artifact.sourceType}`])
+                    .replace('{rights}', (locale === 'fr' ? fr : en)[`source.rights.${artifact.rightsStatus}`])
+            }));
+        }));
+
+    const measured = await page.evaluate(({ comparisons, rows, font, wrap, sizes }) => {
+        const context = document.createElement('canvas').getContext('2d');
+        if (!context) throw new Error('Canvas 2D is unavailable.');
+        const linesAt = (text: string, fontSize: number): number => {
+            context.font = `${fontSize}px ${font}`;
+            let lines = 1;
+            let current = '';
+            for (const word of text.split(/\s+/).filter(Boolean)) {
+                const candidate = current ? `${current} ${word}` : word;
+                if (current && context.measureText(candidate).width > wrap) {
+                    lines += 1;
+                    current = word;
+                } else {
+                    current = candidate;
+                }
+            }
+            return lines;
+        };
+        return {
+            comparisons: comparisons.map(({ label, title, text }) => ({
+                label,
+                titleLines: linesAt(title, sizes.title),
+                textLines: linesAt(text, sizes.body)
+            })),
+            rows: rows.map(({ label, name, provenance }) => ({
+                label,
+                nameLines: linesAt(name, sizes.body),
+                provenanceLines: linesAt(provenance, sizes.meta)
+            }))
+        };
+    }, {
+        comparisons: comparison,
+        rows: sourceRows,
+        font: UI_FONT_STACK,
+        wrap: debriefLeftTextWrap(DESIGN_WIDTH),
+        sizes: {
+            title: DEBRIEF_SECTION_TITLE_FONT_SIZE,
+            body: DEBRIEF_BODY_FONT_SIZE,
+            meta: DEBRIEF_META_FONT_SIZE
+        }
+    });
+
+    const comparisonOverflowing = measured.comparisons.map((entry) => {
+        const needed = (2 * DEBRIEF_BAND_PADDING)
+            + (entry.titleLines * debriefLineHeight(DEBRIEF_SECTION_TITLE_FONT_SIZE))
+            + DEBRIEF_TITLE_GAP
+            + (entry.textLines * debriefLineHeight(DEBRIEF_BODY_FONT_SIZE));
+        console.log(`[band] ${entry.label}: ${entry.titleLines}-line title + ${entry.textLines} prose lines = ${needed}px (reserve ${DEBRIEF_COMPARISON_BAND_HEIGHT}px)`);
+        return { ...entry, needed };
+    }).filter(({ needed }) => needed > DEBRIEF_COMPARISON_BAND_HEIGHT)
+        .map(({ label, needed }) => `${label}: ${needed}px > ${DEBRIEF_COMPARISON_BAND_HEIGHT}px`);
+
+    const rowOverflowing = measured.rows.map((entry) => {
+        const needed = (entry.nameLines * debriefLineHeight(DEBRIEF_BODY_FONT_SIZE))
+            + (entry.provenanceLines * debriefLineHeight(DEBRIEF_META_FONT_SIZE));
+        console.log(`[band] ${entry.label}: ${entry.nameLines} name + ${entry.provenanceLines} provenance = ${needed}px (reserve ${DEBRIEF_SOURCE_ROW_HEIGHT}px)`);
+        return { ...entry, needed };
+    }).filter(({ needed }) => needed > DEBRIEF_SOURCE_ROW_HEIGHT)
+        .map(({ label, needed }) => `${label}: ${needed}px > ${DEBRIEF_SOURCE_ROW_HEIGHT}px`);
+
+    expect(comparisonOverflowing).toEqual([]);
+    expect(rowOverflowing).toEqual([]);
+    // Floors: both cases, both locales, and two cited sources per case.
+    expect(measured.comparisons).toHaveLength(SHIPPED_CASES.length * 2);
+    expect(measured.rows).toHaveLength(SHIPPED_CASES.length * 2 * 2);
 });
 
 test('keeps every colleague name on one line of its figure plaque', async ({ page }) => {

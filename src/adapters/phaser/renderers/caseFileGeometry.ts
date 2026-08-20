@@ -172,8 +172,69 @@ export const CASE_FILE_ACTION_PADDING = 10;
 /** The bound an action label wraps to — fixed height, so it must fit one French line. */
 export const caseFileActionLabelWrap = (): number => CASE_FILE_ACTION_WIDTH - (2 * CASE_FILE_ACTION_PADDING);
 
-/** What the peer-review band has for the issues between its request and save controls. */
-export const CASE_FILE_ISSUES_HEIGHT = 106;
+/**
+ * How many lines of composed peer-review prose the pane reserves.
+ *
+ * **Eight, because that is what the worst pair ordinary play can reach actually wraps to** — measured in
+ * a browser, not derived from a character count (Story 4.3, AC5).
+ *
+ * `CaseFilePresenter.renderPeerReview` joins one `caseFile.review.issue` line per standing issue with
+ * `\n`. Two issues stand together whenever a player at `review` unpins an observation and asks again:
+ * `reduceTheorySupportRun` has no phase gate, `withTheory` clears the standing feedback, and the next
+ * request stands `missing-evidence` beside `overreach`. Composed French lengths are 204 + 234 characters
+ * on Young and 162 + 184 on Morley–Miller, and against {@link caseFileRightTextWrap}'s 372px at
+ * {@link CASE_FILE_META_FONT_SIZE} they wrap to **8 lines** and **6** respectively.
+ *
+ * Three at once would need an `unsupported-support` code, which needs a *deleted* run, and nothing can
+ * delete one — so the whole authored set (11 French lines on Young) is the reserve's theoretical
+ * obligation rather than the walk's, and it is deliberately not what this is sized to. It is reported by
+ * `french-typography.spec.ts` and re-owned in `deferred-work.md`.
+ */
+export const CASE_FILE_ISSUES_LINES = 8;
+/**
+ * What the peer-review band has for the issues between its request and save controls.
+ *
+ * **Grown from a bare 106 to a stated reserve by Story 4.3, and this is the measurement that decided
+ * it: the worst pair ordinary play can reach fits without cropping, at the clamp's floor.**
+ *
+ * At 106 the band held six lines at the authored size. Morley–Miller's French pair is six, so it fitted
+ * with 4px spare; Young's is **eight**, so it did not — and the clamp shrank the *validated* case's pane
+ * on a state ordinary play reaches.
+ *
+ * It was not *visibly* broken, and that is the part worth recording rather than the fix. The frames
+ * captured at 1280×720 show Young's eight French lines complete and uncropped inside the old 106px,
+ * because `clamp` compares Phaser's **real** measured height while this reserve is computed from
+ * {@link caseFileLineHeight}'s deliberately conservative 1.35× — Phaser draws nearer 1.2×. So the pane
+ * survived on the gap between the two multipliers: ~14px of room it did not have on paper, lent by a
+ * metric nothing asserts. One line more of authored French, or one font whose metrics run wider, and it
+ * crops silently — no ellipsis, no notice — and what the player loses is the end of the sentence telling
+ * them what to change about their draft.
+ *
+ * **Why the floor and not the authored size.** Eight lines at {@link CASE_FILE_META_FONT_SIZE} is 136px,
+ * and the panel does not have it: `caseFileContentFits` measures **14px** of vertical headroom at the
+ * shipped 1024×768 surface, so 120 is the most this band can take without pushing the right column past
+ * the status line. Eight lines at {@link CASE_FILE_MIN_FONT_SIZE} is exactly 120. So the guarantee this
+ * reserve now makes is the strongest one that fits: *the worst reachable pair is never cropped*, reading
+ * at the authored size on Morley–Miller in both locales and on Young in English, and at the clamp's floor
+ * on Young in French. Shrink-to-floor is the clamp working; crop is the clamp giving up, and it is the one
+ * this band no longer does.
+ *
+ * Taking the other 16px would mean a row off `CASE_FILE_ROWS_PER_PAGE` or a row off
+ * {@link CASE_FILE_READINESS_ROWS} — both Young-facing surfaces with their own measured reserves, and
+ * neither in this story's scope. Recorded in `deferred-work.md` with the full authored set (11 French
+ * lines on Young, which needs 165px and is unreachable by play because a third issue needs a *deleted*
+ * run).
+ *
+ * Derived from {@link CASE_FILE_ISSUES_LINES} rather than restated, so the bound and its justification
+ * fail together — the discipline `MAX_PRIMARY_CONTROLS` established in Story 3.1. `caseFileContentFits`
+ * is the arbiter that refuses a further growth, and `CaseFileGeometry.test.ts` is where it said no to 136.
+ *
+ * This *grows* a shared band, which is §SS8's recommendation and the opposite of what the 2.11 review
+ * found on the debrief — a guard loosened 56% to make an assertion pass. Nothing loosened here: before
+ * this there was no height assertion on this band at all, and `french-typography.spec.ts` now measures the
+ * wrapped line count in a real browser and demands an uncropped fit on both cases in both locales.
+ */
+export const CASE_FILE_ISSUES_HEIGHT = CASE_FILE_ISSUES_LINES * caseFileLineHeight(CASE_FILE_MIN_FONT_SIZE);
 
 export const CASE_FILE_CLOSE_HEIGHT = 36;
 export const CASE_FILE_CLOSE_WIDTH = 220;

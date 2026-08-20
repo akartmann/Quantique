@@ -114,7 +114,7 @@ test('takes every forward transition of the Young case from the canvas', async (
     // The boot assertion this line used to carry now lives inside `walkToDebrief`, next to `goto('/')`,
     // where it is the precondition it was written to be rather than a fact about the DOM shell that
     // happens to still be mounted once the player is standing in the debrief (2.11 review).
-    await walkToDebrief(page);
+    await walkToDebrief(page, YOUNG_CASE, 'conclusion-universal-optics');
 
     // --- post-debrief replay -------------------------------------------------------------------
     await clickDesign(page, DEBRIEF_REPLAY);

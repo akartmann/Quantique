@@ -9,7 +9,8 @@ import {
     completionSnapshot,
     expectActiveScene,
     recordedObservations,
-    walkToDebrief
+    walkToDebrief,
+    YOUNG_CASE
 } from './canvasHelpers';
 
 /**
@@ -57,7 +58,7 @@ const DEBRIEF_REPLAY = debriefAdvanceControlCentre(DESIGN_WIDTH, DESIGN_HEIGHT);
 const completedConclusion = completionSnapshot;
 
 test('reaches the debrief with canvas clicks only and keeps the record through a counterfactual replay', async ({ page }) => {
-    await walkToDebrief(page);
+    await walkToDebrief(page, YOUNG_CASE, 'conclusion-universal-optics');
     await expectActiveScene(page, 'Debrief');
 
     // The case completed, so a snapshot was written. Observed through the record's projection rather

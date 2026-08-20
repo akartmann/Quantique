@@ -181,17 +181,49 @@ export const DEBRIEF_SUMMARY_BAND_HEIGHT = 68;
  * review of 4.1. Story 4.1 authored the comparison up from Young's 222 to 289 and left the number
  * behind, which is the stale-figure shape this project keeps being bitten by, and at 289 the spare line
  * the sentence promised is **gone** — the prose now needs the full four-line reserve rather than three
- * of it. A concrete line count is deliberately not written down here any more: how many lines wrapped
- * prose occupies is a height claim, the structural harness reports a constant `height: 18` for every
- * text object, and a number stated here would be arithmetic dressed as a measurement — which is how
- * the last one came to be wrong. Past four lines the clamp shrinks toward
- * {@link DEBRIEF_MIN_FONT_SIZE} and then crops, silently. The schema authorises any length, so **the
- * reserve is the guarantee and not the content**, `french-typography.spec.ts` now measures this prose
- * per token so no single word can overflow the wrap, and the remaining height margin is recorded in
- * `deferred-work.md` as a residual for Story 4.3.
+ * of it. Past four lines the clamp shrinks toward {@link DEBRIEF_MIN_FONT_SIZE} and then crops,
+ * silently. The schema authorises any length, so **the reserve is the guarantee and not the content**.
+ *
+ * ## Measured, at last, and the band holds it (Story 4.3, AC5)
+ *
+ * The residual `deferred-work.md` carried for this constant is **closed by measurement, not by a
+ * decision**: neither the band nor the content moved, because the content fits.
+ *
+ * `french-typography.spec.ts`'s *"fits the debrief comparison band and its cited-source rows"* wraps the
+ * authored title and prose in a real browser through `UI_FONT_STACK` — Phaser's own greedy rule over the
+ * browser's own metrics, the technique this project already uses to locate a control under a measured
+ * heading — and reports, for this case in French:
+ *
+ * > 1-line title + 4 prose lines = **129px** (reserve **152px**)
+ *
+ * So the four-line prose reserve is spent exactly as the paragraph above says, and the 23px of margin is
+ * **the second title line**: the reserve budgets two, and the longest shipped French title wraps to one.
+ * That is where the margin went and what it now is — not a spare prose line, and not nothing. Young's is
+ * 110px, a prose line further clear.
+ *
+ * The by-eye confirmation is `morley-miller-debrief.spec.ts`, which captures this frame at 1280×720 in
+ * both locales through `testInfo.outputPath` and prints the path, so the measurement and the pixels can
+ * both be re-checked. A concrete line count *is* now written down, and it is written down because
+ * something outside the unit harness produced it: the harness reports a constant `height: 18` for every
+ * text object, so the previous refusal to state a number here was right for as long as arithmetic was
+ * the only thing available.
  */
 export const DEBRIEF_COMPARISON_BAND_HEIGHT = 152;
-/** A source's name at {@link DEBRIEF_BODY_FONT_SIZE} over its provenance line at the meta size. */
+/**
+ * A source's name at {@link DEBRIEF_BODY_FONT_SIZE} over its provenance line at the meta size.
+ *
+ * **Exact, and now measured** (Story 4.3, AC5). The reserve is one line of each and no more —
+ * `debriefLineHeight(14) + debriefLineHeight(12)` is 19 + 17 = 36 — so it has *zero* margin by
+ * construction, and a second line of either would crop. `french-typography.spec.ts` measures both cases'
+ * four cited rows in both locales and reports 36px against a 36px reserve every time: the longest French
+ * display name wraps to one line, and so does the three-label provenance composition
+ * (`debrief.sources.line`, which is `{provenance} · {type} · {rights}` — short, bounded vocabulary in
+ * both locales).
+ *
+ * Exact is safe *here* and would not be for prose: the vocabulary is closed and validated at load, so the
+ * only way to break it is a longer authored `displayName`, which the measurement catches. That is the
+ * whole reason it is measured rather than left to the eye.
+ */
 export const DEBRIEF_SOURCE_ROW_HEIGHT = 36;
 /**
  * How many citations the band reserves.

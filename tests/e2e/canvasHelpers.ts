@@ -48,6 +48,7 @@ import {
     colleagueFigureProbe,
     proposalDetailPanelProbe
 } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import { presentColleagueIds } from '../../src/adapters/phaser/renderers/characterStageView';
 import { dialogueAdvanceControlCentre } from '../../src/adapters/phaser/ui/DialogueBox';
 import {
     dialAngleForFraction,
@@ -90,6 +91,28 @@ type WalkableCase = Readonly<{
      * caller does not have.
      */
     apparatus: { primaryControls: PrimaryControl[] };
+    /**
+     * The authored conversation lengths and cast, which the conclusion walk reads instead of counting on
+     * Young's (Story 4.3, Task 5).
+     *
+     * `chooseProposalThroughColleague` clicks `dialogueBeatCount + 1` times, and both numbers it needed
+     * were Young's: `synthesis` authors **3** beats on Young and **1** here, `review` **2** and **1**. The
+     * literals survived because the click loop sits inside a retrying `expect(...).toPass()`, so a wrong
+     * count is absorbed rather than reported — over-clicking a 1-beat scene keeps pressing a control that
+     * has already relabelled to the board's advance, and `ADVANCE_RELABEL_LOCKOUT_MS` swallows some of
+     * *that*. `morley-miller-prototype.spec.ts` passes `0` against 1 authored beat and passes on the
+     * retry. Timing-dependent green in both directions, which is the worst kind.
+     */
+    scenarioScript: {
+        scenes: {
+            phase: string;
+            cast?: string[];
+            dialogueBeats?: { speakerId: string }[];
+        }[];
+    };
+    colleagues: { id: string }[];
+    predictionProposals: { id: string; colleagueId: string }[];
+    conclusionProposals: { id: string; colleagueId: string }[];
 }>;
 
 /**
@@ -144,6 +167,81 @@ export const gotoCase = async (page: Page, caseId: string): Promise<void> => {
 };
 
 export const artifactCountFor = (caseId: string): number => caseContent(caseId).contextualArtifacts.length;
+
+/**
+ * How many dialogue beats a case authors for one phase — the count the walk must acknowledge.
+ *
+ * Read from `scenarioScript`, never written down: see {@link WalkableCase}'s note on why the two literals
+ * this replaces could not fail loudly. A phase authoring no beats answers `0`, which is what Young's
+ * `context` and `experiment` do and is a legitimate count rather than a missing one.
+ *
+ * Throws on a phase the case does not author at all, because that is a spec asking about the wrong case
+ * and a silent `0` would send it into a click loop against a board with no conversation on it.
+ */
+export const dialogueBeatCountFor = (caseId: string, phase: 'prediction' | 'synthesis' | 'review'): number => {
+    const scene = caseContent(caseId).scenarioScript.scenes.find((candidate) => candidate.phase === phase);
+    if (!scene) throw new Error(`${caseId} authors no ${phase} scene.`);
+    return scene.dialogueBeats?.length ?? 0;
+};
+
+/**
+ * Which figure on the stage proposes a given conclusion, as a **stage slot index**.
+ *
+ * ## Why this cannot be an index into `colleagues[]`
+ *
+ * `chooseProposalThroughColleague` clicks a figure by position, and the stage is **not** laid out in
+ * `colleagues[]` order. `presentColleagueIds` orders it by `proposerIds` — the proposal array's
+ * `colleagueId`s, left to right, which is *"the reading order the two boards genuinely differ in"* — then
+ * appends any beat speakers not already standing.
+ *
+ * On Young the two orderings coincide, entirely by accident: `conclusionProposals` runs
+ * `[marianne-cole, elias-wren, thea-young, samuel-hart]` and `colleagues` runs
+ * `[thea-young, elias-wren, marianne-cole, samuel-hart]`, so slot **3** is `samuel-hart` either way. On
+ * Morley–Miller they do not: `conclusionProposals` runs
+ * `[edith-vance, tomas-reyes, nils-abrahamsen, harriet-lowe]` against a cast of
+ * `[edith-vance, tomas-reyes, harriet-lowe, nils-abrahamsen]`, so slot 3 is **`harriet-lowe`**
+ * (`conclude-instrument-broken`) while `colleagues[3]` is `nils-abrahamsen`
+ * (`conclude-ether-disproved`). Two different conclusions from one number, and the first version of this
+ * helper had the wrong one — it went to a browser and the pane came back reporting no overreach, which is
+ * how the error was caught rather than argued about.
+ *
+ * That also corrects the record for `morley-miller-prototype.spec.ts`, whose `chooseProposalThroughColleague(page, 0)`
+ * takes the default slot 3 and so has been completing this case on `conclude-instrument-broken` — another
+ * `never` predicate, so it worked, for a reason nothing had written down.
+ *
+ * ## So it reuses the production function rather than re-deriving the order
+ *
+ * `presentColleagueIds` is the layout authority and is imported here, not paraphrased — the same
+ * discipline `conclusionReadiness` applies to `configurationKey`: two answers to *"who stands where?"*
+ * would drift, and the drift would be a spec clicking a figure that proposes something else while
+ * asserting against the conclusion it meant.
+ *
+ * `phase` decides which beats contribute speakers, because the conclusion board is hosted in
+ * `synthesis` **and** `review` and a case may author different speakers for each.
+ */
+export const colleagueIndexForConclusion = (
+    caseId: string,
+    proposalId: string,
+    phase: 'synthesis' | 'review' = 'synthesis'
+): number => {
+    const content = caseContent(caseId);
+    const proposal = content.conclusionProposals.find(({ id }) => id === proposalId);
+    if (!proposal) throw new Error(`${caseId} authors no conclusion proposal ${proposalId}.`);
+    const scene = content.scenarioScript.scenes.find((candidate) => candidate.phase === phase);
+    if (!scene) throw new Error(`${caseId} authors no ${phase} scene.`);
+
+    const staged = presentColleagueIds({
+        proposerIds: content.conclusionProposals.map(({ colleagueId }) => colleagueId),
+        speakerIds: (scene.dialogueBeats ?? []).map(({ speakerId }) => speakerId),
+        castIds: content.colleagues.map(({ id }) => id),
+        authoredCast: scene.cast
+    });
+    const index = staged.indexOf(proposal.colleagueId);
+    if (index < 0) {
+        throw new Error(`${caseId} does not stage ${proposal.colleagueId} in ${phase}, so ${proposalId} cannot be chosen there.`);
+    }
+    return index;
+};
 
 export const ARTIFACT_COUNT = artifactCountFor(YOUNG_CASE);
 
@@ -938,9 +1036,14 @@ export const chooseProposalThroughColleague = async (
     }).toPass({ timeout: 20_000, intervals: [200, 400, 800, 1_200] });
 };
 
-/** Chooses an attributed prediction and moves to the bench. `prediction → experiment`. */
-const chooseThePrediction = async (page: Page): Promise<void> => {
-    await chooseProposalThroughColleague(page, 3);
+/**
+ * Chooses an attributed prediction and moves to the bench. `prediction → experiment`.
+ *
+ * The beat count comes from the case (Story 4.3): it was `3`, which is Young's, and the prototype walk
+ * survived the mismatch only on the retry inside `chooseProposalThroughColleague`.
+ */
+const chooseThePrediction = async (page: Page, caseId: string): Promise<void> => {
+    await chooseProposalThroughColleague(page, dialogueBeatCountFor(caseId, 'prediction'));
     // `clickUntilScene` for the reason {@link closeTheCase} gives about the *next* advance: choosing a
     // proposal relabels this control under the cursor, which starts `ADVANCE_RELABEL_LOCKOUT_MS`, and a
     // click at machine speed inside that window is correctly ignored. The window is wider wherever
@@ -1007,14 +1110,31 @@ export const inTheCaseFile = async (page: Page, act: () => Promise<void>): Promi
  * dispatcher at all before Story 2.11 — this is the step that used to be four
  * `board.getByRole('checkbox').check()` calls into a DOM panel Story 2.12 deletes.
  */
-const pinTheSupport = async (page: Page): Promise<void> => {
-    await chooseProposalThroughColleague(page, 3);
+export const pinTheSupport = async (
+    page: Page,
+    /** Which investigation is being walked — the beat count and the artifact count both come from it. */
+    caseId: string,
+    /**
+     * Which conclusion to adopt, by authored id.
+     *
+     * **Required, and named rather than defaulted**, for the reason the code review of 4.1 gave when it
+     * made `gotoCase`'s `caseId` required: a default is where a Young assumption survives a review. The
+     * seat the figure sits in is resolved from the case by {@link colleagueIndexForConclusion}, so a spec
+     * says *which conclusion* and never *which position*.
+     */
+    conclusionProposalId: string
+): Promise<void> => {
+    await chooseProposalThroughColleague(
+        page,
+        dialogueBeatCountFor(caseId, 'synthesis'),
+        colleagueIndexForConclusion(caseId, conclusionProposalId)
+    );
     await inTheCaseFile(page, async () => {
         for (let index = 0; index < 2; index += 1) {
             await clickDesign(page, caseFileObservationPinCentre(index, DESIGN_WIDTH));
             await waitForInputToSettle(page);
         }
-        for (let index = 0; index < ARTIFACT_COUNT; index += 1) {
+        for (let index = 0; index < artifactCountFor(caseId); index += 1) {
             await clickDesign(page, caseFileSourcePinCentre(index, DESIGN_WIDTH));
             await waitForInputToSettle(page);
         }
@@ -1037,7 +1157,7 @@ const pinTheSupport = async (page: Page): Promise<void> => {
  * correctly ignored. Retrying is what a player does without noticing, and the helper is bounded, so a
  * genuinely dead control still fails.
  */
-const closeTheCase = async (page: Page): Promise<void> => {
+export const closeTheCase = async (page: Page): Promise<void> => {
     await inTheCaseFile(page, async () => {
         await clickDesign(page, caseFileRequestControlCentre(DESIGN_WIDTH));
         await waitForInputToSettle(page);
@@ -1133,18 +1253,47 @@ export const walkToTheBoard = async (
     // several frames of noise later, at the first `expectActiveScene` (2.11 review).
     await enterTheLaboratory(page);
     await readTheReferences(page, caseId);
-    await chooseThePrediction(page);
+    await chooseThePrediction(page, caseId);
     await recordTwoObservations(page, instrument);
 };
 
 /**
- * The whole walk. Starts at `/` and leaves the player standing in the debrief.
+ * The whole walk. Opens a named case and leaves the player standing in its debrief.
  *
  * Every step is a canvas click; **no DOM control is driven anywhere in it**, which is what Story 2.11
  * closes and what Story 2.12's completion check asks for.
+ *
+ * ## `caseId` and `conclusionProposalId` are required, and that is the point (Story 4.3, AC4)
+ *
+ * This was `walkToDebrief(page)` calling `walkToTheBoard(page)` with no case id, so it was Young, always
+ * — while `walkToTheBoard` itself has been case-parameterised since Story 3.2. `pinTheSupport` and
+ * `closeTheCase` were module-private besides, so **no spec could reach a second case's debrief through
+ * this module at all**, which is why the code review of 4.1 verified that story's AC3/AC4 on the reading
+ * room and the case file and left the debrief unphotographed.
+ *
+ * Both parameters are required for the reason that review gave when it made `gotoCase`'s `caseId`
+ * required at seventeen sites: with a default, every caller passes nothing, and the implicit-Young
+ * binding simply moves from the call site into the signature. Naming the conclusion also removes the
+ * seat literal — `colleagueIndex = 3` meant `samuel-hart` on Young and `nils-abrahamsen` here, two
+ * different conclusions from one number.
+ *
+ * `instrument` keeps its Young default because it is the *second observation's* control and
+ * `walkToTheBoard` already defaults it the same way; a case whose bench differs passes its own, as
+ * `morley-miller-prototype.spec.ts` does.
+ *
+ * **Note what this walk does on Young, unchanged and deliberately so.** Young's existing callers name
+ * `conclusion-universal-optics`, whose `supportPredicate` is `never` — so the Young walk completes the
+ * case on a conclusion the evidence does not defend, exactly as it has since Story 2.11. That is
+ * out of scope here (it is Young content plus a version bump) and is recorded in `deferred-work.md`
+ * rather than quietly changed under four specs that assert against today's behaviour.
  */
-export const walkToDebrief = async (page: Page): Promise<void> => {
-    await walkToTheBoard(page);
-    await pinTheSupport(page);
+export const walkToDebrief = async (
+    page: Page,
+    caseId: string,
+    conclusionProposalId: string,
+    instrument: ReturnType<typeof varyingInstrument> = YOUNG_THROW
+): Promise<void> => {
+    await walkToTheBoard(page, caseId, instrument);
+    await pinTheSupport(page, caseId, conclusionProposalId);
     await closeTheCase(page);
 };

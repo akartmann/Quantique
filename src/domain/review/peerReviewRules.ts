@@ -48,7 +48,26 @@ const freezeIssue = (rule: PeerReviewRule): PeerReviewIssue => Object.freeze({
     revisionPath: rule.revisionPath.en
 });
 
-/** Every authored detection phrase, in every locale, as one flat list. */
+/**
+ * Every authored detection phrase, in every locale, as one flat list.
+ *
+ * **The French half of every union is unreachable, and has been since free-text was retired** (Story
+ * 4.3). `reduceTheoryConclusionProposalChosen` writes `proposal.claim.en` in *every* locale, because the
+ * draft is persisted and string-compared on load — so `draft.conclusion` is always English and no French
+ * phrase can match it. Morley–Miller's French claim contains `une fois pour toutes` and it is never read.
+ *
+ * The union stays flat anyway, and the reason is the one the `overreach` branch below gives: detection
+ * must be deterministic across locales so the recomputation on record load matches what was persisted.
+ * Reading only `.en` would produce the same answers today and would encode "English is the draft
+ * language" a second time, in a place a future free-text path would have to find. Recorded here rather
+ * than left for a reader to infer from the deterministic-union comment, which is exactly the inference
+ * that made the dead FR list look load-bearing for two stories.
+ *
+ * So the French phrases are **deliberately** not reachable rather than accidentally so. Their owner is
+ * recorded in `deferred-work.md`; nothing in `src/` depends on them, and
+ * `MorleyMillerConclusion.test.ts` asserts that no `.en` claim on either shipped case matches one, so
+ * this note fails rather than rots if a future claim starts tripping the French list.
+ */
 const overreachPhrases = (rule: PeerReviewRule): readonly string[] => {
     const authored = rule.predicate.overreachPhrases;
     return authored ? [...authored.en, ...authored.fr] : [];
@@ -76,6 +95,18 @@ const isApplicable = (
             // could have saved a record was English-only with English authored proposals, so no
             // persisted conclusion can contain these words. Any future addition needs the same
             // argument, or a version-gated detection set.
+            //
+            // **Story 4.3 made this refusal reachable on Morley–Miller without touching the set**, so the
+            // argument it owed is a different and stronger one: it reworded
+            // `conclude-ether-disproved.claim.en` to contain the *already-authored* phrase `once and for
+            // all`, which leaves this function byte-identical before and after. The recomputation walk
+            // reads the text the record holds, so it returns for every persisted draft exactly what it
+            // returned before, and there is no addition to argue about at all. The full statement,
+            // including what a returning player loses, is at the 1.7.0 clause in `CaseRecordSchema.ts`.
+            //
+            // The rule above still binds the *next* change: widen this set and you owe the "no pre-edit
+            // authored claim of either case contains the new phrase" check, over both `case.json` files,
+            // run rather than assumed.
             return overreachPhrases(rule).some((phrase) => {
                 const escaped = phrase.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
                 return new RegExp(`(?:^|[^\\p{L}\\p{N}_])${escaped}(?=$|[^\\p{L}\\p{N}_])`, 'u').test(draft.conclusion.toLowerCase());

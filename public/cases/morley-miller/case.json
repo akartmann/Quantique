@@ -1,6 +1,6 @@
 {
   "id": "morley-miller",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "title": {
     "en": "Morley–Miller — the rotating interferometer",
     "fr": "Morley–Miller — l’interféromètre tournant"
@@ -538,7 +538,7 @@
       "id": "conclude-ether-disproved",
       "colleagueId": "nils-abrahamsen",
       "claim": {
-        "en": "The ether does not exist, and this bench has settled the matter for good.",
+        "en": "The ether does not exist, and this bench has settled the matter once and for all.",
         "fr": "L’éther n’existe pas, et ce banc a réglé la question une fois pour toutes."
       },
       "limitation": {

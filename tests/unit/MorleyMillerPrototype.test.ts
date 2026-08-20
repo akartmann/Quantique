@@ -422,7 +422,15 @@ describe('the prototype played through the shared framework', () => {
         // character of French display copy (U+0020 → U+202F before `°C` in `resetPath.description`) and
         // added the matching allowlist clause in the same change. This row is what made that a single action
         // rather than two, exactly as intended.
-        expect(definition.version).toBe('1.6.0');
+        //
+        // **1.7.0 is Story 4.3's, and it is the first bump on either case where a string this function
+        // recomputes actually moves**: `conclude-ether-disproved.claim.en` is reworded so the authored
+        // `peer-overreach` rule fires on the claim it was written for. This row fired again on that bump —
+        // for the third time doing the job it exists for — and the clause it demanded is at 1.7.0 in
+        // `CaseRecordSchema.ts`, with the argument for why a moved claim is nevertheless record-safe
+        // (detection itself did not move, so recomputation over a record's own older draft is unchanged).
+        // What a returning player loses is asserted separately, below.
+        expect(definition.version).toBe('1.7.0');
         const store = createStore(createInitialAppState(definition, 'en'));
         store.dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
         const projected = createCaseRecordProjection(store.getState());
@@ -436,12 +444,70 @@ describe('the prototype played through the shared framework', () => {
         // Every prior version this case has shipped, including 1.4.0 — which the 1.5.0 clause accepts for
         // the same reason 1.4.0 accepted its own predecessors, and which would be the version a returning
         // player's autosave actually holds.
-        (['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0'] as const).forEach((caseDefinitionVersion) => {
+        (['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0'] as const).forEach((caseDefinitionVersion) => {
             const stale = { ...projected.value, caseDefinitionVersion };
             expect(validateCaseRecordForDefinition(stale, definition)).toMatchObject({ ok: true });
         });
 
         expect(validateCaseRecordForDefinition(projected.value, definition)).toMatchObject({ ok: true });
+    });
+
+    /**
+     * **What Story 4.3's reworded claim costs a returning player, asserted rather than promised.**
+     *
+     * 1.7.0 moves `conclude-ether-disproved.claim.en`, and a record saved against 1.6.0 holds the old
+     * text. The allowlist accepts the version, so the question is what happens next — and the answer has
+     * to be the repair the 1.4.0 clause's reasoning demands, not a refusal: `attachAutosave` saves on the
+     * first dispatch of the recovered session, so a rejection here would *overwrite* the investigation it
+     * rejected.
+     *
+     * So: the record loads, `selectedConclusionProposalId` is **sanitized away** because the ID no longer
+     * describes the text beside it, and everything the player actually did survives. The card stops being
+     * drawn as chosen and re-choosing it costs one click.
+     *
+     * **Named change that breaks this:** turning the `proposal.claim.en !== record.theory.conclusion`
+     * branch in `CaseRecordSchema.ts` from a sanitization into a `failure(...)` — which is precisely the
+     * shape that discarded a completed prototype record on every reload in Story 3.2.
+     *
+     * The counterpart in the other direction — that the recomputed peer-review issues still match what a
+     * 1.6.0 record persisted — is asserted in `MorleyMillerConclusion.test.ts`, where the evaluator is the
+     * subject.
+     */
+    it('keeps a 1.6.0 investigation and drops only the stale conclusion card', async () => {
+        const definition = await loadPrototype();
+        const overclaim = definition.conclusionProposals.find(({ id }) => id === 'conclude-ether-disproved');
+        if (!overclaim) throw new Error('The case must author conclude-ether-disproved.');
+
+        const store = createStore(createInitialAppState(definition, 'en'));
+        store.dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
+        const projected = createCaseRecordProjection(store.getState());
+        expect(projected.ok).toBe(true);
+        if (!projected.ok) return;
+
+        // The record a 1.6.0 player holds: the pre-edit claim text, and the ID that described it then.
+        const PRE_EDIT_CLAIM_EN = 'The ether does not exist, and this bench has settled the matter for good.';
+        expect(overclaim.claim.en).not.toBe(PRE_EDIT_CLAIM_EN);
+        const saved = {
+            ...projected.value,
+            caseDefinitionVersion: '1.6.0',
+            selectedConclusionProposalId: overclaim.id,
+            theory: {
+                ...projected.value.theory,
+                conclusion: PRE_EDIT_CLAIM_EN,
+                limitation: overclaim.limitation.en
+            }
+        };
+
+        const restored = validateCaseRecordForDefinition(saved, definition);
+        expect(restored.ok).toBe(true);
+        if (!restored.ok) return;
+
+        // The card is gone; the draft, the reading and the phase are not.
+        expect(restored.value.selectedConclusionProposalId).toBeUndefined();
+        expect(restored.value.theory.conclusion).toBe(PRE_EDIT_CLAIM_EN);
+        expect(restored.value.theory.limitation).toBe(overclaim.limitation.en);
+        expect(restored.value.inspectedSourceIds).toEqual(['michelson-morley-1887']);
+        expect(restored.value.phase).toBe('context');
     });
 
     it('refuses a record that still names the retired artifact, as incompatible rather than invalid', async () => {

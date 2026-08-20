@@ -1,6 +1,10 @@
+---
+baseline_commit: 3b30876b2fd5373940b59f11f5d4cfa9cc1d104c
+---
+
 # Story 4.3: Morley–Miller bounded conclusion and debrief
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -231,76 +235,76 @@ observed red, the guard is restored, and the proof is recorded in a table. The m
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Read before writing, and record the two decisions (AC1, AC2, AC9)**
-  - [ ] Read `_bmad-output/project-context.md` revision 2.6 in full. It is governing.
-  - [ ] Read, completely, every file §SS2 and §Project Structure Notes mark UPDATE. For each, write down
+- [x] **Task 1 — Read before writing, and record the two decisions (AC1, AC2, AC9)**
+  - [x] Read `_bmad-output/project-context.md` revision 2.6 in full. It is governing.
+  - [x] Read, completely, every file §SS2 and §Project Structure Notes mark UPDATE. For each, write down
         in the Dev Agent Record: what it does today, what this story changes, and what must not break.
-  - [ ] Record **D1**: how AC1's overclaim refusal is made to fire — reword the authored claim, widen
+  - [x] Record **D1**: how AC1's overclaim refusal is made to fire — reword the authored claim, widen
         the phrase set, or version-gate the detection. §SS4 has the analysis and a recommendation.
-  - [ ] Record **D2**: how AC2's limitation requirement is resolved — made discriminating, or re-stated
+  - [x] Record **D2**: how AC2's limitation requirement is resolved — made discriminating, or re-stated
         with its real scope. §SS5 has the analysis and a recommendation.
-  - [ ] Neither decision is a judgement call to be made mid-implementation. Write it, then build it.
+  - [x] Neither decision is a judgement call to be made mid-implementation. Write it, then build it.
 
-- [ ] **Task 2 — Prove the current state, before changing it (AC1, AC3)**
-  - [ ] Write the shipped-content test first: load both cases through `tests/unit/shippedCases.ts`, run
+- [x] **Task 2 — Prove the current state, before changing it (AC1, AC3)**
+  - [x] Write the shipped-content test first: load both cases through `tests/unit/shippedCases.ts`, run
         `evaluatePeerReview` over each conclusion proposal's canonical `.en` claim with the case's own
         rules, and assert the expected issue codes per proposal.
-  - [ ] Watch it **fail** on `conclude-ether-disproved` before you fix anything. That red is the story's
+  - [x] Watch it **fail** on `conclude-ether-disproved` before you fix anything. That red is the story's
         premise; if it is green, stop and re-read §SS3, because something else is true.
-  - [ ] Do the same for `conclude-bounded-null` on the evidence the `resetPath` teaches: defensible, no
+  - [x] Do the same for `conclude-bounded-null` on the evidence the `resetPath` teaches: defensible, no
         critique, no issues.
-  - [ ] And for recognition: assert `calibrated-conclusion` on both paths and watch the overclaim one
+  - [x] And for recognition: assert `calibrated-conclusion` on both paths and watch the overclaim one
         fail before the fix. That red is the NFR8 half of the premise.
 
-- [ ] **Task 3 — Make the overclaim refusal real (AC1, AC8)**
-  - [ ] Apply D1.
-  - [ ] Write the record-compatibility argument at the site, in the shape the existing comment in
+- [x] **Task 3 — Make the overclaim refusal real (AC1, AC8)**
+  - [x] Apply D1.
+  - [x] Write the record-compatibility argument at the site, in the shape the existing comment in
         `peerReviewRules.ts` demands. If the argument is "no persisted draft can contain this phrase",
         prove it against the pre-edit claim text of **both** shipped cases and say so.
-  - [ ] If `case.json` moved: version bump + `CaseRecordSchema` clause + `sw.js` bump, one commit.
+  - [x] If `case.json` moved: version bump + `CaseRecordSchema` clause + `sw.js` bump, one commit.
 
-- [ ] **Task 4 — Resolve the limitation requirement (AC2)**
-  - [ ] Apply D2.
-  - [ ] Whichever branch: delete or correct every comment that claims the other one.
-  - [ ] Add the test that fails if the resolution stops holding, and name in its docstring the change to
+- [x] **Task 4 — Resolve the limitation requirement (AC2)**
+  - [x] Apply D2.
+  - [x] Whichever branch: delete or correct every comment that claims the other one.
+  - [x] Add the test that fails if the resolution stops holding, and name in its docstring the change to
         `src/` that would break it.
 
-- [ ] **Task 5 — A route to this case's debrief (AC4, AC6)**
-  - [ ] Give `walkToDebrief` a required `caseId` and the parameters the walk needs; export
+- [x] **Task 5 — A route to this case's debrief (AC4, AC6)**
+  - [x] Give `walkToDebrief` a required `caseId` and the parameters the walk needs; export
         `pinTheSupport` and `closeTheCase`, or give the walk the seams they hold.
-  - [ ] Read the beat count and the colleague index **from the case**, not from a literal. Young's
+  - [x] Read the beat count and the colleague index **from the case**, not from a literal. Young's
         `synthesis` authors 3 beats and its `review` 2; this case authors **1 each**. And
         `chooseProposalThroughColleague`'s default `colleagueIndex = 3` selects `nils-abrahamsen` here —
         `conclude-ether-disproved`, the overclaim. §SS7 has the mapping.
-  - [ ] Assert the debrief is reached, the record's completion projection stands, and the replay leaves
+  - [x] Assert the debrief is reached, the record's completion projection stands, and the replay leaves
         it standing — the same three things `debrief-replay.spec.ts` asserts for Young.
-  - [ ] Name Young explicitly at the existing callers rather than leaving a default behind.
+  - [x] Name Young explicitly at the existing callers rather than leaving a default behind.
 
-- [ ] **Task 6 — Measure the three bands (AC5, AC10)**
-  - [ ] Extend `french-typography.spec.ts`: peer-review `feedback`, `revisionPath` and the composed
+- [x] **Task 6 — Measure the three bands (AC5, AC10)**
+  - [x] Extend `french-typography.spec.ts`: peer-review `feedback`, `revisionPath` and the composed
         `caseFile.review.issue` line, both cases, both locales, at the pane's real font size and wrap.
-  - [ ] Capture the debrief at 1280×720 in EN and FR from the new walk, through `testInfo.outputPath`.
-  - [ ] Capture the case file's peer-review pane at `review` with this case's issues standing, EN and FR.
-  - [ ] Look at all four frames. Then decide whether a band grows or content is authored down, and
+  - [x] Capture the debrief at 1280×720 in EN and FR from the new walk, through `testInfo.outputPath`.
+  - [x] Capture the case file's peer-review pane at `review` with this case's issues standing, EN and FR.
+  - [x] Look at all four frames. Then decide whether a band grows or content is authored down, and
         record the measurement — not the intention — at the constant.
 
-- [ ] **Task 7 — Close or re-own every 4.3 deferred item (AC9)**
-  - [ ] Work §SS12's table top to bottom. Tick each row.
-  - [ ] `deferred-work.md` and `sprint-status.yaml` move in the **same commit** as the work.
+- [x] **Task 7 — Close or re-own every 4.3 deferred item (AC9)**
+  - [x] Work §SS12's table top to bottom. Tick each row.
+  - [x] `deferred-work.md` and `sprint-status.yaml` move in the **same commit** as the work.
 
-- [ ] **Task 8 — The bilingual sweep, built by grepping the read (AC7)**
-  - [ ] `grep -rn` for every read of `peerReviewRules`, `conclusionProposals`, `rivalLab.critiques` and
+- [x] **Task 8 — The bilingual sweep, built by grepping the read (AC7)**
+  - [x] `grep -rn` for every read of `peerReviewRules`, `conclusionProposals`, `rivalLab.critiques` and
         `debrief` under `src/`. Enumerate the surfaces. Check each one in French.
-  - [ ] Include `CaseRecordPrintView` — it is the one non-Phaser surface and it resolves by `ruleId`.
+  - [x] Include `CaseRecordPrintView` — it is the one non-Phaser surface and it resolves by `ruleId`.
 
-- [ ] **Task 9 — Update the case-review artifact (AC4)**
-  - [ ] `docs/case-reviews/morley-miller-case-review.md` §4 (the bounded near-null) and §6 (residual
+- [x] **Task 9 — Update the case-review artifact (AC4)**
+  - [x] `docs/case-reviews/morley-miller-case-review.md` §4 (the bounded near-null) and §6 (residual
         gaps, each with an owner) are this story's to update. §4's debrief claim is the one to settle.
 
-- [ ] **Task 10 — Gates and mutation proofs (AC11)**
-  - [ ] Run every gate in §SS10. Record the counts against the stated baselines.
-  - [ ] Break each guard in §SS10's minimum set, observe the named test red, restore it, record it.
-  - [ ] Judge any e2e failure on an idle machine before attributing it to a change.
+- [x] **Task 10 — Gates and mutation proofs (AC11)**
+  - [x] Run every gate in §SS10. Record the counts against the stated baselines.
+  - [x] Break each guard in §SS10's minimum set, observe the named test red, restore it, record it.
+  - [x] Judge any e2e failure on an idle machine before attributing it to a change.
 
 ## Dev Notes
 
@@ -961,47 +965,441 @@ Source read while writing this story (verified, not inferred):
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 5 (`claude-opus-5[1m]`) — Claude Code, `gds-dev-story`, 2026-08-21.
 
 ### Decisions taken before implementation (Task 1)
 
 #### D1 — AC1, how the overclaim refusal is made to fire
 
-_Record the choice from §SS4's three options, the record-safety argument, and the command that proves
-it._
+**Chosen: §SS4 option A, and A alone — no phrase-set change at all.**
+
+`conclude-ether-disproved`'s `claim.en` is reworded from
+
+> The ether does not exist, and this bench has settled the matter for good.
+
+to
+
+> The ether does not exist, and this bench has settled the matter once and for all.
+
+`once and for all` is **already** in the authored `overreachPhrases.en`, and the French claim
+**already** contains its authored counterpart `une fois pour toutes` — so the FR text needs no edit and
+the two locales stay parallel in meaning. Option B (widening the EN set) is therefore not needed for
+"the phrase the reworded claim actually needs", which §SS4 held open: there is no such phrase.
+
+**Record-safety argument — stronger than §SS4 anticipated, because detection does not move.**
+`validateCaseRecordForDefinition` re-runs `evaluatePeerReview` over `entry.conclusion` (the text the
+*record* holds) and JSON-compares against the stored issues. This change touches neither
+`peerReviewRules.ts` nor `predicate.overreachPhrases`, so `evaluatePeerReview` is a byte-identical
+function of its inputs before and after. Recomputation over **any** persisted draft therefore returns
+exactly what it returned before, whatever that draft says. No argument about which phrases appear in
+which pre-edit claim is required — the function did not change. (Verified anyway, and quoted below:
+no pre-edit `claim.en` in *either* shipped case contains `once and for all`.)
+
+The proving command, run before the edit, over both `case.json` files at 1.6.0 / 1.22.0 — it applies
+`isApplicable`'s own escape-and-word-boundary regex, not a substring test:
+
+```
+$ node scratchpad/probe.mjs
+=== morley-miller 1.6.0 — rule peer-overreach
+    union: ["proves","settles it","once and for all","no doubt","disproved",
+            "prouve","règle la question","une fois pour toutes","sans aucun doute","réfuté"]
+  conclude-bounded-null      pred=all-of  .en HITS: NONE   .fr HITS: NONE
+  conclude-thermal-confound  pred=all-of  .en HITS: NONE   .fr HITS: NONE
+  conclude-ether-disproved   pred=never   .en HITS: NONE   .fr HITS: ["une fois pour toutes"]
+  conclude-instrument-broken pred=never   .en HITS: NONE   .fr HITS: NONE
+=== young-interference 1.22.0 — rule review-overreach
+  conclusion-spacing-varies    pred=all-of  .en HITS: NONE
+  conclusion-both-settings     pred=all-of  .en HITS: NONE
+  conclusion-wave-settled      pred=never   .en HITS: ["proves"]
+  conclusion-universal-optics  pred=never   .en HITS: NONE
+```
+
+§SS3's premise is confirmed against source, and so are both of its side notes: the FR half of both
+unions is unreachable (detection reads `.en`), and Young's `conclusion-universal-optics` has the same
+unreachable-overreach shape — recorded, not fixed (§SS1).
+
+**The one consequence a returning player sees**, per AC8: a record holding the pre-edit claim text keeps
+its investigation and loses only the highlighted card, because `CaseRecordSchema.ts`'s
+`proposal.claim.en !== record.theory.conclusion` branch **sanitizes `selectedConclusionProposalId` away**
+rather than refusing the record.
+
+**A correction to AC1's third clause, found while checking it.** AC1 states that
+`validateCaseRecordForDefinition` "checks only `completion.recognition.version === 1` and never
+recomputes the flags". That is **false**: the flags *are* recomputed and compared, in both walks —
+`deriveRecognition(definition, completion)` compared per item at `CaseRecordSchema.ts:785-789`, and
+`deriveRecognition(definition, record)` at `:800-804`. The version check at `:728` is a separate,
+additional guard.
+
+The conclusion AC1 draws is nevertheless correct, for a different reason, and this is the reason that
+gets written down: `deriveRecognition`'s `calibrated-conclusion` reads the **persisted**
+`decisionHistory[].feedback.issues.length`, not a fresh `evaluatePeerReview`. An already-saved record's
+stored feedback still carries zero issues, so the flag still derives `true` and still matches what was
+persisted. Nothing is lost retroactively — but the guarantee is "recognition is derived from stored
+feedback", not "recognition is not recomputed". Asserted by name in `MorleyMillerConclusion.test.ts`.
 
 #### D2 — AC2, how the limitation requirement is resolved
 
-_Record the choice from §SS5's two options and the test that holds it._
+**Chosen: §SS5 option A — re-state the requirement's real scope, with the overclaim refusal named as
+the mechanism that answers the post-choice case.**
+
+`evaluateConclusionReadiness` pushes `limitation` when `!draft.limitation.trim()`. Since Story 2.12 the
+only writer of `theory.limitation` is `reduceTheoryConclusionProposalChosen`, which writes
+`proposal.limitation.en`, and `CaseDefinitionSchema` requires every proposal to author one. So the
+requirement's real scope is the **pre-choice** draft, where it is load-bearing and already tested; the
+post-choice `"None offered."` draft is answered by AC1's refusal, which after D1 fires on exactly that
+proposal.
+
+Option B is declined for the cost §SS5 gives: a second detection surface over persisted text carries the
+same record-recomputation constraint as §SS4, for content whose author already marked it undefendable
+with `supportPredicate: never` and which the rival lab already answers by name. Three refusals where two
+hold is defence in depth bought with the expensive kind of seam.
+
+What lands: the requirement's docstring states its scope and names the mechanism for the other state; no
+comment anywhere is left claiming the guarantee that was not built; and one test pins **all three**
+mechanisms to their states on shipped content — the requirement fires on the empty draft,
+`consult-no-limitation` answers it, and the overclaim refusal answers the `"None offered."` draft.
+Mutation proof 8 breaks the third leg and watches it go red, which is what makes D2 a guarantee rather
+than a comment.
 
 ### Files read before writing (Task 1)
 
-_For each UPDATE file: what it does today, what this story changes, what must not break._
+| File | What it does today | What this story changes | What must not break |
+|---|---|---|---|
+| `src/domain/review/peerReviewRules.ts` | `evaluatePeerReview` over three predicate kinds; `overreach` tests the EN+FR phrase union against `draft.conclusion` on a word boundary; emits canonical `.en` because the issue is persisted and recomputed | **Nothing executable.** D1 needs no detection change. The union comment gains the note that the FR half is unreachable while the draft is `.en` | The `.en` emission contract and the deterministic union — both are what make the recomputation walk match what was persisted |
+| `src/domain/theory/conclusionReadiness.ts` | Eleven requirement codes; `limitation` asks `!draft.limitation.trim()` | D2: the `limitation` requirement's docstring states its real scope and names the overclaim refusal for the post-choice case | The requirement itself must keep firing on the empty draft — mutation 4. FR16/NFR8: no hard fail |
+| `src/domain/theory/conclusionProposals.ts` | `evaluateSupportPredicate`; `unvaried-control-pinned` **fails closed** on absent `selectedRunIds` | Read only — D2 chose A, so nothing here moves | The fail-closed branch. Mutation 3 makes it fail open and a named test must catch it |
+| `src/domain/recognition/recognitionRules.ts` | `calibrated-conclusion` reads persisted `feedback.issues.length === 0` | Read and asserted, never edited — AC1 changes its *outcome*, not its rule | Nothing. The rule is correct; it was the input that was wrong |
+| `src/domain/review/rivalLabRules.ts` | `selectRivalLabCritique`, stable ids, never prose | Read only | — |
+| `src/schemas/CaseRecordSchema.ts` | Prototype allowlist through 1.6.0 with `recordNamesRetiredArtifact` carried from 1.4.0; recomputes `evaluatePeerReview` per `decisionHistory` entry (`:695`) and per completion entry (`:778`); recomputes `deriveRecognition` (`:785`, `:800`); sanitizes a stale `selectedConclusionProposalId` on a `claim.en` mismatch (`:617`) | One clause for 1.7.0, in the same commit as the bump, stating which recomputed canonical string moved (`claim.en` for one proposal) and which did not | The `recordNamesRetiredArtifact` predicate must ride along for the older versions the new clause also accepts, or the 1.4.0 hole reopens |
+| `public/cases/morley-miller/case.json` | 1.6.0; four conclusion proposals, three peer-review rules, four critiques, full debrief | `conclude-ether-disproved.claim.en` reworded; `version` → 1.7.0 | Every other authored byte. Young's `case.json` is not touched (§SS1) |
+| `public/sw.js` | `quantique-bootstrap-v15`, install-time precache | → v16, reason appended, same commit | Offline reload is a release gate |
+| `src/adapters/phaser/renderers/CaseFilePresenter.ts` | `renderPeerReview` joins one `caseFile.review.issue` per standing issue with `\n`, then `clamp` = shrink-toward-floor then crop | Only if AC5's measurement says the band cannot hold it | The shrink-then-crop path must not start silently dropping prose (4.2's `ApparatusNotesRenderer` precedent) |
+| `src/adapters/phaser/renderers/caseFileGeometry.ts` | `CASE_FILE_ISSUES_HEIGHT = 106`, `CASE_FILE_META_FONT_SIZE = 12`, `CASE_FILE_RIGHT_COLUMN_WIDTH = 372` | Whatever AC5's four frames decide, recorded as a measurement at the constant | A reserve may only be re-derived, never loosened to make an assertion pass (2.11's `debriefToggleStateWrap`) |
+| `src/adapters/phaser/scenes/debriefGeometry.ts` | `DEBRIEF_COMPARISON_BAND_HEIGHT = 152` with a docstring recording an exhausted margin as a residual; `DEBRIEF_SOURCE_ROW_HEIGHT = 36`; `DEBRIEF_CITED_SOURCE_ROWS = 2` | The comparison-band docstring stops recording a residual and records the measurement | `DEBRIEF_COLUMNS_HEIGHT` is derived from the band heights — moving one moves the column budget |
+| `src/adapters/phaser/renderers/DebriefRenderer.ts` | Complete since 2.11: summary, comparison, cited sources, deeper theory, recognition, critique history, replay | Read; only if a band moves | Renderer contract; no copy authored in `create()` |
+| `src/core/store/selectors.ts` | `selectLocalizedPeerReview` resolves by `ruleId`; `selectLocalizedDebrief` cites `historicalComparison.sourceIds` | Read | The `ruleId` resolution is what makes AC1's refusal bilingual |
+| `tests/e2e/canvasHelpers.ts` | `walkToTheBoard(page, caseId = YOUNG_CASE, instrument)`; `walkToDebrief(page)` → Young always; `pinTheSupport` / `closeTheCase` module-private; `chooseProposalThroughColleague(page, beats, colleagueIndex = 3)` | `walkToDebrief` takes a required `caseId`; the beat count and colleague index are **derived from the case**; four existing callers name Young | `WALK_TO_DEBRIEF_COST_MS`'s accounting; `closeTheCase`'s `clickUntilScene` for the relabel lockout |
+| `tests/e2e/french-typography.spec.ts` | `SHIPPED_CASES` × per-token width sweeps; `DEBRIEF_PROSE` added by 4.1's review; **no** `peerReview` / `feedback` / `revisionPath` sample for either case | Gains the peer-review prose and the composed `caseFile.review.issue` line, both cases, both locales | The non-vacuity floor test at `:1017` — a new cross-case sweep must be added to it or it reads as measured while sampling one case |
+| `tests/unit/shippedCases.ts` | The one `node:fs/promises` import; `loadShippedCases()` pairs each definition with its id | Read through it, never with a private `readFile` — `typecheck:tests` may only go down | The count metric |
+| `_bmad-output/implementation-artifacts/deferred-work.md` | 18 entries naming Story 4.3 | Each struck or re-owned with a named owner story (AC9) | Same commit as the work |
+| `docs/case-reviews/morley-miller-case-review.md` | §4 claims the debrief was "confirmed by eye at 1280×720 in English and French" | §4's claim made true by the new frames; §6's residual owners refreshed | — |
+
+**Two things §SS7's table needed corrected against source before the walk could be written**, both
+verified by parsing both `case.json` files rather than read off the story:
+
+- The **beat counts** are as §SS7 says (Morley–Miller authors 1 for `synthesis` and 1 for `review`;
+  Young 3 and 2) — but `morley-miller-prototype.spec.ts:96` passes `0`, and
+  `chooseProposalThroughColleague` clicks `beatCount + 1` times, so that call under-clicks by one and
+  survives only on the retry inside its `expect(...).toPass()`. That is the same timing-dependent green
+  §SS7 warns about, in the other direction, and it is why the count is now derived rather than passed.
+- The **colleague index** mapping is confirmed: `colleagues` is `[edith-vance, tomas-reyes,
+  harriet-lowe, nils-abrahamsen]`, so the default `colleagueIndex = 3` selects `nils-abrahamsen` →
+  `conclude-ether-disproved`, the overclaim. `conclude-bounded-null` is `edith-vance`, index **0**.
+  Young's index 3 is `samuel-hart` → `conclusion-universal-optics`, `supportPredicate: never`, tripping
+  no phrase — so `inquiry-recognition.spec.ts` has indeed been earning `calibrated-conclusion` on an
+  undefendable Young conclusion since 2.11. Recorded, out of scope (§SS1).
+
+**And one claim in the story that source does not support.** §SS7 and the sprint record both say "no
+spec ever reached this case's debrief". `morley-miller-prototype.spec.ts:131` **does** —
+`clickUntilScene(page, advanceControlCentreOnBoard('conclusion'), 'Debrief')`, on the overclaim
+conclusion, by inlining its own copy of the pin-and-close steps. What is true is the narrower thing:
+the reusable `walkToDebrief` helper is Young-only, no spec **asserts** anything about this case's
+debrief content, and no frame has ever been captured there. AC4 is unchanged by the correction; the
+route work is still owed, because an inlined copy is not a route.
 
 ### Debug Log References
 
+**The premise, proved before anything was changed (Task 2).** `scratchpad/probe.mjs` applied
+`isApplicable`'s own escape-and-word-boundary regex — not a substring test — to the phrase union of both
+shipped cases against all eight authored `claim.en` strings. Morley–Miller: **no hits on any of the
+four**. Young: `conclusion-wave-settled` hits `proves`; `conclusion-universal-optics` hits nothing. The
+FR half of both unions is unreachable because the draft is always `.en`.
+
+`tests/unit/MorleyMillerConclusion.test.ts` was then written and run **before** the fix: **7 failed / 16
+passed**, and the seven were exactly the story's premise —
+
+```
+× returns [ 'overreach' ] for 'conclude-ether-disproved'      expected [] to deeply equal [ 'overreach' ]
+× finds the overclaim in exactly one of the four              expected [] to deeply equal [ 'conclude-ether-disproved' ]
+× carries the authored feedback and revision path             expected [] to deeply equal [ { code: 'overreach', … } ]
+× fires for a French reader too                               expected [] to deeply equal [ 'overreach' ]
+× withholds calibrated-conclusion from a reviewed overclaim    expected true to be false      ← the NFR8 half
+× leaves the "None offered." draft to the overclaim refusal    expected [] to deeply equal [ 'overreach' ]
+× agrees with the evaluator about 'conclude-ether-disproved'   expected false to be true
+```
+
+The sixteen that passed on the first run are the parts the story said were already working and were not
+to be rebuilt: the whole rival-lab path, the limitation requirement on the empty draft, `conclude-bounded-null`'s
+defensibility, and the fail-closed `unvaried-control-pinned`.
+
+**`MorleyMillerPrototype.test.ts`'s version pin fired, for the third time doing its job.** The 1.7.0 bump
+turned `expect(definition.version).toBe('1.6.0')` red before the allowlist clause was written, which is
+the single-action discipline Story 3.4's severest finding bought.
+
+**Three things I got wrong and the tooling caught, recorded because the corrections are the useful part:**
+
+1. **The conclusion board is staged in *proposal* order, not `colleagues[]` order.** My first
+   `colleagueIndexForConclusion` resolved the seat through `colleagues[]`, straight from §SS7's table. It
+   is wrong on this case: `presentColleagueIds` orders by `proposerIds`, so slot 3 is `harriet-lowe`
+   (`conclude-instrument-broken`), while `colleagues[3]` is `nils-abrahamsen` (`conclude-ether-disproved`).
+   On Young the two coincide, which is why the table looked right. **A browser is what said so** — the
+   captured peer-review pane came back showing `missing-evidence` alone and no overreach, on a walk that
+   was supposed to be standing on the overclaim. The helper now calls `presentColleagueIds` itself rather
+   than paraphrasing it, and `MorleyMillerConclusion.test.ts` pins the mapping.
+2. **`instrument: … = ROTATION` plus an explicit `undefined` is not a way to reach a default.** Passing
+   `undefined` triggers the parameter's own default, so the Young capture would have dragged a
+   `rotationDeg` control Young does not author. Caught while writing it; Young's instrument is now
+   constructed with `varyingInstrument(YOUNG_CASE, 'screenDistanceM')`.
+3. **My first band assertion was a number I had guessed.** `MorleyMillerDebrief.test.ts` expected four
+   "Recorded" marks on the bounded path and got three, because the two observations vary the rotation and
+   so earn `variable-curiosity` and **not** `replication` — correct behaviour, and the pair the case's own
+   `resetPath` teaches. Rewritten to assert the *difference* between the two conclusion paths, which is
+   what NFR8 is actually about and does not move when the walk's evidence does.
+
+**AC1's third clause is wrong about the mechanism, and the correction is load-bearing.** It states that
+`validateCaseRecordForDefinition` "never recomputes the [recognition] flags". It does — per completion
+item at `CaseRecordSchema.ts:785-789` and per live item at `:800-804`. AC1's *conclusion* still holds, by
+a different route: `deriveRecognition` reads the **persisted** `decisionHistory[].feedback.issues.length`
+rather than re-running `evaluatePeerReview`, so a saved record's stored zero-issue feedback still derives
+the flag it was saved with. The guarantee is "recognition is derived from stored feedback", not
+"recognition is not recomputed". Written at the 1.7.0 allowlist clause and asserted in
+`MorleyMillerPrototype.test.ts`'s new 1.6.0-restore row.
+
+**Two of §SS10's mutations are unreachable, because a stronger guard sits one layer earlier.** Pointing a
+`historicalComparison.sourceId` at an id no artifact matches, and emptying the `"None offered."`
+limitation, are both refused by `CaseDefinitionSchema` **at load** with the offending path named — so
+`loadMorleyMillerCase` throws and the whole file errors before any assertion runs. Recorded rather than
+counted as a pass, and both were re-proved against mutations that do reach the assertion (see the table).
+
 ### Completion Notes List
+
+**What this story actually changed is three things: an authored refusal that could not fire now fires, a
+second case's debrief has a route and a photograph, and three bands nobody had looked at are measured in
+a browser.**
+
+- **AC1 — the overclaim refusal fires (D1, option A).** `conclude-ether-disproved.claim.en` reworded from
+  *"…has settled the matter for good"* to *"…has settled the matter once and for all"*, which is an
+  **already-authored** phrase — so the phrase set, `isApplicable` and `evaluatePeerReview` are byte-identical
+  before and after, and recomputation over any persisted draft returns exactly what it returned before. No
+  argument about which phrases appear in which pre-edit claim was needed; option B was not needed either,
+  because the phrase §SS4 held open already existed. The French claim already read *"une fois pour toutes"*
+  and is untouched. `case.json` 1.7.0 + its `CaseRecordSchema` allowlist clause + `sw.js` v16, one commit.
+- **AC1 — NFR8.** `calibrated-conclusion` is consequently withheld from a reviewed overclaim. Asserted both
+  ways on the shipped case, and again on the painted debrief, where the two conclusion paths now differ by
+  exactly one recognition row.
+- **AC2 — the limitation requirement re-stated (D2, option A).** Its real scope — the pre-choice draft — is
+  written at the requirement, with the overclaim refusal named as the mechanism answering the post-choice
+  `"None offered."` case. No comment anywhere claims the guarantee that was not built. Three mechanisms,
+  three states, one test pinning each; mutation proof 8 breaks the third leg.
+- **AC3 — the rival lab, on shipped content.** Both `never` proposals draw their authored critique, the
+  retreat is refused with `rival-lab-revision-required` (the code, not just `ok: false`),
+  `rivalLab.revisionRequested` clears it and leaves the proposal and draft untouched, and
+  `conclude-bounded-null` on the evidence the `resetPath` teaches raises none. The fail-closed
+  `unvaried-control-pinned` clause is asserted in both directions. A serialized read of the whole path
+  contains no score, penalty, strike or counter.
+- **AC4 — a route, and four frames.** `walkToDebrief` takes a **required** `caseId` and a **required**
+  `conclusionProposalId`; `pinTheSupport` and `closeTheCase` are exported; the beat count comes from
+  `scenarioScript` and the seat from the production layout function, both reused rather than re-derived.
+  The four existing callers name Young and its proposal explicitly. The debrief's content — summary,
+  comparison with **both** 1907 numbers in each locale's own notation, deeper theory, both citations
+  resolved with provenance/type/rights, and the recognition account — is read through the real renderer over
+  the real shipped case.
+- **AC5 / AC10 — three bands measured, and the instrument is new.** The height half of a layout claim was
+  previously unautomatable because the unit harness reports `height: 18`. It is automatable in a *browser*:
+  `french-typography.spec.ts` now wraps authored prose with Phaser's own greedy rule over
+  `measureText` through the real font stack and multiplies by the renderer's own line-height helper.
+  Results — **debrief comparison band: 129px of 152px, and the margin is the second title line** the reserve
+  budgets and the longest French title does not use (so the band holds the content; nothing was authored
+  down). **Cited-source rows: 36px of 36px**, exact by construction, both cases, both locales.
+  **Peer-review pane: the reserve was too small and is grown** — see below. Plus six by-eye frames at
+  1280×720 in EN and FR, each with a committed spec and a printed output path.
+- **AC5 — the one band that did not hold, and what was done about it.** `CASE_FILE_ISSUES_HEIGHT` was a bare
+  `106`, holding six authored-size lines. Morley–Miller's worst reachable pair is six; **Young's is eight**,
+  so the shared band was sized to its shorter tenant and the clamp shrank the *validated* case's pane on a
+  state ordinary play reaches. It was not visibly broken — the frames show Young's eight French lines
+  complete — because `clamp` compares Phaser's real height (~1.2× the font) while the reserve is computed
+  at `caseFileLineHeight`'s conservative 1.35×. **The pane was surviving on the gap between two
+  multipliers.** It is now `CASE_FILE_ISSUES_LINES * caseFileLineHeight(CASE_FILE_MIN_FONT_SIZE)` = 120, the
+  most the panel affords: `caseFileContentFits` measures **14px** of headroom at 1024×768, and the geometry
+  test refused 136 when I tried it. The guarantee is now stated — the worst reachable pair is never cropped
+  — and `CaseFileGeometry.test.ts`'s old bound (`3 × 2 × lineHeight` = 102, "three rules, each two lines")
+  was a line count nobody had measured and is replaced by the derivation.
+- **AC6 — every intent traced.** Grepped, not asserted from the file list: `theory.conclusionProposalChosen`,
+  `theory.conclusionSubmitted` and `theory.reviewRequested` dispatch from `ColleagueRenderer`;
+  `peerReview.requested`, `revision.saved` and `consultation.requested` from `CaseFilePresenter`;
+  `rivalLab.revisionRequested` from `RivalLabRenderer`; `case.debriefCompleted` from `ColleagueRenderer`'s
+  advance; `case.replayStarted` from `DebriefRenderer`. **`consultation.requested` is no longer unowned** —
+  the note carried since before Story 2.12 is stale: `CaseFilePresenter.renderConsultation` has dispatched
+  it since 2.12, and it is the surface the peer-review pane displaces at `review`. `apparatus.reset` is
+  owned by `ApparatusRenderer` and is not on this path.
+- **AC7 — the bilingual sweep, built by grepping the read.** Five files put this text in front of a player;
+  all five resolve by `ruleId` or `LocalizedText`, including `CaseRecordPrintView`, the one non-Phaser
+  surface. Asserted at the shared seam (`selectLocalizedPeerReview` returns the French authored strings and
+  not the persisted canonical English) and confirmed in pixels by the French frames.
+  `caseFile.review.issue` is the same em-dash template in both locales — no preposition joined to authored
+  text.
+- **AC8 — contract, version and cache hygiene, in one commit.** 1.6.0 → 1.7.0; the allowlist clause states
+  which recomputed canonical strings moved (`claim.en`, one of four) and which did not (`feedback`,
+  `revisionPath`, every `limitation.en`), and carries `recordNamesRetiredArtifact` forward for the older
+  versions it also accepts; `sw.js` v15 → v16 with its reason appended. **The consequence for a returning
+  player is asserted, not promised**: a 1.6.0 record loads, keeps its investigation, and loses only the
+  highlighted card.
+- **AC9 — all eighteen deferred rows closed or re-owned by name.** Four closed, fourteen re-owned; no row
+  still says Story 4.3. Table below. Four new items opened, each with a named owner, and four checked-and-
+  left-alone recorded so the pass over them is traceable.
+- **Two findings for Alexis that are not this story's to fix.** Young's `conclusion-universal-optics` has the
+  identical unreachable-overreach defect, and it is *worse* there: `inquiry-recognition.spec.ts` drives
+  exactly that conclusion, so it has been earning a calibrated-conclusion recognition on an undefendable
+  Young draft since Story 2.11 while asserting that no score appears anywhere. And `debrief.sourceRefs`
+  authors `michelson-morley-1887-ajs`, which matches no artifact — the collision that row warned about has
+  already happened. Both recorded with owners; neither touched, per §SS1.
 
 ### Deferred-work triage (AC9)
 
-_The eighteen rows of §SS12, each ticked closed or re-owned with a named owner._
+All eighteen entries naming Story 4.3, top to bottom. **Four closed, fourteen re-owned, none carried.**
+
+| # | Item | Outcome |
+|---|---|---|
+| 226 | `reduceRecordRun` re-derives a result only for a run with `modelInputs` | ✅ re-owned → **Story 5.1**, with 304 — needs session values the `run.record` action does not carry |
+| 227 | `experiment.wavelengthNm` authored and unread | ✅ re-owned → **`spec-parameterise-the-wavelength-seam.md`**, with 228 / 323 |
+| 228 | The persisted `450 \| 550 \| 650` unions | ✅ re-owned → same spec story — needs a record migration, an explicit HALT here |
+| 229 | `CaseRecordPrintView` has no unit coverage | ✅ re-owned → **`spec-cover-the-printable-record.md`**. **This row and 263 are the same item recorded twice** — which is why §SS12 counted seventeen and the file holds eighteen; noted in both so whichever is picked up deletes the other |
+| 263 | `CaseRecordPrintView` has no unit coverage (duplicate of 229) | ✅ re-owned → same spec story, applying `SourceRightsLedger.ts`'s pure/mount split |
+| 271 | `citation.reuseStatement` authored everywhere, rendered nowhere | ✅ re-owned → **`spec-surface-citation-provenance.md`**, with §SS9's conflict now **measured**: its natural home has 0px of margin (36 of 36) under a band with one title line |
+| 279 | The bounded conclusion, the overclaim refusal, the revision feedback | ✅ **CLOSED** — this story's ACs, delivered and asserted on shipped content |
+| 293 | `walkToDebrief` reaches Young's debrief only | ✅ **CLOSED** — AC4/Task 5. Row's own text corrected: `morley-miller-prototype.spec.ts` *did* reach `Debrief` by inlining the steps; what was missing was a route, an assertion and a frame |
+| 294 | The debrief comparison band's height margin is exhausted | ✅ **CLOSED by measurement** — 129px of 152px; the band holds the content and neither it nor the prose moved. The margin is the second title line, recorded at the constant |
+| 295 | `isCampaignCase` / `isCampaignCaseUnlocked` called by nothing | ✅ re-owned → **`spec-add-campaign-navigation.md`**, with 296 / 297 — an entry gate is a contract change to a documented reviewer bypass |
+| 296 | A completed campaign case becomes unreachable | ✅ re-owned → same spec story, and **sharpened**: the debrief this story made reachable goes out of reach the moment the case is finished |
+| 297 | No e2e walks the campaign progression | ✅ re-owned → same spec story — needs a `CaseRecord` seeded into IndexedDB from a spec |
+| 304 | `experimentModelVersion`'s unconditional equality | ✅ re-owned → **Story 5.1**, with 226. Nothing here moved: `experiment.modelVersion` untouched |
+| 306 | The reference shelf truncates behind a maximum-length hint | ✅ re-owned → **`spec-walk-the-reference-shelf.md`**, with 331 — and §SS13b says the accepted trade is not to be re-litigated here |
+| 311 | The `WAVELENGTH_CHOICE_COUNT_BOUND` reserve | ✅ **CLOSED as a deliberate conservative reserve** — one of the two resolutions the row itself offers; a reserve nothing fills cannot cause the overlap defect the sweep catches |
+| 323 | Six French strings write an ASCII space before `nm` | ✅ re-owned → **`spec-parameterise-the-wavelength-seam.md`** — routing it through the formatter moves Young's typography as a side effect |
+| 330 | Young's two unreachable consultations | ✅ re-owned → **Story 7.1** — authoring, plus a Young bump and its allowlist clause |
+| 331 | AC2's reference-shelf clause has no test | ✅ re-owned → **`spec-walk-the-reference-shelf.md`**, with 306 |
+
+**Opened by this story, each with a named owner:** Young's `conclusion-universal-optics` (→ **Story 7.1**);
+the full authored peer-review set overflowing even the grown reserve, unreachable by play (→ **Story 7.1**,
+because the cheap half is authoring Young's prose shorter); `WALK_TO_DEBRIEF_COST_MS` now the timeout basis
+for two routes of different length (→ **`spec-add-campaign-navigation.md`**, which adds the third).
+
+**Checked and left alone, recorded so the pass is traceable:** the dead FR half of `overreachPhrases`
+(**closed by deliberate annotation** at the site plus a test that fails if it stops being true);
+`debrief.sourceRefs`' dangling first id (already owned by Epic 5's first story, now with the specific
+finding attached); `reducePeerReviewRequest` passing no `comparisonNotes` (§SS11 — inert, not wrong);
+`reduceDebriefComplete` not inspecting the standing issues (§SS11 — required by FR16/NFR8, and this story
+walks the overclaim to the debrief on purpose to prove it).
 
 ### Mutation proofs
 
-_Each guard broken, the named test observed red, the guard restored._
+Each guard broken, the **named** test observed red, the guard restored, green confirmed. Restores came from
+a working-tree snapshot, never `git checkout` — HEAD still holds `case.json` 1.6.0, so restoring from git
+would have undone the story instead of the mutation.
+
+| # | Mutation | Named test | Mutated | Restored |
+|---|---|---|---|---|
+| 1 | `claim.en` reverted to the 1.6.0 *"…for good"* text | `MorleyMillerConclusion` → *"returns … for \<proposal\>"* | **1 failed** / 3 passed | 4 passed |
+| 2 | `isApplicable`'s `overreach` branch returns `false` before the phrase scan | same row | **1 failed** / 3 passed | 4 passed |
+| 3 | `unvaried-control-pinned` fails **open** on an absent pinned set | *"does not defend the bounded conclusion when nothing was pinned"* | **1 failed** | 1 passed |
+| 4 | the `limitation` requirement removed from the evaluator | *"fires on the pre-choice draft"* | **1 failed** | 1 passed |
+| 5 | `walkToDebrief` hard-coded back to Young | e2e *"reaches this case's debrief…"* | **1 failed** (`toHaveText`) | 1 passed (15.1s) |
+| 6 | `DebriefRenderer.renderSources` treats the first row's source as absent | `MorleyMillerDebrief` → *"cites both artifacts…"* | **1 failed** | 1 passed |
+| 7 | `CASE_FILE_ISSUES_LINES` 8 → 5, below the measured worst pair | `CaseFileGeometry` → *"stacks the peer-review pane…"* | **2 failed** | 2 passed |
+| 8 | D1 reverted, so the `"None offered."` draft has nothing answering it | *"leaves the \"None offered.\" draft to the overclaim refusal"* | **1 failed** | 1 passed |
+| 9 | D1 reverted — the **recognition** row, a distinct claim from #1 | *"withholds calibrated-conclusion from a reviewed overclaim"* | **1 failed** | 1 passed |
+
+**Two of §SS10's mutations were unreachable as specified, and that is a finding rather than a pass.**
+Pointing a `historicalComparison.sourceId` at an unmatched id, and emptying the `"None offered."`
+limitation, are both refused by `CaseDefinitionSchema` **at load** with the offending path named — so
+`loadMorleyMillerCase` throws and every test in the file errors before an assertion runs. A stronger guard
+one layer earlier. Proofs 6 and 8 above are the re-proofs against mutations that do reach the assertion, and
+`MorleyMillerDebrief.test.ts`'s docstring now says which half of the citation guarantee is the schema's
+(it *resolves*) and which is the test's (it is *drawn*).
 
 ### By-eye captures (AC4, AC5, AC10)
 
-_Four frames at 1280×720 — the debrief EN and FR, the peer-review pane EN and FR — with the spec and
-the output path that re-takes each._
+Six frames, all from `tests/e2e/morley-miller-debrief.spec.ts`, `test.use({ viewport: { width: 1280,
+height: 720 }, locale })`, written through `testInfo.outputPath` and printed as `[by-eye] <path>` so a
+reader can go and look — the pattern `young-canvas-experiment.spec.ts`'s "AC1 by eye" block established and
+the answer to 4.2's review finding that nine screenshots had no address.
+
+| Frame | Spec route | What it settles |
+|---|---|---|
+| `morley-miller-debrief-en.png` / `-fr.png` | *"AC5 by eye: the debrief bands in {en,fr}"* | The comparison band holds this case's 289-character French prose — 1-line title over 4 prose lines, nothing cropped — and both cited-source rows draw name + provenance/type/rights. This is the frame §4 of `morley-miller-case-review.md` claimed and had no route to |
+| `morley-miller-review-pane-one-issue-en.png` / `-fr.png` | *"…the peer-review pane in {en,fr}"* | The ordinary case: `peer-overreach` alone, 3 French lines, comfortable |
+| `morley-miller-review-pane-two-issues-en.png` / `-fr.png` | same | The worst combination ordinary play reaches — unpin an observation at `review` and ask again, standing `missing-evidence` beside `overreach`. 6 French lines, uncropped |
+| `young-review-pane-two-issues-en.png` / `-fr.png` | *"…captures Young's case file at review with two issues standing"* | **The frame that changed the outcome.** The band is shared and Young's prose is the longer tenant: 8 French lines. Complete in the pixels, but 14px over the stated reserve — which is what grew `CASE_FILE_ISSUES_HEIGHT` |
+
+The FR two-issue Morley–Miller frame is also what caught my wrong seat mapping: it came back showing
+`missing-evidence` alone, on a walk that was supposed to be standing on the overclaim.
 
 ### File List
+
+**Source**
+
+- `public/cases/morley-miller/case.json` — 1.6.0 → **1.7.0**; `conclude-ether-disproved.claim.en` reworded. Two lines changed, verified by diff.
+- `public/sw.js` — `CACHE_NAME` v15 → **v16**, reason appended to the header list, in the dev commit.
+- `src/schemas/CaseRecordSchema.ts` — the 1.7.0 prototype allowlist clause.
+- `src/domain/review/peerReviewRules.ts` — comments only: the dead FR half annotated deliberately, and D1's record-safety argument at the `overreach` branch.
+- `src/domain/theory/conclusionReadiness.ts` — comments only: D2's re-statement of the `limitation` requirement's real scope.
+- `src/adapters/phaser/renderers/caseFileGeometry.ts` — new `CASE_FILE_ISSUES_LINES`; `CASE_FILE_ISSUES_HEIGHT` derived (106 → 120).
+- `src/adapters/phaser/scenes/debriefGeometry.ts` — comments only: the measurement recorded at `DEBRIEF_COMPARISON_BAND_HEIGHT` and `DEBRIEF_SOURCE_ROW_HEIGHT`.
+
+**Tests**
+
+- `tests/unit/MorleyMillerConclusion.test.ts` — **new.** AC1/AC2/AC3/AC7 on shipped content; the stage-order guard.
+- `tests/unit/MorleyMillerDebrief.test.ts` — **new.** AC4's reading half, through the real renderer over the real case.
+- `tests/e2e/morley-miller-debrief.spec.ts` — **new.** The route, the replay, and the six frames.
+- `tests/unit/MorleyMillerPrototype.test.ts` — version pin → 1.7.0; prior versions extended to 1.6.0; new 1.6.0-restore row asserting what a returning player keeps and loses.
+- `tests/unit/CaseFileGeometry.test.ts` — the issues-band bound replaced by the derivation.
+- `tests/e2e/canvasHelpers.ts` — `walkToDebrief` case- and conclusion-parameterised; `pinTheSupport` / `closeTheCase` exported; new `dialogueBeatCountFor` and `colleagueIndexForConclusion` (the latter reusing `presentColleagueIds`); `WalkableCase` extended.
+- `tests/e2e/french-typography.spec.ts` — `PEER_REVIEW_PROSE` sweep (both cases, both locales, halves and composed line); two new height-measurement tests.
+- `tests/e2e/morley-miller-prototype.spec.ts` — beat count and seat now derived instead of defaulted.
+- `tests/e2e/debrief-replay.spec.ts`, `tests/e2e/inquiry-recognition.spec.ts`, `tests/e2e/scene-router.spec.ts`, `tests/e2e/canvas-transitions.spec.ts` — Young and its conclusion named at the four `walkToDebrief` callers.
+
+**Artifacts**
+
+- `docs/case-reviews/morley-miller-case-review.md` — §4's by-eye claim corrected and made true; §6's owners re-assigned.
+- `_bmad-output/implementation-artifacts/deferred-work.md` — all 18 rows triaged; 4 opened; 4 checked-and-left.
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — status.
+- `_bmad-output/implementation-artifacts/4-3-morley-miller-bounded-conclusion-and-debrief.md` — this file.
+
+### Gates (AC11)
+
+| Gate | Baseline | Result |
+|---|---|---|
+| `npm run typecheck` | clean | **clean** |
+| `npm test` | 1614 / 83 files | **1650 passed / 85 files** |
+| `npm run build` | ok | **ok** |
+| `npm run build:subpath` | ok | **ok** |
+| `npm run test:e2e` | 70 | **83 passed** (+13: 10 new in `morley-miller-debrief.spec.ts`, 2 new measurements, 1 from the per-case parameterisation in `subpath-hosting`) |
+| `npm run typecheck:tests` | ≤ 105 errors / 59 files | **105 / 59** — unchanged, the ceiling held |
+| `npm run audit:ledger` | BLOCKED, 2 prototype rows | **BLOCKED, 2 prototype rows** — unchanged. Still the scholarly reviewer and the educator context sheet, both **Alexis's** and both untouched. Young's 7 are likewise pre-existing |
+
+There is **no lint script** in `package.json` — `typecheck` is this project's static-analysis gate, and all
+three CI workflows run `typecheck`, `test`, `build`, `test:e2e --workers=1` in that order.
+
+**One deliberate departure from the story's Project Structure Notes**, stated because a reviewer will look
+for it: that table suggests extending `tests/integration/{ReviewFlow,RivalLabCritique,ConclusionSupport,DebriefSurface}.test.ts`.
+The new coverage is store-driven but lives in `tests/unit/` instead, following
+`MorleyMillerFeedback.test.ts` — the file whose own header states the reason and which this story was told
+not to rebuild: shipped-case assertions belong beside the other shipped-case files that read through
+`tests/unit/shippedCases.ts`, and that helper exists precisely so a new file adds no `TS2307` to the
+`typecheck:tests` count. The tests drive the real store through real dispatches either way; only the
+directory differs.
+
+E2E ran `--workers=1` on an idle machine; the five Morley–Miller walks took 12.4–13.4 s each against
+`WALK_TO_DEBRIEF_COST_MS`. Four of my own `typecheck:tests` errors were introduced and fixed during the
+work (a missing `predicate` field and three template-literal index types from widening authored unions to
+`string`) — the count is back at exactly the baseline, not merely near it.
 
 ## Change Log
 
 | Date | Version | Description | Author |
 |---|---|---|---|
 | 2026-08-21 | 0.1 | Story context created — Epic 4's closing story | Context engine |
+| 2026-08-21 | 1.0 | Implemented. D1 (option A, no phrase-set change) makes the authored `peer-overreach` refusal fire on `conclude-ether-disproved`, so `calibrated-conclusion` is withheld from a reviewed overclaim (NFR8). D2 (option A) re-states the `limitation` requirement's real scope with the refusal named as the post-choice mechanism. `case.json` 1.7.0 + its `CaseRecordSchema` allowlist clause + `sw.js` v16 in one commit. `walkToDebrief` case- and conclusion-parameterised, beat count and stage seat derived from the case (the seat via the production `presentColleagueIds`, after `colleagues[]` order proved wrong on this board). Three bands measured in a browser: the debrief comparison band holds at 129/152px and the cited-source rows at 36/36px, so nothing was authored down; `CASE_FILE_ISSUES_HEIGHT` grew 106 → 120 (derived) because Young's 8-line French pair was surviving on the gap between Phaser's ~1.2x line box and the reserve's 1.35x. 18 deferred rows triaged (4 closed, 14 re-owned), 4 opened. 9 mutation proofs; 2 of §SS10's were unreachable behind a schema refusal and were re-proved. Gates: typecheck clean, 1650 unit/85 files, 83 e2e, both builds, typecheck:tests 105/59 unchanged | Claude Opus 5 (dev) |
 
 ## Open Questions for Alexis
 

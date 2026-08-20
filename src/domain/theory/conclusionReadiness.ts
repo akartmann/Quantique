@@ -158,6 +158,37 @@ export const evaluateConclusionReadiness = (
     if (!draft.conclusion.trim()) {
         requirements.push(missing('conclusion', 'Write a bounded conclusion before requesting review.'));
     }
+    // **What this requirement guards is the pre-choice draft, and that is its whole scope** (Story 4.3,
+    // D2). Stated because Epic 4's criterion reads *"review requires an explicit limitation"*, and the
+    // unqualified reading of that sentence is not a guarantee this line makes.
+    //
+    // Since Story 2.12 the only writer of `theory.limitation` is
+    // `reduceTheoryConclusionProposalChosen`, which writes `proposal.limitation.en`, and
+    // `CaseDefinitionSchema` requires every conclusion proposal to author one. So there are exactly two
+    // states, and this asks `.trim()`, which distinguishes only the first:
+    //
+    // - **Before a proposal is chosen** the limitation is `''`, this fires, and the authored
+    //   `consult-no-limitation` guidance answers it in fiction. Load-bearing, and proven reachable from a
+    //   state a player can be in by `MorleyMillerFeedback.test.ts`.
+    // - **After a proposal is chosen** the limitation is whatever the author wrote — and Morley–Miller's
+    //   `conclude-ether-disproved` authors **"None offered."**, a non-empty string that satisfies a
+    //   requirement meant to ask for a limitation. Young does the same thing twice ("None is offered: …").
+    //
+    // The second state is **not** this requirement's to answer, and the mechanism that does answer it is
+    // the `peer-overreach` refusal in `peerReviewRules.ts`, which Story 4.3 made reachable on exactly
+    // that proposal. Both are pinned to their own state, on shipped content, by
+    // `MorleyMillerConclusion.test.ts`'s "the limitation requirement guards the draft it can guard".
+    //
+    // Teaching this predicate to read a declared absence was considered and declined: it would put a
+    // second detection surface over persisted text, carrying the same recomputation constraint as the
+    // phrase set (`validateCaseRecordForDefinition` re-runs this evaluator over a record's own draft), for
+    // content whose author already marked it undefendable with `supportPredicate: never` and which the
+    // rival lab already answers by name. Three refusals where two hold, bought with the expensive kind of
+    // seam.
+    //
+    // And whichever way it is read, **it must never become a hard fail**: FR16 and NFR8 give a weak
+    // conclusion revision feedback, never a lockout. `reduceDebriefComplete` deliberately does not inspect
+    // the standing issues, and must keep not doing so.
     if (!draft.limitation.trim()) {
         requirements.push(missing('limitation', 'Describe at least one limitation or alternative explanation.'));
     }

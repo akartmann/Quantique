@@ -31,6 +31,8 @@ import {
     recordedSources,
     startTheLightUntilRecorded,
     varyingInstrument,
+    dialogueBeatCountFor,
+    colleagueIndexForConclusion,
     waitForInputToSettle,
     walkToTheBoard
 } from './canvasHelpers';
@@ -93,7 +95,27 @@ test('carries the Morley–Miller prototype from the review route to the conclus
     // The conclusion the theory board could never have unlocked: pin the support and watch the
     // readiness list empty. `evaluateConclusionReadiness` is the sole completion authority (ADR-006),
     // and both of its Young-shaped rules were permanently unsatisfiable here before Task 3.
-    await chooseProposalThroughColleague(page, 0);
+    //
+    // **Both arguments are now derived, and neither was before** (Story 4.3, Task 5). This read
+    // `chooseProposalThroughColleague(page, 0)`, which was wrong twice over and passed anyway:
+    //
+    // - The **beat count** was `0` against the 1 beat this case's `synthesis` authors, and the helper
+    //   clicks `count + 1` times, so it under-clicked by one and survived on the retry inside its own
+    //   `expect(...).toPass()`. Timing-dependent green.
+    // - The **seat** fell through to the default `colleagueIndex = 3`, which on this case's conclusion
+    //   board is `harriet-lowe` → `conclude-instrument-broken`, not the conclusion anyone reading this
+    //   would have assumed. The board is staged in *proposal* order, not `colleagues[]` order, and the two
+    //   coincide on Young and not here — see `colleagueIndexForConclusion`.
+    //
+    // It keeps taking `conclude-instrument-broken`, which is what it has always taken: the point of this
+    // test is that a case with no `modelInputs` can reach `review` at all, and an undefendable conclusion
+    // exercises that as well as a defendable one. What changes is that the choice is now *named* rather
+    // than arrived at, so a cast reorder moves the click instead of silently switching the conclusion.
+    await chooseProposalThroughColleague(
+        page,
+        dialogueBeatCountFor('morley-miller', 'synthesis'),
+        colleagueIndexForConclusion('morley-miller', 'conclude-instrument-broken')
+    );
     await inTheCaseFile(page, async () => {
         for (let index = 0; index < 2; index += 1) {
             await clickDesign(page, caseFileObservationPinCentre(index, DESIGN_WIDTH));

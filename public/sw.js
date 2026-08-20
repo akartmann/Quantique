@@ -98,7 +98,22 @@
 // this build against a version its allowlist accepts, while a cached **bundle** paired with the new file
 // would parse 1.6.0 fine and then disagree with it about the separator. Bumped because the content moved at
 // all, which is the rule this list exists to keep, and because offline reload is a release gate.
-const CACHE_NAME = 'quantique-bootstrap-v15';
+// v16 — Story 4.3. `case.json` goes to **1.7.0**: `conclude-ether-disproved.claim.en` is reworded so the
+// authored `peer-overreach` rule fires on the claim it was written for. Bumped because the content moved at
+// all, which is the rule this list exists to keep — and applied in the *dev* commit, not the review commit,
+// which is the correction 4.2's review asked for after three consecutive late bumps.
+//
+// **No schema change either way, and that is worth stating rather than leaving to be inferred.** No field
+// became required, no union gained a member, and `CaseDefinitionSchema` gains no refusal — so unlike v14 and
+// v15 the *new file, old bundle* direction parses cleanly here, and unlike v9 and v12 nothing refuses. What
+// this bump prevents is subtler and is the reason it is not optional: the worker serves `case.json` from
+// cache while the hashed bundle comes from the network, so a returning player could run this build over a
+// cached **1.6.0** file — whose `claim.en` still reads "…for good", which trips no authored phrase. They
+// would reach the debrief being told they had recorded a *calibrated conclusion* on a draft declaring the
+// ether disproved: precisely the NFR8 violation this story exists to close, restored offline, with nothing
+// failing anywhere. A silently older case is normally the benign outcome a `CACHE_NAME` buys; here the older
+// case is the defect itself.
+const CACHE_NAME = 'quantique-bootstrap-v16';
 
 /**
  * The case directories to precache at install, so the boot target can advance offline.

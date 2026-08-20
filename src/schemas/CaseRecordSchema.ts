@@ -563,6 +563,61 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // and for no new reason. Diff-verified: nothing this function recomputes or compares moved.
         || (isPrototype && definition.version === '1.6.0'
             && ['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.5.0'].includes(record.caseDefinitionVersion)
+            && !recordNamesRetiredArtifact(record))
+        // 1.7.0 — Story 4.3. **The first clause on either case where a recomputed canonical string moves.**
+        //
+        // `conclude-ether-disproved.claim.en` is reworded from "…has settled the matter for good" to
+        // "…has settled the matter once and for all", so that the authored `peer-overreach` rule — ten
+        // detection phrases in two languages, schema-validated, and matching **none** of this case's four
+        // claims — finally fires on the one claim it was written for. Nothing else in the document moves:
+        // the French claim already read "une fois pour toutes" and is untouched, and no phrase was added
+        // to `overreachPhrases`.
+        //
+        // **Which recomputed canonical strings moved, and which did not.** This function recomputes and
+        // string-compares two families: `peerReviewRules`' `feedback` / `revisionPath` (via
+        // `evaluatePeerReview`, per `decisionHistory` entry and per completion entry), and the proposal
+        // claims and limitations (via the `selectedConclusionProposalId` sanitization below). Of those:
+        //
+        // - **`feedback` and `revisionPath`: unmoved**, byte for byte, on all three rules.
+        // - **`claim.en`: moved, on exactly one of the four proposals.** `limitation.en` unmoved on all
+        //   four.
+        //
+        // **And detection itself did not move, which is what makes this safe rather than merely
+        // argued.** `peerReviewRules.ts` is unchanged and `predicate.overreachPhrases` is unchanged, so
+        // `evaluatePeerReview` is a byte-identical function of its inputs before and after this bump.
+        // The recomputation walk reads `entry.conclusion` — the text the *record* holds, not the text the
+        // case now authors — so it returns for every persisted draft exactly what it returned before, and
+        // no stored issue list can disagree with its recomputation. That is a stronger argument than the
+        // one the `overreach` comment in `peerReviewRules.ts` asks for ("any future addition needs the
+        // same argument, or a version-gated detection set"): there is no addition to argue about. Had the
+        // phrase set been widened instead, the argument owed would have been that no *pre-edit* authored
+        // claim of either case contains the new phrase — checkable, and checked (no `.en` claim on either
+        // case contained "once and for all"), but a promise about every future claim as well.
+        //
+        // **What a returning player loses is the highlighted card, and nothing else.** A record holding
+        // the pre-edit conclusion text hits the `proposal.claim.en !== record.theory.conclusion` branch
+        // below, which **sanitizes `selectedConclusionProposalId` away** rather than refusing the record —
+        // the repair the 1.4.0 clause's own reasoning demands, since `attachAutosave` saves on the first
+        // dispatch of the recovered session and a refusal here overwrites what it refused. The
+        // investigation, its observations, its comparison, its revision history and its recognition all
+        // survive; the card simply stops being drawn as chosen, and re-choosing it costs one click.
+        //
+        // **Recognition is unaffected retroactively**, and by a mechanism worth naming because it is not
+        // the one the story assumed. The flags *are* recomputed and compared, here — per completion item
+        // against `deriveRecognition(definition, completion)` and per live item against
+        // `deriveRecognition(definition, record)`. What makes the comparison agree is that
+        // `deriveRecognition`'s `calibrated-conclusion` reads the **persisted** `feedback.issues.length`
+        // rather than re-evaluating peer review, so a saved record's stored zero-issue feedback still
+        // derives the flag it was saved with. Asserted both ways in `MorleyMillerConclusion.test.ts` and
+        // `MorleyMillerPrototype.test.ts`.
+        //
+        // `recordNamesRetiredArtifact` rides along from 1.4.0, for the reason it was added there and for
+        // no new reason: it is a no-op for a record saved at 1.4.0 or later and load-bearing for the four
+        // older versions this clause also accepts.
+        //
+        // **Bumping `CaseDefinition.version` and extending this allowlist are one action, not two.**
+        || (isPrototype && definition.version === '1.7.0'
+            && ['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0'].includes(record.caseDefinitionVersion)
             && !recordNamesRetiredArtifact(record));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');

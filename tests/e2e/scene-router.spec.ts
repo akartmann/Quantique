@@ -51,7 +51,7 @@ const SLIT_SPACING_STEP_UP = stepAffordanceCentre(SLIT_SPACING_SLOT, 1);
 const slitSpacing = (page: Page) => recordedSetting(page, 'Slit spacing');
 
 test('walks the Young scene sequence, keeping the active scene mirroring the case phase', async ({ page }) => {
-    await walkToDebrief(page);
+    await walkToDebrief(page, YOUNG_CASE, 'conclusion-universal-optics');
 
     // Every transition on the way is asserted inside the walk itself; arriving here is the last one.
     await expectActiveScene(page, 'Debrief');

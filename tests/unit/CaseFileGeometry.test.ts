@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../../src/adapters/phaser/designSurface';
 import {
+    CASE_FILE_ISSUES_LINES,
+    CASE_FILE_MIN_FONT_SIZE,
     CASE_FILE_ACTION_GAP,
     CASE_FILE_ACTION_HEIGHT,
     CASE_FILE_ACTION_WIDTH,
@@ -279,9 +281,25 @@ describe.each(CANVASES)('the case file laid out on $name', ({ width, height }) =
     });
 
     /**
-     * The peer-review pane stacks request → issues → save, and the issues have room for what the
-     * shipped case can actually return: `peerReviewRules` authors three, each two lines at the meta
-     * size.
+     * The peer-review pane stacks request → issues → save, and the issues band holds the reserve it
+     * states.
+     *
+     * **The "three rules, each two lines" figure this docstring used to carry was wrong**, and the
+     * browser is what said so (Story 4.3, AC5). Measured against `caseFileRightTextWrap`'s 372px at the
+     * meta size, the composed `caseFile.review.issue` lines run to **three** French lines on
+     * Morley–Miller and **four** on Young, so the two an ordinary player can have standing at once are
+     * six and eight — not six across all three. The old bound, `3 × 2 × lineHeight`, came to 102 and the
+     * band was 106, so it passed with 4px to spare while the surface it described needed 136 for Young.
+     * A reserve asserted against a line count nobody had measured, which is this project's most-repeated
+     * shape.
+     *
+     * It now asserts the reserve's own stated obligation — {@link CASE_FILE_ISSUES_LINES} at the clamp's
+     * floor — so the bound and its justification fail together rather than the bound quietly outliving
+     * it. Why the floor rather than the authored size is at `CASE_FILE_ISSUES_HEIGHT`: the panel has 14px
+     * of headroom and eight authored-size lines need 30 more.
+     *
+     * **Named change that breaks this:** lowering `CASE_FILE_ISSUES_LINES` without re-measuring the
+     * composed prose, or raising `CASE_FILE_MIN_FONT_SIZE`.
      */
     it('stacks the peer-review pane with room for the issues it can return', () => {
         const band = caseFilePeerReviewBand(width);
@@ -293,7 +311,14 @@ describe.each(CANVASES)('the case file laid out on $name', ({ width, height }) =
         expect(save.y - (issues.y + issues.height)).toBe(CASE_FILE_ACTION_GAP);
         expect(overlaps(request, issues)).toBe(false);
         expect(overlaps(issues, save)).toBe(false);
-        expect(issues.height).toBeGreaterThanOrEqual(3 * 2 * lineHeight(CASE_FILE_META_FONT_SIZE));
+        // The reserve holds the worst pair ordinary play can reach, without cropping, at the floor the
+        // clamp shrinks to — which is what `CASE_FILE_ISSUES_HEIGHT` states and `french-typography.spec.ts`
+        // measures the line count for in a real browser.
+        expect(issues.height).toBe(CASE_FILE_ISSUES_LINES * lineHeight(CASE_FILE_MIN_FONT_SIZE));
+        expect(issues.height).toBeGreaterThanOrEqual(CASE_FILE_ISSUES_LINES * lineHeight(CASE_FILE_MIN_FONT_SIZE));
+        // And it is genuinely bigger than it was: a regression to the old six-authored-size-line band
+        // would be a silent crop on Young's French pane.
+        expect(issues.height).toBeGreaterThan(6 * lineHeight(CASE_FILE_META_FONT_SIZE));
         expect(request.height).toBe(CASE_FILE_ACTION_HEIGHT);
         expect(save.width).toBe(CASE_FILE_ACTION_WIDTH);
     });

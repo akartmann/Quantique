@@ -180,7 +180,9 @@ or proof of relativity. The 1907 report supplies both numbers in the authors' ow
 > *"The expected drift would produce a displacement of the interference fringes of 1.53 wave-lengths;
 > the above result is probably certain to one eightieth part of the whole."*
 
-Reachable in **both** required places, confirmed by eye at 1280×720 in English and French:
+Reachable in **both** required places. The curated record was confirmed by eye at 1280×720 in English
+and French when this section was written; **the debrief was not, and could not have been** — see the
+correction under this list.
 
 - **The curated record.** The transcription is one leaf of the reading-room book and renders in full,
   uncropped, in both locales — the sentence above is on the page the player reads. The artifact's
@@ -189,6 +191,40 @@ Reachable in **both** required places, confirmed by eye at 1280×720 in English 
 - **The debrief.** `historicalComparison.text` carries both numbers and closes *"The bound moved down,
   not to zero and not to a disproof."* `debrief.summary` states the residue is bounded rather than
   zero. `deeperTheory` already argued why a bounded null is worth having.
+
+**Correction, Story 4.3 (2026-08-21): the debrief half of the by-eye claim above was not true when it
+was written, and it is now.**
+
+When this section was written there was **no route for a spec or a screenshot to reach this case's
+debrief**. `walkToDebrief` called `walkToTheBoard` with no case id, so it was Young always, and
+`pinTheSupport` and `closeTheCase` were module-private — which is why the code review of Story 4.1
+verified AC3/AC4 on the reading room and the case file and why that story's own sprint record says
+*"debrief not reachable — recorded for 4.3"* in as many words. The sentence above nonetheless read
+"confirmed by eye" over both bullets. It is the comment-is-not-a-guarantee shape this project keeps
+finding, in a review artifact rather than in code.
+
+It is now made true rather than merely narrowed:
+
+- `tests/e2e/morley-miller-debrief.spec.ts` reaches **this case's** debrief through the shared helpers —
+  `walkToDebrief` takes a required `caseId` and a required `conclusionProposalId`, the dialogue-beat
+  count comes from `scenarioScript` and the figure's seat from the production layout function — on the
+  bounded conclusion *and* on the overclaiming one, and captures the frame at 1280×720 in **both**
+  locales through `testInfo.outputPath`, printing the path so it can be re-taken and looked at.
+- The prose on that frame is asserted, not just photographed. `tests/unit/MorleyMillerDebrief.test.ts`
+  drives the real `DebriefRenderer` over the real shipped case and reads the text it wrote: the authored
+  summary, the comparison title and text with **both** 1907 numbers present in each locale's own
+  notation (`1.53` / `1,53`, *one eightieth* / *quatre-vingtième*), the deeper-theory title, and both
+  cited artifacts resolved to their display names with their provenance, source-type and rights labels.
+- The band that holds it was **measured** rather than eyeballed: 1-line title + 4 prose lines = 129px
+  against the 152px reserve, in a real browser through the real font stack
+  (`french-typography.spec.ts`). The 23px of margin is the second title line the reserve budgets and the
+  longest shipped French title does not use. Recorded at `DEBRIEF_COMPARISON_BAND_HEIGHT`.
+
+One narrower fact for the record, since the sprint note overstated it in the other direction:
+`morley-miller-prototype.spec.ts` *did* already reach `Debrief` on this case, by inlining its own copy of
+the pin-and-close steps — and on a conclusion it selected by accident, because the default seat index is
+`harriet-lowe` on this board rather than the colleague the same index names in `colleagues[]`. What did
+not exist was a reusable route, an assertion about the debrief's content, or a frame.
 
 No `conclusionProposal`, `peerReviewRule` or `rivalLabCritique` was added or reworded — those are Story
 4.3's ACs. `predict-nothing-at-all` still carries the perfect-zero *prediction*, deliberately: it is a
@@ -287,13 +323,13 @@ window is inside this epic, and the case is ledger-BLOCKED so it cannot reach a 
 | ~~The thermal-drift teaching loop, stable-window replication, feedback directing to replication~~ **CLOSED by Story 4.2** — separability asserted on recorded results rather than on the formula; the stable window named in the authored `resetPath` prose in both locales *and* rung on the bath in-fiction; a new `missing-replication` consultation predicate closes the gap where the case taught a recovery route it never mentioned | — |
 | **Two of the four shipped `consultationRules` could never fire** — found by Story 4.2 and repurposed rather than deleted. `consult-no-runs` asked `runs.length < 2` where the case file is only reachable past a gate requiring two significant measures; `consult-unread-report` asked for an unread source where `minimumSources` equals the authored artifact count. Every branch is now reachable and proven so against the real store | — |
 | **FR18's three fields reached no player surface** — `experiment.assumptions`, `confound.description` and `resetPath.description` were authored on both cases, schema-validated, and rendered by nothing, while §1 of this document listed all three as satisfied. Closed by Story 4.2's apparatus-notes surface; §1's table is true about the player now, not only about the authoring | — |
-| The bounded conclusion, the overclaim refusal, the debrief's revision feedback | **Story 4.3** |
-| `citation.reuseStatement` is authored in both locales for every artifact and rendered nowhere — and §2.1 below offers it as the record of the 1887 verification, so that record reaches no surface | **Story 4.3** |
-| `debrief.sourceRefs` is validated only as non-empty strings and read by nothing; its `provenance.reference` vocabulary now collides with the 1907 artifact's own id, so an author confusing the two vocabularies gets silence from both | **Epic 5's first story** |
+| ~~The bounded conclusion, the overclaim refusal, the debrief's revision feedback~~ **CLOSED by Story 4.3** — `conclude-ether-disproved.claim.en` reworded so the authored `peer-overreach` rule fires on the one claim it was written for (it matched **none** of the four before), and `calibrated-conclusion` therefore withheld from a reviewed overclaim, which is NFR8's “no reward for overclaiming” made executable. `case.json` 1.7.0, its `CaseRecordSchema` allowlist clause and `sw.js` v16 in one commit. Asserted on shipped content, never on a fixture: every prior overreach assertion in the suite was a fixture rule carrying its own fixture phrase | — |
+| `citation.reuseStatement` is authored in both locales for every artifact and rendered nowhere — and §2.1 below offers it as the record of the 1887 verification, so that record reaches no surface. **Story 4.3 measured the obstacle rather than guessing at it**: the natural home is the debrief's cited-source rows, which have *zero* vertical margin by construction (36px reserve, 36px content, both locales, both cases) in a column whose comparison band above them has one title line of slack. Adding schema-unbounded prose there is the overflow shape AC5 exists to catch. Re-owned with a band budget as part of its own scope | **`spec-surface-citation-provenance.md`** |
+| `debrief.sourceRefs` is validated only as non-empty strings and read by nothing; its `provenance.reference` vocabulary now collides with the 1907 artifact's own id, so an author confusing the two vocabularies gets silence from both. **Story 4.3 confirmed the collision has already happened**: this case authors `michelson-morley-1887-ajs`, which is the first artifact's `provenance.reference` and matches **no** artifact id — one of the two entries is a dangling reference today. The field the surface actually cites is `historicalComparison.sourceIds`, and `MorleyMillerDebrief.test.ts` now asserts both of *those* resolve to display names, so an edit moving the citation here fails loudly instead of painting an empty band | **Epic 5's first story** |
 | No shipped case exercises the `reconstruction` rendition kind any more | **Epic 5's first story** |
-| The unit harness cannot see text height, so no "the text fits" claim can be automated | unassigned |
-| **`isCampaignCase` and `isCampaignCaseUnlocked` are exported, unit-tested, and called by nothing in `src/`** — the campaign *order* is read (`resolveCaseId.ts:42`) and the boot default resolves through it, so AC6's three `Then` clauses hold, but nothing gates entry: `?case=` opens a locked case by design, and that bypass is deliberate. Kept by review decision rather than gated inside a review | **Story 4.3** |
-| **A completed campaign case becomes unreachable once the boot target advances** — no picker, and `?case=` has no in-game surface, so the finished case's debrief, optional replay and record export cannot be reached | **Story 4.3** |
+| The unit harness cannot see text height, so no "the text fits" claim can be automated **in Vitest** — but Story 4.3 showed it can be automated in a *browser*, which had not been tried. `french-typography.spec.ts` now wraps authored prose with Phaser's own greedy rule over `CanvasRenderingContext2D.measureText` through the real font stack, multiplies by the renderer's own `caseFileLineHeight` / `debriefLineHeight`, and reports a line count — closing the height half for the peer-review pane, the debrief comparison band and the cited-source rows. The residual is narrower than this row claimed: Phaser's real line box runs nearer 1.2× where those helpers reserve 1.35×, so the measurement is *conservative* and cannot prove the pixels, only the reserve. Pixels stay the eye's, with a committed capture spec to re-take them | narrowed; the remaining gap is the harness, **unassigned** |
+| **`isCampaignCase` and `isCampaignCaseUnlocked` are exported, unit-tested, and called by nothing in `src/`** — the campaign *order* is read (`resolveCaseId.ts:42`) and the boot default resolves through it, so AC6's three `Then` clauses hold, but nothing gates entry: `?case=` opens a locked case by design, and that bypass is deliberate. Kept by review decision rather than gated inside a review. Re-owned by Story 4.3 because an entry gate is a **contract** change to a documented reviewer bypass that three code comments and the whole e2e suite rest on — not an epic-closing story's work | **`spec-add-campaign-navigation.md`** |
+| **A completed campaign case becomes unreachable once the boot target advances** — no picker, and `?case=` has no in-game surface, so the finished case's debrief, optional replay and record export cannot be reached. **Story 4.3 sharpened this rather than closing it**: the debrief this story made reachable, photographed and asserted goes out of reach the moment the case is finished. The route now exists; the way back to it still does not | **`spec-add-campaign-navigation.md`** |
 | The 1907 citation's issue number (archive says "No. 2"; commonly cited as 641) | the scholarly reviewer |
 | **The scholarly reviewer is unassigned** | **Alexis** |
 | **The educator context sheet is unassigned** | **Alexis** |
@@ -307,6 +343,16 @@ a person, not a patch.
 navigation and rendering residuals to **Story 4.3**, which closes the epic; contract traps to **Epic 5's
 first story**, where the next case's author is who the trap actually catches. The two new rows are that
 review's own findings.
+
+**Re-owned by Story 4.3** (2026-08-21). The epic's closing story took four of these rows and closed one
+of them outright; the other three it re-owned to **named spec stories**, because on inspection each is a
+new surface or a contract change rather than a residual — an entry gate rewrites a documented reviewer
+bypass, an in-game route back to a finished case is a surface nobody has designed, and rendering
+`reuseStatement` needs a band budget in the one column this story measured as having none. Story 4.3's own
+scope rule (§SS1) puts new surfaces out of an epic-closing story, and the project's rule that "Epic 5"
+and "later" are not owners applies equally to "the story that happens to be last". Every row above now
+names a story, a spec file, or a person. The full triage — all eighteen `deferred-work.md` entries that
+named Story 4.3, four closed and fourteen re-owned — is in that story's Dev Agent Record.
 
 ---
 

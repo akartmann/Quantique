@@ -6,7 +6,8 @@ import {
     WALK_TO_DEBRIEF_COST_MS,
     completionSnapshot,
     expectActiveScene,
-    walkToDebrief
+    walkToDebrief,
+    YOUNG_CASE
 } from './canvasHelpers';
 
 /**
@@ -39,7 +40,7 @@ test('earns recognition through a real investigation and carries it into the com
     // no-flashing guard, which survives the a11y de-scope.
     await page.emulateMedia({ reducedMotion: 'reduce' });
 
-    await walkToDebrief(page);
+    await walkToDebrief(page, YOUNG_CASE, 'conclusion-universal-optics');
     await expectActiveScene(page, 'Debrief');
 
     // The case completed, so a snapshot exists — and `CompletionSnapshot` carries the recognition
