@@ -106,13 +106,24 @@
 // **No schema change either way, and that is worth stating rather than leaving to be inferred.** No field
 // became required, no union gained a member, and `CaseDefinitionSchema` gains no refusal — so unlike v14 and
 // v15 the *new file, old bundle* direction parses cleanly here, and unlike v9 and v12 nothing refuses. What
-// this bump prevents is subtler and is the reason it is not optional: the worker serves `case.json` from
-// cache while the hashed bundle comes from the network, so a returning player could run this build over a
-// cached **1.6.0** file — whose `claim.en` still reads "…for good", which trips no authored phrase. They
-// would reach the debrief being told they had recorded a *calibrated conclusion* on a draft declaring the
-// ether disproved: precisely the NFR8 violation this story exists to close, restored offline, with nothing
-// failing anywhere. A silently older case is normally the benign outcome a `CACHE_NAME` buys; here the older
-// case is the defect itself.
+// this bump prevents needs stating carefully, because the mechanism first written here was one **this
+// worker does not have**. The claim was that the worker serves `case.json` from cache while the hashed
+// bundle comes from the network, so a returning player could run this build over a cached 1.6.0 file. That
+// cannot happen under v16: the fetch handler is network-**first** and falls back to cache only when the
+// request throws, `activate` deletes every other `quantique-*` cache, and `install` re-fetches every
+// precached `case.json` with `cache: 'reload'`. Online both come from the network; offline both come from
+// the same generation.
+//
+// The real window is narrower: the **v15 worker still in control**, serving a cached 1.6.0 `case.json` to a
+// session that has the new bundle, which a v16 name fixes only by existing to be activated. So the bump is
+// correct policy — the content moved, so the list moves — and the danger it was justified with is smaller
+// than it read.
+//
+// The durable form of that danger was never a cache at all. A **saved record** holding the pre-edit
+// conclusion text reaches exactly the outcome described above — reviewed clean at 1.7.0, a *calibrated
+// conclusion* awarded on a draft declaring the ether disproved — and no `CACHE_NAME` touches it. That is
+// closed in `CaseRecordSchema.ts`, where the 1.7.0 clause migrates the draft forward instead of dropping
+// the card, and asserted in `MorleyMillerConclusion.test.ts`.
 const CACHE_NAME = 'quantique-bootstrap-v16';
 
 /**

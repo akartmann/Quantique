@@ -717,9 +717,14 @@ export type LocalizedDebrief = Readonly<{
  * The authored debrief, resolved for display.
  *
  * Cites from `historicalComparison.sourceIds`, which the schema cross-checks against
- * `contextualArtifacts`. **Not `debrief.sourceRefs`**, whose two ids match no artifact and are
- * validated only as non-empty strings — nothing reads that field, and this is not the story that
- * decides whether to fix the content or delete it (Open Question 3).
+ * `contextualArtifacts`. **Not `debrief.sourceRefs`**, which is validated only as non-empty strings and
+ * which nothing reads — and whose **first** id is a dangling reference: it authors
+ * `['michelson-morley-1887-ajs', 'morley-miller-1907-final-report']` against artifacts
+ * `michelson-morley-1887` and `morley-miller-1907-final-report`, so the second resolves and the first does
+ * not (`-ajs` is that artifact's `provenance.reference`, not its id). Story 4.3 established that and
+ * recorded it in `deferred-work.md` and the case review; this docstring said "two ids match no artifact"
+ * until its code review, which is the same overstatement one field over. Deciding whether to fix the
+ * content or delete the field is Epic 5's first story, which owns it by name.
  *
  * A cited id that resolves to no artifact is dropped rather than rendered as an empty citation, the
  * same degraded-content rule the critique history follows. Shipped content cannot reach it; the

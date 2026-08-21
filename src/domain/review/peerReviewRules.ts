@@ -68,6 +68,24 @@ const freezeIssue = (rule: PeerReviewRule): PeerReviewIssue => Object.freeze({
  * `MorleyMillerConclusion.test.ts` asserts that no `.en` claim on either shipped case matches one, so
  * this note fails rather than rots if a future claim starts tripping the French list.
  */
+/**
+ * Whether one authored phrase matches a draft, by the exact rule the evaluator applies.
+ *
+ * Exported because the alternative is a test that paraphrases it. Story 4.3's review found the guard
+ * pinning the French list as dead matching with a naive `claim.en.includes(phrase)`, which agrees with
+ * this function on today's content and diverges the moment a phrase carries surrounding whitespace or an
+ * internal double space — so the note it defends could rot in exactly the way it promises it cannot.
+ * A test that re-derives the answer proves nothing about the answer `src/` gives.
+ *
+ * `trim()` and the `\s+` collapse are what make an authored phrase tolerant of the whitespace JSON
+ * authoring introduces; the word boundaries are `\p{L}\p{N}_` rather than `\b` so that accented French
+ * phrases are not split mid-word.
+ */
+export const matchesOverreachPhrase = (phrase: string, conclusion: string): boolean => {
+    const escaped = phrase.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+    return new RegExp(`(?:^|[^\\p{L}\\p{N}_])${escaped}(?=$|[^\\p{L}\\p{N}_])`, 'u').test(conclusion.toLowerCase());
+};
+
 const overreachPhrases = (rule: PeerReviewRule): readonly string[] => {
     const authored = rule.predicate.overreachPhrases;
     return authored ? [...authored.en, ...authored.fr] : [];
@@ -107,10 +125,7 @@ const isApplicable = (
             // The rule above still binds the *next* change: widen this set and you owe the "no pre-edit
             // authored claim of either case contains the new phrase" check, over both `case.json` files,
             // run rather than assumed.
-            return overreachPhrases(rule).some((phrase) => {
-                const escaped = phrase.trim().toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-                return new RegExp(`(?:^|[^\\p{L}\\p{N}_])${escaped}(?=$|[^\\p{L}\\p{N}_])`, 'u').test(draft.conclusion.toLowerCase());
-            });
+            return overreachPhrases(rule).some((phrase) => matchesOverreachPhrase(phrase, draft.conclusion));
     }
 };
 

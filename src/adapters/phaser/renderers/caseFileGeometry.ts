@@ -186,8 +186,8 @@ export const caseFileActionLabelWrap = (): number => CASE_FILE_ACTION_WIDTH - (2
  * {@link CASE_FILE_META_FONT_SIZE} they wrap to **8 lines** and **6** respectively.
  *
  * Three at once would need an `unsupported-support` code, which needs a *deleted* run, and nothing can
- * delete one — so the whole authored set (11 French lines on Young) is the reserve's theoretical
- * obligation rather than the walk's, and it is deliberately not what this is sized to. It is reported by
+ * delete one — so the whole authored set (11 French lines on Young at {@link CASE_FILE_MIN_FONT_SIZE}) is
+ * the reserve's theoretical obligation rather than the walk's, and it is deliberately not what this is sized to. It is reported by
  * `french-typography.spec.ts` and re-owned in `deferred-work.md`.
  */
 export const CASE_FILE_ISSUES_LINES = 8;
@@ -211,19 +211,34 @@ export const CASE_FILE_ISSUES_LINES = 8;
  * them what to change about their draft.
  *
  * **Why the floor and not the authored size.** Eight lines at {@link CASE_FILE_META_FONT_SIZE} is 136px,
- * and the panel does not have it: `caseFileContentFits` measures **14px** of vertical headroom at the
- * shipped 1024×768 surface, so 120 is the most this band can take without pushing the right column past
- * the status line. Eight lines at {@link CASE_FILE_MIN_FONT_SIZE} is exactly 120. So the guarantee this
- * reserve now makes is the strongest one that fits: *the worst reachable pair is never cropped*, reading
- * at the authored size on Morley–Miller in both locales and on Young in English, and at the clamp's floor
- * on Young in French. Shrink-to-floor is the clamp working; crop is the clamp giving up, and it is the one
- * this band no longer does.
+ * and the panel does not have it: before this growth `caseFileContentFits` had **14px** of vertical
+ * headroom at the shipped 1024×768 surface, so 120 is the most this band can take without pushing the
+ * right column past the status line. Eight lines at {@link CASE_FILE_MIN_FONT_SIZE} is exactly 120.
+ *
+ * **That 14px is now spent: the headroom at 1024×768 is 0.** `caseFileContentFloor(1024)` and
+ * `contentBottom` are both 612, so `caseFileContentFits` passes on a `<=` with nothing to spare. This is
+ * the resting state Story 4.3's code review put to Alexis and Alexis accepted, so it is recorded here as
+ * a fact rather than an oversight: **no other band on this surface can grow by a single pixel** —
+ * `CASE_FILE_ROWS_PER_PAGE`, {@link CASE_FILE_READINESS_ROWS}, `CASE_FILE_GUIDE_HEIGHT` and
+ * `CASE_FILE_STATUS_LINES` all now need this band to give something back first.
+ *
+ * **And the guarantee is floor-conditional, which is weaker than it first reads.** *The worst reachable
+ * pair is never cropped* — but only Morley–Miller reads at the authored size (six French lines, 102px of
+ * 120, 18px spare). Young's eight French lines need 136px at the authored size and fit **only** after the
+ * clamp shrinks to {@link CASE_FILE_MIN_FONT_SIZE}: measured, 120 of 120, with **0px** spare, and its
+ * English pair 119 of 120 with 1px. So one extra wrapped line in either case's `feedback` or
+ * `revisionPath`, or a fallback font with wider metrics, crops. Shrink-to-floor is the clamp working;
+ * crop is the clamp giving up, and the margin against that is now one pixel, not a reserve.
  *
  * Taking the other 16px would mean a row off `CASE_FILE_ROWS_PER_PAGE` or a row off
  * {@link CASE_FILE_READINESS_ROWS} — both Young-facing surfaces with their own measured reserves, and
- * neither in this story's scope. Recorded in `deferred-work.md` with the full authored set (11 French
- * lines on Young, which needs 165px and is unreachable by play because a third issue needs a *deleted*
- * run).
+ * neither in this story's scope. Recorded in `deferred-work.md` with the full authored set, which is 11
+ * French lines on Young **at {@link CASE_FILE_MIN_FONT_SIZE}** — 11 × 15 = 165px — and 12 lines / 204px at
+ * {@link CASE_FILE_META_FONT_SIZE}. Both bases are named because this paragraph carried the two figures
+ * unlabelled until Story 4.3's review, and a reader re-deriving the reserve got a different answer
+ * depending on which sentence they started from: the same shape as the "three rules each two lines" count
+ * this docstring was written to replace. It is unreachable by play either way, because a third
+ * simultaneous issue needs a *deleted* run.
  *
  * Derived from {@link CASE_FILE_ISSUES_LINES} rather than restated, so the bound and its justification
  * fail together — the discipline `MAX_PRIMARY_CONTROLS` established in Story 3.1. `caseFileContentFits`

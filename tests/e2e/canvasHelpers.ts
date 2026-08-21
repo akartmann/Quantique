@@ -96,7 +96,10 @@ type WalkableCase = Readonly<{
      * Young's (Story 4.3, Task 5).
      *
      * `chooseProposalThroughColleague` clicks `dialogueBeatCount + 1` times, and both numbers it needed
-     * were Young's: `synthesis` authors **3** beats on Young and **1** here, `review` **2** and **1**. The
+     * were Young's. The two literals actually replaced are in `chooseThePrediction` (**prediction**: 3
+     * beats on Young, 1 here) and `pinTheSupport` (**synthesis**: 3 on Young, 1 here) — the phases named
+     * here until Story 4.3's code review were `synthesis` and `review`, and the `review` figures belong to
+     * no call site at all, so the number the first substitution has to reproduce went unstated. The
      * literals survived because the click loop sits inside a retrying `expect(...).toPass()`, so a wrong
      * count is absorbed rather than reported — over-clicking a 1-beat scene keeps pressing a control that
      * has already relabelled to the board's advance, and `ADVANCE_RELABEL_LOCKOUT_MS` swallows some of
@@ -611,6 +614,24 @@ export const recordedComparisonNotes = (page: Page) =>
         .filter({ hasNotText: fr['print.comparison.empty'] });
 
 /**
+ * Every reviewed revision the record carries, with the peer feedback each one was given.
+ *
+ * `print.history.item` composes the feedback through `localizedFeedback`, which resolves each issue by
+ * `ruleId`, so a revision's row is the record's own account of what the reviewers actually said. That
+ * makes it the honest way to observe a peer-review answer from a spec: it reads a shipped surface
+ * (FR11, mounted on every normal-route session) rather than a hook added to make a test pass.
+ *
+ * Added by Story 4.3's code review, which found four screenshot tests capturing the peer-review pane
+ * with **nothing** asserting the pane had answered — a missed advance click leaves the phase at
+ * `synthesis`, `peerReview.requested` is refused, the pane paints empty, and every capture still passed
+ * green while writing a PNG named "two issues standing".
+ */
+export const recordedRevisions = (page: Page) =>
+    printSection(page, en['print.history.heading']).locator('ol > li')
+        .filter({ hasNotText: en['print.history.empty'] })
+        .filter({ hasNotText: fr['print.history.empty'] });
+
+/**
  * What the record says the apparatus is set to, for one authored control.
  *
  * Replaces `getByLabel('Screen distance (m)')`, which read the deleted DOM slider. The print view lists
@@ -831,6 +852,32 @@ export const varyingInstrument = (caseId: string, controlId: string, targetValue
 };
 
 const YOUNG_THROW = varyingInstrument(YOUNG_CASE, 'screenDistanceM');
+
+/**
+ * The control a case's walk varies, derived from the case's **own authored controls**.
+ *
+ * `walkToDebrief` took `instrument = YOUNG_THROW`, which its own docstring argued against two parameters
+ * earlier: it made `caseId` and `conclusionProposalId` required precisely because "a default is where a
+ * Young assumption survives a review". `walkToDebrief(page, someOtherCase, someConclusion)` therefore
+ * compiled and dragged `screenDistanceM` — a control the other case does not author — failing several
+ * steps later at a readout that never moved, which Story 4.3's debug log records losing time to.
+ *
+ * Derived from `primaryControls` rather than keyed by case id, because a case-id map would restate the
+ * constants the code review of 4.1 deleted `MORLEY_MILLER_CASE` for. The order is the preference, not a
+ * ranking of physics: a rotating interferometer's orientation is the control its walk must move, and a
+ * double slit's throw is its equivalent. `rotationDeg` takes an explicit 90 because that parameter has
+ * one usable setting and the derived default would land elsewhere; `screenDistanceM` derives its own,
+ * which is why `YOUNG_THROW` passes no third argument.
+ *
+ * A case authoring neither throws at its first walk, which is a clear error rather than a silent drag on
+ * a control it does not have.
+ */
+const varyingInstrumentFor = (caseId: string): ReturnType<typeof varyingInstrument> => {
+    const authored = new Set(caseContent(caseId).apparatus.primaryControls.map(({ id }) => id));
+    if (authored.has('rotationDeg')) return varyingInstrument(caseId, 'rotationDeg', 90);
+    if (authored.has('screenDistanceM')) return varyingInstrument(caseId, 'screenDistanceM');
+    throw new Error(`The case ${caseId} authors neither rotationDeg nor screenDistanceM to vary.`);
+};
 const SCREEN_DISTANCE_SLOT = YOUNG_THROW.slot;
 const FURTHEST_THROW_READOUT = YOUNG_THROW.maxReadout;
 const SCREEN_DISTANCE_LABEL = YOUNG_THROW.label;
@@ -1157,7 +1204,7 @@ export const pinTheSupport = async (
  * correctly ignored. Retrying is what a player does without noticing, and the helper is bounded, so a
  * genuinely dead control still fails.
  */
-export const closeTheCase = async (page: Page): Promise<void> => {
+const closeTheCase = async (page: Page): Promise<void> => {
     await inTheCaseFile(page, async () => {
         await clickDesign(page, caseFileRequestControlCentre(DESIGN_WIDTH));
         await waitForInputToSettle(page);
@@ -1291,7 +1338,7 @@ export const walkToDebrief = async (
     page: Page,
     caseId: string,
     conclusionProposalId: string,
-    instrument: ReturnType<typeof varyingInstrument> = YOUNG_THROW
+    instrument: ReturnType<typeof varyingInstrument> = varyingInstrumentFor(caseId)
 ): Promise<void> => {
     await walkToTheBoard(page, caseId, instrument);
     await pinTheSupport(page, caseId, conclusionProposalId);

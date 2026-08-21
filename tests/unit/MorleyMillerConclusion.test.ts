@@ -12,6 +12,10 @@ import { selectLocalizedPeerReview } from '../../src/core/store/selectors';
 import { en } from '../../src/core/i18n/locales/en';
 import { fr } from '../../src/core/i18n/locales/fr';
 import { loadMorleyMillerCase, loadShippedCases } from './shippedCases';
+import { STABLE_WINDOW_C } from '../../src/domain/apparatus/calculateInterferometerDrift';
+import { matchesOverreachPhrase } from '../../src/domain/review/peerReviewRules';
+import { createCaseRecordProjection } from '../../src/core/store/CaseRecordProjection';
+import { validateCaseRecordForDefinition } from '../../src/schemas/CaseRecordSchema';
 
 /**
  * The Morley–Miller conclusion path, asserted against **the content that ships** (Story 4.3, AC1–AC3).
@@ -64,12 +68,18 @@ const proposal = (proposalId: string) => {
 /**
  * The bath temperature the case's own `experiment.resetPath` teaches.
  *
- * Read from the authored control rather than written as 20, and **not** taken from `defaultValue` (which
- * is 22): the reset path's prose names the steady window, `calculateInterferometerDrift` exports it, and
- * `conclude-bounded-null`'s `unvaried-control-pinned` clause is the reason the two pinned runs have to
- * share it. A literal here would go on describing whichever bench used to ship.
+ * Read from `calculateInterferometerDrift` rather than written as 20, and **not** taken from the
+ * control's `defaultValue` (which is 22): the reset path's prose names the steady window ("20 °C, where
+ * the warmth contributes nothing"), the model exports it as the point where the thermal term vanishes,
+ * and `conclude-bounded-null`'s `unvaried-control-pinned` clause is the reason the two pinned runs have
+ * to share it.
+ *
+ * This was the literal `20` until Story 4.3's review, under this same docstring naming the exact failure
+ * a literal causes. If the authored steady window moves, `atReview()` would have gone on recording two
+ * runs at a temperature the case no longer teaches, `unvaried-control-pinned` would still pass because
+ * both runs share it, and the suite would stay green while claiming to assert the case's own path.
  */
-const STEADY_BATH_C = 20;
+const STEADY_BATH_C = STABLE_WINDOW_C;
 
 let runSequence = 0;
 
@@ -81,13 +91,27 @@ const record = (store: AppStore, rotationDeg: number, bathTempC: number): string
     if (!bath.ok) throw new Error(`The bench refused bathTempC=${bathTempC}: ${bath.error.code}`);
     runSequence += 1;
     const id = `run-${runSequence}`;
+    // Minute *and* second, because this counter is module-level and never reset: every `atReview()` burns
+    // two of it and this file already spends around forty. A single unbounded minute field reached
+    // `09:60:00.000Z` — not an instant — after a handful more tests, which would have failed the suite for
+    // a reason unrelated to anything under test. 3600 ordered timestamps is past any plausible growth.
+    const minute = Math.floor(runSequence / 60) % 60;
+    const second = runSequence % 60;
+    const pad = (value: number): string => String(value).padStart(2, '0');
     const run = store.dispatch({
         type: 'experiment.run',
         id,
-        timestamp: `2026-08-21T09:${String(runSequence).padStart(2, '0')}:00.000Z`
+        timestamp: `2026-08-21T09:${pad(minute)}:${pad(second)}.000Z`
     });
     if (!run.ok) throw new Error(`The bench refused the run: ${run.error.code}`);
     return id;
+};
+
+/** The authored `overreach` rule, so a locale assertion can name its French prose without restating it. */
+const resolveOverreachRule = () => {
+    const rule = definition.peerReviewRules.find(({ predicate }) => predicate.kind === 'overreach');
+    if (!rule) throw new Error('The case must author an overreach peer-review rule.');
+    return rule;
 };
 
 const mustDispatch = (store: AppStore, action: Parameters<AppStore['dispatch']>[0], what: string): void => {
@@ -111,8 +135,8 @@ const mustDispatch = (store: AppStore, action: Parameters<AppStore['dispatch']>[
  * `reduceTheoryConclusionProposalChosen` accepts `synthesis` **and** `review`, and choices are revisable
  * by design ("re-choosing must never fail on already-chosen").
  */
-const atReview = (): AppStore => {
-    const store = createStore(createInitialAppState(definition, 'en'));
+const atReview = (locale: 'en' | 'fr' = 'en'): AppStore => {
+    const store = createStore(createInitialAppState(definition, locale));
     definition.contextualArtifacts.forEach(({ id }) => store.dispatch({ type: 'source.inspected', sourceId: id }));
     mustDispatch(store, { type: 'case.phaseAdvance', nextPhase: 'prediction' }, 'Could not reach prediction');
     mustDispatch(store, { type: 'prediction.proposalChosen', proposalId: definition.predictionProposals[0]!.id }, 'Could not choose a prediction');
@@ -250,14 +274,23 @@ describe('the authored overclaim refusal fires on this case\'s overclaiming conc
      * store reaches the same finding on the same draft text.
      */
     it('fires for a French reader too, because the draft is the canonical English claim', () => {
-        const french = createStore(createInitialAppState(definition, 'fr'));
+        // A French store driven the whole way, not an English one beside a French store that is never
+        // used: until Story 4.3's review this test built `french`, asserted its locale — which restates
+        // the argument just handed to `createInitialAppState` and cannot fail — and then ran both real
+        // assertions on English stores, leaving AC1's locale clause unexercised.
+        const french = atReview('fr');
         expect(french.getState().locale).toBe('fr');
+        mustDispatch(french, { type: 'theory.conclusionProposalChosen', proposalId: 'conclude-ether-disproved' }, 'Could not choose the overclaim');
 
-        const store = atReview();
-        mustDispatch(store, { type: 'theory.conclusionProposalChosen', proposalId: 'conclude-ether-disproved' }, 'Could not choose the overclaim');
+        // The draft is the canonical English claim even here, which is *why* the finding is the same.
+        expect(french.getState().theory.conclusion).toBe(proposal('conclude-ether-disproved').claim.en);
+        expect(issueCodesFor(french, 'conclude-ether-disproved')).toEqual(['overreach']);
 
-        expect(store.getState().theory.conclusion).toBe(proposal('conclude-ether-disproved').claim.en);
-        expect(issueCodesFor(atReview(), 'conclude-ether-disproved')).toEqual(['overreach']);
+        // And the reader is told about it in French: the code is locale-independent, the prose is not.
+        const localized = selectLocalizedPeerReview(french.getState());
+        if (localized?.status !== 'reviewed') throw new Error(`Expected a reviewed projection, got ${localized?.status ?? 'none'}.`);
+        expect(localized.issues.map(({ feedback }) => feedback))
+            .toEqual([resolveOverreachRule().feedback.fr]);
     });
 
     /**
@@ -279,7 +312,11 @@ describe('the authored overclaim refusal fires on this case\'s overclaiming conc
             const rule = shipped.peerReviewRules.find(({ predicate }) => predicate.kind === 'overreach');
             const french = rule?.predicate.overreachPhrases?.fr ?? [];
             return shipped.conclusionProposals
-                .filter(({ claim }) => french.some((phrase) => claim.en.toLowerCase().includes(phrase.toLowerCase())))
+                // `matchesOverreachPhrase` is the production matcher, imported rather than paraphrased:
+                // a naive `includes` agrees with it on today's content and diverges on any phrase carrying
+                // surrounding whitespace or an internal double space, so the guard could have gone green
+                // while the note it defends rotted.
+                .filter(({ claim }) => french.some((phrase) => matchesOverreachPhrase(phrase, claim.en)))
                 .map(({ id }) => `${caseId} ${id}`);
         });
 
@@ -288,6 +325,57 @@ describe('the authored overclaim refusal fires on this case\'s overclaiming conc
 });
 
 describe('recognition is not awarded for overclaiming (NFR8)', () => {
+    /**
+     * **The saved-record route to the reward NFR8 forbids, closed and asserted.**
+     *
+     * D1 reworded `conclude-ether-disproved.claim.en` so the authored `peer-overreach` rule fires on it.
+     * That works for anyone playing at 1.7.0 — and Story 4.3's code review found it did nothing for a
+     * player returning with a 1.6.0 record, because `theory.conclusion` is the text peer review reads and
+     * the record holds the *retired* wording. "…has settled the matter for good." matches none of the five
+     * authored English phrases, so the returning player asked for review **at 1.7.0**, was told the
+     * conclusion was sound, and earned `calibrated-conclusion` for declaring the ether disproved.
+     *
+     * Both halves are asserted below, in order, because the first is what makes the second necessary: the
+     * retired text really does trip nothing, and the migrated record really does trip `overreach`.
+     *
+     * **Named change that breaks this:** restoring the `selectedConclusionProposalId: undefined`
+     * sanitization in `CaseRecordSchema.ts` in place of the draft migration.
+     */
+    it('brings a returning 1.6.0 draft forward, so the overclaim is refused at 1.7.0', () => {
+        const overclaim = proposal('conclude-ether-disproved');
+        const PRE_EDIT_CLAIM_EN = 'The ether does not exist, and this bench has settled the matter for good.';
+        expect(overclaim.claim.en).not.toBe(PRE_EDIT_CLAIM_EN);
+
+        const store = atReview();
+        mustDispatch(store, { type: 'theory.conclusionProposalChosen', proposalId: overclaim.id }, 'Could not choose the overclaim');
+        const state = store.getState();
+        const evidence = { runs: state.runs, inspectedSourceIds: state.inspectedSourceIds };
+
+        // 1. The retired wording trips nothing. This is the defect, stated as a fact about the phrase set
+        //    rather than as a story about it — and it is why dropping the card was not a repair.
+        const onRetiredText = evaluatePeerReview(definition, evidence, { ...state.theory, conclusion: PRE_EDIT_CLAIM_EN });
+        if (onRetiredText.status !== 'reviewed') throw new Error('Peer review was unavailable on the retired text.');
+        expect(onRetiredText.issues).toEqual([]);
+
+        // 2. A 1.6.0 record carrying that wording is migrated forward on load, and then trips `overreach`.
+        const projected = createCaseRecordProjection(state);
+        expect(projected.ok).toBe(true);
+        if (!projected.ok) return;
+        const restored = validateCaseRecordForDefinition({
+            ...projected.value,
+            caseDefinitionVersion: '1.6.0',
+            theory: { ...projected.value.theory, conclusion: PRE_EDIT_CLAIM_EN }
+        }, definition);
+        expect(restored.ok).toBe(true);
+        if (!restored.ok) return;
+
+        expect(restored.value.theory.conclusion).toBe(overclaim.claim.en);
+        expect(restored.value.selectedConclusionProposalId).toBe(overclaim.id);
+        const onMigratedText = evaluatePeerReview(definition, evidence, restored.value.theory);
+        if (onMigratedText.status !== 'reviewed') throw new Error('Peer review was unavailable on the migrated text.');
+        expect(onMigratedText.issues.map(({ code }) => code)).toEqual(['overreach']);
+    });
+
     /**
      * Saves a reviewed revision on the chosen proposal and returns whether the debrief would call it
      * calibrated.
@@ -497,15 +585,27 @@ describe('the rival lab answers both undefendable conclusions and routes back (A
      * the bounded claim becomes defensible on no pinned evidence at all, and the rival lab stops
      * answering a conclusion nothing supports (mutation proof 3).
      */
-    it('does not defend the bounded conclusion when nothing was pinned', () => {
+    it('does not defend the bounded conclusion when the support argument is absent or empty', () => {
         const store = atReview();
         const state = store.getState();
-
-        expect(selectDefensibleConclusionIds(definition, {
+        const evidence = {
             runs: state.runs,
             inspectedSourceIds: state.inspectedSourceIds,
             comparisonNotes: state.comparison.notes
-        })).not.toContain('conclude-bounded-null');
+        };
+
+        // **Omitted** — the fail-closed case. `atReview()` pins both runs and every artifact, so this row
+        // never described an unpinned store; what it exercises is a caller that forgot to pass
+        // `selectedRunIds` at all, which is a real defence and worth keeping.
+        expect(selectDefensibleConclusionIds(definition, evidence)).not.toContain('conclude-bounded-null');
+
+        // **Empty** — the case ordinary play reaches, and the one this row claimed to cover until Story
+        // 4.3's review. A predicate that fails closed on `undefined` and open on `[]` passed the old
+        // assertion; a player who pins nothing must not be told the bounded conclusion is defensible.
+        expect(selectDefensibleConclusionIds(definition, { ...evidence, selectedRunIds: [] }))
+            .not.toContain('conclude-bounded-null');
+        expect(selectDefensibleConclusionIds(definition, { ...evidence, selectedRunIds: [], inspectedSourceIds: [] }))
+            .not.toContain('conclude-bounded-null');
     });
 
     it('puts no score, counter, timer or penalty anywhere on the path', () => {

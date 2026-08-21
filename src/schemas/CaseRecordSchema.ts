@@ -594,13 +594,22 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // claim of either case contains the new phrase — checkable, and checked (no `.en` claim on either
         // case contained "once and for all"), but a promise about every future claim as well.
         //
-        // **What a returning player loses is the highlighted card, and nothing else.** A record holding
-        // the pre-edit conclusion text hits the `proposal.claim.en !== record.theory.conclusion` branch
-        // below, which **sanitizes `selectedConclusionProposalId` away** rather than refusing the record —
-        // the repair the 1.4.0 clause's own reasoning demands, since `attachAutosave` saves on the first
-        // dispatch of the recovered session and a refusal here overwrites what it refused. The
-        // investigation, its observations, its comparison, its revision history and its recognition all
-        // survive; the card simply stops being drawn as chosen, and re-choosing it costs one click.
+        // **What a returning player loses is nothing, and their draft is brought forward.** A record
+        // holding the pre-edit conclusion text hits the `proposal.claim.en !== record.theory.conclusion`
+        // branch below, which — because the record's version is older than the definition's, so the
+        // mismatch is this copy edit rather than tampering — **rewrites `theory.conclusion` and
+        // `theory.limitation` to the current authored text and keeps the card**, rather than refusing the
+        // record or dropping the attribution. The investigation, its observations, its comparison, its
+        // revision history and its recognition all survive, and the card stays drawn as chosen.
+        //
+        // Dropping the card, which this clause originally specified, was **not** safe, and the reason is
+        // worth keeping: `theory.conclusion` is the text peer review reads. A record restored with the
+        // retired wording went on being reviewed against it, and "…has settled the matter for good."
+        // matches none of the authored phrases — so the player asked for review, was told the conclusion
+        // was sound **at 1.7.0**, and earned `calibrated-conclusion` for declaring the ether disproved.
+        // That is the exact reward NFR8 forbids, reached through the saved record rather than through
+        // play, and `attachAutosave` made it durable. The migration closes it; see the branch below for
+        // why rewriting the live draft cannot make any stored issue list disagree with its recomputation.
         //
         // **Recognition is unaffected retroactively**, and by a mechanism worth naming because it is not
         // the one the story assumed. The flags *are* recomputed and compared, here — per completion item
@@ -648,12 +657,18 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
     // describes: a record naming `conclusion-spacing-varies` while carrying a hand-edited conclusion
     // would attribute someone else's words to a colleague.
     //
-    // But the repair is to drop the claim, not to discard the investigation. The ordinary cause of a
-    // mismatch is an authored copy edit, and the compatibility allowlist above exists precisely so
-    // authors can change display text without costing players their work (NFR12) — while
-    // `CaseProgressPanel` autosaves on the first dispatch of the recovered session, so a rejection
-    // here does not merely refuse the record, it overwrites it. An ID naming a proposal that does not
-    // exist at all is a different matter: that record describes content this build cannot render.
+    // But the repair is never to discard the investigation. The ordinary cause of a mismatch is an
+    // authored copy edit, and the compatibility allowlist above exists precisely so authors can change
+    // display text without costing players their work (NFR12) — while `CaseProgressPanel` autosaves on
+    // the first dispatch of the recovered session, so a rejection here does not merely refuse the
+    // record, it overwrites it. An ID naming a proposal that does not exist at all is a different
+    // matter: that record describes content this build cannot render.
+    //
+    // Which repair applies depends on the cause, and the conclusion branch below tells the two apart by
+    // version: a same-version mismatch is a hand-edited record and drops the attribution, while an
+    // older-version mismatch is a copy edit and migrates the draft text forward instead. The prediction
+    // branch keeps the single drop-the-attribution repair: `prediction` is not read by any evaluator
+    // that awards anything, so a retired wording there costs the player a card and nothing more.
     let sanitized = record;
     if (record.selectedPredictionProposalId !== undefined) {
         const proposal = definition.predictionProposals.find(({ id }) => id === record.selectedPredictionProposalId);
@@ -670,7 +685,42 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
             return failure('invalid-case-record', 'This progress record could not be used. Your current work is unchanged.');
         }
         if (proposal.claim.en !== record.theory.conclusion || proposal.limitation.en !== record.theory.limitation) {
-            sanitized = { ...sanitized, selectedConclusionProposalId: undefined };
+            // Two causes, two repairs, told apart by the only evidence the record carries: its version.
+            //
+            // **Same version as the definition** — the authored text has not moved since this record was
+            // written, so a mismatch cannot be a copy edit. It is a hand-edited record, and the repair is
+            // the original one: drop the attribution, keep the investigation.
+            //
+            // **Older version** — the mismatch is an authored copy edit, and dropping the card here left a
+            // real hole. `theory.conclusion` is the text peer review reads, so a record restored at the new
+            // version went on being reviewed against the *retired* wording: the 1.7.0 reword of
+            // `conclude-ether-disproved` made the authored `peer-overreach` rule fire on the new claim,
+            // while a 1.6.0 record kept "…has settled the matter for good.", which matches none of the
+            // authored phrases. That player asked for review, received a clean bill **under 1.7.0**, and
+            // earned `calibrated-conclusion` for an overclaim — the reward NFR8 forbids by name, reached
+            // through the saved record rather than through play, and made durable by `attachAutosave`
+            // writing the retired text back on the first dispatch.
+            //
+            // So the draft is migrated forward instead. This is safe in a way widening the phrase set was
+            // not: `theory` is the *live* draft and carries no persisted feedback (see its schema above —
+            // `selectedRunIds`, `selectedSourceIds`, `conclusion`, `limitation`, and nothing else), and the
+            // `decisionHistory` walk below recomputes each entry against `entry.conclusion`, the text that
+            // entry stored. Nothing recomputes peer review against `record.theory`, so no stored issue list
+            // can disagree with its recomputation because of this rewrite, and every earlier revision keeps
+            // the verdict it was saved with. `evaluateConclusionReadiness` does read the migrated `theory`,
+            // and authored claims and limitations are non-empty by schema, so readiness is unaffected.
+            //
+            // The card is kept, because after the migration the ID's claim about provenance is true again:
+            // the text beside it *is* this proposal's authored text. Nothing is attributed to a colleague
+            // that the colleague did not say — the misattribution this branch exists to prevent is repaired
+            // by agreement rather than by deletion. A player who reads their conclusion after an authored
+            // copy edit sees the current wording, which is what NFR12 asks for.
+            sanitized = record.caseDefinitionVersion === definition.version
+                ? { ...sanitized, selectedConclusionProposalId: undefined }
+                : {
+                    ...sanitized,
+                    theory: { ...sanitized.theory, conclusion: proposal.claim.en, limitation: proposal.limitation.en }
+                };
         }
     }
 

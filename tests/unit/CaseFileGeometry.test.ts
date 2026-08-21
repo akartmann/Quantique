@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../../src/adapters/phaser/designSurface';
 import {
+    CASE_FILE_ISSUES_HEIGHT,
     CASE_FILE_ISSUES_LINES,
     CASE_FILE_MIN_FONT_SIZE,
     CASE_FILE_ACTION_GAP,
@@ -293,13 +294,21 @@ describe.each(CANVASES)('the case file laid out on $name', ({ width, height }) =
      * A reserve asserted against a line count nobody had measured, which is this project's most-repeated
      * shape.
      *
-     * It now asserts the reserve's own stated obligation — {@link CASE_FILE_ISSUES_LINES} at the clamp's
-     * floor — so the bound and its justification fail together rather than the bound quietly outliving
-     * it. Why the floor rather than the authored size is at `CASE_FILE_ISSUES_HEIGHT`: the panel has 14px
-     * of headroom and eight authored-size lines need 30 more.
+     * It now asserts two different things, and Story 4.3's code review is why there are two. Deriving the
+     * expected height from {@link CASE_FILE_ISSUES_LINES} and {@link CASE_FILE_MIN_FONT_SIZE} — the same
+     * two constants `CASE_FILE_ISSUES_HEIGHT` is *defined* from — proves only that
+     * `caseFilePeerReviewBand` forwards the constant: set the line count to 1 and both sides move
+     * together, so neither "named change that breaks this" broke it. That assertion is kept for the
+     * forwarding property and is no longer the guard.
      *
-     * **Named change that breaks this:** lowering `CASE_FILE_ISSUES_LINES` without re-measuring the
-     * composed prose, or raising `CASE_FILE_MIN_FONT_SIZE`.
+     * The guard is the **absolute** floor beside it. 120px is not arithmetic over these constants; it is
+     * what `french-typography.spec.ts` measured in a real browser as Young's worst reachable French pair
+     * (eight wrapped lines at the clamp's floor), and it stays 120 when the constants move, which is the
+     * whole point. Why the floor rather than the authored size is at `CASE_FILE_ISSUES_HEIGHT`: eight
+     * authored-size lines need 136px, and the panel's headroom is now 0.
+     *
+     * **Named change that breaks this:** lowering `CASE_FILE_ISSUES_LINES` (8 → 5 gives 75px and fails the
+     * absolute floor), or lowering `CASE_FILE_MIN_FONT_SIZE`.
      */
     it('stacks the peer-review pane with room for the issues it can return', () => {
         const band = caseFilePeerReviewBand(width);
@@ -311,14 +320,16 @@ describe.each(CANVASES)('the case file laid out on $name', ({ width, height }) =
         expect(save.y - (issues.y + issues.height)).toBe(CASE_FILE_ACTION_GAP);
         expect(overlaps(request, issues)).toBe(false);
         expect(overlaps(issues, save)).toBe(false);
-        // The reserve holds the worst pair ordinary play can reach, without cropping, at the floor the
-        // clamp shrinks to — which is what `CASE_FILE_ISSUES_HEIGHT` states and `french-typography.spec.ts`
-        // measures the line count for in a real browser.
-        expect(issues.height).toBe(CASE_FILE_ISSUES_LINES * lineHeight(CASE_FILE_MIN_FONT_SIZE));
-        expect(issues.height).toBeGreaterThanOrEqual(CASE_FILE_ISSUES_LINES * lineHeight(CASE_FILE_MIN_FONT_SIZE));
-        // And it is genuinely bigger than it was: a regression to the old six-authored-size-line band
-        // would be a silent crop on Young's French pane.
-        expect(issues.height).toBeGreaterThan(6 * lineHeight(CASE_FILE_META_FONT_SIZE));
+        // The band forwards the reserve rather than computing its own.
+        expect(issues.height).toBe(CASE_FILE_ISSUES_HEIGHT);
+
+        // The guard: the measured requirement, in pixels, independent of the constants above. Young's
+        // worst reachable French pair wraps to eight lines at the clamp's floor — measured in a real
+        // browser by `french-typography.spec.ts`, not derived here — and that is 120px. A change to
+        // `CASE_FILE_ISSUES_LINES` or `CASE_FILE_MIN_FONT_SIZE` moves the expression above with it and
+        // fails here, which is what the previous form could not do.
+        const YOUNG_WORST_FRENCH_PAIR_PX = 120;
+        expect(issues.height).toBeGreaterThanOrEqual(YOUNG_WORST_FRENCH_PAIR_PX);
         expect(request.height).toBe(CASE_FILE_ACTION_HEIGHT);
         expect(save.width).toBe(CASE_FILE_ACTION_WIDTH);
     });

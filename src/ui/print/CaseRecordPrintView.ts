@@ -2,9 +2,9 @@ import { resolveLocalizedText } from '../../core/i18n/resolveLocalizedText';
 import { createTranslator, type Translator } from '../../core/i18n/translate';
 import type { AppStore } from '../../core/store/createStore';
 import {
-    selectCompletionSnapshot, selectContextualArtifacts, selectControlLabel, selectDecisionHistory,
-    selectFormattedControlValue, selectLocale, selectNotebookObservations, selectSavedPrediction,
-    selectSourceLabel, selectTheoryBoardDraft
+    selectCompletionSnapshot, selectConclusionProposals, selectContextualArtifacts, selectControlLabel,
+    selectDecisionHistory, selectFormattedControlValue, selectLocale, selectNotebookObservations,
+    selectSavedPrediction, selectSelectedConclusionProposalId, selectSourceLabel, selectTheoryBoardDraft
 } from '../../core/store/selectors';
 import type { AppState } from '../../core/store/AppState';
 import { composeCaseSummary } from '../../domain/evidence/caseSummary';
@@ -23,6 +23,36 @@ const term = (label: string, value: string): HTMLDivElement => {
 };
 
 const listItem = (text: string): HTMLLIElement => Object.assign(document.createElement('li'), { textContent: text });
+
+/**
+ * The conclusion or limitation a *reader* should see, resolved by `conclusionProposalId`.
+ *
+ * The player never types a conclusion — `reduceTheoryConclusionProposalChosen` writes
+ * `proposal.claim.en` and `proposal.limitation.en`, the canonical English, because that is the draft
+ * `evaluatePeerReview` and the `peer-overreach` phrase set read. Every other field on this page is
+ * resolved for the reader ({@link localizedFeedback} by `ruleId`, control labels, source display names,
+ * recorded results), so printing the draft raw was the one place a French player's record came back in
+ * English — on the sentence the whole record is about.
+ *
+ * Substitution is conditional on `proposal[field].en === persisted`: the persisted text must still *be*
+ * this proposal's canonical English for the French half to be the same sentence. When it has drifted —
+ * a hand-edited record, or one written before an authored copy edit that
+ * `validateCaseRecordForDefinition` did not migrate — the persisted text is printed verbatim instead.
+ * That is the same principle `localizedFeedback` applies to a retired `review.unavailable` message: the
+ * record is the authored account of what the learner was actually told, so it is never overwritten by
+ * text they did not see.
+ */
+const localizedConclusionText = (
+    state: AppState,
+    proposalId: string | undefined,
+    persisted: string,
+    field: 'claim' | 'limitation'
+): string => {
+    if (!proposalId) return persisted;
+    const proposal = selectConclusionProposals(state).find(({ id }) => id === proposalId);
+    if (!proposal || proposal[field].en !== persisted) return persisted;
+    return resolveLocalizedText(proposal[field], selectLocale(state));
+};
 
 /**
  * Peer-review issues carry canonical English feedback because that text is persisted and compared on
@@ -153,8 +183,12 @@ export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): ((
         const conclusionHeading = document.createElement('h3'); conclusionHeading.textContent = t('print.conclusion.heading');
         const conclusionList = document.createElement('dl');
         conclusionList.append(
-            term(t('print.conclusion.term'), theory.conclusion || t('print.conclusion.empty')),
-            term(t('print.limitation.term'), theory.limitation || t('print.limitation.empty'))
+            term(t('print.conclusion.term'),
+                localizedConclusionText(state, selectSelectedConclusionProposalId(state), theory.conclusion, 'claim')
+                || t('print.conclusion.empty')),
+            term(t('print.limitation.term'),
+                localizedConclusionText(state, selectSelectedConclusionProposalId(state), theory.limitation, 'limitation')
+                || t('print.limitation.empty'))
         );
         conclusion.append(conclusionHeading, conclusionList);
 
@@ -165,8 +199,8 @@ export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): ((
             historyList.append(listItem(t('print.history.item', {
                 version: entry.version,
                 timestamp: entry.timestamp,
-                conclusion: entry.conclusion,
-                limitation: entry.limitation,
+                conclusion: localizedConclusionText(state, entry.conclusionProposalId, entry.conclusion, 'claim'),
+                limitation: localizedConclusionText(state, entry.conclusionProposalId, entry.limitation, 'limitation'),
                 runs: entry.selectedRunIds.map(runLabel).join(', ') || t('print.history.noRuns'),
                 sources: entry.selectedSourceIds.map((id) => selectSourceLabel(state, id)).join(', ') || t('print.history.noSources'),
                 feedback: localizedFeedback(state, t, entry.feedback)
@@ -204,7 +238,8 @@ export const mountCaseRecordPrintView = (root: HTMLElement, store: AppStore): ((
             const completedText = document.createElement('p');
             completedText.textContent = t('print.completion.text', {
                 timestamp: completion.completedAt,
-                conclusion: completion.finalDecision.conclusion
+                conclusion: localizedConclusionText(state, completion.finalDecision.conclusionProposalId,
+                    completion.finalDecision.conclusion, 'claim')
             });
             completed.append(completedHeading, completedText);
             record.append(heading, summary, settings, observations, sources, prediction, comparison, conclusion, history, completed);

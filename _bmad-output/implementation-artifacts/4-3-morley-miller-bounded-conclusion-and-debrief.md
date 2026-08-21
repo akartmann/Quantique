@@ -4,7 +4,7 @@ baseline_commit: 3b30876b2fd5373940b59f11f5d4cfa9cc1d104c
 
 # Story 4.3: Morley–Miller bounded conclusion and debrief
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -305,6 +305,89 @@ observed red, the guard is restored, and the proof is recorded in a table. The m
   - [x] Run every gate in §SS10. Record the counts against the stated baselines.
   - [x] Break each guard in §SS10's minimum set, observe the named test red, restore it, record it.
   - [x] Judge any e2e failure on an idle machine before attributing it to a change.
+
+### Review Findings
+
+Code review 2026-08-21 (`gds-code-review`, three parallel layers over `3b30876..ced3455`). 47 raw findings
+from Blind Hunter (15 + 6 uncertainties), Edge Case Hunter (9) and Acceptance Auditor (9 + 5 unreconciled
+claims) triaged to 5 decisions (all resolved by Alexis), 28 patches, 4 deferred, 7 dismissed. The Auditor ran the gates
+independently and reproduced them: typecheck clean, 1650 unit / 85 files, both builds ok, `typecheck:tests`
+105/59, 83 e2e listed (12 sampled), and `morley-miller-debrief.spec.ts` 10/10 with 8 frames written.
+AC verdicts at review time: AC1-AC8 and AC10-AC11 MET, **AC9 PARTIAL** — AC9 closed to MET by D5.
+
+**Gates after the 28 patches were applied**, re-run rather than assumed: `typecheck` clean; **1652 unit /
+85 files** (up 2 — the version-gate and draft-migration tests); `typecheck:tests` **105 errors / 59 files**,
+exactly the standing ceiling (12 errors introduced by the patches were found and fixed before this line was
+written); `build` and `build:subpath` both exit 0; **85 e2e passed** on chromium, the full suite rather than
+a sample, up 2 from 83.
+
+**Six mutation proofs were taken during patching**, each observed red and then restored: the D1 version gate
+(removing it turns 3 tests red, including both cross-cutting `CaseRecordSchema.test.ts` contract rows),
+the draft migration (reverting it to the old sanitization turns the two new record tests red), the French
+locale assertion (expecting English prose fails it), `CASE_FILE_ISSUES_LINES` 8 to 5 (now caught by the
+absolute 120px floor, which the previous tautological form let pass), and the peer-review request click
+(removing it leaves the four capture tests green while the new assertion test fails on `recordedRevisions`
+count 0 — the exact defect that finding names).
+
+**One finding the review itself produced while verifying a patch:** `atReviewWithIssues` carried a
+*duplicate* `synthesis -> review` advance click, because `pinTheSupport` already ends with that same click
+and scene assertion. At `review` the board's advance control is `advance.closeTheCase`, refused until a
+reviewed revision is saved, so the second click was silently refused rather than harmful. Removed. It also
+means the mechanism the original finding hypothesised (a missed advance leaving the phase at `synthesis`)
+was already prevented -- what was genuinely unguarded was the peer-review *request*, which is what the new
+assertion test now pins.
+
+#### Decisions resolved (2026-08-21, Alexis)
+
+- [x] [Review][Decision] **A returning 1.6.0 player's pre-edit overclaim passes peer review clean at 1.7.0** — the exact NFR8 violation this story exists to close, reached durably through the saved record rather than through play. Confirmed by source, not probe: the pre-edit claim `"The ether does not exist, and this bench has settled the matter for good."` matches **none** of the five authored EN phrases (`proves`, `settles it`, `once and for all`, `no doubt`, `disproved` — `disproved` is in the proposal *id*, not the text), and the 1.7.0 clause at `src/schemas/CaseRecordSchema.ts:596-611` sanitizes `selectedConclusionProposalId` away while **preserving `theory.conclusion`**. The clause states this as its safety property ("What a returning player loses is the highlighted card, and nothing else"), which is the defect described as a feature. `attachAutosave` then writes the pre-edit text back on the first dispatch, so it persists indefinitely. Two sub-cases with different answers: **(a) retroactive** — a player already reviewed clean at 1.6.0 keeps the flag, arguably acceptable since NFR8 forbids retroactive penalty; **(b) live at 1.7.0** — a player who had *not* yet requested review restores, asks, and receives a clean bill **under 1.7.0**, which is a new undetected overclaim and the sharper defect. Options: **(A)** migrate the draft forward — rewrite `theory.conclusion` from the still-matching `selectedConclusionProposalId` before sanitizing it away, which is record-safe for (b) because an unreviewed draft has no persisted feedback to contradict; **(B)** widen the phrase set, which the clause itself considered and which breaks every record saved with zero issues on the pre-edit text (recomputation mismatch refuses the whole record); **(C)** version-gate the detection set, as `peerReviewRules.ts`' own comment offers — most correct, most work; **(D)** accept and record, fixing only the false safety claim in the clause. **RESOLVED — option A, migrate the draft forward.** On the `proposal.claim.en !== record.theory.conclusion` branch, when `selectedConclusionProposalId` still names a real proposal, rewrite `theory.conclusion` to the current claim text and **keep the card** instead of sanitizing the id away. `decisionHistory` is deliberately untouched, so every stored issue list still recomputes to itself and sub-case (a) keeps its flag retroactively as NFR8 requires; sub-case (b) is closed because the migrated draft now trips `overreach` on the next request. The clause's "what a returning player loses is the highlighted card" reasoning is replaced by the migration it was standing in for.
+- [x] [Review][Decision] **`calibrated-conclusion` survives an overclaim whenever any earlier revision was clean** — `src/domain/recognition/recognitionRules.ts:69-70` is `.some()` over the whole `decisionHistory`, so the ordinary walk choose `conclude-bounded-null` → review (0 issues) → save → re-choose `conclude-ether-disproved` → review (`overreach`) → save → complete ends with the reward intact, in a **fresh 1.7.0 game with no migration**. Proven by probe (`rev1 []`, `rev2 ["overreach"]`, `calibrated-conclusion achieved = true`, record round-trips). `recognitionRules.ts` is untouched by this commit, so the derivation is pre-existing — but `deferred-work.md`'s closing sentence, written by this story, asserts the opposite: "What the overclaim loses is the `calibrated-conclusion` recognition, which is a withheld reward and not a penalty." Both new suites are blind to it: `calibratedAfterReviewing` builds a fresh store per proposal so `decisionHistory` is always length 1. Options: **(A)** read `finalDecision.feedback` / the last entry instead of `.some()` — but recognition flags are recomputed and compared on load, so changing the derivation risks refusing existing records and needs the same version-gating argument as D1; **(B)** intersect with "the final decision carries no `overreach`"; **(C)** defer the derivation to a spec story and fix only the false claim now. **RESOLVED — option A/C split.** The false claim is corrected here (see the patch below); the `.some()` derivation is **re-owned to Story 5.1**, which already owns the record-recompute pair (rows 226/304). Rationale: recognition flags are recomputed and compared on load, so changing the rule refuses records saved with the flag true unless it ships with the same version-gating machinery D1 avoided needing — that gate belongs with 5.1's recompute work, not bolted onto this story.
+- [x] [Review][Decision] **The grown issues band spends the panel's last pixel, and the 8-line guarantee holds only at the clamp floor** — `CASE_FILE_ISSUES_HEIGHT` 106 → 120 at `src/adapters/phaser/renderers/caseFileGeometry.ts:237` leaves panel headroom at **0** (measured 1024x768: `contentFloor 612`, `peerReviewBand bottom 612`; it was 14px before). Measured occupancy: Young FR **120/120**, Young EN **119/120**, Morley-Miller FR 102/120. So no other band (`CASE_FILE_ROWS_PER_PAGE`, `CASE_FILE_READINESS_ROWS`, `CASE_FILE_GUIDE_HEIGHT`, `CASE_FILE_STATUS_LINES`) can grow by one pixel, and one extra wrapped line in either case's `feedback` or `revisionPath` crops silently. Separately, AC5's clause "legible inside `CASE_FILE_ISSUES_HEIGHT` at `CASE_FILE_META_FONT_SIZE`" holds for **this case only**: Young's 8 French lines at the authored 12px need 136px and fit only after the clamp shrinks to the 11px floor. The derivation is correct (136 genuinely refused; `caseFileContentFits` still true; consultation band keeps 224 >= 202) — the question is whether exact-fit is the intended resting state. Options: **(A)** accept and state the guarantee honestly as floor-conditional; **(B)** reclaim margin from another band; **(C)** lower `CASE_FILE_ISSUES_LINES` and accept a crop with a visible notice. **RESOLVED — option A, accept and state the guarantee as floor-conditional.** 120 stands. The docstrings must say what is actually guaranteed: eight lines at the **11px clamp floor**, not at the authored 12px (which needs 136), with **zero** panel headroom remaining and the measured occupancy recorded (Young FR 120/120, Young EN 119/120, MM FR 102/120).
+- [x] [Review][Decision] **The printable record renders the reworded conclusion in canonical English to a French player** — `src/ui/print/CaseRecordPrintView.ts:156`, `:168`, `:207` pass `theory.conclusion` / `entry.conclusion` / `completion.finalDecision.conclusion` straight through, while the same file localizes everything around them (`:43` feedback by `ruleId`, `:96` `inlineLabel`, `:123` `displayName`). A FR player sees the card as *"L'ether n'existe pas, et ce banc a regle la question une fois pour toutes."* and the printed record as *"The ether does not exist, and this bench has settled the matter once and for all."* AC7 names this surface as covered — true of the peer-review feedback, false of the conclusion this story just reworded. The seam exists and is unused: `DecisionHistoryEntry.conclusionProposalId` was added as exactly this provenance field. Options: **(A)** fix here — resolve `proposal.claim[locale]` when the id still matches, fall back to `entry.conclusion`; **(B)** own it to the printable-record spec story, which deferred rows 229/263 already name. **RESOLVED — option A, fix here.** Resolve `proposal.claim[locale]` when the `conclusionProposalId` still matches, falling back to the persisted `entry.conclusion` otherwise. AC7 names this surface, so leaving it would make AC7 PARTIAL.
+- [x] [Review][Decision] **AC9 is PARTIAL: 11 of 14 re-owned deferred rows name owner stories that do not exist** — rows 227/228/323 name `spec-parameterise-the-wavelength-seam.md`; 229/263 `spec-cover-the-printable-record.md`; 271 `spec-surface-citation-provenance.md`; 295/296/297 `spec-add-campaign-navigation.md`; 306/331 `spec-walk-the-reference-shelf.md`. All five files are absent from `_bmad-output/implementation-artifacts/` and none appears in `sprint-status.yaml`. Only rows 226/304 (Story 5.1) and 330 (Story 7.1) point at tracked owners. AC9's letter is arguably met — these are specific names, not "Epic 5" — but nothing schedules them. Options: **(A)** create the five spec stubs and register them in `sprint-status.yaml`; **(B)** re-own to existing tracked stories; **(C)** accept named-but-unscheduled and record the gap. **RESOLVED — option A, register the five in `sprint-status.yaml`.** Add the five spec stories as `backlog` entries so the ownership is schedulable; the rows keep the specific owners they already name, and the story files get authored when each is picked up. AC9 becomes MET.
+
+#### Patches
+
+- [x] [Review][Patch] **[D1]** Migrate the pre-edit draft forward instead of sanitizing the card away: rewrite `theory.conclusion` from the still-matching `selectedConclusionProposalId` and keep the id, leaving `decisionHistory` untouched; replace the clause's false safety sentence with the migration it describes [src/schemas/CaseRecordSchema.ts:596]
+- [x] [Review][Patch] **[D2]** Correct the false claim that an overclaim loses `calibrated-conclusion` — it survives whenever any earlier revision reviewed clean [_bmad-output/implementation-artifacts/deferred-work.md:346]
+- [x] [Review][Patch] **[D3]** State the issues-band guarantee as floor-conditional: eight lines at the 11px floor (136 at the authored 12px does not fit), zero panel headroom remaining, with the measured occupancy recorded [src/adapters/phaser/renderers/caseFileGeometry.ts:205]
+- [x] [Review][Patch] **[D4]** Localize the printed conclusion — resolve `proposal.claim[locale]` when `conclusionProposalId` matches, fall back to the persisted text [src/ui/print/CaseRecordPrintView.ts:156]
+- [x] [Review][Patch] **[D5]** Register the five named spec stories in `sprint-status.yaml` as `backlog` so AC9's ownership is schedulable [_bmad-output/implementation-artifacts/sprint-status.yaml]
+- [x] [Review][Patch] `STEADY_BATH_C`'s docstring says it is read from the authored control and names the exact failure a literal causes, while being that literal; duplicated undocumented in the debrief suite [tests/unit/MorleyMillerConclusion.test.ts:66]
+- [x] [Review][Patch] "fires for a French reader too" builds a French store, asserts its locale, then runs both real assertions on English stores — AC1's locale clause is unexercised [tests/unit/MorleyMillerConclusion.test.ts:252]
+- [x] [Review][Patch] The four capture tests assert nothing before `capture`, so a missed advance leaves the pane empty and still writes a green PNG named "two issues standing" [tests/e2e/morley-miller-debrief.spec.ts:216]
+- [x] [Review][Patch] The replacement geometry assertion re-derives the constant from its own two constants (neither "named change that breaks this" breaks it), plus a dead duplicate `toBeGreaterThanOrEqual` [tests/unit/CaseFileGeometry.test.ts:314]
+- [x] [Review][Patch] Three docstrings still state `CASE_FILE_ISSUES_HEIGHT` = 106 and derive live conclusions from it ("six lines fit and seven do not", "four to spare"); at 120 it is seven fit / eight do not and 18px spare, and the test's own output prints `(band 120px)` [tests/e2e/french-typography.spec.ts:556]
+- [x] [Review][Patch] Three e2e "floor" assertions restate their own generators (`SHIPPED_CASES.length * 4` by construction) and pass with zero samples — the precise failure the comment claims to guard [tests/e2e/french-typography.spec.ts:1275]
+- [x] [Review][Patch] `expect(overflowing.every(...)).toBe(true)` is vacuous on the empty array, and whitelists the future third reachable code it claims to catch [tests/e2e/french-typography.spec.ts:1269]
+- [x] [Review][Patch] `chooseThePrediction`'s justification cites the synthesis and review beat counts; the two literals actually replaced are prediction and synthesis, and no code calls the `'review'` arm [tests/e2e/canvasHelpers.ts:94]
+- [x] [Review][Patch] `walkToDebrief` keeps `instrument = YOUNG_THROW`, the implicit-Young default its own docstring argues against when making `caseId` and `conclusionProposalId` required [tests/e2e/canvasHelpers.ts:1294]
+- [x] [Review][Patch] The guard pinning the French phrase list as dead uses naive `includes` on un-normalised phrases, not the production word-boundary regex, so the note can rot exactly as it promises not to [tests/unit/MorleyMillerConclusion.test.ts:276]
+- [x] [Review][Patch] `runSequence` builds the minutes field unbounded; the file already consumes ~40 and at 60 the template yields the invalid instant `2026-08-21T09:60:00.000Z` [tests/unit/MorleyMillerConclusion.test.ts:80]
+- [x] [Review][Patch] `closeTheCase` widened to `export` with no external call site — only two docstring mentions [tests/e2e/canvasHelpers.ts:1157]
+- [x] [Review][Patch] "does not defend the bounded conclusion when nothing was pinned" runs on a fully pinned store and actually tests an omitted property; the reachable `selectedRunIds: []` is never asserted [tests/unit/MorleyMillerConclusion.test.ts:500]
+- [x] [Review][Patch] One reserve docstring mixes measurement bases without labelling them — 8 lines at the authored size beside "11 French lines, 165px" at the floor (12 lines / 204px at the authored size) [src/adapters/phaser/renderers/caseFileGeometry.ts:205]
+- [x] [Review][Patch] The headroom docstring's present tense is now false: 14px was measured *before* this growth and is 0 after [src/adapters/phaser/renderers/caseFileGeometry.ts:214]
+- [x] [Review][Patch] Deferred row 311 is closed by a re-statement "at the constant" that was never written — `apparatusGeometry.ts` is untouched by this commit (last changed `4b2b60f`) [_bmad-output/implementation-artifacts/deferred-work.md:311]
+- [x] [Review][Patch] `selectors.ts` still says both `debrief.sourceRefs` ids "match no artifact"; this story proved `morley-miller-1907-final-report` resolves, and corrected the claim everywhere except `src/` [src/core/store/selectors.ts:720]
+- [x] [Review][Patch] The Dev Agent Record cites `CaseRecordSchema.ts:785-789`, `:800-804` and `:728`; after this story's own 55-line insertion the sites are `:840-844`, `:855-858` and `:783` [_bmad-output/implementation-artifacts/4-3-morley-miller-bounded-conclusion-and-debrief.md]
+- [x] [Review][Patch] The nine claimed mutation proofs are seven distinct guards — table rows 1, 8 and 9 all mutate the same `claim.en` revert under three test names [_bmad-output/implementation-artifacts/4-3-morley-miller-bounded-conclusion-and-debrief.md]
+- [x] [Review][Patch] "Six by-eye frames" is eight (four captures x two locales); `deferred-work.md:293` says four. The deliverable exceeds the claim; only the number is wrong [_bmad-output/implementation-artifacts/deferred-work.md:293]
+- [x] [Review][Patch] "Four new items opened, each with a named owner" — the "Opened by this story" section carries three bullets, and the triage narrative lists the same three [_bmad-output/implementation-artifacts/deferred-work.md]
+- [x] [Review][Patch] The 1.6.0 migration test covers only the emptiest possible record (`phase: 'context'`, empty history); the two that carry the defect (`phase: review`, and `complete: true`) load with `calibrated-conclusion` intact, and the nested `DecisionHistoryEntry.conclusionProposalId` / `finalDecision.conclusionProposalId` are never sanitized, so the provenance field outlives the text it describes [tests/unit/MorleyMillerPrototype.test.ts]
+- [x] [Review][Patch] The `sw.js` v16 justification describes cache-mixing this worker cannot do — the handler is network-first (`:180-201`), `activate` deletes every other `quantique-*` generation (`:161-165`), and `install` re-fetches `case.json` with `cache: 'reload'` (`:140`), so under v16 the cache can never hold a 1.6.0 `case.json` [public/sw.js:101]
+
+#### Deferred
+
+- [x] [Review][Defer] `calibrated-conclusion`'s `.some()` derivation over the whole `decisionHistory` [src/domain/recognition/recognitionRules.ts:69] — deferred to **Story 5.1**, per D2: changing it refuses records saved with the flag true unless it ships with version-gated recomputation, which is 5.1's record-recompute scope
+- [x] [Review][Defer] Nothing automated observes the real crop — the only height check is an in-page greedy-wrap model at 1.35x that the docstring itself says disagrees with Phaser's ~1.2x line box, the unit harness stubs `measureText` as `value.length * 7`, and `grep setCrop tests/` finds only docstrings [tests/e2e/french-typography.spec.ts:1179] — deferred, needs a real measurement mechanism
+- [x] [Review][Defer] `chooseThePrediction`'s `colleagueIndex` default of 3 is a positional literal, valid in both shipped cases today (`samuel-hart`, `nils-abrahamsen`), with no prediction sibling to `colleagueIndexForConclusion` [tests/e2e/canvasHelpers.ts:1018] — deferred, latent not broken
+- [x] [Review][Defer] `walkToTheBoard` still defaults `caseId = YOUNG_CASE`; SS7's claim that Story 4.1's review made it required is wrong [tests/e2e/canvasHelpers.ts:1245] — deferred, pre-existing
+
+#### Dismissed (7)
+
+Recorded so the same ground is not re-reviewed: temporal-dead-zone on `CASE_FILE_ISSUES_HEIGHT` (constants at `:78`/`:90`, use at `:237` - fine); missing `YOUNG_CASE` imports in `canvas-transitions`/`scene-router` (present at `:18`/`:19`); `caseFileContentFits` having no live assertion (it has one, `CaseFileGeometry.test.ts:154`); `presentColleagueIds` diverging from the rendered stage (verified sound - the production function is reused, MM synthesis slot 3 is `harriet-lowe`); `YOUNG_THROW` divergence (`canvasHelpers.ts:833` and the spec's `:75` are byte-identical); debrief source-row wrap width under-measured (`debriefSourceRowBand` equals `debriefLeftTextWrap`; rows measured 36/36 exact); the 83-e2e claim (83 confirmed to exist, 12 sampled green - not a defect).
+
+Also verified sound and worth recording: the `isPrototype`/`isYoung` version-namespace does not leak Young's 1.7.0 clause to the prototype; the allowlist covers every shipped version with no gap; `evaluatePeerReview` and `conclusionReadiness.ts` are comment-only changes (zero behaviour change); both recomputation walks pass the same evidence shape, so no copy-edit-rejects-every-record trap; three simultaneous issues are genuinely unreachable, so the two-issue worst case is correct; the composed-line character counts are right (Young 204/234, MM 162/184); detection reads `.en` only in both locales and the FR phrase half is dead exactly as documented; the reworded claim trips exactly one rule on exactly one proposal; a hand-edited 1.7.0 record claiming zero issues on the new text is refused as `invalid-case-record`.
 
 ## Dev Notes
 
@@ -1026,9 +1109,16 @@ rather than refusing the record.
 **A correction to AC1's third clause, found while checking it.** AC1 states that
 `validateCaseRecordForDefinition` "checks only `completion.recognition.version === 1` and never
 recomputes the flags". That is **false**: the flags *are* recomputed and compared, in both walks —
-`deriveRecognition(definition, completion)` compared per item at `CaseRecordSchema.ts:785-789`, and
-`deriveRecognition(definition, record)` at `:800-804`. The version check at `:728` is a separate,
-additional guard.
+`deriveRecognition(definition, completion)` compared per item against `completion.recognition.items`
+inside the `if (record.completion)` block, and `deriveRecognition(definition, record)` compared per item
+against `record.recognition.items` in the live walk just below it. `completion.recognition.version !== 1`
+is a separate, additional guard.
+
+Cited by symbol rather than by line, because the addresses first written here (`:785-789`, `:800-804`,
+`:728`) were already stale when the story was recorded and drifted twice more afterwards — once from this
+story's own 55-line clause insertion and again from its code review's migration comment. At the review
+commit they are `:890-894`, `:905-907` and `:833`; a `grep -n deriveRecognition` is the durable form of
+this reference and is what a reader should use.
 
 The conclusion AC1 draws is nevertheless correct, for a different reason, and this is the reason that
 gets written down: `deriveRecognition`'s `calibrated-conclusion` reads the **persisted**
@@ -1158,7 +1248,8 @@ the single-action discipline Story 3.4's severest finding bought.
 
 **AC1's third clause is wrong about the mechanism, and the correction is load-bearing.** It states that
 `validateCaseRecordForDefinition` "never recomputes the [recognition] flags". It does — per completion
-item at `CaseRecordSchema.ts:785-789` and per live item at `:800-804`. AC1's *conclusion* still holds, by
+item and per live item — both `deriveRecognition` call sites in `CaseRecordSchema.ts`, found by grep
+rather than by the line numbers this record first carried. AC1's *conclusion* still holds, by
 a different route: `deriveRecognition` reads the **persisted** `decisionHistory[].feedback.issues.length`
 rather than re-running `evaluatePeerReview`, so a saved record's stored zero-issue feedback still derives
 the flag it was saved with. The guarantee is "recognition is derived from stored feedback", not
@@ -1211,8 +1302,10 @@ a browser.**
   Results — **debrief comparison band: 129px of 152px, and the margin is the second title line** the reserve
   budgets and the longest French title does not use (so the band holds the content; nothing was authored
   down). **Cited-source rows: 36px of 36px**, exact by construction, both cases, both locales.
-  **Peer-review pane: the reserve was too small and is grown** — see below. Plus six by-eye frames at
-  1280×720 in EN and FR, each with a committed spec and a printed output path.
+  **Peer-review pane: the reserve was too small and is grown** — see below. Plus **eight** by-eye frames at
+  1280×720 — four captures in each of EN and FR — each with a committed spec and a printed output path.
+  (Recorded as "six" until this story's code review re-ran the spec and counted the PNGs; the deliverable
+  exceeded the claim, and `deferred-work.md` said "four".)
 - **AC5 — the one band that did not hold, and what was done about it.** `CASE_FILE_ISSUES_HEIGHT` was a bare
   `106`, holding six authored-size lines. Morley–Miller's worst reachable pair is six; **Young's is eight**,
   so the shared band was sized to its shorter tenant and the clamp shrank the *validated* case's pane on a
@@ -1245,8 +1338,15 @@ a browser.**
   player is asserted, not promised**: a 1.6.0 record loads, keeps its investigation, and loses only the
   highlighted card.
 - **AC9 — all eighteen deferred rows closed or re-owned by name.** Four closed, fourteen re-owned; no row
-  still says Story 4.3. Table below. Four new items opened, each with a named owner, and four checked-and-
-  left-alone recorded so the pass over them is traceable.
+  still says Story 4.3. Table below. **Three** new items opened, each with a named owner, and four
+  checked-and-left-alone recorded so the pass over them is traceable. (Recorded as "four" until this
+  story's code review counted the bullets; the *checked-and-left-alone* half is four, which is where the
+  number came from.)
+
+  Its code review found the re-ownership specific but unschedulable — eleven of the fourteen rows named
+  five `spec-*.md` files that did not exist and appeared in no tracker — and registered all five in
+  `sprint-status.yaml` as `backlog` on Alexis's call, which is what makes this clause true rather than
+  merely worded.
 - **Two findings for Alexis that are not this story's to fix.** Young's `conclusion-universal-optics` has the
   identical unreachable-overreach defect, and it is *worse* there: `inquiry-recognition.spec.ts` drives
   exactly that conclusion, so it has been earning a calibrated-conclusion recognition on an undefendable
@@ -1399,7 +1499,8 @@ work (a missing `predicate` field and three template-literal index types from wi
 | Date | Version | Description | Author |
 |---|---|---|---|
 | 2026-08-21 | 0.1 | Story context created — Epic 4's closing story | Context engine |
-| 2026-08-21 | 1.0 | Implemented. D1 (option A, no phrase-set change) makes the authored `peer-overreach` refusal fire on `conclude-ether-disproved`, so `calibrated-conclusion` is withheld from a reviewed overclaim (NFR8). D2 (option A) re-states the `limitation` requirement's real scope with the refusal named as the post-choice mechanism. `case.json` 1.7.0 + its `CaseRecordSchema` allowlist clause + `sw.js` v16 in one commit. `walkToDebrief` case- and conclusion-parameterised, beat count and stage seat derived from the case (the seat via the production `presentColleagueIds`, after `colleagues[]` order proved wrong on this board). Three bands measured in a browser: the debrief comparison band holds at 129/152px and the cited-source rows at 36/36px, so nothing was authored down; `CASE_FILE_ISSUES_HEIGHT` grew 106 → 120 (derived) because Young's 8-line French pair was surviving on the gap between Phaser's ~1.2x line box and the reserve's 1.35x. 18 deferred rows triaged (4 closed, 14 re-owned), 4 opened. 9 mutation proofs; 2 of §SS10's were unreachable behind a schema refusal and were re-proved. Gates: typecheck clean, 1650 unit/85 files, 83 e2e, both builds, typecheck:tests 105/59 unchanged | Claude Opus 5 (dev) |
+| 2026-08-21 | 1.1 | Code-reviewed (three parallel layers over `3b30876..ced3455`). 47 raw findings triaged to 5 decisions (all resolved by Alexis), 28 patches applied, 4 deferred, 7 dismissed. **The Critical finding was a saved-record route to the reward NFR8 forbids:** a returning 1.6.0 player kept the pre-edit conclusion text, which matches none of the five authored phrases, so they were reviewed clean *at 1.7.0* and earned `calibrated-conclusion` for declaring the ether disproved — the 1.7.0 clause stated that as its safety property ("what a returning player loses is the highlighted card, and nothing else"). D1: the draft is now **migrated forward** and the card kept, version-gated so a same-version mismatch is still tampering and still drops the attribution. D2: `calibrated-conclusion` is `.some()` over the whole `decisionHistory`, so clean-then-overclaim keeps the reward in fresh 1.7.0 play — the false claim is corrected here and the derivation re-owned to Story 5.1, because changing it refuses records saved with the flag true unless it ships version-gated. D3: the grown band spends the panel's last 14px (headroom now 0) and its 8-line guarantee holds only at the 11px floor — accepted, stated honestly. D4: the printed conclusion was canonical English for a French reader on the one surface AC7 names — now resolved by `conclusionProposalId`. D5: 11 of 14 re-owned rows named five spec stories that did not exist — registered in `sprint-status.yaml`, closing AC9 to MET. The recurring defect class recurred for the seventh story: three docstrings still quoted `CASE_FILE_ISSUES_HEIGHT = 106` while the test printed `(band 120px)`, `sw.js` v16 justified itself with cache-mixing a network-first worker cannot do, `STEADY_BATH_C` was the literal its own docstring named the failure of (now `STABLE_WINDOW_C`), and row 311 was closed by a re-statement never written (now written). Nine assertions that could not discriminate were repaired, including a French-reader test that ran both assertions on English stores and four capture tests that photographed whatever was there. Gates re-run: typecheck clean, 1652 unit/85 files, typecheck:tests 105/59 at the ceiling, both builds, 85/85 e2e on chromium. | Claude Opus 5 (review) |
+| 2026-08-21 | 1.0 | Implemented. D1 (option A, no phrase-set change) makes the authored `peer-overreach` refusal fire on `conclude-ether-disproved`, so `calibrated-conclusion` is withheld from a reviewed overclaim (NFR8). D2 (option A) re-states the `limitation` requirement's real scope with the refusal named as the post-choice mechanism. `case.json` 1.7.0 + its `CaseRecordSchema` allowlist clause + `sw.js` v16 in one commit. `walkToDebrief` case- and conclusion-parameterised, beat count and stage seat derived from the case (the seat via the production `presentColleagueIds`, after `colleagues[]` order proved wrong on this board). Three bands measured in a browser: the debrief comparison band holds at 129/152px and the cited-source rows at 36/36px, so nothing was authored down; `CASE_FILE_ISSUES_HEIGHT` grew 106 → 120 (derived) because Young's 8-line French pair was surviving on the gap between Phaser's ~1.2x line box and the reserve's 1.35x. 18 deferred rows triaged (4 closed, 14 re-owned), 3 opened. 9 mutation proofs over **7 distinct guards** — rows 1, 8 and 9 all mutate the same `claim.en` revert against three different tests, which §SS10 #9 asked for and which the code review noted so the count is not read as seven independent guards plus two; 2 of §SS10's were unreachable behind a schema refusal and were re-proved. Gates: typecheck clean, 1650 unit/85 files, 83 e2e, both builds, typecheck:tests 105/59 unchanged | Claude Opus 5 (dev) |
 
 ## Open Questions for Alexis
 

@@ -645,6 +645,17 @@ export const benchObjectBands = (controls: readonly PrimaryControl[]): readonly 
  * happened to ship, and the check that the chooser clears the readout below would pass for a reason
  * that has nothing to do with the layout holding. A case authoring more than this is a layout change,
  * and the geometry test is where it should be noticed.
+ *
+ * **It stays three even for a case that draws nothing here, and that is safe rather than merely
+ * tolerated.** The Morley–Miller prototype authors no `experiment.wavelengthComparison`, so this band
+ * reserves roughly 250 × 150 px that nothing fills. A *conservative* reserve — space claimed and left
+ * empty — cannot produce the defect the layout sweep exists to catch, which is a band measured **smaller
+ * or elsewhere** than what is actually drawn. Only the opposite direction is dangerous, and per-case
+ * shrinking would move this constant into that direction while also making the clears-the-readout check
+ * pass for a reason unrelated to the layout holding.
+ *
+ * Stated here because `deferred-work.md`'s row closing this question said it had been — and it had not.
+ * Story 4.3's code review found the closure resting on a re-statement that was never written.
  */
 export const WAVELENGTH_CHOICE_COUNT_BOUND = 3;
 

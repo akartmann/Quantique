@@ -457,23 +457,30 @@ describe('the prototype played through the shared framework', () => {
      *
      * 1.7.0 moves `conclude-ether-disproved.claim.en`, and a record saved against 1.6.0 holds the old
      * text. The allowlist accepts the version, so the question is what happens next — and the answer has
-     * to be the repair the 1.4.0 clause's reasoning demands, not a refusal: `attachAutosave` saves on the
-     * first dispatch of the recovered session, so a rejection here would *overwrite* the investigation it
-     * rejected.
+     * to be a repair rather than a refusal: `attachAutosave` saves on the first dispatch of the recovered
+     * session, so a rejection here would *overwrite* the investigation it rejected.
      *
-     * So: the record loads, `selectedConclusionProposalId` is **sanitized away** because the ID no longer
-     * describes the text beside it, and everything the player actually did survives. The card stops being
-     * drawn as chosen and re-choosing it costs one click.
+     * **The repair is a migration, not a sanitization**, and Story 4.3's code review is why. Dropping
+     * `selectedConclusionProposalId` and leaving the retired text in place — which is what this clause
+     * originally did, and what this test originally asserted — left `theory.conclusion` holding
+     * *"…has settled the matter for good."*, which matches none of the authored `peer-overreach` phrases.
+     * A returning player therefore asked for review **at 1.7.0**, was told the conclusion was sound, and
+     * earned `calibrated-conclusion` for declaring the ether disproved: the reward NFR8 forbids by name,
+     * reached through the saved record instead of through play. So the draft is brought forward to the
+     * current authored text and the card is **kept** — after the rewrite the ID's claim about provenance
+     * is true again, which is the misattribution this branch exists to prevent.
      *
      * **Named change that breaks this:** turning the `proposal.claim.en !== record.theory.conclusion`
-     * branch in `CaseRecordSchema.ts` from a sanitization into a `failure(...)` — which is precisely the
-     * shape that discarded a completed prototype record on every reload in Story 3.2.
+     * branch in `CaseRecordSchema.ts` back into a `sanitized = { ...sanitized, selectedConclusionProposalId:
+     * undefined }`, or into a `failure(...)` — the latter being precisely the shape that discarded a
+     * completed prototype record on every reload in Story 3.2.
      *
-     * The counterpart in the other direction — that the recomputed peer-review issues still match what a
-     * 1.6.0 record persisted — is asserted in `MorleyMillerConclusion.test.ts`, where the evaluator is the
-     * subject.
+     * The end of the argument — that the migrated draft actually *does* trip `overreach`, where the
+     * retired text did not — is asserted in `MorleyMillerConclusion.test.ts`, where the evaluator is the
+     * subject. The sibling below pins the other half: that a same-version mismatch is still tampering and
+     * still drops the card.
      */
-    it('keeps a 1.6.0 investigation and drops only the stale conclusion card', async () => {
+    it('keeps a 1.6.0 investigation and migrates the stale conclusion draft forward', async () => {
         const definition = await loadPrototype();
         const overclaim = definition.conclusionProposals.find(({ id }) => id === 'conclude-ether-disproved');
         if (!overclaim) throw new Error('The case must author conclude-ether-disproved.');
@@ -502,12 +509,55 @@ describe('the prototype played through the shared framework', () => {
         expect(restored.ok).toBe(true);
         if (!restored.ok) return;
 
-        // The card is gone; the draft, the reading and the phase are not.
-        expect(restored.value.selectedConclusionProposalId).toBeUndefined();
-        expect(restored.value.theory.conclusion).toBe(PRE_EDIT_CLAIM_EN);
+        // The card is kept and the draft is brought forward; the reading and the phase are untouched.
+        expect(restored.value.selectedConclusionProposalId).toBe(overclaim.id);
+        expect(restored.value.theory.conclusion).toBe(overclaim.claim.en);
+        expect(restored.value.theory.conclusion).not.toBe(PRE_EDIT_CLAIM_EN);
         expect(restored.value.theory.limitation).toBe(overclaim.limitation.en);
         expect(restored.value.inspectedSourceIds).toEqual(['michelson-morley-1887']);
         expect(restored.value.phase).toBe('context');
+    });
+
+    /**
+     * **The other half of the version gate: a same-version mismatch is tampering, and still drops the
+     * card.**
+     *
+     * The migration above is keyed on `record.caseDefinitionVersion !== definition.version`, because that
+     * is the only evidence in the record that distinguishes an authored copy edit from a hand-edited file.
+     * Without the gate, migrating unconditionally would silently rewrite a tampered conclusion to the
+     * authored text for every case — including Young — and quietly retire the cross-cutting contract
+     * `CaseRecordSchema.test.ts` holds ("keeps a record carrying a conclusion whose claim no longer
+     * matches its proposal, dropping only the stale attribution").
+     *
+     * **Named change that breaks this:** dropping the `record.caseDefinitionVersion === definition.version`
+     * condition, which turns this assertion red and leaves the 1.6.0 test above green.
+     */
+    it('still drops the card when the text was hand-edited at the current version', async () => {
+        const definition = await loadPrototype();
+        const overclaim = definition.conclusionProposals.find(({ id }) => id === 'conclude-ether-disproved');
+        if (!overclaim) throw new Error('The case must author conclude-ether-disproved.');
+
+        const store = createStore(createInitialAppState(definition, 'en'));
+        store.dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
+        const projected = createCaseRecordProjection(store.getState());
+        expect(projected.ok).toBe(true);
+        if (!projected.ok) return;
+
+        const tampered = {
+            ...projected.value,
+            caseDefinitionVersion: definition.version,
+            selectedConclusionProposalId: overclaim.id,
+            theory: { ...projected.value.theory, conclusion: 'Hand-edited afterwards.', limitation: overclaim.limitation.en }
+        };
+
+        const restored = validateCaseRecordForDefinition(tampered, definition);
+        expect(restored.ok).toBe(true);
+        if (!restored.ok) return;
+
+        // The attribution goes, the text stays: nothing is put in a colleague's mouth, and nothing the
+        // player did is discarded.
+        expect(restored.value.selectedConclusionProposalId).toBeUndefined();
+        expect(restored.value.theory.conclusion).toBe('Hand-edited afterwards.');
     });
 
     it('refuses a record that still names the retired artifact, as incompatible rather than invalid', async () => {

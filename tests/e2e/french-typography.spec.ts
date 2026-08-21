@@ -553,7 +553,8 @@ type ShippedCase = {
     }[];
     // The peer-review prose, which this sweep measured for **neither** case until Story 4.3 (AC5). Grep
     // the file at `4b2b60f` for `peerReview`, `feedback` or `revisionPath` and it returns nothing — while
-    // the pane it lands in is a 106px shrink-then-crop surface holding up to two composed lines of it.
+    // the pane it lands in is a 120px shrink-then-crop surface holding up to two composed lines of it.
+    // (It was 106px when this sweep was written; the same story grew it. See `CASE_FILE_ISSUES_HEIGHT`.)
     peerReviewRules: { id: string; predicate: { kind: string }; feedback: { en: string; fr: string }; revisionPath: { en: string; fr: string } }[];
 };
 
@@ -761,7 +762,7 @@ const CONSULTATION_LAYERS = SHIPPED_CASES.flatMap(({ caseId, definition }) =>
  * by a single authored token should name the authored string, and one broken only in composition should
  * name the composition.
  *
- * The pane is `CASE_FILE_ISSUES_HEIGHT` = 106px at `CASE_FILE_META_FONT_SIZE` across
+ * The pane is `CASE_FILE_ISSUES_HEIGHT` = 120px at `CASE_FILE_META_FONT_SIZE` across
  * `CASE_FILE_RIGHT_COLUMN_WIDTH` = 372px, and it **shrinks toward a floor and then crops**, with nothing
  * failing anywhere — the same clamp the consultation block uses, which is why the two are swept the same
  * way. Composed French lengths, measured rather than guessed: Morley–Miller's `peer-missing-evidence` 162
@@ -1165,13 +1166,18 @@ test('keeps the debrief prose, the consultation layers and the peer-review prose
  *
  * ## What it found
  *
- * Recorded here because the numbers are the point of the assertion. At `CASE_FILE_ISSUES_HEIGHT` = 106
- * and the authored 12px, `caseFileLineHeight` gives 17, so **six lines fit and seven do not**.
- * Morley–Miller's French pair wraps to six — 102px, four to spare, and it renders at the authored size.
- * **Young's wraps to more**, because its composed lines are 204 and 234 French characters against this
- * case's 162 and 184, so Young's pane shrinks below the authored size to fit. That is the shared band
- * being sized to its shorter tenant, and it is why this asserts a *fit at some size* per case and reports
- * the size each one needs, rather than asserting the authored size and going red on the validated case.
+ * Recorded here because the numbers are the point of the assertion — and they are the numbers **after**
+ * the same story grew the band, which this docstring got wrong until the code review caught it. At
+ * `CASE_FILE_ISSUES_HEIGHT` = 120 and the authored 12px, `caseFileLineHeight` gives 17, so **seven lines
+ * fit and eight do not**. Morley–Miller's French pair wraps to six — 102px, **eighteen** to spare, and it
+ * renders at the authored size. **Young's wraps to eight**, because its composed lines are 204 and 234
+ * French characters against this case's 162 and 184, so Young's pane shrinks to the 11px floor to fit:
+ * 8 × 15 = 120 of 120, with nothing to spare, and its English pair 119 of 120.
+ *
+ * That is the shared band being sized to its *taller* tenant, which is the correction — it was sized to
+ * the shorter one at 106 — and it is why this asserts a *fit at some size* per case and reports the size
+ * each one needs, rather than asserting the authored size and going red on the validated case. The test's
+ * own output prints the band width, so a reader never has to trust this paragraph over the run.
  *
  * **Named change that breaks this:** lowering `CASE_FILE_ISSUES_HEIGHT`, or authoring either case's
  * `feedback` / `revisionPath` longer, until the worst pair no longer fits even at the floor.
@@ -1265,13 +1271,25 @@ test('fits the worst peer-review pair ordinary play can reach inside the pane, i
     // telling them what to change, which is the one thing this surface exists to say.
     expect(fitted.filter(({ reachable, cropped }) => reachable && cropped).map(({ label }) => label)).toEqual([]);
 
-    // The unreachable full set is reported rather than asserted — but the *reporting* is guarded, so a
-    // future third reachable code cannot slip in as an unasserted row.
-    const overflowing = fitted.filter(({ cropped }) => cropped).map(({ label }) => label);
-    expect(overflowing.every((label) => label.includes('every authored issue'))).toBe(true);
+    // The unreachable full set is reported rather than asserted. The guard on that reporting used to be
+    // `expect(overflowing.every(...)).toBe(true)`, which Story 4.3's code review found doing nothing twice
+    // over: `every` on an empty array is `true`, so it was vacuous in the expected state where nothing
+    // crops, and it *whitelisted* the very thing it claimed to catch — a future third reachable code can
+    // only ever appear inside the `every authored issue` row, because `reachablePair` is hard-coded to
+    // `missing-evidence` and `overreach`. So the reachable set is derived from the authored rules instead,
+    // and a third reachable code fails here rather than slipping in as an unasserted row.
+    const authoredReachableCodes = SHIPPED_CASES.flatMap(({ definition }) =>
+        definition.peerReviewRules
+            .filter(({ predicate }) => predicate.kind === 'overreach' || predicate.kind === 'missing-evidence')
+            .map(({ predicate }) => predicate.kind));
+    expect(authoredReachableCodes.length).toBeGreaterThan(0);
+    expect([...new Set(authoredReachableCodes)].sort()).toEqual(['missing-evidence', 'overreach']);
 
-    // Floors, so a sweep that stopped generating samples could not pass: both cases, both locales, and
-    // both combinations.
+    // Floors, so a sweep that stopped generating samples could not pass. `SHIPPED_CASES.length * n` is
+    // the shape `combinations` is *built* from, so on its own it holds for any content whatsoever —
+    // including none. The absolute lower bound is what makes these discriminate.
+    expect(SHIPPED_CASES.length).toBeGreaterThanOrEqual(2);
+    expect(fitted.length).toBeGreaterThanOrEqual(8);
     expect(fitted.filter(({ reachable }) => reachable)).toHaveLength(SHIPPED_CASES.length * 2);
     expect(fitted.length).toBe(SHIPPED_CASES.length * 4);
 });
@@ -1385,7 +1403,12 @@ test('fits the debrief comparison band and its cited-source rows, in both locale
 
     expect(comparisonOverflowing).toEqual([]);
     expect(rowOverflowing).toEqual([]);
-    // Floors: both cases, both locales, and two cited sources per case.
+    // Floors: both cases, both locales, and two cited sources per case. The `SHIPPED_CASES.length * n`
+    // forms restate how `measured` is generated and hold at zero samples, so each is paired with an
+    // absolute bound — the correction Story 4.3's code review asked for, matching what this file already
+    // does elsewhere with `expect(authored.length).toBeGreaterThan(0)`.
+    expect(measured.comparisons.length).toBeGreaterThanOrEqual(4);
+    expect(measured.rows.length).toBeGreaterThanOrEqual(8);
     expect(measured.comparisons).toHaveLength(SHIPPED_CASES.length * 2);
     expect(measured.rows).toHaveLength(SHIPPED_CASES.length * 2 * 2);
 });

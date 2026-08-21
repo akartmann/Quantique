@@ -3,19 +3,22 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { debriefAdvanceControlCentre } from '../../src/adapters/phaser/scenes/debriefGeometry';
 import {
     caseFileObservationPinCentre,
-    caseFileRequestControlCentre
+    caseFileRequestControlCentre,
+    caseFileSaveControlCentre
 } from '../../src/adapters/phaser/renderers/caseFileGeometry';
-import { advanceControlCentreOnBoard, caseFileOpenControlCentre } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
+import { caseFileOpenControlCentre } from '../../src/adapters/phaser/renderers/ColleagueRenderer';
 import {
     DESIGN_HEIGHT,
     DESIGN_WIDTH,
     WALK_TO_DEBRIEF_COST_MS,
     canvas,
+    caseContent,
     clickDesign,
     completionSnapshot,
     expectActiveScene,
     pinTheSupport,
     recordedObservations,
+    recordedRevisions,
     varyingInstrument,
     waitForInputToSettle,
     walkToDebrief,
@@ -152,6 +155,23 @@ test('reaches the debrief on the overclaim as well, because a refusal is never a
  * once would need an `unsupported-support` code, which ordinary play cannot produce because there is no
  * way to delete a recorded run.
  */
+/**
+ * One authored peer-review rule's feedback, in the reader's language, read from `case.json`.
+ *
+ * Read rather than written, so an authored copy edit moves the expectation with the content instead of
+ * turning a spec red for saying what the case used to say.
+ */
+const authoredFeedback = (caseId: string, kind: string, locale: 'en' | 'fr'): string => {
+    // `WalkableCase` deliberately narrows to what the walk needs, and peer-review prose is not part of
+    // it, so the rules are read here with a local shape rather than by widening the shared type.
+    const { peerReviewRules } = caseContent(caseId) as unknown as {
+        peerReviewRules: readonly { predicate: { kind: string }; feedback: { en: string; fr: string } }[];
+    };
+    const rule = peerReviewRules.find(({ predicate }) => predicate.kind === kind);
+    if (!rule) throw new Error(`The authored case ${caseId} must carry a ${kind} peer-review rule.`);
+    return rule.feedback[locale];
+};
+
 const atReviewWithIssues = async (
     page: Page,
     unpinOne: boolean,
@@ -162,10 +182,19 @@ const atReviewWithIssues = async (
     await walkToTheBoard(page, caseId, instrument);
     await pinTheSupport(page, caseId, conclusionProposalId);
 
-    // `synthesis → review`. The board hosts both phases, so the scene deliberately does not change; that
-    // the phase moved is proven by the pane below answering at all, since peer review is refused outside
-    // `review`.
-    await clickDesign(page, advanceControlCentreOnBoard('conclusion'));
+    // **`pinTheSupport` has already advanced `synthesis → review`** — its last two statements are this same
+    // click and this same scene assertion. The duplicate that stood here was refused rather than harmful:
+    // at `review` the board's advance control is `advance.closeTheCase`, and `case.debriefCompleted` is
+    // refused until a reviewed revision has been saved, so the second click reached a control that said no.
+    // Removed by Story 4.3's code review, which found it while proving what the capture tests below
+    // actually guarantee.
+    //
+    // **What guarantees the pane has answered is `records both standing issues…` below, not this walk.**
+    // The four capture tests assert nothing at all — `capture(...)` photographs whatever is there — so
+    // without that test a refused `peerReview.requested` would paint an empty pane and every capture would
+    // still pass while writing a PNG named for two standing issues. The assertion test drives this same
+    // helper and reads the reviewers' answer out of the printable record, so the shared walk is pinned by
+    // an assertion instead of by a filename.
     await expectActiveScene(page, 'TheoryBoard');
 
     await clickDesign(page, caseFileOpenControlCentre());
@@ -190,7 +219,7 @@ const atReviewWithIssues = async (
  * Four frames, both locales, 1280×720 — the viewport `project-context.md` names.
  */
 for (const locale of ['en-GB', 'fr-FR'] as const) {
-    const tag = locale.slice(0, 2);
+    const tag: 'en' | 'fr' = locale.startsWith('fr') ? 'fr' : 'en';
 
     test.describe(`AC5 by eye: the debrief bands in ${tag}`, () => {
         test.use({ viewport: { width: 1280, height: 720 }, locale });
@@ -212,6 +241,43 @@ for (const locale of ['en-GB', 'fr-FR'] as const) {
 
     test.describe(`AC5 by eye: the peer-review pane in ${tag}`, () => {
         test.use({ viewport: { width: 1280, height: 720 }, locale });
+
+        /**
+         * **What makes the four capture tests below trustworthy**, and the only test in this describe
+         * that can fail on the state rather than on the pixels.
+         *
+         * `atReviewWithIssues` ends with a `peerReview.requested` click, which the reducer **refuses**
+         * outside `review`. So if the `synthesis → review` advance were ever missed, the pane would be
+         * empty and the captures would go on passing, because a `capture(...)` call asserts nothing. This
+         * drives the identical helper and then reads the reviewers' answer out of the printable record —
+         * `print.history.item` composes it through `localizedFeedback`, resolved by `ruleId` — so the
+         * shared walk is pinned by an assertion instead of by a filename.
+         *
+         * Both codes, by their authored prose in the reader's own language: `overreach` because the
+         * adopted conclusion is the overclaim, and `missing-evidence` because `unpinOne` removed one of
+         * the two supporting observations, which is the worst pair ordinary play can reach.
+         *
+         * **Named change that breaks this:** removing the advance click from `atReviewWithIssues`, or
+         * reverting D1's claim reword so `peer-overreach` stops matching.
+         */
+        test(`records both standing issues the captured pane shows [${tag}]`, async ({ page }) => {
+            test.slow();
+
+            await atReviewWithIssues(page, true);
+
+            // Saving is what writes the reviewed revision into `decisionHistory`; the pane the captures
+            // photograph is the same evaluation, one dispatch earlier.
+            await clickDesign(page, caseFileSaveControlCentre(DESIGN_WIDTH));
+            await waitForInputToSettle(page);
+
+            const overreach = authoredFeedback(MORLEY_MILLER, 'overreach', tag);
+            const missingEvidence = authoredFeedback(MORLEY_MILLER, 'missing-evidence', tag);
+
+            await expect(recordedRevisions(page)).toHaveCount(1);
+            const revision = await recordedRevisions(page).first().textContent();
+            expect(revision, `expected the ${tag} overreach prose in the recorded revision`).toContain(overreach);
+            expect(revision, `expected the ${tag} missing-evidence prose`).toContain(missingEvidence);
+        });
 
         test(`captures the case file at review with one issue standing [${tag}]`, async ({ page }, testInfo) => {
             test.slow();
