@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test';
 
 import { en } from '../../src/core/i18n/locales/en';
 import { fr } from '../../src/core/i18n/locales/fr';
+import { MORLEY_MILLER_CASE_ID } from '../../src/schemas/CaseDefinitionSchema';
+import { readShippedCaseFile } from '../shippedCases';
 import {
     PROGRESS_DATABASE_NAME,
     PROGRESS_DATABASE_VERSION,
@@ -24,6 +26,14 @@ const recordedPrediction = (page: import('@playwright/test').Page) =>
         .getByRole('definition');
 
 const THEA_PORTRAIT_PATH = '/cases/young-interference/assets/characters/thea-young.png';
+
+/** Read the shipped manifest so this offline gate cannot quietly become a stale hand-written roster. */
+const morleyPortraitPaths = async (): Promise<readonly string[]> => {
+    const manifest = JSON.parse(await readShippedCaseFile(MORLEY_MILLER_CASE_ID, 'asset-manifest.json')) as {
+        entries: readonly { id: string; path: string }[];
+    };
+    return manifest.entries.filter(({ id }) => id.endsWith('-portrait')).map(({ path }) => path);
+};
 
 /** Waits on the serialized autosave itself instead of guessing how long IndexedDB needs. */
 const waitForSavedBoardProgress = (page: import('@playwright/test').Page) => page.waitForFunction(async ({ databaseName, databaseVersion, storeName }) => {
@@ -184,6 +194,36 @@ test('restores canvas-recorded progress after an offline reload, with no manual 
     await expect(recordedPrediction(page)).toHaveText(savedPrediction!);
     await expect(recordedComparisonNotes(page)).toHaveCount(1);
     await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', 'TheoryBoard');
+});
+
+test('warms every Morley portrait before its routed scene starts offline', async ({ page, context }) => {
+    const portraitPaths = await morleyPortraitPaths();
+    expect(portraitPaths).toHaveLength(5);
+
+    await gotoCase(page, MORLEY_MILLER_CASE_ID);
+    await expect(page.getByRole('button', { name: en['boot.enter'] })).toBeVisible();
+    await page.waitForFunction(async () => {
+        await navigator.serviceWorker.ready;
+        return navigator.serviceWorker.controller !== null;
+    });
+
+    const onlineResponses = portraitPaths.map((path) => page.waitForResponse((response) =>
+        new URL(response.url()).pathname === path && response.status() === 200
+    ));
+    await page.reload();
+    await Promise.all(onlineResponses);
+    await expect(page.getByRole('button', { name: en['boot.enter'] })).toBeVisible();
+
+    await context.setOffline(true);
+    const offlineResponses = portraitPaths.map((path) => page.waitForResponse((response) =>
+        new URL(response.url()).pathname === path && response.status() === 200
+    ));
+    await page.reload();
+    const warmedResponses = await Promise.all(offlineResponses);
+    expect(warmedResponses.every((response) => response.fromServiceWorker())).toBe(true);
+
+    await page.getByRole('button', { name: en['boot.enter'] }).click();
+    await expect(page.locator('#game-container')).toHaveAttribute('data-active-scene', 'Library');
 });
 
 test('loads the cached validation route after an online warm-up without progress controls', async ({ page, context }) => {

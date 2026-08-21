@@ -188,6 +188,7 @@ export const fr: Record<TranslationKey, string> = {
     'ledger.decision.clear': 'Autorisation de diffusion : accordée. Plus rien ne bloque : chaque source, chaque ressource et chaque rôle de relecture ci-dessous est vérifié.',
     'ledger.blockers.title': 'Ce qui bloque la diffusion',
     'ledger.blockers.none': 'Rien ne bloque la diffusion.',
+    'ledger.blocker.rowReference': 'voir',
     'ledger.blocker.source-rights-incomplete': 'Les droits de la source ne sont pas vérifiés : {subject}',
     'ledger.blocker.asset-rights-incomplete': 'Les droits de la ressource ne sont pas vérifiés : {subject}',
     'ledger.blocker.content-author-unrecorded': 'Aucun auteur du contenu n’est consigné comme ayant relu ce dossier : {subject}',

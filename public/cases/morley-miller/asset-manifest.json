@@ -1,5 +1,5 @@
 {
-  "manifestVersion": "1.2.0",
+  "manifestVersion": "1.3.0",
   "entries": [
     {
       "id": "quantique-logo",
@@ -14,6 +14,101 @@
         },
         "reviewerState": "pending",
         "provenanceReference": "docs/source-rights/quantique-shared-assets.md"
+      }
+    },
+    {
+      "id": "edith-vance-portrait",
+      "type": "image",
+      "path": "/cases/morley-miller/assets/characters/edith-vance.png",
+      "rights": {
+        "holderOrOrigin": "Quantique project",
+        "status": "incomplete",
+        "claimOrUse": {
+          "en": "Generated derivative; fictional colleague portrait of Dr. Edith Vance, shown beside her dialogue.",
+          "fr": "Dérivé généré ; portrait de collègue fictive, la docteure Edith Vance, affiché à côté de ses répliques."
+        },
+        "reviewerState": "pending",
+        "provenanceReference": "docs/validation/morley-miller-character-assets.md",
+        "replacementPlan": {
+          "en": "Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.",
+          "fr": "L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique."
+        }
+      }
+    },
+    {
+      "id": "tomas-reyes-portrait",
+      "type": "image",
+      "path": "/cases/morley-miller/assets/characters/tomas-reyes.png",
+      "rights": {
+        "holderOrOrigin": "Quantique project",
+        "status": "incomplete",
+        "claimOrUse": {
+          "en": "Generated derivative; fictional colleague portrait of Tomás Reyes, shown beside his dialogue.",
+          "fr": "Dérivé généré ; portrait de collègue fictif, Tomás Reyes, affiché à côté de ses répliques."
+        },
+        "reviewerState": "pending",
+        "provenanceReference": "docs/validation/morley-miller-character-assets.md",
+        "replacementPlan": {
+          "en": "Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.",
+          "fr": "L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique."
+        }
+      }
+    },
+    {
+      "id": "harriet-lowe-portrait",
+      "type": "image",
+      "path": "/cases/morley-miller/assets/characters/harriet-lowe.png",
+      "rights": {
+        "holderOrOrigin": "Quantique project",
+        "status": "incomplete",
+        "claimOrUse": {
+          "en": "Generated derivative; fictional colleague portrait of Harriet Lowe, shown beside her dialogue.",
+          "fr": "Dérivé généré ; portrait de collègue fictive, Harriet Lowe, affiché à côté de ses répliques."
+        },
+        "reviewerState": "pending",
+        "provenanceReference": "docs/validation/morley-miller-character-assets.md",
+        "replacementPlan": {
+          "en": "Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.",
+          "fr": "L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique."
+        }
+      }
+    },
+    {
+      "id": "nils-abrahamsen-portrait",
+      "type": "image",
+      "path": "/cases/morley-miller/assets/characters/nils-abrahamsen.png",
+      "rights": {
+        "holderOrOrigin": "Quantique project",
+        "status": "incomplete",
+        "claimOrUse": {
+          "en": "Generated derivative; fictional colleague portrait of Nils Abrahamsen, shown beside his dialogue.",
+          "fr": "Dérivé généré ; portrait de collègue fictif, Nils Abrahamsen, affiché à côté de ses répliques."
+        },
+        "reviewerState": "pending",
+        "provenanceReference": "docs/validation/morley-miller-character-assets.md",
+        "replacementPlan": {
+          "en": "Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.",
+          "fr": "L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique."
+        }
+      }
+    },
+    {
+      "id": "cleveland-bench-portrait",
+      "type": "image",
+      "path": "/cases/morley-miller/assets/characters/cleveland-bench.png",
+      "rights": {
+        "holderOrOrigin": "Quantique project",
+        "status": "incomplete",
+        "claimOrUse": {
+          "en": "Generated derivative; fictional rival-lab figure representing the Cleveland bench’s voice.",
+          "fr": "Dérivé généré ; figure fictive du laboratoire rival représentant la voix du banc de Cleveland."
+        },
+        "reviewerState": "pending",
+        "provenanceReference": "docs/validation/morley-miller-character-assets.md",
+        "replacementPlan": {
+          "en": "Rights review must decide whether to clear this generated derivative for public use or to replace it with commissioned art; until that decision is recorded the case stays blocked from public release.",
+          "fr": "L’examen des droits doit décider s’il convient de libérer ce dérivé généré pour un usage public ou de le remplacer par une illustration commandée ; tant que cette décision n’est pas consignée, le dossier reste bloqué pour toute diffusion publique."
+        }
       }
     }
   ]

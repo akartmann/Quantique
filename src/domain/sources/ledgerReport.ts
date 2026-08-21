@@ -68,6 +68,8 @@ export interface SourceRightsLedgerText {
     readonly decision: 'blocked' | 'clear';
     readonly decisionText: string;
     readonly blockersTitle: string;
+    /** Localized label preceding a blocker-to-row reference in the generated markdown. */
+    readonly blockerRowReference: string;
     /** The statement shown when there are none, so a cleared ledger says so rather than showing a gap. */
     readonly blockersNone: string;
     readonly blockers: readonly LedgerBlockerText[];
@@ -120,6 +122,7 @@ export const getSourceRightsLedgerText = (definition: CaseDefinition, locale: Lo
         decision: approval.decision,
         decisionText: t(`ledger.decision.${approval.decision}` as 'ledger.decision.blocked'),
         blockersTitle: t('ledger.blockers.title'),
+        blockerRowReference: t('ledger.blocker.rowReference'),
         blockersNone: t('ledger.blockers.none'),
         blockers: approval.blockers.map(({ kind, subjectId }) => ({
             kind,
@@ -271,7 +274,7 @@ export const renderLedgerMarkdown = (content: SourceRightsLedgerText, generatedN
         // defect this report exists to avoid.
         content.blockers.forEach((blocker) => {
             const row = findLedgerRow(content, blocker);
-            const where = row === undefined ? '' : ` — see \`${row.subject}\``;
+            const where = row === undefined ? '' : ` — ${content.blockerRowReference} \`${row.subject}\``;
             lines.push(`- ${blocker.text}${where}`);
         });
         lines.push('');

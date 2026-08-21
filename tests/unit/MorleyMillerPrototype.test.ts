@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 
 import { describe, expect, it } from 'vitest';
 
@@ -111,6 +111,33 @@ describe('the shipped Morley–Miller prototype', () => {
         const manifest: unknown = JSON.parse(await readFile('public/cases/morley-miller/asset-manifest.json', 'utf8'));
 
         expect(manifest).toEqual(definition.assets);
+    });
+
+    it('authors five real generated portrait images while preserving every vector fallback', async () => {
+        const definition = await loadPrototype();
+        const portraitAssets = definition.assets.entries.filter(({ id }) => id.endsWith('-portrait'));
+
+        expect(portraitAssets.map(({ id }) => id)).toEqual([
+            'edith-vance-portrait',
+            'tomas-reyes-portrait',
+            'harriet-lowe-portrait',
+            'nils-abrahamsen-portrait',
+            'cleveland-bench-portrait'
+        ]);
+        expect(definition.colleagues.map(({ portrait }) => portrait)).toEqual([
+            { kind: 'asset', assetId: 'edith-vance-portrait', accentColor: '#c9a227', figure: { build: 'gowned', pose: 'raising-instrument', hair: 'upswept', hairColor: 'dark', skinTone: 'light' } },
+            { kind: 'asset', assetId: 'tomas-reyes-portrait', accentColor: '#4f8a8b', figure: { build: 'suited', pose: 'at-rest', hair: 'cropped', hairColor: 'dark', skinTone: 'brown' } },
+            { kind: 'asset', assetId: 'harriet-lowe-portrait', accentColor: '#9c6b98', figure: { build: 'gowned', pose: 'holding-paper', hair: 'swept', hairColor: 'auburn', skinTone: 'light' } },
+            { kind: 'asset', assetId: 'nils-abrahamsen-portrait', accentColor: '#7f9a52', figure: { build: 'suited', pose: 'presenting', hair: 'swept', hairColor: 'fair', skinTone: 'light', spectacles: true } }
+        ]);
+        expect(definition.rivalLab.portraitAssetId).toBe('cleveland-bench-portrait');
+        expect(definition.colleagues.map(({ id }) => id)).not.toContain('rival-lab');
+
+        await Promise.all(portraitAssets.map(async ({ path }) => {
+            const file = await stat(new URL(`../../public${path}`, import.meta.url));
+            expect(file.isFile()).toBe(true);
+            expect(file.size).toBeGreaterThan(0);
+        }));
     });
 
     it('ships every source as reviewed, cited, and readable over HTTPS (AC7)', async () => {
@@ -430,7 +457,9 @@ describe('the prototype played through the shared framework', () => {
         // `CaseRecordSchema.ts`, with the argument for why a moved claim is nevertheless record-safe
         // (detection itself did not move, so recomputation over a record's own older draft is unchanged).
         // What a returning player loses is asserted separately, below.
-        expect(definition.version).toBe('1.7.0');
+        // 1.8.0 adds only PNG portrait references and their retained vector fallbacks. No record field
+        // changes, so its compatibility clause accepts the complete prior version range as well.
+        expect(definition.version).toBe('1.8.0');
         const store = createStore(createInitialAppState(definition, 'en'));
         store.dispatch({ type: 'source.inspected', sourceId: 'michelson-morley-1887' });
         const projected = createCaseRecordProjection(store.getState());
@@ -444,7 +473,7 @@ describe('the prototype played through the shared framework', () => {
         // Every prior version this case has shipped, including 1.4.0 — which the 1.5.0 clause accepts for
         // the same reason 1.4.0 accepted its own predecessors, and which would be the version a returning
         // player's autosave actually holds.
-        (['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0'] as const).forEach((caseDefinitionVersion) => {
+        (['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0'] as const).forEach((caseDefinitionVersion) => {
             const stale = { ...projected.value, caseDefinitionVersion };
             expect(validateCaseRecordForDefinition(stale, definition)).toMatchObject({ ok: true });
         });

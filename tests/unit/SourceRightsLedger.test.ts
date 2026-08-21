@@ -21,6 +21,14 @@ const asDefinition = (value: Record<string, unknown>): CaseDefinition => value a
 
 const bilingual = (english: string): LocalizedText => ({ en: english, fr: `${english} [fr]` });
 
+/** Makes the "everything clears" probes explicit now Morley ships five pending portrait derivatives. */
+const clearAssetRights = (definition: Record<string, unknown>): void => {
+    const entries = (definition.assets as { entries: Array<Record<string, unknown>> }).entries;
+    entries.forEach((entry) => {
+        entry.rights = { ...(entry.rights as Record<string, unknown>), status: 'reviewed', replacementPlan: undefined };
+    });
+};
+
 describe('evaluateLedgerReleaseApproval', () => {
     it('blocks Young, and names exactly the seven rows that block it', async () => {
         const approval = evaluateLedgerReleaseApproval(await loadShippedCase('young-interference'));
@@ -41,11 +49,16 @@ describe('evaluateLedgerReleaseApproval', () => {
         ]);
     });
 
-    it('blocks the prototype on its two open roles, and on nothing else', async () => {
+    it('blocks the prototype on its five unresolved portrait derivatives and two open roles', async () => {
         const approval = evaluateLedgerReleaseApproval(await loadShippedCase('morley-miller'));
 
         expect(approval.decision).toBe('blocked');
         expect(approval.blockers.map(({ kind, subjectId }) => `${kind}:${subjectId}`).sort()).toEqual([
+            'asset-rights-incomplete:cleveland-bench-portrait',
+            'asset-rights-incomplete:edith-vance-portrait',
+            'asset-rights-incomplete:harriet-lowe-portrait',
+            'asset-rights-incomplete:nils-abrahamsen-portrait',
+            'asset-rights-incomplete:tomas-reyes-portrait',
             'educator-context-sheet-pending:morley-miller',
             'scholarly-review-pending:morley-miller'
         ]);
@@ -105,6 +118,7 @@ describe('evaluateLedgerReleaseApproval', () => {
         const signOff = (definition.ledger as { signOff: Record<string, unknown> }).signOff;
         signOff.scholarlyReviewer = { state: 'reviewed', name: 'A. Reviewer', date: '2026-08-19' };
         (definition.ledger as Record<string, unknown>).educatorContextSheet = { state: 'reviewed', name: 'An Educator', date: '2026-08-19' };
+        clearAssetRights(definition);
 
         const approval = evaluateLedgerReleaseApproval(asDefinition(definition));
         expect(approval.decision).toBe('clear');
@@ -116,6 +130,7 @@ describe('evaluateLedgerReleaseApproval', () => {
         const signOff = (definition.ledger as { signOff: Record<string, unknown> }).signOff;
         signOff.scholarlyReviewer = { state: 'reviewed', name: 'A. Reviewer', date: '2026-08-19' };
         (definition.ledger as Record<string, unknown>).educatorContextSheet = { state: 'reviewed', name: 'An Educator', date: '2026-08-19' };
+        clearAssetRights(definition);
 
         // With both open roles closed the prototype clears — which is what makes every `blocked`
         // assertion above a statement about the content rather than about an evaluator that never clears.
@@ -154,6 +169,7 @@ describe('evaluateLedgerReleaseApproval', () => {
         const signOff = ledger.signOff as Record<string, unknown>;
         signOff.scholarlyReviewer = { state: 'reviewed', name: 'A. Reviewer', date: '2026-08-19' };
         ledger.educatorContextSheet = { state: 'reviewed', name: 'An Educator', date: '2026-08-19' };
+        clearAssetRights(definition);
 
         // Sanity: with the two known roles closed the prototype clears, so the assertion below is about
         // this role and not about some other row left blocking.

@@ -47,12 +47,18 @@ import { CaseDefinitionSchema } from '../../src/schemas/CaseDefinitionSchema';
  * successively different real colleagues.
  */
 let definition: CaseDefinition;
+let morleyDefinition: CaseDefinition;
 
 beforeAll(async () => {
-    const content: unknown = JSON.parse(await readFile('public/cases/young-interference/case.json', 'utf8'));
-    const parsed = CaseDefinitionSchema.safeParse(content);
-    if (!parsed.success) throw new Error('The authored Young case must parse.');
-    definition = parsed.data as CaseDefinition;
+    const [youngContent, morleyContent]: unknown[] = await Promise.all([
+        readFile('public/cases/young-interference/case.json', 'utf8').then(JSON.parse),
+        readFile('public/cases/morley-miller/case.json', 'utf8').then(JSON.parse)
+    ]);
+    const young = CaseDefinitionSchema.safeParse(youngContent);
+    const morley = CaseDefinitionSchema.safeParse(morleyContent);
+    if (!young.success || !morley.success) throw new Error('The authored cases must parse.');
+    definition = young.data as CaseDefinition;
+    morleyDefinition = morley.data as CaseDefinition;
 });
 
 const storeAt = (locale: 'en' | 'fr' = 'en'): AppStore => createStore(createInitialAppState(definition, locale));
@@ -318,6 +324,40 @@ describe('the rival is not one of the cast (AC4)', () => {
             expect(boardCast(store, kind).map(({ name }) => name))
                 .not.toContain(store.getState().caseDefinition.rivalLab.name);
         });
+    });
+});
+
+describe('Morley–Miller PNG-backed character projection', () => {
+    it('projects only Morley-scoped portrait keys in authored proposal order and keeps the rival separate', () => {
+        const prediction = resolveStageCast({
+            caseId: morleyDefinition.id,
+            colleagues: morleyDefinition.colleagues,
+            proposerIds: boardProposerIds(morleyDefinition, 'prediction'),
+            speakerIds: morleyDefinition.scenarioScript.scenes
+                .find(({ phase }) => phase === 'prediction')!.dialogueBeats.map(({ speakerId }) => speakerId),
+            t: createTranslator('en')
+        });
+
+        expect(prediction.map(({ colleagueId, portraitTextureKey }) => ({ colleagueId, portraitTextureKey }))).toEqual([
+            { colleagueId: 'edith-vance', portraitTextureKey: 'case:morley-miller:edith-vance-portrait' },
+            { colleagueId: 'harriet-lowe', portraitTextureKey: 'case:morley-miller:harriet-lowe-portrait' },
+            { colleagueId: 'tomas-reyes', portraitTextureKey: 'case:morley-miller:tomas-reyes-portrait' },
+            { colleagueId: 'nils-abrahamsen', portraitTextureKey: 'case:morley-miller:nils-abrahamsen-portrait' }
+        ]);
+        expect(prediction.every(({ portraitTextureKey }) => portraitTextureKey?.includes('young-interference') === false)).toBe(true);
+        expect(prediction.every(({ appearance }) => appearance !== undefined)).toBe(true);
+
+        const rival = resolveRivalStageCast({
+            caseId: morleyDefinition.id,
+            rivalLab: morleyDefinition.rivalLab,
+            t: createTranslator('en')
+        });
+        expect(rival).toMatchObject([{
+            colleagueId: 'rival-lab',
+            name: 'The Cleveland bench',
+            portraitTextureKey: 'case:morley-miller:cleveland-bench-portrait'
+        }]);
+        expect(morleyDefinition.colleagues.map(({ id }) => id)).not.toContain(rival[0]!.colleagueId);
     });
 });
 

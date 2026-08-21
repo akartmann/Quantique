@@ -42,8 +42,10 @@ none of it required a contract change beyond §3.
 - **Two primary controls** — `rotationDeg` (0–180°, step 15) and `bathTempC` (18–24 °C, step 0.5).
 - **A deterministic model** — `morley-miller-interferometer`, `displacement = A·cos(2θ) + k·(T − T₀)`.
 - **Two contextual artifacts**, both `reviewed`, both with a bilingual textual rendition (§4).
-- **Four colleagues** as coded silhouettes (D5) — Edith Vance, Tomás Reyes, Harriet Lowe, Nils
-  Abrahamsen. **No new art**; the asset manifest carries the shared logo alone.
+- **Four colleagues** — Edith Vance, Tomás Reyes, Harriet Lowe, and Nils Abrahamsen — plus the
+  Cleveland-bench rival now use PNG-backed full-body pixel-art figures, with their coded silhouettes
+  preserved as renderer fallbacks. Five generated derivatives are manifest-authored as incomplete and
+  pending rights review; see `docs/validation/morley-miller-character-assets.md`.
 - **Four prediction proposals, four conclusion proposals**, two of them defensible and two authored
   `never` (an overreach and a blame-the-instrument).
 - **A rival lab** — "The Cleveland bench" — with one critique per conclusion proposal.
@@ -193,10 +195,12 @@ transcribed here, and the ledger is the evidence reference for each.
 **What Story 3.3 actually did.** It built the ledger and pointed it at this table. The prototype's
 `case.json` went to 1.1.0: each source gained a `ledgerEntry` — the 1887 paper `primary`, the then-1905
 reconstruction `secondary` — its one manifest asset gained a `rights` block, and the case gained the
-`ledger` block the five rows above are read from. `evaluateLedgerReleaseApproval` resolves this case to
-**BLOCKED** on two named rows, `scholarly-review-pending` and `educator-context-sheet-pending`, which is
-the honest verdict for the two roles nobody has been assigned to yet. Its single asset is the cleared
-`quantique-logo` and both sources are `reviewed`, so neither contributes a blocker.
+`ledger` block the five rows above are read from. The later 1.8.0 character-art revision adds five
+incomplete generated-derivative rows, documented in
+`docs/validation/morley-miller-character-assets.md`. `evaluateLedgerReleaseApproval` consequently
+resolves this case to **BLOCKED** on those five asset-rights rows as well as
+`scholarly-review-pending` and `educator-context-sheet-pending`; the shared `quantique-logo` and both
+sources remain `reviewed` and contribute no blocker.
 
 Nothing was authored `reviewed` to close a row: a name nobody supplied would be the defect AC7 forbids,
 and the two open roles stay open until Alexis assigns them. The reconstruction's `rightsStatus:

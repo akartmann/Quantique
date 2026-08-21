@@ -31,6 +31,7 @@ const everyString = (content: SourceRightsLedgerText): readonly string[] => [
     // cleared-state string and the sweep could not have noticed. Nothing here may depend on which
     // decision the shipped content happens to have.
     content.title, content.caseLine, content.decisionText, content.blockersTitle, content.blockersNone,
+    content.blockerRowReference,
     ...content.blockers.map(({ text }) => text),
     ...content.tables.flatMap((table) => [table.title, ...table.headers, ...table.rows.flatMap(({ cells }) => cells)])
 ];
@@ -175,7 +176,8 @@ describe.each(['young-interference', 'morley-miller'])('the source and rights le
 
             content.blockers.forEach((blocker) => {
                 const row = findLedgerRow(content, blocker);
-                expect(markdown, `${locale} ${blocker.kind} names its row`).toContain(`see \`${row!.subject}\``);
+                expect(markdown, `${locale} ${blocker.kind} names its row`)
+                    .toContain(`${content.blockerRowReference} \`${row!.subject}\``);
             });
 
             // No row may carry a raw newline or an unescaped pipe into the table it belongs to.
@@ -245,6 +247,9 @@ describe('the ledger surface when a case clears', () => {
         const signOff = (definition.ledger as { signOff: Record<string, unknown> }).signOff;
         signOff.scholarlyReviewer = { state: 'reviewed', name: 'A. Reviewer', date: '2026-08-19' };
         (definition.ledger as Record<string, unknown>).educatorContextSheet = { state: 'reviewed', name: 'An Educator', date: '2026-08-19' };
+        ((definition.assets as { entries: Array<Record<string, unknown>> }).entries).forEach((entry) => {
+            entry.rights = { ...(entry.rights as Record<string, unknown>), status: 'reviewed', replacementPlan: undefined };
+        });
 
         for (const locale of LOCALES) {
             const content = getSourceRightsLedgerText(definition as unknown as CaseDefinition, locale);

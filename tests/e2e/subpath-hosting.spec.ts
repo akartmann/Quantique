@@ -50,8 +50,8 @@ test.use({ baseURL: SUBPATH_ORIGIN });
  * One run per shipped case, at that case's own route.
  *
  * Both cases, because the base is applied to `contentPath` and to the Phaser loader independently and
- * the two cases exercise different amounts of it: Young authors five portraits through the preloader,
- * the prototype authors only the shared logo. A base applied for one and not the other is exactly the
+ * the two cases exercise different amounts of it: both ship a portrait bundle through the preloader,
+ * with Morley–Miller now authoring five portraits alongside the shared logo. A base applied for one and not the other is exactly the
  * silent-404 defect this file exists for, and sweeping `KNOWN_CASE_IDS` means a third case joins by
  * being added to the allowlist.
  */

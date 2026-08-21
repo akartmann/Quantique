@@ -627,6 +627,14 @@ export const validateCaseRecordForDefinition = (record: CaseRecord, definition: 
         // **Bumping `CaseDefinition.version` and extending this allowlist are one action, not two.**
         || (isPrototype && definition.version === '1.7.0'
             && ['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0'].includes(record.caseDefinitionVersion)
+            && !recordNamesRetiredArtifact(record))
+        // 1.8.0 adds only authored portrait image references, their matching manifest rights rows,
+        // and the existing vector appearances retained as fallbacks. A record persists none of those
+        // fields: it keeps case progress, evidence, choices, and review history, all of which are
+        // unchanged. Accept every previously compatible prototype record rather than turning a
+        // presentational improvement into a discarded investigation.
+        || (isPrototype && definition.version === '1.8.0'
+            && ['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.5.0', '1.6.0', '1.7.0'].includes(record.caseDefinitionVersion)
             && !recordNamesRetiredArtifact(record));
     if (record.caseId !== definition.id || !compatibleDefinitionVersion) {
         return failure('incompatible-case-record', 'This progress record is for a different version of this investigation. Your current work is unchanged.');

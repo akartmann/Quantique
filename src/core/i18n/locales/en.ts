@@ -272,6 +272,7 @@ export const en = {
     'ledger.decision.clear': 'Release approval: clear. Every source, asset and reviewer role below has cleared.',
     'ledger.blockers.title': 'What blocks release',
     'ledger.blockers.none': 'Nothing blocks release.',
+    'ledger.blocker.rowReference': 'see',
     'ledger.blocker.source-rights-incomplete': 'Source rights are not reviewed: {subject}',
     'ledger.blocker.asset-rights-incomplete': 'Asset rights are not reviewed: {subject}',
     'ledger.blocker.content-author-unrecorded': 'No content author is recorded as having reviewed this case: {subject}',
