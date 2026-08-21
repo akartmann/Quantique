@@ -124,11 +124,11 @@
 // conclusion* awarded on a draft declaring the ether disproved — and no `CACHE_NAME` touches it. That is
 // closed in `CaseRecordSchema.ts`, where the 1.7.0 clause migrates the draft forward instead of dropping
 // the card, and asserted in `MorleyMillerConclusion.test.ts`.
-// v17 — Morley–Miller 1.8.0 adds five portrait assets and switches its cast and rival to authored image
+// v18 — Refresh the four Morley–Miller colleague portraits after enclosed checkerboard backdrop cleanup.
 // references while retaining the existing vectors as fallbacks. The case and manifest must update as one
 // cache generation: mixing them fails the same manifest equality boundary that v10 documents, and an old
 // manifest cannot warm the five images a new bundle expects to preload.
-const CACHE_NAME = 'quantique-bootstrap-v17';
+const CACHE_NAME = 'quantique-bootstrap-v18';
 
 /**
  * The case directories to precache at install, so the boot target can advance offline.

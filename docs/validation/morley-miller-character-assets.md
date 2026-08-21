@@ -14,9 +14,11 @@ path, one fictional character per call. Each prompt requested a label-free,
 full-body Victorian pixel-art figure with a transparent background, then named the
 existing Morley–Miller figure cue as the identity source of truth. The generator
 returned an opaque neutral checkerboard despite that request. A local, project-bound
-cleanup flood-filled only neutral near-white pixels connected to each image edge,
-discarded that source backdrop, and retained the isolated figure; no source-sheet
-pixels or labels remain in the production alpha PNGs.
+cleanup removed the neutral near-white source backdrop and its large enclosed
+checkerboard islands, while preserving smaller costume, skin, paper, and optical
+instrument highlights. The four colleague PNGs were rechecked on a high-contrast
+background after that correction; no source-sheet pixels or labels remain in the
+production alpha PNGs.
 
 | Material | Status | Rights review | Public clearance |
 | --- | --- | --- | --- |
@@ -62,10 +64,10 @@ shared baseline. The conservative widths keep every asset at or below the render
 
 | Character | Cleaned source alpha bounds | Final alpha bounds (left, top, right, bottom-exclusive) | Visible width | Partially transparent pixels | Optimized bytes | Corner alpha |
 | --- | --- | --- | ---: | ---: | ---: | --- |
-| Edith | `(251, 56, 780, 1489)` | `(106, 40, 406, 720)` | 300 | 0 | 258,141 | `0, 0, 0, 0` |
-| Tomás | `(271, 50, 721, 1469)` | `(96, 40, 416, 720)` | 320 | 0 | 242,672 | `0, 0, 0, 0` |
-| Harriet | `(208, 71, 749, 1632)` | `(111, 40, 401, 720)` | 290 | 0 | 224,226 | `0, 0, 0, 0` |
-| Nils | `(70, 28, 759, 1559)` | `(80, 40, 431, 720)` | 351 | 0 | 198,731 | `0, 0, 0, 0` |
+| Edith | `(251, 56, 780, 1489)` | `(106, 40, 406, 720)` | 300 | 0 | 272,755 | `0, 0, 0, 0` |
+| Tomás | `(271, 50, 721, 1469)` | `(96, 40, 416, 720)` | 320 | 0 | 258,122 | `0, 0, 0, 0` |
+| Harriet | `(208, 71, 749, 1632)` | `(111, 40, 401, 720)` | 290 | 0 | 236,512 | `0, 0, 0, 0` |
+| Nils | `(70, 28, 759, 1559)` | `(80, 40, 431, 720)` | 351 | 0 | 210,085 | `0, 0, 0, 0` |
 | Cleveland bench | `(259, 68, 684, 1556)` | `(96, 40, 416, 720)` | 320 | 0 | 239,361 | `0, 0, 0, 0` |
 
 All files are 512 x 768 RGBA. Every corner is fully transparent, every subject is
